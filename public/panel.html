@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ALPHA AVOCAT - Panel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>ALPHA AVOCAT</h1>
+  <nav>
+    <a href="agenda.html">Agenda</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="causas.html">Causas</a>
+    <a href="#" onclick="logout()">Cerrar sesión</a>
+  </nav>
+</header>
+
+<main>
+
+<div class="card">
+  <h2>Panel principal</h2>
+  <p id="userInfo" class="muted">Verificando sesión...</p>
+</div>
+
+<div class="card">
+  <h3>Accesos</h3>
+  <div class="row">
+    <b>Agenda</b><br>
+    <span class="muted">Reuniones, audiencias y eventos.</span><br>
+    <a href="agenda.html">Abrir agenda</a>
+  </div>
+
+  <div class="row">
+    <b>Clientes</b><br>
+    <span class="muted">Registro de clientes del estudio.</span><br>
+    <a href="clientes.html">Ver clientes</a>
+  </div>
+
+  <div class="row">
+    <b>Causas</b><br>
+    <span class="muted">Gestión de causas judiciales.</span><br>
+    <a href="causas.html">Ver causas</a>
+  </div>
+</div>
+
+</main>
+
+<script type="module">
+
+import { supabase } from './app.js'
+
+async function checkSession(){
+
+  const { data } = await supabase.auth.getSession()
+
+  if(!data.session){
+    window.location.href = "login.html"
+    return
+  }
+
+  const email = data.session.user.email
+  document.getElementById("userInfo").textContent =
+    "Sesión iniciada como: " + email
+
+}
+
+async function logout(){
+
+  await supabase.auth.signOut()
+  window.location.href = "login.html"
+
+}
+
+checkSession()
+
+</script>
+
+</body>
+</html>
