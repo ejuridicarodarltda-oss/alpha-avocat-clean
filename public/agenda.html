@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ALPHA AVOCAT - Agenda</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>ALPHA AVOCAT</h1>
+  <nav>
+    <a href="panel.html">Panel</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="causas.html">Causas</a>
+    <a href="#" onclick="logout()">Cerrar sesión</a>
+  </nav>
+</header>
+
+<main>
+
+<div class="card">
+<h2>Nueva reunión / evento</h2>
+
+<label>Título</label>
+<input id="title">
+
+<label>Tipo</label>
+<select id="kind">
+  <option value="reunion">Reunión</option>
+  <option value="audiencia">Audiencia</option>
+  <option value="alegato">Alegato</option>
+</select>
+
+<label>Fecha y hora inicio</label>
+<input type="datetime-local" id="start">
+
+<label>Fecha y hora término</label>
+<input type="datetime-local" id="end">
+
+<label>Persona</label>
+<input id="person">
+
+<label>Tipo persona</label>
+<select id="personType">
+  <option value="cliente">Cliente</option>
+  <option value="abogado">Abogado</option>
+  <option value="receptor">Receptor</option>
+  <option value="otro">Otro</option>
+</select>
+
+<label>Resumen previo</label>
+<textarea id="brief"></textarea>
+
+<label>Notas de la reunión</label>
+<textarea id="notes"></textarea>
+
+<button onclick="createAppointment()">Guardar evento</button>
+
+<p id="msg" class="muted"></p>
+
+</div>
+
+
+<div class="card">
+<h2>Agenda</h2>
+
+<div id="list"></div>
+
+</div>
+
+</main>
+
+<script type="module">
+
+import { supabase } from './app.js'
+
+const list = document.getElementById("list")
+
+async function loadAppointments(){
+
+  const { data, error } = await supabase
+    .from("appointments")
+    .select("*")
+    .order("starts_at", { ascending:false })
+
+  if(error){
+    list.innerHTML = "Error cargando agenda"
+    return
+  }
+
+  if(!data.length){
+    list.innerHTML = "<div class='muted'>Sin eventos</div>"
+    return
+  }
+
+  list.innerHTML = data.map(a => `
+    <div class="row">
+      <b>${a.title}</b><br>
+      <span class="muted">${a.starts_at}</span><br>
+      ${a.person_name || ""}
+    </div>
+  `).join("")
+}
+
+async function createAppointment(){
+
+  const payload = {
+    title: document.getElementById("title").value,
+    kind: document.getElementById("kind").value,
+    starts_at: document.getElementById("start").value,
+    ends_at: document.getElementById("end").value || null,
+    person_name: document.getElementById("person").value,
+    person_type: document.getElementById("personType").value,
+    pre_brief: document.getElementById("brief").value,
+    discussed: document.getElementById("notes").value
+  }
+
+  const { error } = await supabase
+    .from("appointments")
+    .insert(payload)
+
+  if(error){
+    document.getElementById("msg").textContent = error.message
+    return
+  }
+
+  document.getElementById("msg").textContent = "Evento guardado"
+
+  loadAppointments()
+
+}
+
+async function logout(){
+
+  await supabase.auth.signOut()
+
+  window.location.href = "login.html"
+
+}
+
+loadAppointments()
+
+</script>
+
+</body>
+</html>
