@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ALPHA AVOCAT - Causas</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>ALPHA AVOCAT</h1>
+  <nav>
+    <a href="panel.html">Panel</a>
+    <a href="agenda.html">Agenda</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="#" onclick="logout()">Cerrar sesión</a>
+  </nav>
+</header>
+
+<main>
+
+<div class="card">
+
+<h2>Nueva causa</h2>
+
+<label>Cliente</label>
+<select id="client"></select>
+
+<label>Tribunal</label>
+<input id="court">
+
+<label>Rol / RIT</label>
+<input id="rol">
+
+<label>Materia</label>
+<input id="matter">
+
+<label>Abogado responsable</label>
+<input id="lawyer">
+
+<label>Honorarios totales</label>
+<input id="fees" type="number">
+
+<label>Tipo de honorario</label>
+<select id="feeType">
+  <option value="fijo">Fijo</option>
+  <option value="cuota_litis">Cuota litis</option>
+</select>
+
+<label>Forma de pago</label>
+<select id="payment">
+  <option value="contado">Contado</option>
+  <option value="cuotas">Cuotas</option>
+</select>
+
+<label>% PPM</label>
+<input id="ppm" type="number">
+
+<label>Retención PPM</label>
+<select id="ppmBy">
+  <option value="abogado">Retiene abogado</option>
+  <option value="cliente">Retiene cliente</option>
+</select>
+
+<label>Notas</label>
+<textarea id="notes"></textarea>
+
+<button onclick="createCase()">Crear causa</button>
+
+<p id="msg" class="muted"></p>
+
+</div>
+
+
+<div class="card">
+
+<h2>Causas</h2>
+
+<div id="list"></div>
+
+</div>
+
+</main>
+
+
+<script type="module">
+
+import { supabase } from './app.js'
+
+const clientSelect = document.getElementById("client")
+const list = document.getElementById("list")
+
+
+async function loadClients(){
+
+  const { data } = await supabase
+    .from("clients")
+    .select("id,full_name")
+
+  if(!data.length){
+    clientSelect.innerHTML = "<option>(sin clientes)</option>"
+    return
+  }
+
+  clientSelect.innerHTML = data.map(c =>
+    `<option value="${c.id}">${c.full_name}</option>`
+  ).join("")
+}
+
+
+async function loadCases(){
+
+  const { data } = await supabase
+    .from("cases")
+    .select("*")
+    .order("created_at",{ascending:false})
+
+  if(!data.length){
+    list.innerHTML = "<div class='muted'>Sin causas aún</div>"
+    return
+  }
+
+  list.innerHTML = data.map(c => `
+    <div class="row">
+      <b>${c.rol}</b><br>
+      <span class="muted">${c.court}</span><br>
+      ${c.matter}
+    </div>
+  `).join("")
+}
+
+
+async function createCase(){
+
+  const payload = {
+
+    client_id: clientSelect.value,
+
+    court: document.getElementById("court").value,
+    rol: document.getElementById("rol").value,
+    matter: document.getElementById("matter").value,
+    assigned_lawyer: document.getElementById("lawyer").value,
+    fee_total: document.getElementById("fees").value,
+    fee_type: document.getElementById("feeType").value,
+    payment_mode: document.getElementById("payment").value,
+    ppm_percent: document.getElementById("ppm").value,
+    ppm_withheld_by: document.getElementById("ppmBy").value,
+    notes: document.getElementById("notes").value
+
+  }
+
+  const { error } = await supabase
+    .from("cases")
+    .insert(payload)
+
+  if(error){
+    document.getElementById("msg").textContent = error.message
+    return
+  }
+
+  document.getElementById("msg").textContent = "Causa creada"
+
+  loadCases()
+
+}
+
+
+async function logout(){
+
+  await supabase.auth.signOut()
+
+  window.location.href = "login.html"
+
+}
+
+
+loadClients()
+loadCases()
+
+</script>
+
+</body>
+</html>
