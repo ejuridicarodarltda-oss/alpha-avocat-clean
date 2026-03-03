@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ALPHA AVOCAT - Clientes</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>ALPHA AVOCAT</h1>
+  <nav>
+    <a href="panel.html">Panel</a>
+    <a href="agenda.html">Agenda</a>
+    <a href="causas.html">Causas</a>
+    <a href="#" onclick="logout()">Cerrar sesión</a>
+  </nav>
+</header>
+
+<main>
+
+<div class="card">
+
+<h2>Crear cliente</h2>
+
+<label>Nombre completo / Razón social</label>
+<input id="full_name">
+
+<label>RUT</label>
+<input id="rut">
+
+<label>Domicilio</label>
+<input id="address">
+
+<label>Teléfono</label>
+<input id="phone">
+
+<label>Email</label>
+<input id="email">
+
+<label>Tipo</label>
+<select id="legal">
+  <option value="false">Persona natural</option>
+  <option value="true">Persona jurídica</option>
+</select>
+
+<button onclick="createClient()">Guardar</button>
+
+<p id="msg" class="muted"></p>
+
+</div>
+
+
+<div class="card">
+
+<h2>Clientes</h2>
+
+<div id="list"></div>
+
+</div>
+
+</main>
+
+
+<script type="module">
+
+import { supabase } from './app.js'
+
+const list = document.getElementById("list")
+
+
+async function loadClients(){
+
+  const { data, error } = await supabase
+    .from("clients")
+    .select("*")
+    .order("created_at",{ascending:false})
+
+  if(error){
+    list.innerHTML = "Error al cargar clientes"
+    return
+  }
+
+  if(!data.length){
+    list.innerHTML = "<div class='muted'>Sin clientes registrados</div>"
+    return
+  }
+
+  list.innerHTML = data.map(c => `
+    <div class="row">
+      <b>${c.full_name}</b><br>
+      <span class="muted">
+      ${c.rut || ""} • ${c.phone || ""}
+      </span>
+    </div>
+  `).join("")
+
+}
+
+
+async function createClient(){
+
+  const payload = {
+
+    full_name: document.getElementById("full_name").value,
+    rut: document.getElementById("rut").value,
+    address: document.getElementById("address").value,
+    phone: document.getElementById("phone").value,
+    email: document.getElementById("email").value,
+    is_legal_entity: document.getElementById("legal").value === "true"
+
+  }
+
+  const { error } = await supabase
+    .from("clients")
+    .insert(payload)
+
+  if(error){
+    document.getElementById("msg").textContent = error.message
+    return
+  }
+
+  document.getElementById("msg").textContent = "Cliente guardado"
+
+  loadClients()
+
+}
+
+
+async function logout(){
+
+  await supabase.auth.signOut()
+
+  window.location.href = "login.html"
+
+}
+
+
+loadClients()
+
+</script>
+
+</body>
+</html>
