@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>ALPHA AVOCAT - Acceso</title>
+<link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<header>
+  <h1>ALPHA AVOCAT</h1>
+</header>
+
+<main>
+
+<div class="card" style="max-width:400px;margin:auto">
+
+<h2>Acceso al sistema</h2>
+
+<label>Email</label>
+<input id="email" type="email" placeholder="correo@ejemplo.com">
+
+<label>Contraseña</label>
+<input id="password" type="password" placeholder="********">
+
+<button onclick="login()">Ingresar</button>
+
+<p id="msg" class="muted"></p>
+
+</div>
+
+</main>
+
+<script type="module">
+
+import { supabase } from './app.js'
+
+async function login(){
+
+  const email = document.getElementById("email").value
+  const password = document.getElementById("password").value
+
+  const { data, error } = await supabase.auth.signInWithPassword({
+    email: email,
+    password: password
+  })
+
+  if(error){
+    document.getElementById("msg").textContent = error.message
+    return
+  }
+
+  window.location.href = "panel.html"
+
+}
+
+</script>
+
+</body>
+</html>
