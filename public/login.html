@@ -1,199 +1,115 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ALPHA AVOCAT · Acceso</title>
+<meta charset="UTF-8">
+<title>Login - Alpha Avocat</title>
 
-  <!-- Ayuda a evitar caché raro al volver atrás -->
-  <meta http-equiv="Cache-Control" content="no-store, no-cache, must-revalidate, max-age=0" />
-  <meta http-equiv="Pragma" content="no-cache" />
-  <meta http-equiv="Expires" content="0" />
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 
-  <link rel="stylesheet" href="/style.css" />
-  <style>
-    .wrap{max-width:760px;margin:0 auto;padding:28px}
-    .card{background:#fff;border-radius:12px;padding:22px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
-    .row{display:flex;gap:14px;flex-wrap:wrap}
-    .row > *{flex:1;min-width:240px}
-    label{display:block;font-weight:600;margin:10px 0 6px}
-    input{width:100%;padding:12px;border:1px solid #d7dbe2;border-radius:10px}
-    button{padding:12px 14px;border:0;border-radius:10px;background:#0c1b2a;color:#fff;font-weight:700;cursor:pointer}
-    button[disabled]{opacity:.6;cursor:not-allowed}
-    .muted{color:#667085;font-size:14px}
-    .linkbtn{background:transparent;color:#0c1b2a;text-decoration:underline;padding:0;border-radius:0}
-    .ok{color:#067647}
-    .err{color:#b42318}
-    .topbar{background:#0c1b2a;color:#fff;padding:14px 18px;font-weight:800;letter-spacing:.5px}
-    .hidden{display:none!important}
-    .divider{height:1px;background:#e5e7eb;margin:14px 0}
-  </style>
+<style>
+body{
+font-family:Arial;
+background:#f4f6f9;
+display:flex;
+justify-content:center;
+align-items:center;
+height:100vh;
+}
+
+.box{
+background:white;
+padding:30px;
+border-radius:10px;
+width:320px;
+box-shadow:0 0 10px rgba(0,0,0,0.1);
+}
+
+input{
+width:100%;
+padding:10px;
+margin-top:10px;
+}
+
+button{
+width:100%;
+padding:10px;
+margin-top:15px;
+background:#1e40af;
+color:white;
+border:none;
+cursor:pointer;
+}
+
+.link{
+margin-top:10px;
+font-size:14px;
+cursor:pointer;
+color:#1e40af;
+}
+</style>
 </head>
 
 <body>
-  <div class="topbar">ALPHA AVOCAT</div>
 
-  <div class="wrap">
-    <div class="card">
-      <h2 style="margin:0 0 6px">Acceso al sistema</h2>
-      <div class="muted" id="subtitle">Ingresa con tu correo y contraseña.</div>
+<div class="box">
 
-      <div id="msg" class="muted" style="margin:10px 0 0"></div>
+<h2>Alpha Avocat</h2>
 
-      <!-- Estado sesión -->
-      <div id="sessionBox" class="hidden" style="margin-top:14px">
-        <div class="divider"></div>
-        <div class="muted">Sesión iniciada como: <b id="sessionEmail"></b></div>
-        <div style="margin-top:10px" class="row">
-          <button id="goPanelBtn" type="button">Ir al panel</button>
-          <button id="logoutBtn" type="button">Cerrar sesión</button>
-        </div>
-      </div>
+<input id="email" placeholder="Email">
 
-      <!-- Form login -->
-      <form id="loginForm" style="margin-top:14px">
-        <label>Email</label>
-        <input id="email" type="email" autocomplete="email" required />
+<input id="password" type="password" placeholder="Contraseña">
 
-        <label>Contraseña</label>
-        <input id="password" type="password" autocomplete="current-password" required />
+<button onclick="login()">Ingresar</button>
 
-        <div style="margin-top:14px" class="row">
-          <button id="loginBtn" type="submit">Ingresar</button>
-          <button id="forgotBtn" type="button" class="linkbtn" style="align-self:center;text-align:left">
-            Olvidé mi clave
-          </button>
-        </div>
+<div class="link" onclick="forgot()">Olvidé mi clave</div>
 
-        <div class="muted" style="margin-top:10px">
-          Si olvidaste tu clave, te enviaremos un correo para restablecerla.
-        </div>
-      </form>
-    </div>
-  </div>
+</div>
 
-  <script type="module">
-    import { supabase } from "/app.js";
+<script>
 
-    const $ = (id) => document.getElementById(id);
+const supabase = window.supabase.createClient(
+"https://ryekhrwuglpzncktypnx.supabase.co",
+"TU_ANON_PUBLIC_KEY"
+)
 
-    const msgEl = $("msg");
-    const subtitleEl = $("subtitle");
+async function login(){
 
-    const loginForm = $("loginForm");
-    const loginBtn = $("loginBtn");
-    const forgotBtn = $("forgotBtn");
+const email = document.getElementById("email").value
+const password = document.getElementById("password").value
 
-    const sessionBox = $("sessionBox");
-    const sessionEmail = $("sessionEmail");
-    const goPanelBtn = $("goPanelBtn");
-    const logoutBtn = $("logoutBtn");
+const {error} = await supabase.auth.signInWithPassword({
+email:email,
+password:password
+})
 
-    function setMsg(text, type = "muted") {
-      msgEl.className = type;
-      msgEl.textContent = text || "";
-    }
+if(error){
+alert(error.message)
+return
+}
 
-    function setLoading(isLoading) {
-      loginBtn.disabled = isLoading;
-      forgotBtn.disabled = isLoading;
-    }
+window.location.href="/panel.html"
 
-    async function renderSessionState() {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) {
-        setMsg("Error obteniendo sesión: " + error.message, "err");
-        return;
-      }
+}
 
-      if (session?.user?.email) {
-        // Mostrar estado sesión y ocultar formulario
-        sessionEmail.textContent = session.user.email;
-        sessionBox.classList.remove("hidden");
-        loginForm.classList.add("hidden");
-        subtitleEl.textContent = "Ya tienes una sesión activa.";
-        setMsg("");
-      } else {
-        // Mostrar formulario y ocultar estado sesión
-        sessionBox.classList.add("hidden");
-        loginForm.classList.remove("hidden");
-        subtitleEl.textContent = "Ingresa con tu correo y contraseña.";
-        setMsg("");
-      }
-    }
+async function forgot(){
 
-    // LOGIN
-    loginForm.addEventListener("submit", async (e) => {
-      e.preventDefault();
-      setMsg("");
-      setLoading(true);
+const email = prompt("Ingrese su correo")
 
-      const email = $("email").value.trim();
-      const password = $("password").value;
+if(!email) return
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+const {error} = await supabase.auth.resetPasswordForEmail(email,{
+redirectTo:"https://alphaavocat.cl/login.html"
+})
 
-      setLoading(false);
+if(error){
+alert(error.message)
+}else{
+alert("Se envió correo para recuperar contraseña")
+}
 
-      if (error) {
-        setMsg("No se pudo iniciar sesión: " + error.message, "err");
-        return;
-      }
+}
 
-      // Redirección segura (evita volver atrás a login con “Back”)
-      window.location.replace("/panel.html");
-    });
+</script>
 
-    // OLVIDÉ MI CLAVE (envía correo)
-    forgotBtn.addEventListener("click", async () => {
-      const email = $("email").value.trim();
-      if (!email) {
-        setMsg("Escribe tu email primero y luego presiona “Olvidé mi clave”.", "err");
-        $("email").focus();
-        return;
-      }
-
-      setMsg("");
-      setLoading(true);
-
-      // Importante: esta URL debe estar permitida en Supabase > Auth > URL Configuration
-      const redirectTo = window.location.origin + "/reset.html";
-
-      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
-
-      setLoading(false);
-
-      if (error) {
-        setMsg("No se pudo enviar el correo: " + error.message, "err");
-        return;
-      }
-
-      setMsg("Listo. Revisa tu correo para restablecer la contraseña.", "ok");
-    });
-
-    // LOGOUT
-    logoutBtn.addEventListener("click", async () => {
-      setMsg("");
-      const { error } = await supabase.auth.signOut();
-      if (error) {
-        setMsg("No se pudo cerrar sesión: " + error.message, "err");
-        return;
-      }
-      // replace evita que “Atrás” vuelva a una vista cacheada
-      window.location.replace("/login.html");
-    });
-
-    goPanelBtn.addEventListener("click", () => {
-      window.location.href = "/panel.html";
-    });
-
-    // Si alguien abre /login.html con sesión activa, mostramos estado correcto
-    await renderSessionState();
-
-    // Si cambia la sesión en otra pestaña, actualiza UI
-    supabase.auth.onAuthStateChange(() => {
-      renderSessionState();
-    });
-  </script>
 </body>
 </html>
