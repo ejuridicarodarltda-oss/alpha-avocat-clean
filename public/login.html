@@ -24,7 +24,7 @@
 <label>Contraseña</label>
 <input id="password" type="password" placeholder="********">
 
-<button onclick="login()">Ingresar</button>
+<button id="btnLogin">Ingresar</button>
 
 <p id="msg" class="muted"></p>
 
@@ -55,7 +55,4 @@ async function login(){
 
 }
 
-</script>
-
-</body>
-</html>
+document.getElementById("btnLogin").addEventListener("click", login)
