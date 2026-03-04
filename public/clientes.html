@@ -96,12 +96,15 @@
       return;
     }
 
-    list.innerHTML = data.map(c => `
-      <div class="row">
-        <div><b>${esc(c.full_name)}</b></div>
-        <div class="muted">${esc(c.rut||"")} ${c.phone ? " • "+esc(c.phone) : ""} ${c.email ? " • "+esc(c.email) : ""}</div>
-      </div>
-    `).join("");
+   list.innerHTML = data.map(c => `
+  <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+    <div>
+      <div><b>${esc(c.full_name)}</b></div>
+      <div class="muted">${esc(c.rut||"")} ${c.phone ? " • "+esc(c.phone) : ""} ${c.email ? " • "+esc(c.email) : ""}</div>
+    </div>
+    <button class="btnDeleteClient" data-id="${c.id}" type="button">Eliminar</button>
+  </div>
+`).join("");
   }
 
   form.addEventListener("submit", async (ev) => {
