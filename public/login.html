@@ -1,58 +1,91 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="UTF-8">
-<title>ALPHA AVOCAT - Acceso</title>
-<link rel="stylesheet" href="style.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>ALPHA AVOCAT - Acceso</title>
+  <link rel="stylesheet" href="style.css" />
 </head>
 
 <body>
+  <header>
+    <h1>ALPHA AVOCAT</h1>
+  </header>
 
-<header>
-  <h1>ALPHA AVOCAT</h1>
-</header>
+  <main>
+    <div class="card" style="max-width:440px;margin:auto">
+      <h2>Acceso al sistema</h2>
 
-<main>
+      <form id="loginForm">
+        <label>Email</label>
+        <input id="email" type="email" autocomplete="email" placeholder="contacto@alphaavocat.cl" required />
 
-<div class="card" style="max-width:400px;margin:auto">
+        <label>Contraseña</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="********" required />
 
-<h2>Acceso al sistema</h2>
+        <button id="btnLogin" type="submit">Ingresar</button>
+      </form>
 
-<label>Email</label>
-<input id="email" type="email" placeholder="correo@ejemplo.com">
+      <p id="msg" class="muted"></p>
+    </div>
+  </main>
 
-<label>Contraseña</label>
-<input id="password" type="password" placeholder="********">
+  <script type="module">
+    import { supabase } from "./app.js";
 
-<button id="btnLogin">Ingresar</button>
+    const form = document.getElementById("loginForm");
+    const btn = document.getElementById("btnLogin");
+    const msg = document.getElementById("msg");
 
-<p id="msg" class="muted"></p>
+    function setMsg(text) {
+      msg.textContent = text || "";
+    }
 
-</div>
+    // Si ya hay sesión, saltar al panel
+    (async () => {
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        if (error) {
+          setMsg("Error sesión: " + error.message);
+          return;
+        }
+        if (data?.session) window.location.href = "panel.html";
+      } catch (e) {
+        setMsg("Error inicial: " + (e?.message || String(e)));
+      }
+    })();
 
-</main>
+    form.addEventListener("submit", async (ev) => {
+      ev.preventDefault();
+      setMsg("");
 
-<script type="module">
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("password").value;
 
-import { supabase } from './app.js'
+      btn.disabled = true;
+      btn.textContent = "Ingresando…";
 
-async function login(){
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
 
-  const email = document.getElementById("email").value
-  const password = document.getElementById("password").value
+        if (error) {
+          setMsg("Login falló: " + error.message);
+          return;
+        }
 
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email: email,
-    password: password
-  })
+        if (!data?.session) {
+          setMsg("No se recibió sesión. Revisa usuario/contraseña en Supabase.");
+          return;
+        }
 
-  if(error){
-    document.getElementById("msg").textContent = error.message
-    return
-  }
-
-  window.location.href = "panel.html"
-
-}
-
-document.getElementById("btnLogin").addEventListener("click", login)
+        window.location.href = "panel.html";
+      } catch (e) {
+        setMsg("Excepción: " + (e?.message || String(e)));
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Ingresar";
+      }
+    });
+  </script>
+</body>
+</html>
