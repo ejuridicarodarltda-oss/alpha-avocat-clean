@@ -2,143 +2,156 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ALPHA AVOCAT - Clientes</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
 <header>
   <h1>ALPHA AVOCAT</h1>
   <nav>
     <a href="panel.html">Panel</a>
     <a href="agenda.html">Agenda</a>
     <a href="causas.html">Causas</a>
-    <a href="#" onclick="logout()">Cerrar sesión</a>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
   </nav>
 </header>
 
 <main>
+  <div class="card">
+    <h2>Crear cliente</h2>
 
-<div class="card">
+    <form id="clientForm">
+      <label>Nombre completo / Razón social</label>
+      <input id="full_name" required>
 
-<h2>Crear cliente</h2>
+      <label>RUT</label>
+      <input id="rut" placeholder="12.345.678-9">
 
-<label>Nombre completo / Razón social</label>
-<input id="full_name">
+      <label>Domicilio</label>
+      <input id="address">
 
-<label>RUT</label>
-<input id="rut">
+      <label>Teléfono</label>
+      <input id="phone" placeholder="+56 9 XXXXXXXX">
 
-<label>Domicilio</label>
-<input id="address">
+      <label>Email</label>
+      <input id="email" type="email" placeholder="correo@ejemplo.com">
 
-<label>Teléfono</label>
-<input id="phone">
+      <label>Tipo</label>
+      <select id="legal">
+        <option value="false">Persona natural</option>
+        <option value="true">Persona jurídica</option>
+      </select>
 
-<label>Email</label>
-<input id="email">
+      <button id="btnSaveClient" type="submit">Guardar</button>
+    </form>
 
-<label>Tipo</label>
-<select id="legal">
-  <option value="false">Persona natural</option>
-  <option value="true">Persona jurídica</option>
-</select>
+    <p id="msg" class="muted"></p>
+  </div>
 
-<button onclick="createClient()">Guardar</button>
-
-<p id="msg" class="muted"></p>
-
-</div>
-
-
-<div class="card">
-
-<h2>Clientes</h2>
-
-<div id="list"></div>
-
-</div>
-
+  <div class="card">
+    <h2>Clientes</h2>
+    <div id="list" class="muted">Cargando…</div>
+  </div>
 </main>
 
-
 <script type="module">
+  import { supabase } from "./app.js";
 
-import { supabase } from './app.js'
+  const list = document.getElementById("list");
+  const msg = document.getElementById("msg");
+  const form = document.getElementById("clientForm");
+  const btnSave = document.getElementById("btnSaveClient");
+  const btnLogout = document.getElementById("btnLogout");
 
-const list = document.getElementById("list")
+  function setMsg(t){ msg.textContent = t || ""; }
 
-
-async function loadClients(){
-
-  const { data, error } = await supabase
-    .from("clients")
-    .select("*")
-    .order("created_at",{ascending:false})
-
-  if(error){
-    list.innerHTML = "Error al cargar clientes"
-    return
+  async function requireSession(){
+    const { data, error } = await supabase.auth.getSession();
+    if(error){ setMsg("Sesión: " + error.message); return false; }
+    if(!data?.session){ window.location.href = "login.html"; return false; }
+    return true;
   }
 
-  if(!data.length){
-    list.innerHTML = "<div class='muted'>Sin clientes registrados</div>"
-    return
+  function esc(s){
+    return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
   }
 
-  list.innerHTML = data.map(c => `
-    <div class="row">
-      <b>${c.full_name}</b><br>
-      <span class="muted">
-      ${c.rut || ""} • ${c.phone || ""}
-      </span>
-    </div>
-  `).join("")
+  async function loadClients(){
+    list.textContent = "Cargando…";
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id,full_name,rut,phone,email,created_at")
+      .order("created_at",{ ascending:false })
+      .limit(100);
 
-}
+    if(error){
+      list.innerHTML = `<div class="error">Error al cargar clientes: ${esc(error.message)}</div>`;
+      return;
+    }
 
+    if(!data || data.length===0){
+      list.innerHTML = `<div class="muted">Sin clientes registrados</div>`;
+      return;
+    }
 
-async function createClient(){
-
-  const payload = {
-
-    full_name: document.getElementById("full_name").value,
-    rut: document.getElementById("rut").value,
-    address: document.getElementById("address").value,
-    phone: document.getElementById("phone").value,
-    email: document.getElementById("email").value,
-    is_legal_entity: document.getElementById("legal").value === "true"
-
+    list.innerHTML = data.map(c => `
+      <div class="row">
+        <div><b>${esc(c.full_name)}</b></div>
+        <div class="muted">${esc(c.rut||"")} ${c.phone ? " • "+esc(c.phone) : ""} ${c.email ? " • "+esc(c.email) : ""}</div>
+      </div>
+    `).join("");
   }
 
-  const { error } = await supabase
-    .from("clients")
-    .insert(payload)
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    setMsg("");
 
-  if(error){
-    document.getElementById("msg").textContent = error.message
-    return
+    btnSave.disabled = true;
+    btnSave.textContent = "Guardando…";
+
+    try{
+      const payload = {
+        full_name: document.getElementById("full_name").value.trim(),
+        rut: document.getElementById("rut").value.trim() || null,
+        address: document.getElementById("address").value.trim() || null,
+        phone: document.getElementById("phone").value.trim() || null,
+        email: document.getElementById("email").value.trim() || null,
+        is_legal_entity: document.getElementById("legal").value === "true"
+      };
+
+      if(!payload.full_name){
+        setMsg("Falta el nombre del cliente.");
+        return;
+      }
+
+      const { error } = await supabase.from("clients").insert(payload);
+      if(error){
+        setMsg("Error al guardar: " + error.message);
+        return;
+      }
+
+      setMsg("Cliente guardado ✅");
+      form.reset();
+      await loadClients();
+
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = "Guardar";
+    }
+  });
+
+  btnLogout.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  });
+
+  // init
+  if(await requireSession()){
+    await loadClients();
   }
-
-  document.getElementById("msg").textContent = "Cliente guardado"
-
-  loadClients()
-
-}
-
-
-async function logout(){
-
-  await supabase.auth.signOut()
-
-  window.location.href = "login.html"
-
-}
-
-
-loadClients()
-
 </script>
 
 </body>
