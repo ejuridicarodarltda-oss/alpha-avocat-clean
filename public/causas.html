@@ -2,182 +2,230 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ALPHA AVOCAT - Causas</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
 <header>
   <h1>ALPHA AVOCAT</h1>
   <nav>
     <a href="panel.html">Panel</a>
     <a href="agenda.html">Agenda</a>
     <a href="clientes.html">Clientes</a>
-    <a href="#" onclick="logout()">Cerrar sesión</a>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
   </nav>
 </header>
 
 <main>
 
-<div class="card">
+  <div class="card">
+    <h2>Nueva causa</h2>
 
-<h2>Nueva causa</h2>
+    <form id="caseForm">
+      <label>Cliente</label>
+      <select id="client"></select>
 
-<label>Cliente</label>
-<select id="client"></select>
+      <label>Tribunal</label>
+      <input id="court" placeholder="3° JL de Ovalle">
 
-<label>Tribunal</label>
-<input id="court">
+      <label>Rol / RIT</label>
+      <input id="rol" placeholder="C-123-2026">
 
-<label>Rol / RIT</label>
-<input id="rol">
+      <label>Materia</label>
+      <input id="matter" placeholder="Civil">
 
-<label>Materia</label>
-<input id="matter">
+      <label>Abogado responsable</label>
+      <input id="lawyer" value="Mario Javier Rodríguez Ardiles">
 
-<label>Abogado responsable</label>
-<input id="lawyer">
+      <label>Honorarios totales (CLP)</label>
+      <input id="fees_display" inputmode="numeric" placeholder="1.000.000">
+      <div class="muted">Puedes escribir: 1000000 y se formatea a $1.000.000</div>
 
-<label>Honorarios totales</label>
-<input id="fees" type="number">
+      <label>Tipo de honorario</label>
+      <select id="feeType">
+        <option value="fijo">Fijo</option>
+        <option value="cuota_litis">Cuota litis</option>
+      </select>
 
-<label>Tipo de honorario</label>
-<select id="feeType">
-  <option value="fijo">Fijo</option>
-  <option value="cuota_litis">Cuota litis</option>
-</select>
+      <label>Forma de pago</label>
+      <select id="payment">
+        <option value="contado">Contado</option>
+        <option value="cuotas">Cuotas</option>
+      </select>
 
-<label>Forma de pago</label>
-<select id="payment">
-  <option value="contado">Contado</option>
-  <option value="cuotas">Cuotas</option>
-</select>
+      <label>% PPM</label>
+      <input id="ppm" type="number" step="0.01" placeholder="15">
 
-<label>% PPM</label>
-<input id="ppm" type="number">
+      <label>Retención PPM</label>
+      <select id="ppmBy">
+        <option value="abogado">Retiene abogado (persona natural)</option>
+        <option value="cliente">Retiene receptor (persona jurídica)</option>
+      </select>
 
-<label>Retención PPM</label>
-<select id="ppmBy">
-  <option value="abogado">Retiene abogado</option>
-  <option value="cliente">Retiene cliente</option>
-</select>
+      <label>Notas</label>
+      <textarea id="notes"></textarea>
 
-<label>Notas</label>
-<textarea id="notes"></textarea>
+      <button id="btnSaveCase" type="submit">Crear causa</button>
+    </form>
 
-<button onclick="createCase()">Crear causa</button>
+    <p id="msg" class="muted"></p>
+  </div>
 
-<p id="msg" class="muted"></p>
-
-</div>
-
-
-<div class="card">
-
-<h2>Causas</h2>
-
-<div id="list"></div>
-
-</div>
+  <div class="card">
+    <h2>Causas</h2>
+    <div id="list" class="muted">Cargando…</div>
+  </div>
 
 </main>
 
-
 <script type="module">
+  import { supabase } from "./app.js";
 
-import { supabase } from './app.js'
+  const clientSelect = document.getElementById("client");
+  const list = document.getElementById("list");
+  const msg = document.getElementById("msg");
+  const form = document.getElementById("caseForm");
+  const btnSave = document.getElementById("btnSaveCase");
+  const btnLogout = document.getElementById("btnLogout");
+  const feesDisplay = document.getElementById("fees_display");
 
-const clientSelect = document.getElementById("client")
-const list = document.getElementById("list")
+  function setMsg(t){ msg.textContent = t || ""; }
+  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
 
-
-async function loadClients(){
-
-  const { data } = await supabase
-    .from("clients")
-    .select("id,full_name")
-
-  if(!data.length){
-    clientSelect.innerHTML = "<option>(sin clientes)</option>"
-    return
+  async function requireSession(){
+    const { data, error } = await supabase.auth.getSession();
+    if(error){ setMsg("Sesión: " + error.message); return false; }
+    if(!data?.session){ window.location.href = "login.html"; return false; }
+    return true;
   }
 
-  clientSelect.innerHTML = data.map(c =>
-    `<option value="${c.id}">${c.full_name}</option>`
-  ).join("")
-}
-
-
-async function loadCases(){
-
-  const { data } = await supabase
-    .from("cases")
-    .select("*")
-    .order("created_at",{ascending:false})
-
-  if(!data.length){
-    list.innerHTML = "<div class='muted'>Sin causas aún</div>"
-    return
+  function parseCLP(input){
+    // deja solo dígitos
+    const digits = String(input||"").replace(/\D/g,"");
+    if(!digits) return null;
+    // número entero
+    const n = Number(digits);
+    return Number.isFinite(n) ? n : null;
   }
 
-  list.innerHTML = data.map(c => `
-    <div class="row">
-      <b>${c.rol}</b><br>
-      <span class="muted">${c.court}</span><br>
-      ${c.matter}
-    </div>
-  `).join("")
-}
-
-
-async function createCase(){
-
-  const payload = {
-
-    client_id: clientSelect.value,
-
-    court: document.getElementById("court").value,
-    rol: document.getElementById("rol").value,
-    matter: document.getElementById("matter").value,
-    assigned_lawyer: document.getElementById("lawyer").value,
-    fee_total: document.getElementById("fees").value,
-    fee_type: document.getElementById("feeType").value,
-    payment_mode: document.getElementById("payment").value,
-    ppm_percent: document.getElementById("ppm").value,
-    ppm_withheld_by: document.getElementById("ppmBy").value,
-    notes: document.getElementById("notes").value
-
+  function formatCLP(n){
+    if(n===null || n===undefined) return "";
+    return n.toLocaleString("es-CL");
   }
 
-  const { error } = await supabase
-    .from("cases")
-    .insert(payload)
+  feesDisplay.addEventListener("input", () => {
+    const n = parseCLP(feesDisplay.value);
+    // mantener input "bonito" sin romper si está vacío
+    feesDisplay.value = n ? formatCLP(n) : feesDisplay.value.replace(/\D/g,"");
+  });
 
-  if(error){
-    document.getElementById("msg").textContent = error.message
-    return
+  async function loadClients(){
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id,full_name")
+      .order("created_at",{ ascending:false })
+      .limit(200);
+
+    if(error){
+      clientSelect.innerHTML = `<option value="">(Error clientes: ${esc(error.message)})</option>`;
+      return;
+    }
+
+    if(!data || data.length===0){
+      clientSelect.innerHTML = `<option value="">(sin clientes)</option>`;
+      return;
+    }
+
+    clientSelect.innerHTML = data.map(c =>
+      `<option value="${c.id}">${esc(c.full_name)}</option>`
+    ).join("");
   }
 
-  document.getElementById("msg").textContent = "Causa creada"
+  async function loadCases(){
+    list.textContent = "Cargando…";
 
-  loadCases()
+    const { data: casesData, error: casesErr } = await supabase
+      .from("cases")
+      .select("id,client_id,rol,court,matter,fee_total,created_at")
+      .order("created_at",{ ascending:false })
+      .limit(200);
 
-}
+    if(casesErr){
+      list.innerHTML = `<div class="error">Error al cargar causas: ${esc(casesErr.message)}</div>`;
+      return;
+    }
 
+    if(!casesData || casesData.length===0){
+      list.innerHTML = `<div class="muted">Sin causas aún</div>`;
+      return;
+    }
 
-async function logout(){
+    // mapa id->nombre cliente
+    const { data: clientsData } = await supabase.from("clients").select("id,full_name");
+    const nameById = new Map((clientsData||[]).map(c => [c.id, c.full_name]));
 
-  await supabase.auth.signOut()
+    list.innerHTML = casesData.map(c => `
+      <div class="row">
+        <div><b>${esc(c.rol || "(sin rol)")}</b> — ${esc(nameById.get(c.client_id) || "")}</div>
+        <div class="muted">${esc(c.court||"")} • ${esc(c.matter||"")}</div>
+        <div class="muted">Honorarios: $${Number(c.fee_total||0).toLocaleString("es-CL")}</div>
+      </div>
+    `).join("");
+  }
 
-  window.location.href = "login.html"
+  form.addEventListener("submit", async (ev) => {
+    ev.preventDefault();
+    setMsg("");
 
-}
+    btnSave.disabled = true;
+    btnSave.textContent = "Guardando…";
 
+    try{
+      const fee_total = parseCLP(feesDisplay.value);
 
-loadClients()
-loadCases()
+      const payload = {
+        client_id: clientSelect.value ? clientSelect.value : null,
+        court: document.getElementById("court").value.trim() || null,
+        rol: document.getElementById("rol").value.trim() || null,
+        matter: document.getElementById("matter").value.trim() || null,
+        assigned_lawyer: document.getElementById("lawyer").value.trim() || null,
+        fee_total: fee_total,
+        fee_type: document.getElementById("feeType").value,
+        payment_mode: document.getElementById("payment").value,
+        ppm_percent: document.getElementById("ppm").value ? Number(document.getElementById("ppm").value) : null,
+        ppm_withheld_by: document.getElementById("ppmBy").value,
+        notes: document.getElementById("notes").value.trim() || null
+      };
 
+      const { error } = await supabase.from("cases").insert(payload);
+      if(error){
+        setMsg("Error al guardar: " + error.message);
+        return;
+      }
+
+      setMsg("Causa creada ✅");
+      form.reset();
+      feesDisplay.value = "";
+      await loadCases();
+
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = "Crear causa";
+    }
+  });
+
+  btnLogout.addEventListener("click", async (e) => {
+    e.preventDefault();
+    await supabase.auth.signOut();
+    window.location.href = "login.html";
+  });
+
+  if(await requireSession()){
+    await loadClients();
+    await loadCases();
+  }
 </script>
 
 </body>
