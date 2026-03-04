@@ -66,25 +66,22 @@
   const btnLogout = document.getElementById("btnLogout");
 
   function setMsg(t){ msg.textContent = t || ""; }
+  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
 
   async function requireSession(){
-    const { data, error } = await supabase.auth.getSession();
-    if(error){ setMsg("Sesión: " + error.message); return false; }
+    const { data } = await supabase.auth.getSession();
     if(!data?.session){ window.location.href = "login.html"; return false; }
     return true;
   }
 
-  function esc(s){
-    return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
-  }
-
   async function loadClients(){
     list.textContent = "Cargando…";
+
     const { data, error } = await supabase
       .from("clients")
-      .select("id,full_name,rut,phone,email,created_at")
+      .select("id,full_name,rut,address,phone,email,is_legal_entity,created_at")
       .order("created_at",{ ascending:false })
-      .limit(100);
+      .limit(200);
 
     if(error){
       list.innerHTML = `<div class="error">Error al cargar clientes: ${esc(error.message)}</div>`;
@@ -96,15 +93,37 @@
       return;
     }
 
-   list.innerHTML = data.map(c => `
-  <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-    <div>
-      <div><b>${esc(c.full_name)}</b></div>
-      <div class="muted">${esc(c.rut||"")} ${c.phone ? " • "+esc(c.phone) : ""} ${c.email ? " • "+esc(c.email) : ""}</div>
-    </div>
-    <button class="btnDeleteClient" data-id="${c.id}" type="button">Eliminar</button>
-  </div>
-`).join("");
+    list.innerHTML = data.map(c => `
+      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div>
+          <div><b>${esc(c.full_name)}</b> <span class="muted">${c.is_legal_entity ? "(PJ)" : "(PN)"}</span></div>
+          <div class="muted">
+            ${esc(c.rut||"")}
+            ${c.phone ? " • " + esc(c.phone) : ""}
+            ${c.email ? " • " + esc(c.email) : ""}
+          </div>
+          ${c.address ? `<div class="muted">${esc(c.address)}</div>` : ""}
+        </div>
+
+        <button class="btnDeleteClient" data-id="${c.id}" type="button">Eliminar</button>
+      </div>
+    `).join("");
+
+    document.querySelectorAll(".btnDeleteClient").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-id");
+        if(!confirm("¿Eliminar este cliente?")) return;
+
+        const { error } = await supabase.from("clients").delete().eq("id", id);
+        if(error){
+          setMsg("Error al eliminar: " + error.message);
+          return;
+        }
+
+        setMsg("Cliente eliminado ✅");
+        loadClients();
+      });
+    });
   }
 
   form.addEventListener("submit", async (ev) => {
@@ -151,9 +170,8 @@
     window.location.href = "login.html";
   });
 
-  // init
   if(await requireSession()){
-    await loadClients();
+    loadClients();
   }
 </script>
 
