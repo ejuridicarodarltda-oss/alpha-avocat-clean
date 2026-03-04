@@ -2,146 +2,187 @@
 <html lang="es">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ALPHA AVOCAT - Agenda</title>
 <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-
 <header>
   <h1>ALPHA AVOCAT</h1>
   <nav>
     <a href="panel.html">Panel</a>
     <a href="clientes.html">Clientes</a>
     <a href="causas.html">Causas</a>
-    <a href="#" onclick="logout()">Cerrar sesión</a>
+    <a href="#" id="btnLogout">Cerrar sesión</a>
   </nav>
 </header>
 
 <main>
 
 <div class="card">
-<h2>Nueva reunión / evento</h2>
+  <h2>Nuevo evento</h2>
 
-<label>Título</label>
-<input id="title">
+  <form id="apptForm">
+    <label>Título</label>
+    <input id="title" required>
 
-<label>Tipo</label>
-<select id="kind">
-  <option value="reunion">Reunión</option>
-  <option value="audiencia">Audiencia</option>
-  <option value="alegato">Alegato</option>
-</select>
+    <label>Tipo</label>
+    <select id="kind">
+      <option value="reunion">Reunión</option>
+      <option value="audiencia">Audiencia</option>
+      <option value="alegato">Alegato</option>
+    </select>
 
-<label>Fecha y hora inicio</label>
-<input type="datetime-local" id="start">
+    <label>Inicio</label>
+    <input type="datetime-local" id="start" required>
 
-<label>Fecha y hora término</label>
-<input type="datetime-local" id="end">
+    <label>Término</label>
+    <input type="datetime-local" id="end">
 
-<label>Persona</label>
-<input id="person">
+    <label>Persona (opcional)</label>
+    <input id="person">
 
-<label>Tipo persona</label>
-<select id="personType">
-  <option value="cliente">Cliente</option>
-  <option value="abogado">Abogado</option>
-  <option value="receptor">Receptor</option>
-  <option value="otro">Otro</option>
-</select>
+    <label>Tipo persona</label>
+    <select id="personType">
+      <option value="cliente">Cliente</option>
+      <option value="abogado">Abogado</option>
+      <option value="receptor">Receptor</option>
+      <option value="otro">Otro</option>
+    </select>
 
-<label>Resumen previo</label>
-<textarea id="brief"></textarea>
+    <label>Resumen previo</label>
+    <textarea id="pre_brief"></textarea>
 
-<label>Notas de la reunión</label>
-<textarea id="notes"></textarea>
+    <label>Notas / tema tratado</label>
+    <textarea id="discussed"></textarea>
 
-<button onclick="createAppointment()">Guardar evento</button>
+    <button id="btnSave" type="submit">Guardar evento</button>
+  </form>
 
-<p id="msg" class="muted"></p>
-
+  <p id="msg" class="muted"></p>
 </div>
 
-
 <div class="card">
-<h2>Agenda</h2>
-
-<div id="list"></div>
-
+  <h2>Agenda</h2>
+  <div id="list" class="muted">Cargando…</div>
 </div>
 
 </main>
 
 <script type="module">
+  import { supabase } from "./app.js";
 
-import { supabase } from './app.js'
+  const form = document.getElementById("apptForm");
+  const btnSave = document.getElementById("btnSave");
+  const msg = document.getElementById("msg");
+  const list = document.getElementById("list");
+  const btnLogout = document.getElementById("btnLogout");
 
-const list = document.getElementById("list")
+  const esc = (s)=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
+  const setMsg = (t)=>{ msg.textContent = t || ""; };
 
-async function loadAppointments(){
-
-  const { data, error } = await supabase
-    .from("appointments")
-    .select("*")
-    .order("starts_at", { ascending:false })
-
-  if(error){
-    list.innerHTML = "Error cargando agenda"
-    return
+  async function requireSession(){
+    const { data } = await supabase.auth.getSession();
+    if(!data?.session){ window.location.href="login.html"; return false; }
+    return true;
   }
 
-  if(!data.length){
-    list.innerHTML = "<div class='muted'>Sin eventos</div>"
-    return
+  // Convierte "YYYY-MM-DDTHH:mm" a ISO con zona (Supabase timestamptz)
+  function toISO(localDT){
+    if(!localDT) return null;
+    const d = new Date(localDT);
+    return isNaN(d.getTime()) ? null : d.toISOString();
   }
 
-  list.innerHTML = data.map(a => `
-    <div class="row">
-      <b>${a.title}</b><br>
-      <span class="muted">${a.starts_at}</span><br>
-      ${a.person_name || ""}
-    </div>
-  `).join("")
-}
+  async function loadAppointments(){
+    list.textContent = "Cargando…";
+    const { data, error } = await supabase
+      .from("appointments")
+      .select("id,title,kind,starts_at,ends_at,person_name,person_type,created_at")
+      .order("starts_at",{ascending:false})
+      .limit(200);
 
-async function createAppointment(){
+    if(error){
+      list.innerHTML = `<div class="error">Error agenda: ${esc(error.message)}</div>`;
+      return;
+    }
+    if(!data || data.length===0){
+      list.innerHTML = `<div class="muted">Sin eventos</div>`;
+      return;
+    }
 
-  const payload = {
-    title: document.getElementById("title").value,
-    kind: document.getElementById("kind").value,
-    starts_at: document.getElementById("start").value,
-    ends_at: document.getElementById("end").value || null,
-    person_name: document.getElementById("person").value,
-    person_type: document.getElementById("personType").value,
-    pre_brief: document.getElementById("brief").value,
-    discussed: document.getElementById("notes").value
+    list.innerHTML = data.map(a=>`
+      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div>
+          <div><b>${esc(a.title)}</b> <span class="muted">(${esc(a.kind)})</span></div>
+          <div class="muted">${esc(a.starts_at)}${a.ends_at ? " → " + esc(a.ends_at) : ""}</div>
+          <div class="muted">${esc(a.person_name||"")}</div>
+        </div>
+        <button class="btnDelAppt" data-id="${a.id}" type="button">Eliminar</button>
+      </div>
+    `).join("");
+
+    document.querySelectorAll(".btnDelAppt").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-id");
+        if(!confirm("¿Eliminar este evento?")) return;
+        const { error } = await supabase.from("appointments").delete().eq("id", id);
+        if(error){ setMsg("Error al eliminar: " + error.message); return; }
+        setMsg("Evento eliminado ✅");
+        loadAppointments();
+      });
+    });
   }
 
-  const { error } = await supabase
-    .from("appointments")
-    .insert(payload)
+  form.addEventListener("submit", async (ev)=>{
+    ev.preventDefault();
+    setMsg("");
 
-  if(error){
-    document.getElementById("msg").textContent = error.message
-    return
+    const starts_at = toISO(document.getElementById("start").value);
+    const ends_at = toISO(document.getElementById("end").value);
+
+    if(!starts_at){
+      setMsg("Falta fecha/hora de inicio (o formato inválido).");
+      return;
+    }
+
+    btnSave.disabled = true;
+    btnSave.textContent = "Guardando…";
+
+    try{
+      const payload = {
+        title: document.getElementById("title").value.trim(),
+        kind: document.getElementById("kind").value,
+        starts_at,
+        ends_at,
+        person_name: document.getElementById("person").value.trim() || null,
+        person_type: document.getElementById("personType").value,
+        pre_brief: document.getElementById("pre_brief").value.trim() || null,
+        discussed: document.getElementById("discussed").value.trim() || null
+      };
+
+      const { error } = await supabase.from("appointments").insert(payload);
+      if(error){ setMsg("Error al guardar: " + error.message); return; }
+
+      setMsg("Evento guardado ✅");
+      form.reset();
+      loadAppointments();
+    } finally {
+      btnSave.disabled = false;
+      btnSave.textContent = "Guardar evento";
+    }
+  });
+
+  btnLogout.addEventListener("click", async (e)=>{
+    e.preventDefault();
+    await supabase.auth.signOut();
+    window.location.href="login.html";
+  });
+
+  if(await requireSession()){
+    loadAppointments();
   }
-
-  document.getElementById("msg").textContent = "Evento guardado"
-
-  loadAppointments()
-
-}
-
-async function logout(){
-
-  await supabase.auth.signOut()
-
-  window.location.href = "login.html"
-
-}
-
-loadAppointments()
-
 </script>
 
 </body>
