@@ -41,7 +41,7 @@
 
       <label>Honorarios totales (CLP)</label>
       <input id="fees_display" inputmode="numeric" placeholder="1.000.000">
-      <div class="muted">Puedes escribir: 1000000 y se formatea a $1.000.000</div>
+      <div class="muted">Escribe 1000000 y se formatea a $1.000.000</div>
 
       <label>Tipo de honorario</label>
       <select id="feeType">
@@ -91,33 +91,25 @@
   const btnLogout = document.getElementById("btnLogout");
   const feesDisplay = document.getElementById("fees_display");
 
-  function setMsg(t){ msg.textContent = t || ""; }
-  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
+  const setMsg = (t)=>{ msg.textContent = t || ""; };
+  const esc = (s)=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
 
   async function requireSession(){
-    const { data, error } = await supabase.auth.getSession();
-    if(error){ setMsg("Sesión: " + error.message); return false; }
-    if(!data?.session){ window.location.href = "login.html"; return false; }
+    const { data } = await supabase.auth.getSession();
+    if(!data?.session){ window.location.href="login.html"; return false; }
     return true;
   }
 
   function parseCLP(input){
-    // deja solo dígitos
     const digits = String(input||"").replace(/\D/g,"");
     if(!digits) return null;
-    // número entero
     const n = Number(digits);
     return Number.isFinite(n) ? n : null;
   }
+  function formatCLP(n){ return (n===null||n===undefined) ? "" : n.toLocaleString("es-CL"); }
 
-  function formatCLP(n){
-    if(n===null || n===undefined) return "";
-    return n.toLocaleString("es-CL");
-  }
-
-  feesDisplay.addEventListener("input", () => {
+  feesDisplay.addEventListener("input", ()=>{
     const n = parseCLP(feesDisplay.value);
-    // mantener input "bonito" sin romper si está vacío
     feesDisplay.value = n ? formatCLP(n) : feesDisplay.value.replace(/\D/g,"");
   });
 
@@ -126,21 +118,18 @@
       .from("clients")
       .select("id,full_name")
       .order("created_at",{ ascending:false })
-      .limit(200);
+      .limit(300);
 
     if(error){
       clientSelect.innerHTML = `<option value="">(Error clientes: ${esc(error.message)})</option>`;
       return;
     }
-
     if(!data || data.length===0){
       clientSelect.innerHTML = `<option value="">(sin clientes)</option>`;
       return;
     }
 
-    clientSelect.innerHTML = data.map(c =>
-      `<option value="${c.id}">${esc(c.full_name)}</option>`
-    ).join("");
+    clientSelect.innerHTML = data.map(c => `<option value="${c.id}">${esc(c.full_name)}</option>`).join("");
   }
 
   async function loadCases(){
@@ -150,32 +139,49 @@
       .from("cases")
       .select("id,client_id,rol,court,matter,fee_total,created_at")
       .order("created_at",{ ascending:false })
-      .limit(200);
+      .limit(300);
 
     if(casesErr){
       list.innerHTML = `<div class="error">Error al cargar causas: ${esc(casesErr.message)}</div>`;
       return;
     }
-
     if(!casesData || casesData.length===0){
       list.innerHTML = `<div class="muted">Sin causas aún</div>`;
       return;
     }
 
-    // mapa id->nombre cliente
     const { data: clientsData } = await supabase.from("clients").select("id,full_name");
     const nameById = new Map((clientsData||[]).map(c => [c.id, c.full_name]));
 
     list.innerHTML = casesData.map(c => `
-      <div class="row">
-        <div><b>${esc(c.rol || "(sin rol)")}</b> — ${esc(nameById.get(c.client_id) || "")}</div>
-        <div class="muted">${esc(c.court||"")} • ${esc(c.matter||"")}</div>
-        <div class="muted">Honorarios: $${Number(c.fee_total||0).toLocaleString("es-CL")}</div>
+      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
+        <div>
+          <div><b>${esc(c.rol || "(sin rol)")}</b> — ${esc(nameById.get(c.client_id) || "")}</div>
+          <div class="muted">${esc(c.court||"")} • ${esc(c.matter||"")}</div>
+          <div class="muted">Honorarios: $${Number(c.fee_total||0).toLocaleString("es-CL")}</div>
+        </div>
+        <button class="btnDeleteCase" data-id="${c.id}" type="button">Eliminar</button>
       </div>
     `).join("");
+
+    document.querySelectorAll(".btnDeleteCase").forEach(btn=>{
+      btn.addEventListener("click", async ()=>{
+        const id = btn.getAttribute("data-id");
+        if(!confirm("¿Eliminar esta causa?")) return;
+
+        const { error } = await supabase.from("cases").delete().eq("id", id);
+        if(error){
+          setMsg("Error al eliminar: " + error.message);
+          return;
+        }
+
+        setMsg("Causa eliminada ✅");
+        loadCases();
+      });
+    });
   }
 
-  form.addEventListener("submit", async (ev) => {
+  form.addEventListener("submit", async (ev)=>{
     ev.preventDefault();
     setMsg("");
 
@@ -216,10 +222,10 @@
     }
   });
 
-  btnLogout.addEventListener("click", async (e) => {
+  btnLogout.addEventListener("click", async (e)=>{
     e.preventDefault();
     await supabase.auth.signOut();
-    window.location.href = "login.html";
+    window.location.href="login.html";
   });
 
   if(await requireSession()){
