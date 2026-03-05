@@ -1,106 +1,156 @@
 <!doctype html>
 <html lang="es">
+
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>ALPHA AVOCAT · Restablecer contraseña</title>
-  <link rel="stylesheet" href="/style.css" />
-  <style>
-    .wrap{max-width:760px;margin:0 auto;padding:28px}
-    .card{background:#fff;border-radius:12px;padding:22px;box-shadow:0 6px 24px rgba(0,0,0,.08)}
-    label{display:block;font-weight:600;margin:10px 0 6px}
-    input{width:100%;padding:12px;border:1px solid #d7dbe2;border-radius:10px}
-    button{padding:12px 14px;border:0;border-radius:10px;background:#0c1b2a;color:#fff;font-weight:700;cursor:pointer}
-    .muted{color:#667085;font-size:14px}
-    .ok{color:#067647}
-    .err{color:#b42318}
-    .topbar{background:#0c1b2a;color:#fff;padding:14px 18px;font-weight:800;letter-spacing:.5px}
-  </style>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Restablecer contraseña — Alpha Avocat</title>
+
+<link rel="stylesheet" href="./style.css">
+
 </head>
 
-<body>
-  <div class="topbar">ALPHA AVOCAT</div>
 
-  <div class="wrap">
-    <div class="card">
-      <h2 style="margin:0 0 6px">Restablecer contraseña</h2>
-      <div class="muted">Escribe una nueva contraseña para tu cuenta.</div>
+<body class="app-shell">
 
-      <div id="msg" class="muted" style="margin:10px 0 0"></div>
 
-      <form id="resetForm" style="margin-top:14px">
-        <label>Nueva contraseña</label>
-        <input id="newPassword" type="password" autocomplete="new-password" required />
+<header class="topbar">
 
-        <label>Repetir nueva contraseña</label>
-        <input id="newPassword2" type="password" autocomplete="new-password" required />
+<div class="brand">
 
-        <div style="margin-top:14px;display:flex;gap:10px;flex-wrap:wrap">
-          <button id="saveBtn" type="submit">Guardar contraseña</button>
-          <button id="goLoginBtn" type="button" style="background:#475467">Volver al login</button>
-        </div>
-      </form>
-    </div>
-  </div>
+<div class="brand-mark">A</div>
 
-  <script type="module">
-    import { supabase } from "/app.js";
-    const $ = (id) => document.getElementById(id);
+<div class="brand-text">
 
-    const msgEl = $("msg");
-    const saveBtn = $("saveBtn");
-    const goLoginBtn = $("goLoginBtn");
+<div class="brand-title">ALPHA AVOCAT</div>
 
-    function setMsg(text, type="muted") {
-      msgEl.className = type;
-      msgEl.textContent = text || "";
-    }
+<div class="brand-sub">
+Sistema de Gestión Jurídica Inteligente
+</div>
 
-    function setLoading(v) {
-      saveBtn.disabled = v;
-    }
+</div>
 
-    goLoginBtn.addEventListener("click", () => {
-      window.location.replace("/login.html");
-    });
+</div>
 
-    // Supabase normalmente llega a esta página con un estado PASSWORD_RECOVERY
-    // Si no hay sesión, puede que el enlace no se haya abierto correctamente.
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      setMsg("Abre esta página desde el enlace del correo de restablecimiento (no manualmente).", "err");
-    }
+</header>
 
-    $("resetForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      setMsg("");
 
-      const p1 = $("newPassword").value;
-      const p2 = $("newPassword2").value;
 
-      if (p1.length < 8) {
-        setMsg("La contraseña debe tener al menos 8 caracteres.", "err");
-        return;
-      }
-      if (p1 !== p2) {
-        setMsg("Las contraseñas no coinciden.", "err");
-        return;
-      }
+<div class="layout">
 
-      setLoading(true);
-      const { error } = await supabase.auth.updateUser({ password: p1 });
-      setLoading(false);
+<main class="main">
 
-      if (error) {
-        setMsg("No se pudo actualizar la contraseña: " + error.message, "err");
-        return;
-      }
 
-      setMsg("Contraseña actualizada. Ahora inicia sesión.", "ok");
-      // Cierra sesión de recuperación y vuelve al login
-      await supabase.auth.signOut();
-      window.location.replace("/login.html");
-    });
-  </script>
+<section class="card" style="max-width:420px;margin:auto">
+
+<h2 style="margin-bottom:16px">Restablecer contraseña</h2>
+
+<p class="muted" style="margin-bottom:20px">
+Ingrese su nueva contraseña.
+</p>
+
+
+<div class="field">
+
+<label>Nueva contraseña</label>
+
+<input type="password" id="password">
+
+</div>
+
+
+<div class="field" style="margin-top:10px">
+
+<label>Confirmar contraseña</label>
+
+<input type="password" id="password2">
+
+</div>
+
+
+<button id="btnReset" class="btn btn-3d btn-primary" style="margin-top:18px;width:100%">
+Cambiar contraseña
+</button>
+
+
+<p id="msg" class="muted" style="margin-top:12px"></p>
+
+</section>
+
+
+</main>
+
+</div>
+
+
+
+<script type="module">
+
+import { supabase } from "./app.js"
+
+
+const btn = document.getElementById("btnReset")
+
+const msg = document.getElementById("msg")
+
+
+
+btn.addEventListener("click", async ()=>{
+
+const p1 = document.getElementById("password").value
+
+const p2 = document.getElementById("password2").value
+
+
+if(!p1){
+
+msg.textContent = "Debe ingresar contraseña"
+
+return
+
+}
+
+if(p1 !== p2){
+
+msg.textContent = "Las contraseñas no coinciden"
+
+return
+
+}
+
+
+const { error } = await supabase.auth.updateUser({
+
+password:p1
+
+})
+
+
+if(error){
+
+msg.textContent = error.message
+
+return
+
+}
+
+
+msg.textContent = "Contraseña actualizada correctamente"
+
+
+setTimeout(()=>{
+
+window.location.href = "./login.html"
+
+},2000)
+
+})
+
+</script>
+
+
 </body>
 </html>
