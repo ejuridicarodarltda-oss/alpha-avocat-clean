@@ -1,233 +1,292 @@
 <!doctype html>
 <html lang="es">
-
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Causas — Alpha Avocat</title>
-
-<link rel="stylesheet" href="./style.css">
-
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Agenda — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
 </head>
-
 
 <body class="app-shell">
 
-
-<header class="topbar">
-
-<div class="brand">
-
-<div class="brand-mark">A</div>
-
-<div class="brand-text">
-<div class="brand-title">ALPHA AVOCAT</div>
-<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
-</div>
-
-</div>
-
-
-<div class="topbar-right">
-
-<a class="btn btn-3d btn-secondary" href="./panel.html">
-Panel
-</a>
-
-<a class="btn btn-3d btn-primary" href="./clientes.html">
-Clientes
-</a>
-
-</div>
-
-</header>
-
-
-
-<div class="layout">
-
-
-<aside class="sidebar">
-
-<nav class="nav">
-
-<a class="nav-item" href="./panel.html">Panel</a>
-
-<a class="nav-item" href="./clientes.html">Clientes</a>
-
-<a class="nav-item active" href="./causas.html">Causas</a>
-
-<a class="nav-item" href="./agenda.html">Agenda</a>
-
-</nav>
-
-</aside>
-
-
-
-<main class="main">
-
-
-
-<section class="card">
-
-<div class="card-head">
-
-<h2 class="card-title">Causas registradas</h2>
-
-</div>
-
-
-
-<div class="table-wrap">
-
-<table class="table">
-
-<thead>
-
-<tr>
-
-<th>Rol</th>
-
-<th>Tribunal</th>
-
-<th>Cliente</th>
-
-<th>Materia</th>
-
-<th>Honorarios</th>
-
-<th>Acciones</th>
-
-</tr>
-
-</thead>
-
-<tbody id="causasTable">
-
-<tr>
-
-<td colspan="6">Cargando...</td>
-
-</tr>
-
-</tbody>
-
-</table>
-
-</div>
-
-</section>
-
-</main>
-
-</div>
-
-
-
-<script type="module">
-
-import { supabase } from './app.js'
-
-
-const tabla = document.getElementById("causasTable")
-
-
-function formatoPesos(valor){
-
-if(!valor) return ""
-
-return new Intl.NumberFormat("es-CL",
-{ style:"currency", currency:"CLP" }).format(valor)
-
-}
-
-
-
-async function cargarCausas(){
-
-const { data , error } = await supabase
-.from("cases")
-.select("*")
-.order("created_at",{ascending:false})
-
-if(error){
-
-tabla.innerHTML = "<tr><td colspan='6'>Error al cargar causas</td></tr>"
-return
-
-}
-
-if(!data.length){
-
-tabla.innerHTML = "<tr><td colspan='6'>Sin causas</td></tr>"
-return
-
-}
-
-tabla.innerHTML = ""
-
-data.forEach(causa=>{
-
-const fila = document.createElement("tr")
-
-fila.innerHTML = `
-
-<td>${causa.case_number ?? ""}</td>
-
-<td>${causa.court ?? ""}</td>
-
-<td>${causa.client_name ?? ""}</td>
-
-<td>${causa.matter ?? ""}</td>
-
-<td>${formatoPesos(causa.fee_total)}</td>
-
-<td>
-
-<button class="btn btn-small delete" data-id="${causa.id}">
-Eliminar
-</button>
-
-</td>
-
-`
-
-tabla.appendChild(fila)
-
-})
-
-}
-
-
-
-document.addEventListener("click", async e=>{
-
-if(e.target.classList.contains("delete")){
-
-const id = e.target.dataset.id
-
-if(confirm("Eliminar causa?")){
-
-await supabase
-.from("cases")
-.delete()
-.eq("id",id)
-
-cargarCausas()
-
-}
-
-}
-
-})
-
-
-cargarCausas()
-
-</script>
-
-
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-text">
+        <div class="brand-title">ALPHA AVOCAT</div>
+        <div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
+      </div>
+    </div>
+
+    <div class="topbar-right">
+      <a class="btn btn-3d btn-secondary" href="./panel.html">Panel</a>
+      <a class="btn btn-3d btn-secondary" href="./clientes.html">Clientes</a>
+      <a class="btn btn-3d btn-secondary" href="./causas.html">Causas</a>
+      <button class="btn btn-3d btn-primary" id="btnNew">Nuevo evento</button>
+    </div>
+  </header>
+
+  <div class="layout">
+
+    <aside class="sidebar">
+      <nav class="nav">
+        <a class="nav-item" href="./panel.html">Panel</a>
+        <a class="nav-item" href="./clientes.html">Clientes</a>
+        <a class="nav-item" href="./causas.html">Causas</a>
+        <a class="nav-item active" href="./agenda.html">Agenda</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <section class="card">
+        <div class="card-head">
+          <h2 class="card-title">Eventos</h2>
+          <div class="search">
+            <input id="search" type="search" placeholder="Buscar por título o notas" />
+          </div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Fecha</th>
+                <th>Hora</th>
+                <th>Título</th>
+                <th>Tipo</th>
+                <th>Cliente</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="eventsTable">
+              <tr><td colspan="6">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+  </div>
+
+  <!-- Modal simple -->
+  <dialog id="modal" class="modal">
+    <form method="dialog" class="modal-card">
+      <div class="modal-head">
+        <div class="modal-title" id="modalTitle">Nuevo evento</div>
+        <button class="btn btn-3d btn-secondary" value="cancel" type="submit">Cerrar</button>
+      </div>
+
+      <div class="grid two">
+        <label class="field">
+          <span>Título</span>
+          <input id="title" required />
+        </label>
+
+        <label class="field">
+          <span>Tipo</span>
+          <select id="event_type">
+            <option value="consulta">Consulta</option>
+            <option value="reunion">Reunión</option>
+            <option value="audiencia">Audiencia</option>
+            <option value="alegato">Alegato</option>
+            <option value="otro">Otro</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Cliente (opcional)</span>
+          <select id="client_id">
+            <option value="">(sin cliente)</option>
+          </select>
+        </label>
+
+        <label class="field">
+          <span>Inicio</span>
+          <input id="starts_at" type="datetime-local" required />
+        </label>
+
+        <label class="field full">
+          <span>Notas</span>
+          <textarea id="notes" rows="3"></textarea>
+        </label>
+      </div>
+
+      <div class="modal-foot">
+        <button class="btn btn-3d btn-secondary" value="cancel" type="submit">Cancelar</button>
+        <button class="btn btn-3d btn-primary" id="btnSave" value="default" type="submit">Guardar</button>
+      </div>
+    </form>
+  </dialog>
+
+  <script type="module">
+    import { supabase } from './app.js';
+
+    const table = document.getElementById('eventsTable');
+    const modal = document.getElementById('modal');
+    const btnNew = document.getElementById('btnNew');
+    const btnSave = document.getElementById('btnSave');
+
+    const titleEl = document.getElementById('title');
+    const typeEl = document.getElementById('event_type');
+    const clientEl = document.getElementById('client_id');
+    const startsEl = document.getElementById('starts_at');
+    const notesEl = document.getElementById('notes');
+    const searchEl = document.getElementById('search');
+
+    let cache = [];
+    let clientsMap = new Map();
+    let editingId = null;
+
+    function esc(s='') {
+      return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    }
+
+    function fmtDate(iso) {
+      const d = new Date(iso);
+      return d.toLocaleDateString('es-CL');
+    }
+
+    function fmtTime(iso) {
+      const d = new Date(iso);
+      return d.toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadClients() {
+      const { data, error } = await supabase
+        .from('clients')
+        .select('id, full_name, name')
+        .order('created_at', { ascending: false });
+
+      if (error) return;
+
+      clientsMap = new Map((data || []).map(c => [c.id, c.full_name || c.name || '']));
+      clientEl.innerHTML =
+        `<option value="">(sin cliente)</option>` +
+        (data || []).map(c => `<option value="${c.id}">${esc(c.full_name || c.name || '')}</option>`).join('');
+    }
+
+    function render(list) {
+      if (!list.length) {
+        table.innerHTML = `<tr><td colspan="6">Sin eventos</td></tr>`;
+        return;
+      }
+
+      table.innerHTML = list.map(e => {
+        const cliente = e.client_id ? (clientsMap.get(e.client_id) || '') : '';
+        return `
+          <tr>
+            <td>${esc(fmtDate(e.starts_at))}</td>
+            <td>${esc(fmtTime(e.starts_at))}</td>
+            <td>${esc(e.title || '')}</td>
+            <td>${esc(e.event_type || '')}</td>
+            <td>${esc(cliente)}</td>
+            <td>
+              <button class="btn btn-small edit" data-id="${e.id}">Editar</button>
+              <button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function applyFilter() {
+      const q = (searchEl.value || '').toLowerCase().trim();
+      if (!q) { render(cache); return; }
+      render(cache.filter(e => `${e.title||''} ${e.notes||''}`.toLowerCase().includes(q)));
+    }
+
+    async function loadEvents() {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('starts_at', { ascending: true });
+
+      if (error) {
+        table.innerHTML = `<tr><td colspan="6">Error al cargar agenda</td></tr>`;
+        return;
+      }
+
+      cache = data || [];
+      applyFilter();
+    }
+
+    function nowLocalInput() {
+      const d = new Date();
+      const pad = n => String(n).padStart(2,'0');
+      return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function openNew() {
+      editingId = null;
+      titleEl.value = '';
+      typeEl.value = 'consulta';
+      clientEl.value = '';
+      startsEl.value = nowLocalInput();
+      notesEl.value = '';
+      modal.showModal();
+    }
+
+    function openEdit(id) {
+      const ev = cache.find(x => x.id === id);
+      if (!ev) return;
+
+      editingId = id;
+      titleEl.value = ev.title || '';
+      typeEl.value = ev.event_type || 'otro';
+      clientEl.value = ev.client_id || '';
+
+      const d = new Date(ev.starts_at);
+      const pad = n => String(n).padStart(2,'0');
+      startsEl.value = `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+
+      notesEl.value = ev.notes || '';
+      modal.showModal();
+    }
+
+    async function save() {
+      const payload = {
+        title: titleEl.value.trim(),
+        event_type: typeEl.value,
+        client_id: clientEl.value || null,
+        starts_at: new Date(startsEl.value).toISOString(),
+        notes: notesEl.value.trim() || null
+      };
+
+      if (!payload.title) return;
+
+      let res;
+      if (editingId) {
+        res = await supabase.from('appointments').update(payload).eq('id', editingId);
+      } else {
+        res = await supabase.from('appointments').insert(payload);
+      }
+
+      if (res.error) return;
+
+      modal.close();
+      await loadEvents();
+    }
+
+    async function del(id) {
+      if (!confirm('¿Eliminar evento?')) return;
+      await supabase.from('appointments').delete().eq('id', id);
+      await loadEvents();
+    }
+
+    btnNew.addEventListener('click', openNew);
+    btnSave.addEventListener('click', (e) => { e.preventDefault(); save(); });
+    searchEl.addEventListener('input', applyFilter);
+
+    document.addEventListener('click', (e) => {
+      const b1 = e.target.closest('.edit');
+      const b2 = e.target.closest('.delete');
+      if (b1) openEdit(b1.dataset.id);
+      if (b2) del(b2.dataset.id);
+    });
+
+    // Init
+    await loadClients();
+    await loadEvents();
+  </script>
 </body>
 </html>
