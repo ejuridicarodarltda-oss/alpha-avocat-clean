@@ -1,179 +1,224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ALPHA AVOCAT - Clientes</title>
-<link rel="stylesheet" href="style.css">
+
+<title>Clientes — Alpha Avocat</title>
+
+<link rel="stylesheet" href="./style.css">
+
 </head>
 
-<body>
-<header>
-  <h1>ALPHA AVOCAT</h1>
-  <nav>
-    <a href="panel.html">Panel</a>
-    <a href="agenda.html">Agenda</a>
-    <a href="causas.html">Causas</a>
-    <a href="#" id="btnLogout">Cerrar sesión</a>
-  </nav>
+
+<body class="app-shell">
+
+
+<header class="topbar">
+
+<div class="brand">
+
+<div class="brand-mark">A</div>
+
+<div class="brand-text">
+<div class="brand-title">ALPHA AVOCAT</div>
+<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
+</div>
+
+</div>
+
+
+<div class="topbar-right">
+
+<div class="search">
+<input id="search" type="search" placeholder="Buscar cliente">
+</div>
+
+<button id="btnNewClient" class="btn btn-3d btn-primary">
+Nuevo cliente
+</button>
+
+<a class="btn btn-3d btn-secondary" href="./panel.html">
+Panel
+</a>
+
+</div>
+
 </header>
 
-<main>
-  <div class="card">
-    <h2>Crear cliente</h2>
 
-    <form id="clientForm">
-      <label>Nombre completo / Razón social</label>
-      <input id="full_name" required>
 
-      <label>RUT</label>
-      <input id="rut" placeholder="12.345.678-9">
+<div class="layout">
 
-      <label>Domicilio</label>
-      <input id="address">
 
-      <label>Teléfono</label>
-      <input id="phone" placeholder="+56 9 XXXXXXXX">
+<aside class="sidebar">
 
-      <label>Email</label>
-      <input id="email" type="email" placeholder="correo@ejemplo.com">
+<nav class="nav">
 
-      <label>Tipo</label>
-      <select id="legal">
-        <option value="false">Persona natural</option>
-        <option value="true">Persona jurídica</option>
-      </select>
+<a class="nav-item" href="./panel.html">Panel</a>
 
-      <button id="btnSaveClient" type="submit">Guardar</button>
-    </form>
+<a class="nav-item active" href="./clientes.html">Clientes</a>
 
-    <p id="msg" class="muted"></p>
-  </div>
+<a class="nav-item" href="./causas.html">Causas</a>
 
-  <div class="card">
-    <h2>Clientes</h2>
-    <div id="list" class="muted">Cargando…</div>
-  </div>
+<a class="nav-item" href="./agenda.html">Agenda</a>
+
+</nav>
+
+</aside>
+
+
+
+<main class="main">
+
+
+
+<section class="card">
+
+<div class="card-head">
+
+<h2 class="card-title">Clientes registrados</h2>
+
+</div>
+
+
+
+<div class="table-wrap">
+
+<table class="table">
+
+<thead>
+
+<tr>
+
+<th>Nombre</th>
+
+<th>RUT</th>
+
+<th>Teléfono</th>
+
+<th>Email</th>
+
+<th>Tipo</th>
+
+<th>Acciones</th>
+
+</tr>
+
+</thead>
+
+<tbody id="clientesTable">
+
+<tr>
+
+<td colspan="6">Cargando...</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</section>
+
 </main>
 
+</div>
+
+
+
 <script type="module">
-  import { supabase } from "./app.js";
 
-  const list = document.getElementById("list");
-  const msg = document.getElementById("msg");
-  const form = document.getElementById("clientForm");
-  const btnSave = document.getElementById("btnSaveClient");
-  const btnLogout = document.getElementById("btnLogout");
+import { supabase } from './app.js'
 
-  function setMsg(t){ msg.textContent = t || ""; }
-  function esc(s){ return String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m])); }
 
-  async function requireSession(){
-    const { data } = await supabase.auth.getSession();
-    if(!data?.session){ window.location.href = "login.html"; return false; }
-    return true;
-  }
+const tabla = document.getElementById("clientesTable")
 
-  async function loadClients(){
-    list.textContent = "Cargando…";
 
-    const { data, error } = await supabase
-      .from("clients")
-      .select("id,full_name,rut,address,phone,email,is_legal_entity,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(200);
+async function cargarClientes(){
 
-    if(error){
-      list.innerHTML = `<div class="error">Error al cargar clientes: ${esc(error.message)}</div>`;
-      return;
-    }
+const { data , error } = await supabase
+.from("clients")
+.select("*")
+.order("created_at",{ascending:false})
 
-    if(!data || data.length===0){
-      list.innerHTML = `<div class="muted">Sin clientes registrados</div>`;
-      return;
-    }
+if(error){
 
-    list.innerHTML = data.map(c => `
-      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-        <div>
-          <div><b>${esc(c.full_name)}</b> <span class="muted">${c.is_legal_entity ? "(PJ)" : "(PN)"}</span></div>
-          <div class="muted">
-            ${esc(c.rut||"")}
-            ${c.phone ? " • " + esc(c.phone) : ""}
-            ${c.email ? " • " + esc(c.email) : ""}
-          </div>
-          ${c.address ? `<div class="muted">${esc(c.address)}</div>` : ""}
-        </div>
+tabla.innerHTML = "<tr><td colspan='6'>Error al cargar clientes</td></tr>"
+return
+}
 
-        <button class="btnDeleteClient" data-id="${c.id}" type="button">Eliminar</button>
-      </div>
-    `).join("");
+if(!data.length){
 
-    document.querySelectorAll(".btnDeleteClient").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{
-        const id = btn.getAttribute("data-id");
-        if(!confirm("¿Eliminar este cliente?")) return;
+tabla.innerHTML = "<tr><td colspan='6'>Sin clientes</td></tr>"
+return
+}
 
-        const { error } = await supabase.from("clients").delete().eq("id", id);
-        if(error){
-          setMsg("Error al eliminar: " + error.message);
-          return;
-        }
+tabla.innerHTML = ""
 
-        setMsg("Cliente eliminado ✅");
-        loadClients();
-      });
-    });
-  }
+data.forEach(cliente => {
 
-  form.addEventListener("submit", async (ev) => {
-    ev.preventDefault();
-    setMsg("");
+const fila = document.createElement("tr")
 
-    btnSave.disabled = true;
-    btnSave.textContent = "Guardando…";
+fila.innerHTML = `
 
-    try{
-      const payload = {
-        full_name: document.getElementById("full_name").value.trim(),
-        rut: document.getElementById("rut").value.trim() || null,
-        address: document.getElementById("address").value.trim() || null,
-        phone: document.getElementById("phone").value.trim() || null,
-        email: document.getElementById("email").value.trim() || null,
-        is_legal_entity: document.getElementById("legal").value === "true"
-      };
+<td>${cliente.full_name ?? ""}</td>
 
-      if(!payload.full_name){
-        setMsg("Falta el nombre del cliente.");
-        return;
-      }
+<td>${cliente.rut ?? ""}</td>
 
-      const { error } = await supabase.from("clients").insert(payload);
-      if(error){
-        setMsg("Error al guardar: " + error.message);
-        return;
-      }
+<td>${cliente.phone ?? ""}</td>
 
-      setMsg("Cliente guardado ✅");
-      form.reset();
-      await loadClients();
+<td>${cliente.email ?? ""}</td>
 
-    } finally {
-      btnSave.disabled = false;
-      btnSave.textContent = "Guardar";
-    }
-  });
+<td>${cliente.is_legal_entity ? "Jurídica" : "Natural"}</td>
 
-  btnLogout.addEventListener("click", async (e) => {
-    e.preventDefault();
-    await supabase.auth.signOut();
-    window.location.href = "login.html";
-  });
+<td>
 
-  if(await requireSession()){
-    loadClients();
-  }
+<button class="btn btn-small delete" data-id="${cliente.id}">
+Eliminar
+</button>
+
+</td>
+
+`
+
+tabla.appendChild(fila)
+
+})
+
+}
+
+
+
+document.addEventListener("click", async e=>{
+
+if(e.target.classList.contains("delete")){
+
+const id = e.target.dataset.id
+
+if(confirm("Eliminar cliente?")){
+
+await supabase
+.from("clients")
+.delete()
+.eq("id",id)
+
+cargarClientes()
+
+}
+
+}
+
+})
+
+
+
+cargarClientes()
+
 </script>
+
 
 </body>
 </html>
