@@ -1,1 +1,91 @@
-reset
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Recuperar contraseña — Alfa Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    .center {
+      min-height: 100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 18px;
+    }
+    .box {
+      width: min(520px, 96vw);
+      background: rgba(255,255,255,.85);
+      border: 1px solid rgba(15,23,42,.10);
+      border-radius: 18px;
+      box-shadow: 0 18px 50px rgba(2,6,23,.18);
+      padding: 18px;
+    }
+    .row { display:flex; gap:10px; justify-content:flex-end; margin-top: 12px; }
+    .muted { color:#64748b; font-size: 13px; line-height:1.5; }
+    h1 { margin:0 0 6px; }
+    .toast { margin-top:10px; font-size:13px; padding:10px 12px; border-radius: 12px; border:1px solid rgba(15,23,42,.12); display:none; }
+    .toast.show{ display:block; }
+    .toast.ok{ border-color: rgba(16,185,129,.35); background: rgba(16,185,129,.08); }
+    .toast.err{ border-color: rgba(220,38,38,.35); background: rgba(220,38,38,.08); }
+    input { width:100%; }
+  </style>
+</head>
+<body>
+  <div class="center">
+    <div class="box">
+      <h1>Recuperar contraseña</h1>
+      <p class="muted">
+        Por seguridad, no puedes cambiar la clave aquí mismo. Te enviaremos un enlace de recuperación al correo indicado.
+      </p>
+
+      <label class="muted" for="email" style="display:block; margin-top:12px; margin-bottom:6px; font-weight:700;">
+        Correo
+      </label>
+      <input id="email" type="email" placeholder="tu-correo@dominio.cl" autocomplete="email" />
+
+      <div class="row">
+        <button id="btnCancel" class="btn btn-ghost" type="button">Cancelar</button>
+        <button id="btnSend" class="btn btn-primary" type="button">Enviar enlace</button>
+      </div>
+
+      <div id="toast" class="toast"></div>
+
+      <p class="muted" style="margin-top:12px;">
+        Si no llega el correo, revisa spam. El enlace es válido por un tiempo limitado.
+      </p>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './app.js';
+
+    const emailEl = document.getElementById('email');
+    const toastEl = document.getElementById('toast');
+
+    function toast(msg, type='ok'){
+      toastEl.className = 'toast show ' + (type === 'err' ? 'err' : 'ok');
+      toastEl.textContent = msg;
+      setTimeout(()=> toastEl.classList.remove('show'), 4500);
+    }
+
+    document.getElementById('btnCancel').addEventListener('click', () => {
+      window.location.href = './login.html';
+    });
+
+    document.getElementById('btnSend').addEventListener('click', async () => {
+      const email = (emailEl.value || '').trim();
+      if (!email) return toast('Ingresa tu correo.', 'err');
+
+      // IMPORTANTE: redirectTo debe ser TU dominio (donde está alojado el sistema)
+      const redirectTo = `${window.location.origin}/update-password.html`;
+
+      const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+
+      if (error) return toast('Error: ' + error.message, 'err');
+
+      toast('Listo. Te enviamos un enlace al correo para recuperar la contraseña.');
+    });
+  </script>
+</body>
+</html>
