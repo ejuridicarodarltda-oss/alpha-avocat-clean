@@ -1,3 +1,108 @@
-<h1>ALPHA AVOCAT</h1>
-<p>Sistema de Gestión Legal Inteligente</p>
-<a href="login.html">Ingresar al sistema</a>
+<!doctype html>
+<html lang="es">
+
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<title>Alpha Avocat</title>
+
+<link rel="stylesheet" href="./style.css">
+
+</head>
+
+
+<body class="app-shell">
+
+
+<header class="topbar">
+
+<div class="brand">
+
+<div class="brand-mark">A</div>
+
+<div class="brand-text">
+
+<div class="brand-title">ALPHA AVOCAT</div>
+
+<div class="brand-sub">
+Sistema de Gestión Jurídica Inteligente
+</div>
+
+</div>
+
+</div>
+
+<div class="topbar-right">
+
+<a class="btn btn-3d btn-primary" href="./login.html">
+Ingresar
+</a>
+
+</div>
+
+</header>
+
+
+
+<div class="layout">
+
+
+<main class="main">
+
+
+<section class="card" style="max-width:600px;margin:auto;text-align:center">
+
+<h1 style="margin-bottom:10px">
+Sistema de Gestión Jurídica
+</h1>
+
+<p class="muted" style="margin-bottom:25px">
+
+Alpha Avocat es un sistema diseñado para la administración
+de clientes, causas judiciales y agenda profesional.
+
+</p>
+
+
+<a class="btn btn-3d btn-primary" href="./login.html">
+Ingresar al sistema
+</a>
+
+
+</section>
+
+
+</main>
+
+</div>
+
+
+
+<script type="module">
+
+import { supabase } from "./app.js"
+
+
+async function verificarSesion(){
+
+const { data } = await supabase.auth.getSession()
+
+if(data.session){
+
+window.location.href = "./panel.html"
+
+}
+
+}
+
+
+verificarSesion()
+
+</script>
+
+
+</body>
+</html>
