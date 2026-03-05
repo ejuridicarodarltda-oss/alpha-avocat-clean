@@ -1,238 +1,224 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ALPHA AVOCAT - Causas</title>
-<link rel="stylesheet" href="style.css">
+
+<title>Clientes — Alpha Avocat</title>
+
+<link rel="stylesheet" href="./style.css">
+
 </head>
 
-<body>
-<header>
-  <h1>ALPHA AVOCAT</h1>
-  <nav>
-    <a href="panel.html">Panel</a>
-    <a href="agenda.html">Agenda</a>
-    <a href="clientes.html">Clientes</a>
-    <a href="#" id="btnLogout">Cerrar sesión</a>
-  </nav>
+
+<body class="app-shell">
+
+
+<header class="topbar">
+
+<div class="brand">
+
+<div class="brand-mark">A</div>
+
+<div class="brand-text">
+<div class="brand-title">ALPHA AVOCAT</div>
+<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
+</div>
+
+</div>
+
+
+<div class="topbar-right">
+
+<div class="search">
+<input id="search" type="search" placeholder="Buscar cliente">
+</div>
+
+<button id="btnNewClient" class="btn btn-3d btn-primary">
+Nuevo cliente
+</button>
+
+<a class="btn btn-3d btn-secondary" href="./panel.html">
+Panel
+</a>
+
+</div>
+
 </header>
 
-<main>
 
-  <div class="card">
-    <h2>Nueva causa</h2>
 
-    <form id="caseForm">
-      <label>Cliente</label>
-      <select id="client"></select>
+<div class="layout">
 
-      <label>Tribunal</label>
-      <input id="court" placeholder="3° JL de Ovalle">
 
-      <label>Rol / RIT</label>
-      <input id="rol" placeholder="C-123-2026">
+<aside class="sidebar">
 
-      <label>Materia</label>
-      <input id="matter" placeholder="Civil">
+<nav class="nav">
 
-      <label>Abogado responsable</label>
-      <input id="lawyer" value="Mario Javier Rodríguez Ardiles">
+<a class="nav-item" href="./panel.html">Panel</a>
 
-      <label>Honorarios totales (CLP)</label>
-      <input id="fees_display" inputmode="numeric" placeholder="1.000.000">
-      <div class="muted">Escribe 1000000 y se formatea a $1.000.000</div>
+<a class="nav-item active" href="./clientes.html">Clientes</a>
 
-      <label>Tipo de honorario</label>
-      <select id="feeType">
-        <option value="fijo">Fijo</option>
-        <option value="cuota_litis">Cuota litis</option>
-      </select>
+<a class="nav-item" href="./causas.html">Causas</a>
 
-      <label>Forma de pago</label>
-      <select id="payment">
-        <option value="contado">Contado</option>
-        <option value="cuotas">Cuotas</option>
-      </select>
+<a class="nav-item" href="./agenda.html">Agenda</a>
 
-      <label>% PPM</label>
-      <input id="ppm" type="number" step="0.01" placeholder="15">
+</nav>
 
-      <label>Retención PPM</label>
-      <select id="ppmBy">
-        <option value="abogado">Retiene abogado (persona natural)</option>
-        <option value="cliente">Retiene receptor (persona jurídica)</option>
-      </select>
+</aside>
 
-      <label>Notas</label>
-      <textarea id="notes"></textarea>
 
-      <button id="btnSaveCase" type="submit">Crear causa</button>
-    </form>
 
-    <p id="msg" class="muted"></p>
-  </div>
+<main class="main">
 
-  <div class="card">
-    <h2>Causas</h2>
-    <div id="list" class="muted">Cargando…</div>
-  </div>
+
+
+<section class="card">
+
+<div class="card-head">
+
+<h2 class="card-title">Clientes registrados</h2>
+
+</div>
+
+
+
+<div class="table-wrap">
+
+<table class="table">
+
+<thead>
+
+<tr>
+
+<th>Nombre</th>
+
+<th>RUT</th>
+
+<th>Teléfono</th>
+
+<th>Email</th>
+
+<th>Tipo</th>
+
+<th>Acciones</th>
+
+</tr>
+
+</thead>
+
+<tbody id="clientesTable">
+
+<tr>
+
+<td colspan="6">Cargando...</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
+</div>
+
+</section>
 
 </main>
 
+</div>
+
+
+
 <script type="module">
-  import { supabase } from "./app.js";
 
-  const clientSelect = document.getElementById("client");
-  const list = document.getElementById("list");
-  const msg = document.getElementById("msg");
-  const form = document.getElementById("caseForm");
-  const btnSave = document.getElementById("btnSaveCase");
-  const btnLogout = document.getElementById("btnLogout");
-  const feesDisplay = document.getElementById("fees_display");
+import { supabase } from './app.js'
 
-  const setMsg = (t)=>{ msg.textContent = t || ""; };
-  const esc = (s)=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
 
-  async function requireSession(){
-    const { data } = await supabase.auth.getSession();
-    if(!data?.session){ window.location.href="login.html"; return false; }
-    return true;
-  }
+const tabla = document.getElementById("clientesTable")
 
-  function parseCLP(input){
-    const digits = String(input||"").replace(/\D/g,"");
-    if(!digits) return null;
-    const n = Number(digits);
-    return Number.isFinite(n) ? n : null;
-  }
-  function formatCLP(n){ return (n===null||n===undefined) ? "" : n.toLocaleString("es-CL"); }
 
-  feesDisplay.addEventListener("input", ()=>{
-    const n = parseCLP(feesDisplay.value);
-    feesDisplay.value = n ? formatCLP(n) : feesDisplay.value.replace(/\D/g,"");
-  });
+async function cargarClientes(){
 
-  async function loadClients(){
-    const { data, error } = await supabase
-      .from("clients")
-      .select("id,full_name")
-      .order("created_at",{ ascending:false })
-      .limit(300);
+const { data , error } = await supabase
+.from("clients")
+.select("*")
+.order("created_at",{ascending:false})
 
-    if(error){
-      clientSelect.innerHTML = `<option value="">(Error clientes: ${esc(error.message)})</option>`;
-      return;
-    }
-    if(!data || data.length===0){
-      clientSelect.innerHTML = `<option value="">(sin clientes)</option>`;
-      return;
-    }
+if(error){
 
-    clientSelect.innerHTML = data.map(c => `<option value="${c.id}">${esc(c.full_name)}</option>`).join("");
-  }
+tabla.innerHTML = "<tr><td colspan='6'>Error al cargar clientes</td></tr>"
+return
+}
 
-  async function loadCases(){
-    list.textContent = "Cargando…";
+if(!data.length){
 
-    const { data: casesData, error: casesErr } = await supabase
-      .from("cases")
-      .select("id,client_id,rol,court,matter,fee_total,created_at")
-      .order("created_at",{ ascending:false })
-      .limit(300);
+tabla.innerHTML = "<tr><td colspan='6'>Sin clientes</td></tr>"
+return
+}
 
-    if(casesErr){
-      list.innerHTML = `<div class="error">Error al cargar causas: ${esc(casesErr.message)}</div>`;
-      return;
-    }
-    if(!casesData || casesData.length===0){
-      list.innerHTML = `<div class="muted">Sin causas aún</div>`;
-      return;
-    }
+tabla.innerHTML = ""
 
-    const { data: clientsData } = await supabase.from("clients").select("id,full_name");
-    const nameById = new Map((clientsData||[]).map(c => [c.id, c.full_name]));
+data.forEach(cliente => {
 
-    list.innerHTML = casesData.map(c => `
-      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-        <div>
-          <div><b>${esc(c.rol || "(sin rol)")}</b> — ${esc(nameById.get(c.client_id) || "")}</div>
-          <div class="muted">${esc(c.court||"")} • ${esc(c.matter||"")}</div>
-          <div class="muted">Honorarios: $${Number(c.fee_total||0).toLocaleString("es-CL")}</div>
-        </div>
-        <button class="btnDeleteCase" data-id="${c.id}" type="button">Eliminar</button>
-      </div>
-    `).join("");
+const fila = document.createElement("tr")
 
-    document.querySelectorAll(".btnDeleteCase").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{
-        const id = btn.getAttribute("data-id");
-        if(!confirm("¿Eliminar esta causa?")) return;
+fila.innerHTML = `
 
-        const { error } = await supabase.from("cases").delete().eq("id", id);
-        if(error){
-          setMsg("Error al eliminar: " + error.message);
-          return;
-        }
+<td>${cliente.full_name ?? ""}</td>
 
-        setMsg("Causa eliminada ✅");
-        loadCases();
-      });
-    });
-  }
+<td>${cliente.rut ?? ""}</td>
 
-  form.addEventListener("submit", async (ev)=>{
-    ev.preventDefault();
-    setMsg("");
+<td>${cliente.phone ?? ""}</td>
 
-    btnSave.disabled = true;
-    btnSave.textContent = "Guardando…";
+<td>${cliente.email ?? ""}</td>
 
-    try{
-      const fee_total = parseCLP(feesDisplay.value);
+<td>${cliente.is_legal_entity ? "Jurídica" : "Natural"}</td>
 
-      const payload = {
-        client_id: clientSelect.value ? clientSelect.value : null,
-        court: document.getElementById("court").value.trim() || null,
-        rol: document.getElementById("rol").value.trim() || null,
-        matter: document.getElementById("matter").value.trim() || null,
-        assigned_lawyer: document.getElementById("lawyer").value.trim() || null,
-        fee_total: fee_total,
-        fee_type: document.getElementById("feeType").value,
-        payment_mode: document.getElementById("payment").value,
-        ppm_percent: document.getElementById("ppm").value ? Number(document.getElementById("ppm").value) : null,
-        ppm_withheld_by: document.getElementById("ppmBy").value,
-        notes: document.getElementById("notes").value.trim() || null
-      };
+<td>
 
-      const { error } = await supabase.from("cases").insert(payload);
-      if(error){
-        setMsg("Error al guardar: " + error.message);
-        return;
-      }
+<button class="btn btn-small delete" data-id="${cliente.id}">
+Eliminar
+</button>
 
-      setMsg("Causa creada ✅");
-      form.reset();
-      feesDisplay.value = "";
-      await loadCases();
+</td>
 
-    } finally {
-      btnSave.disabled = false;
-      btnSave.textContent = "Crear causa";
-    }
-  });
+`
 
-  btnLogout.addEventListener("click", async (e)=>{
-    e.preventDefault();
-    await supabase.auth.signOut();
-    window.location.href="login.html";
-  });
+tabla.appendChild(fila)
 
-  if(await requireSession()){
-    await loadClients();
-    await loadCases();
-  }
+})
+
+}
+
+
+
+document.addEventListener("click", async e=>{
+
+if(e.target.classList.contains("delete")){
+
+const id = e.target.dataset.id
+
+if(confirm("Eliminar cliente?")){
+
+await supabase
+.from("clients")
+.delete()
+.eq("id",id)
+
+cargarClientes()
+
+}
+
+}
+
+})
+
+
+
+cargarClientes()
+
 </script>
+
 
 </body>
 </html>
