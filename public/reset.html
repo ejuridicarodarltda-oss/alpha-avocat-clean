@@ -1,2 +1,157 @@
-reset
-    
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpha Avocat - Recuperar contraseña</title>
+
+<style>
+
+body{
+font-family: Arial, Helvetica, sans-serif;
+background:#f4f6f9;
+margin:0;
+display:flex;
+align-items:center;
+justify-content:center;
+height:100vh;
+}
+
+.container{
+background:white;
+padding:35px;
+border-radius:10px;
+box-shadow:0 4px 12px rgba(0,0,0,0.15);
+width:320px;
+}
+
+h2{
+text-align:center;
+margin-bottom:20px;
+color:#2c3e50;
+}
+
+label{
+font-size:14px;
+font-weight:bold;
+display:block;
+margin-top:10px;
+}
+
+input{
+width:100%;
+padding:10px;
+margin-top:5px;
+border:1px solid #ccc;
+border-radius:6px;
+font-size:14px;
+}
+
+button{
+width:100%;
+padding:10px;
+border:none;
+border-radius:6px;
+font-size:15px;
+cursor:pointer;
+margin-top:12px;
+}
+
+.guardar{
+background:#2c7be5;
+color:white;
+}
+
+.guardar:hover{
+background:#1a5fd0;
+}
+
+.cancelar{
+background:#e74c3c;
+color:white;
+}
+
+.cancelar:hover{
+background:#c0392b;
+}
+
+.mensaje{
+margin-top:10px;
+font-size:14px;
+text-align:center;
+}
+
+.error{
+color:#e74c3c;
+}
+
+.ok{
+color:#27ae60;
+}
+
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<h2>Recuperar contraseña</h2>
+
+<label>Nueva contraseña</label>
+<input type="password" id="nuevaClave">
+
+<label>Repetir contraseña</label>
+<input type="password" id="repetirClave">
+
+<button class="guardar" onclick="guardarClave()">
+Guardar nueva contraseña
+</button>
+
+<button class="cancelar" onclick="volverLogin()">
+Cancelar
+</button>
+
+<div id="mensaje" class="mensaje"></div>
+
+</div>
+
+<script>
+
+function guardarClave(){
+
+let clave1 = document.getElementById("nuevaClave").value
+let clave2 = document.getElementById("repetirClave").value
+let mensaje = document.getElementById("mensaje")
+
+if(clave1 === "" || clave2 === ""){
+mensaje.innerHTML = "Debe completar ambos campos"
+mensaje.className = "mensaje error"
+return
+}
+
+if(clave1 !== clave2){
+mensaje.innerHTML = "Las contraseñas no coinciden"
+mensaje.className = "mensaje error"
+return
+}
+
+localStorage.setItem("alphaClave", clave1)
+
+mensaje.innerHTML = "Contraseña actualizada correctamente"
+mensaje.className = "mensaje ok"
+
+setTimeout(function(){
+window.location.href="login.html"
+},1500)
+
+}
+
+function volverLogin(){
+window.location.href="login.html"
+}
+
+</script>
+
+</body>
+</html>
