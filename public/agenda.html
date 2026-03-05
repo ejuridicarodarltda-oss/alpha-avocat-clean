@@ -1,381 +1,124 @@
-<!doctype html>
-<html lang="es">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Agenda — Alpha Avocat</title>
-<link rel="stylesheet" href="./style.css">
-</head>
+<script>
 
-<body class="app-shell">
-
-<header class="topbar">
-
-<div class="brand">
-<div class="brand-mark">A</div>
-<div class="brand-text">
-<div class="brand-title">ALPHA AVOCAT</div>
-<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
-</div>
-</div>
-
-<div class="topbar-right">
-<a class="btn btn-3d btn-secondary" href="./panel.html">Panel</a>
-<a class="btn btn-3d btn-secondary" href="./clientes.html">Clientes</a>
-<a class="btn btn-3d btn-secondary" href="./causas.html">Causas</a>
-</div>
-
-</header>
-
-<div class="layout">
-
-<aside class="sidebar">
-
-<nav class="nav">
-<a class="nav-item" href="./panel.html">Panel</a>
-<a class="nav-item" href="./clientes.html">Clientes</a>
-<a class="nav-item" href="./causas.html">Causas</a>
-<a class="nav-item active" href="./agenda.html">Agenda</a>
-</nav>
-
-</aside>
-
-<main class="main">
-
-<section class="card">
-
-<div class="card-head">
-
-<h2 class="card-title">Agenda</h2>
-
-<button class="btn btn-3d btn-primary" id="btnNew">
-Nuevo evento
-</button>
-
-<div class="search">
-<input id="search" type="search" placeholder="Buscar por título o notas">
-</div>
-
-</div>
-
-<div class="table-wrap">
-
-<table class="table">
-
-<thead>
-<tr>
-<th>Fecha</th>
-<th>Hora</th>
-<th>Título</th>
-<th>Tipo</th>
-<th>Cliente / Persona</th>
-<th>Acciones</th>
-</tr>
-</thead>
-
-<tbody id="eventsTable">
-<tr><td colspan="6">Cargando agenda…</td></tr>
-</tbody>
-
-</table>
-
-</div>
-
-</section>
-
-</main>
-
-</div>
-
-<!-- MODAL EVENTO -->
-
-<dialog id="modal" class="modal">
-
-<div class="modal-card">
-
-<div class="modal-head">
-
-<div class="modal-title">Evento</div>
-
-<button class="modal-close" id="btnClose">
-✕
-</button>
-
-</div>
-
-<div class="grid two">
-
-<label class="field">
-<span>Título</span>
-<input id="title">
-</label>
-
-<label class="field">
-<span>Tipo</span>
-<select id="event_type">
-<option value="consulta">Consulta</option>
-<option value="reunion">Reunión</option>
-<option value="audiencia">Audiencia</option>
-<option value="alegato">Alegato</option>
-<option value="plazo">Plazo procesal</option>
-<option value="otro">Otro</option>
-</select>
-</label>
-
-<label class="field">
-<span>Cliente registrado</span>
-<select id="client_id">
-<option value="">(ninguno)</option>
-</select>
-</label>
-
-<label class="field">
-<span>Causa</span>
-<select id="case_id">
-<option value="">(sin causa)</option>
-</select>
-</label>
-
-<label class="field full">
-<span>Persona si no es cliente</span>
-<input id="external_name" placeholder="Ej: Arquitecto Juan Soto">
-</label>
-
-<label class="field">
-<span>Fecha y hora</span>
-<input id="starts_at" type="datetime-local">
-</label>
-
-<label class="field full">
-<span>Notas</span>
-<textarea id="notes" rows="3"></textarea>
-</label>
-
-</div>
-
-<div class="modal-foot">
-
-<button class="btn btn-3d btn-secondary" id="btnCancel">
-Cancelar
-</button>
-
-<button class="btn btn-3d btn-primary" id="btnSave">
-Guardar
-</button>
-
-</div>
-
-</div>
-
-</dialog>
-
-<script type="module">
-
-import { supabase } from './app.js'
-
-const table = document.getElementById('eventsTable')
-const modal = document.getElementById('modal')
-
-const btnNew = document.getElementById('btnNew')
-const btnSave = document.getElementById('btnSave')
-const btnCancel = document.getElementById('btnCancel')
-const btnClose = document.getElementById('btnClose')
-
-const titleEl = document.getElementById('title')
-const typeEl = document.getElementById('event_type')
-const clientEl = document.getElementById('client_id')
-const caseEl = document.getElementById('case_id')
-const externalNameEl = document.getElementById('external_name')
-const startsEl = document.getElementById('starts_at')
-const notesEl = document.getElementById('notes')
-const searchEl = document.getElementById('search')
-
-let cache = []
-let clientsMap = new Map()
-let editingId = null
-
-function esc(s=''){
-return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
+function openEventModal(){
+  const modal = document.getElementById("eventModal");
+  if(modal){
+    modal.style.display = "flex";
+  }
 }
 
-function fmtDate(iso){
-const d = new Date(iso)
-return d.toLocaleDateString('es-CL')
+function closeEventModal(){
+  const modal = document.getElementById("eventModal");
+  if(modal){
+    modal.style.display = "none";
+  }
 }
 
-function fmtTime(iso){
-const d = new Date(iso)
-return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
+async function saveEvent(){
+
+  const title = document.getElementById("event-title").value;
+  const type = document.getElementById("event-type").value;
+  const clientId = document.getElementById("client-id").value || null;
+  const caseId = document.getElementById("case-id").value || null;
+  const personName = document.getElementById("person-name").value || null;
+  const notes = document.getElementById("event-notes").value || null;
+
+  const dateValue = document.getElementById("event-date").value;
+
+  let startsAt = null;
+
+  if(dateValue){
+    const d = new Date(dateValue);
+    if(!isNaN(d.getTime())){
+      startsAt = d.toISOString();
+    }
+  }
+
+  const { data, error } = await supabase
+  .from("appointments")
+  .insert([
+    {
+      title: title,
+      kind: type,
+      starts_at: startsAt,
+      client_id: clientId,
+      case_id: caseId,
+      person_name: personName,
+      notes: notes
+    }
+  ]);
+
+  if(error){
+    console.error(error);
+    alert("Error al guardar evento");
+    return;
+  }
+
+  alert("Evento guardado");
+
+  closeEventModal();
+
+  location.reload();
 }
-
-async function loadClients(){
-
-const { data } = await supabase
-.from('clients')
-.select('id, full_name, name')
-
-clientsMap = new Map((data||[]).map(c=>[c.id,c.full_name||c.name||'']))
-
-clientEl.innerHTML =
-`<option value="">(ninguno)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${esc(c.full_name||c.name||'')}</option>`).join('')
-
-}
-
-async function loadCases(){
-
-const { data } = await supabase
-.from('cases')
-.select('id, rol, title')
-
-caseEl.innerHTML =
-`<option value="">(sin causa)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
-
-}
-
-function render(list){
-
-if(!list.length){
-table.innerHTML = `<tr><td colspan="6">Sin eventos</td></tr>`
-return
-}
-
-table.innerHTML = list.map(e=>{
-
-let persona = ''
-
-if(e.client_id){
-persona = clientsMap.get(e.client_id) || ''
-}else if(e.external_name){
-persona = e.external_name
-}
-
-return `
-<tr>
-<td>${esc(fmtDate(e.starts_at))}</td>
-<td>${esc(fmtTime(e.starts_at))}</td>
-<td>${esc(e.title||'')}</td>
-<td>${esc(e.event_type||'')}</td>
-<td>${esc(persona)}</td>
-<td>
-<button class="btn btn-small edit" data-id="${e.id}">Editar</button>
-<button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
-</td>
-</tr>
-`
-}).join('')
-
-}
-
-async function loadEvents(){
-
-const { data } = await supabase
-.from('appointments')
-.select('*')
-.order('starts_at',{ascending:true})
-
-cache = data || []
-render(cache)
-
-}
-
-function openNew(){
-
-editingId = null
-
-titleEl.value = ''
-typeEl.value = 'consulta'
-clientEl.value = ''
-caseEl.value = ''
-externalNameEl.value = ''
-startsEl.value = ''
-notesEl.value = ''
-
-modal.showModal()
-
-}
-
-async function save(){
-
-if(!startsEl.value){
-alert("Debe indicar fecha y hora")
-return
-}
-
-const payload = {
-
-title: titleEl.value.trim(),
-event_type: typeEl.value,
-client_id: clientEl.value || null,
-case_id: caseEl.value || null,
-external_name: externalNameEl.value.trim() || null,
-starts_at: new Date(startsEl.value).toISOString(),
-notes: notesEl.value.trim() || null
-
-}
-
-if(!payload.title){
-alert("Debe ingresar un título")
-return
-}
-
-let result
-
-if(editingId){
-
-result = await supabase
-.from('appointments')
-.update(payload)
-.eq('id',editingId)
-
-}else{
-
-result = await supabase
-.from('appointments')
-.insert(payload)
-
-}
-
-if(result.error){
-alert("Error al guardar evento")
-return
-}
-
-modal.close()
-
-await loadEvents()
-
-}
-
-async function del(id){
-
-if(!confirm('¿Eliminar evento?')) return
-
-await supabase
-.from('appointments')
-.delete()
-.eq('id',id)
-
-await loadEvents()
-
-}
-
-btnNew.onclick = openNew
-btnSave.onclick = save
-
-btnCancel.onclick = () => { modal.close() }
-btnClose.onclick = () => { modal.close() }
-
-modal.addEventListener("cancel", () => {
-modal.close()
-})
-
-await loadClients()
-await loadCases()
-await loadEvents()
 
 </script>
 
-</body>
-</html>
+
+<!-- MODAL NUEVO EVENTO -->
+
+<div class="modal" id="eventModal" style="display:none;">
+
+  <div class="modal-content">
+
+    <span class="modal-close" onclick="closeEventModal()">✕</span>
+
+    <h2>Nuevo Evento</h2>
+
+    <form class="event-form">
+
+      <label>Título</label>
+      <input type="text" id="event-title" required>
+
+      <label>Tipo</label>
+      <select id="event-type">
+        <option value="reunion">Reunión</option>
+        <option value="consulta">Consulta</option>
+        <option value="audiencia">Audiencia</option>
+      </select>
+
+      <label>Cliente</label>
+      <select id="client-id">
+        <option value="">(ninguno)</option>
+      </select>
+
+      <label>Causa</label>
+      <select id="case-id">
+        <option value="">(sin causa)</option>
+      </select>
+
+      <label>Persona si no es cliente</label>
+      <input type="text" id="person-name">
+
+      <label>Fecha y hora</label>
+      <input type="datetime-local" id="event-date" required>
+
+      <label>Notas</label>
+      <textarea id="event-notes"></textarea>
+
+      <div class="event-buttons">
+
+        <button type="button" class="btn-cancel" onclick="closeEventModal()">
+        Cancelar
+        </button>
+
+        <button type="button" class="btn-save" onclick="saveEvent()">
+        Guardar
+        </button>
+
+      </div>
+
+    </form>
+
+  </div>
+
+</div>
