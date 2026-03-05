@@ -1,189 +1,233 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ALPHA AVOCAT - Agenda</title>
-<link rel="stylesheet" href="style.css">
+
+<title>Causas — Alpha Avocat</title>
+
+<link rel="stylesheet" href="./style.css">
+
 </head>
 
-<body>
-<header>
-  <h1>ALPHA AVOCAT</h1>
-  <nav>
-    <a href="panel.html">Panel</a>
-    <a href="clientes.html">Clientes</a>
-    <a href="causas.html">Causas</a>
-    <a href="#" id="btnLogout">Cerrar sesión</a>
-  </nav>
+
+<body class="app-shell">
+
+
+<header class="topbar">
+
+<div class="brand">
+
+<div class="brand-mark">A</div>
+
+<div class="brand-text">
+<div class="brand-title">ALPHA AVOCAT</div>
+<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
+</div>
+
+</div>
+
+
+<div class="topbar-right">
+
+<a class="btn btn-3d btn-secondary" href="./panel.html">
+Panel
+</a>
+
+<a class="btn btn-3d btn-primary" href="./clientes.html">
+Clientes
+</a>
+
+</div>
+
 </header>
 
-<main>
 
-<div class="card">
-  <h2>Nuevo evento</h2>
 
-  <form id="apptForm">
-    <label>Título</label>
-    <input id="title" required>
+<div class="layout">
 
-    <label>Tipo</label>
-    <select id="kind">
-      <option value="reunion">Reunión</option>
-      <option value="audiencia">Audiencia</option>
-      <option value="alegato">Alegato</option>
-    </select>
 
-    <label>Inicio</label>
-    <input type="datetime-local" id="start" required>
+<aside class="sidebar">
 
-    <label>Término</label>
-    <input type="datetime-local" id="end">
+<nav class="nav">
 
-    <label>Persona (opcional)</label>
-    <input id="person">
+<a class="nav-item" href="./panel.html">Panel</a>
 
-    <label>Tipo persona</label>
-    <select id="personType">
-      <option value="cliente">Cliente</option>
-      <option value="abogado">Abogado</option>
-      <option value="receptor">Receptor</option>
-      <option value="otro">Otro</option>
-    </select>
+<a class="nav-item" href="./clientes.html">Clientes</a>
 
-    <label>Resumen previo</label>
-    <textarea id="pre_brief"></textarea>
+<a class="nav-item active" href="./causas.html">Causas</a>
 
-    <label>Notas / tema tratado</label>
-    <textarea id="discussed"></textarea>
+<a class="nav-item" href="./agenda.html">Agenda</a>
 
-    <button id="btnSave" type="submit">Guardar evento</button>
-  </form>
+</nav>
 
-  <p id="msg" class="muted"></p>
+</aside>
+
+
+
+<main class="main">
+
+
+
+<section class="card">
+
+<div class="card-head">
+
+<h2 class="card-title">Causas registradas</h2>
+
 </div>
 
-<div class="card">
-  <h2>Agenda</h2>
-  <div id="list" class="muted">Cargando…</div>
+
+
+<div class="table-wrap">
+
+<table class="table">
+
+<thead>
+
+<tr>
+
+<th>Rol</th>
+
+<th>Tribunal</th>
+
+<th>Cliente</th>
+
+<th>Materia</th>
+
+<th>Honorarios</th>
+
+<th>Acciones</th>
+
+</tr>
+
+</thead>
+
+<tbody id="causasTable">
+
+<tr>
+
+<td colspan="6">Cargando...</td>
+
+</tr>
+
+</tbody>
+
+</table>
+
 </div>
+
+</section>
 
 </main>
 
+</div>
+
+
+
 <script type="module">
-  import { supabase } from "./app.js";
 
-  const form = document.getElementById("apptForm");
-  const btnSave = document.getElementById("btnSave");
-  const msg = document.getElementById("msg");
-  const list = document.getElementById("list");
-  const btnLogout = document.getElementById("btnLogout");
+import { supabase } from './app.js'
 
-  const esc = (s)=>String(s||"").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;","\"":"&quot;","'":"&#039;"}[m]));
-  const setMsg = (t)=>{ msg.textContent = t || ""; };
 
-  async function requireSession(){
-    const { data } = await supabase.auth.getSession();
-    if(!data?.session){ window.location.href="login.html"; return false; }
-    return true;
-  }
+const tabla = document.getElementById("causasTable")
 
-  // Convierte "YYYY-MM-DDTHH:mm" a ISO con zona (Supabase timestamptz)
-  function toISO(localDT){
-    if(!localDT) return null;
-    const d = new Date(localDT);
-    return isNaN(d.getTime()) ? null : d.toISOString();
-  }
 
-  async function loadAppointments(){
-    list.textContent = "Cargando…";
-    const { data, error } = await supabase
-      .from("appointments")
-      .select("id,title,kind,starts_at,ends_at,person_name,person_type,created_at")
-      .order("starts_at",{ascending:false})
-      .limit(200);
+function formatoPesos(valor){
 
-    if(error){
-      list.innerHTML = `<div class="error">Error agenda: ${esc(error.message)}</div>`;
-      return;
-    }
-    if(!data || data.length===0){
-      list.innerHTML = `<div class="muted">Sin eventos</div>`;
-      return;
-    }
+if(!valor) return ""
 
-    list.innerHTML = data.map(a=>`
-      <div class="row" style="display:flex;justify-content:space-between;gap:12px;align-items:flex-start">
-        <div>
-          <div><b>${esc(a.title)}</b> <span class="muted">(${esc(a.kind)})</span></div>
-          <div class="muted">${esc(a.starts_at)}${a.ends_at ? " → " + esc(a.ends_at) : ""}</div>
-          <div class="muted">${esc(a.person_name||"")}</div>
-        </div>
-        <button class="btnDelAppt" data-id="${a.id}" type="button">Eliminar</button>
-      </div>
-    `).join("");
+return new Intl.NumberFormat("es-CL",
+{ style:"currency", currency:"CLP" }).format(valor)
 
-    document.querySelectorAll(".btnDelAppt").forEach(btn=>{
-      btn.addEventListener("click", async ()=>{
-        const id = btn.getAttribute("data-id");
-        if(!confirm("¿Eliminar este evento?")) return;
-        const { error } = await supabase.from("appointments").delete().eq("id", id);
-        if(error){ setMsg("Error al eliminar: " + error.message); return; }
-        setMsg("Evento eliminado ✅");
-        loadAppointments();
-      });
-    });
-  }
+}
 
-  form.addEventListener("submit", async (ev)=>{
-    ev.preventDefault();
-    setMsg("");
 
-    const starts_at = toISO(document.getElementById("start").value);
-    const ends_at = toISO(document.getElementById("end").value);
 
-    if(!starts_at){
-      setMsg("Falta fecha/hora de inicio (o formato inválido).");
-      return;
-    }
+async function cargarCausas(){
 
-    btnSave.disabled = true;
-    btnSave.textContent = "Guardando…";
+const { data , error } = await supabase
+.from("cases")
+.select("*")
+.order("created_at",{ascending:false})
 
-    try{
-      const payload = {
-        title: document.getElementById("title").value.trim(),
-        kind: document.getElementById("kind").value,
-        starts_at,
-        ends_at,
-        person_name: document.getElementById("person").value.trim() || null,
-        person_type: document.getElementById("personType").value,
-        pre_brief: document.getElementById("pre_brief").value.trim() || null,
-        discussed: document.getElementById("discussed").value.trim() || null
-      };
+if(error){
 
-      const { error } = await supabase.from("appointments").insert(payload);
-      if(error){ setMsg("Error al guardar: " + error.message); return; }
+tabla.innerHTML = "<tr><td colspan='6'>Error al cargar causas</td></tr>"
+return
 
-      setMsg("Evento guardado ✅");
-      form.reset();
-      loadAppointments();
-    } finally {
-      btnSave.disabled = false;
-      btnSave.textContent = "Guardar evento";
-    }
-  });
+}
 
-  btnLogout.addEventListener("click", async (e)=>{
-    e.preventDefault();
-    await supabase.auth.signOut();
-    window.location.href="login.html";
-  });
+if(!data.length){
 
-  if(await requireSession()){
-    loadAppointments();
-  }
+tabla.innerHTML = "<tr><td colspan='6'>Sin causas</td></tr>"
+return
+
+}
+
+tabla.innerHTML = ""
+
+data.forEach(causa=>{
+
+const fila = document.createElement("tr")
+
+fila.innerHTML = `
+
+<td>${causa.case_number ?? ""}</td>
+
+<td>${causa.court ?? ""}</td>
+
+<td>${causa.client_name ?? ""}</td>
+
+<td>${causa.matter ?? ""}</td>
+
+<td>${formatoPesos(causa.fee_total)}</td>
+
+<td>
+
+<button class="btn btn-small delete" data-id="${causa.id}">
+Eliminar
+</button>
+
+</td>
+
+`
+
+tabla.appendChild(fila)
+
+})
+
+}
+
+
+
+document.addEventListener("click", async e=>{
+
+if(e.target.classList.contains("delete")){
+
+const id = e.target.dataset.id
+
+if(confirm("Eliminar causa?")){
+
+await supabase
+.from("cases")
+.delete()
+.eq("id",id)
+
+cargarCausas()
+
+}
+
+}
+
+})
+
+
+cargarCausas()
+
 </script>
+
 
 </body>
 </html>
