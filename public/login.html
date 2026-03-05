@@ -1,115 +1,170 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
-<title>Login - Alpha Avocat</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<title>Ingreso — Alpha Avocat</title>
 
-<style>
-body{
-font-family:Arial;
-background:#f4f6f9;
-display:flex;
-justify-content:center;
-align-items:center;
-height:100vh;
-}
+<link rel="stylesheet" href="./style.css">
 
-.box{
-background:white;
-padding:30px;
-border-radius:10px;
-width:320px;
-box-shadow:0 0 10px rgba(0,0,0,0.1);
-}
-
-input{
-width:100%;
-padding:10px;
-margin-top:10px;
-}
-
-button{
-width:100%;
-padding:10px;
-margin-top:15px;
-background:#1e40af;
-color:white;
-border:none;
-cursor:pointer;
-}
-
-.link{
-margin-top:10px;
-font-size:14px;
-cursor:pointer;
-color:#1e40af;
-}
-</style>
 </head>
 
-<body>
 
-<div class="box">
+<body class="app-shell">
 
-<h2>Alpha Avocat</h2>
 
-<input id="email" placeholder="Email">
+<header class="topbar">
 
-<input id="password" type="password" placeholder="Contraseña">
+<div class="brand">
 
-<button onclick="login()">Ingresar</button>
+<div class="brand-mark">A</div>
 
-<div class="link" onclick="forgot()">Olvidé mi clave</div>
+<div class="brand-text">
+
+<div class="brand-title">ALPHA AVOCAT</div>
+
+<div class="brand-sub">
+Sistema de Gestión Jurídica Inteligente
+</div>
 
 </div>
 
-<script>
+</div>
 
-const supabase = window.supabase.createClient(
-"https://ryekhrwuglpzncktypnx.supabase.co",
-"TU_ANON_PUBLIC_KEY"
-)
+</header>
 
-async function login(){
+
+
+<div class="layout">
+
+
+<main class="main">
+
+
+<section class="card" style="max-width:420px;margin:auto">
+
+<h2 style="margin-bottom:18px">Ingreso al sistema</h2>
+
+
+<div class="field">
+
+<label>Correo electrónico</label>
+
+<input type="email" id="email">
+
+</div>
+
+
+<div class="field" style="margin-top:10px">
+
+<label>Contraseña</label>
+
+<input type="password" id="password">
+
+</div>
+
+
+<button id="btnLogin" class="btn btn-3d btn-primary" style="margin-top:16px;width:100%">
+Ingresar
+</button>
+
+
+<p id="msg" class="muted" style="margin-top:12px"></p>
+
+
+<div style="margin-top:18px;text-align:center">
+
+<a href="./reset.html">
+¿Olvidó su contraseña?
+</a>
+
+</div>
+
+
+</section>
+
+
+</main>
+
+</div>
+
+
+
+<script type="module">
+
+import { supabase } from "./app.js"
+
+
+
+const btn = document.getElementById("btnLogin")
+
+const msg = document.getElementById("msg")
+
+
+
+btn.addEventListener("click", async ()=>{
+
 
 const email = document.getElementById("email").value
+
 const password = document.getElementById("password").value
 
-const {error} = await supabase.auth.signInWithPassword({
+
+if(!email || !password){
+
+msg.textContent = "Debe ingresar correo y contraseña"
+
+return
+
+}
+
+
+
+const { data, error } = await supabase.auth.signInWithPassword({
+
 email:email,
 password:password
+
 })
 
+
 if(error){
-alert(error.message)
+
+msg.textContent = "Correo o contraseña incorrecta"
+
 return
-}
-
-window.location.href="/panel.html"
 
 }
 
-async function forgot(){
 
-const email = prompt("Ingrese su correo")
 
-if(!email) return
+window.location.href = "./panel.html"
 
-const {error} = await supabase.auth.resetPasswordForEmail(email,{
-redirectTo:"https://alphaavocat.cl/login.html"
+
+
 })
 
-if(error){
-alert(error.message)
-}else{
-alert("Se envió correo para recuperar contraseña")
+
+
+async function verificarSesion(){
+
+const { data } = await supabase.auth.getSession()
+
+if(data.session){
+
+window.location.href = "./panel.html"
+
 }
 
 }
+
+verificarSesion()
 
 </script>
+
 
 </body>
 </html>
