@@ -1,1 +1,365 @@
-CAUSAS
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Causas — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-text">
+        <div class="brand-title">ALPHA AVOCAT</div>
+        <div class="brand-subtitle">Sistema de Gestión Jurídica Inteligente</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button id="btnNuevaCausa" class="btn btn-primary btn-3d">Nueva causa</button>
+      <a class="btn btn-ghost btn-3d" href="./panel.html">Panel</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="nav">
+        <a class="nav-link" href="./panel.html">Panel</a>
+        <a class="nav-link" href="./clientes.html">Clientes</a>
+        <a class="nav-link active" href="./causas.html">Causas</a>
+        <a class="nav-link" href="./agenda.html">Agenda</a>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card-title">Acciones</div>
+        <button id="btnLogout" class="btn btn-danger btn-3d w-full">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="card">
+        <div class="card-header">
+          <h1>Causas registradas</h1>
+          <div class="muted" id="countLabel">—</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Rol/RIT</th>
+                <th>Tribunal</th>
+                <th>Cliente</th>
+                <th>Materia</th>
+                <th class="ta-right">Honorarios</th>
+                <th class="ta-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyCausas">
+              <tr><td colspan="6" class="muted">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: NUEVA CAUSA -->
+  <div id="modalCausa" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel modal-panel-lg">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Nueva causa</div>
+          <div class="modal-subtitle">Completa los datos y guarda.</div>
+        </div>
+        <button class="icon-btn" data-close="1" title="Cerrar">✕</button>
+      </div>
+
+      <form id="formCausa" class="form">
+        <div class="grid-2">
+          <div class="field">
+            <label>Cliente</label>
+            <select id="k_client" class="input" required>
+              <option value="">(selecciona)</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Abogado responsable</label>
+            <input id="k_resp" class="input" placeholder="Mario Javier Rodríguez Ardiles" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Tribunal</label>
+            <input id="k_court" class="input" placeholder="3° JL de Ovalle" />
+          </div>
+          <div class="field">
+            <label>Rol / RIT</label>
+            <input id="k_rol" class="input" placeholder="C-19-2026" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Materia</label>
+            <input id="k_subject" class="input" placeholder="Civil, Reivindicatoria" />
+          </div>
+          <div class="field">
+            <label>Honorarios totales (CLP)</label>
+            <input id="k_fee" class="input" inputmode="numeric" placeholder="8.000.000" />
+            <div class="hint">Puedes escribir con puntos o sin puntos. Se guardará como número.</div>
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label>Tipo de honorario</label>
+            <select id="k_fee_type" class="input">
+              <option>Fijo</option>
+              <option>Variable</option>
+              <option>Mixto</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Forma de pago</label>
+            <select id="k_pay" class="input">
+              <option>Único pago</option>
+              <option>Cuotas</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>% PPM</label>
+            <input id="k_ppm" class="input" inputmode="numeric" placeholder="15" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Retención PPM</label>
+            <select id="k_withhold" class="input">
+              <option>Retiene receptor</option>
+              <option>Retiene abogado</option>
+            </select>
+            <div class="hint">En Chile: si es persona jurídica, normalmente retiene el receptor.</div>
+          </div>
+          <div class="field">
+            <label>Notas</label>
+            <input id="k_notes" class="input" placeholder="Opcional" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost btn-3d" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-3d">Guardar causa</button>
+        </div>
+
+        <div id="caseMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './app.js';
+
+    // ===== Ajusta aquí SOLO si tus tablas/columnas se llaman distinto =====
+    const T_CLIENTS = 'clients';
+    const T_CASES = 'cases';
+
+    const C = {
+      // clients
+      c_id: 'id',
+      c_name: 'name',
+
+      // cases
+      k_id: 'id',
+      k_client_id: 'client_id',
+      k_court: 'court',
+      k_rol: 'rol_rit',
+      k_subject: 'subject',
+      k_responsible: 'responsible',
+      k_fee_total: 'fee_total',
+      k_fee_type: 'fee_type',
+      k_payment: 'payment_method',
+      k_ppm: 'ppm_percent',
+      k_withheld_by: 'ppm_withheld_by',
+      k_notes: 'notes',
+      k_created: 'created_at',
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    const modal = el('modalCausa');
+    const tbody = el('tbodyCausas');
+    const msg = el('caseMsg');
+    const countLabel = el('countLabel');
+
+    let clientsMap = new Map();
+
+    // ---- Auth guard
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess?.session) window.location.href = './login.html';
+
+    // ---- Logout
+    el('btnLogout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = './login.html';
+    });
+
+    // ---- Modal open/close
+    const openModal = () => { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); msg.textContent=''; };
+    const closeModal = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); el('formCausa').reset(); msg.textContent=''; };
+
+    el('btnNuevaCausa').addEventListener('click', openModal);
+    modal.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t?.dataset?.close) closeModal();
+    });
+
+    // ---- Helpers
+    const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    function parseCLP(input) {
+      // admite: 8000000, 8.000.000, 8,000,000
+      const cleaned = String(input || '').replace(/[^\d]/g, '');
+      if (!cleaned) return null;
+      return Number(cleaned);
+    }
+
+    // ---- Load clients for dropdown
+    async function loadClients() {
+      const { data, error } = await supabase
+        .from(T_CLIENTS)
+        .select(`${C.c_id}, ${C.c_name}`)
+        .order(C.c_name, { ascending: true });
+
+      if (error) {
+        alert('Error cargando clientes para selector: ' + error.message);
+        return;
+      }
+
+      clientsMap = new Map((data ?? []).map(c => [c[C.c_id], c[C.c_name]]));
+
+      const sel = el('k_client');
+      sel.innerHTML = `<option value="">(selecciona)</option>` + (data ?? []).map(c =>
+        `<option value="${c[C.c_id]}">${escapeHtml(c[C.c_name] ?? '')}</option>`
+      ).join('');
+    }
+
+    // ---- Load cases
+    async function loadCases() {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Cargando…</td></tr>`;
+
+      const { data, error } = await supabase
+        .from(T_CASES)
+        .select('*')
+        .order(C.k_created, { ascending: false });
+
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+        return;
+      }
+
+      const list = data ?? [];
+      countLabel.textContent = `${list.length} causa(s)`;
+
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">Sin causas aún</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(k => {
+        const cliente = clientsMap.get(k[C.k_client_id]) || '(sin cliente)';
+        const fee = (k[C.k_fee_total] != null) ? money.format(Number(k[C.k_fee_total])) : '—';
+        return `
+          <tr>
+            <td>${escapeHtml(k[C.k_rol] ?? '')}</td>
+            <td>${escapeHtml(k[C.k_court] ?? '')}</td>
+            <td>${escapeHtml(cliente)}</td>
+            <td>${escapeHtml(k[C.k_subject] ?? '')}</td>
+            <td class="ta-right">${escapeHtml(fee)}</td>
+            <td class="ta-right">
+              <button class="btn btn-danger btn-3d btn-sm" data-del="${k[C.k_id]}">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    // ---- Create case
+    el('formCausa').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'msg';
+
+      const clientId = el('k_client').value;
+      if (!clientId) {
+        msg.className = 'msg msg-error';
+        msg.textContent = 'Debes seleccionar un cliente.';
+        return;
+      }
+
+      const fee = parseCLP(el('k_fee').value);
+
+      const payload = {
+        [C.k_client_id]: clientId,
+        [C.k_responsible]: el('k_resp').value.trim() || null,
+        [C.k_court]: el('k_court').value.trim() || null,
+        [C.k_rol]: el('k_rol').value.trim() || null,
+        [C.k_subject]: el('k_subject').value.trim() || null,
+        [C.k_fee_total]: fee,
+        [C.k_fee_type]: el('k_fee_type').value,
+        [C.k_payment]: el('k_pay').value,
+        [C.k_ppm]: parseCLP(el('k_ppm').value) ?? null,
+        [C.k_withheld_by]: el('k_withhold').value,
+        [C.k_notes]: el('k_notes').value.trim() || null,
+      };
+
+      const { error } = await supabase.from(T_CASES).insert(payload);
+
+      if (error) {
+        msg.className = 'msg msg-error';
+        msg.textContent = `Error: ${error.message}`;
+        return;
+      }
+
+      msg.className = 'msg msg-ok';
+      msg.textContent = 'Causa guardada ✅';
+
+      await loadCases();
+      setTimeout(closeModal, 450);
+    });
+
+    // ---- Delete case
+    tbody.addEventListener('click', async (e) => {
+      const id = e.target?.dataset?.del;
+      if (!id) return;
+
+      const ok = confirm('¿Eliminar esta causa? (No se puede deshacer)');
+      if (!ok) return;
+
+      const { error } = await supabase.from(T_CASES).delete().eq(C.k_id, id);
+      if (error) {
+        alert('Error al eliminar: ' + error.message);
+        return;
+      }
+      await loadCases();
+    });
+
+    // Pretty formatting while typing fee
+    el('k_fee').addEventListener('blur', () => {
+      const n = parseCLP(el('k_fee').value);
+      if (n != null) el('k_fee').value = new Intl.NumberFormat('es-CL').format(n);
+    });
+
+    await loadClients();
+    await loadCases();
+  </script>
+</body>
+</html>
