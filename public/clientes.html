@@ -1,1 +1,291 @@
-CLIENTES
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Clientes — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-text">
+        <div class="brand-title">ALPHA AVOCAT</div>
+        <div class="brand-subtitle">Sistema de Gestión Jurídica Inteligente</div>
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <input id="searchInput" class="input input-search" placeholder="Buscar cliente (nombre / RUT / email)..." />
+      <button id="btnNuevoCliente" class="btn btn-primary btn-3d">Nuevo cliente</button>
+      <a class="btn btn-ghost btn-3d" href="./panel.html">Panel</a>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <nav class="nav">
+        <a class="nav-link" href="./panel.html">Panel</a>
+        <a class="nav-link active" href="./clientes.html">Clientes</a>
+        <a class="nav-link" href="./causas.html">Causas</a>
+        <a class="nav-link" href="./agenda.html">Agenda</a>
+      </nav>
+
+      <div class="sidebar-card">
+        <div class="sidebar-card-title">Acciones</div>
+        <button id="btnLogout" class="btn btn-danger btn-3d w-full">Cerrar sesión</button>
+      </div>
+    </aside>
+
+    <main class="content">
+      <section class="card">
+        <div class="card-header">
+          <h1>Clientes registrados</h1>
+          <div class="muted" id="countLabel">—</div>
+        </div>
+
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>RUT</th>
+                <th>Teléfono</th>
+                <th>Email</th>
+                <th>Tipo</th>
+                <th class="ta-right">Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="tbodyClientes">
+              <tr><td colspan="6" class="muted">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- MODAL: NUEVO CLIENTE -->
+  <div id="modalCliente" class="modal" aria-hidden="true">
+    <div class="modal-backdrop" data-close="1"></div>
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Nuevo cliente</div>
+          <div class="modal-subtitle">Completa los datos y guarda.</div>
+        </div>
+        <button class="icon-btn" data-close="1" title="Cerrar">✕</button>
+      </div>
+
+      <form id="formCliente" class="form">
+        <div class="grid-2">
+          <div class="field">
+            <label>Nombre completo / Razón social</label>
+            <input id="c_name" class="input" required />
+          </div>
+          <div class="field">
+            <label>RUT</label>
+            <input id="c_rut" class="input" placeholder="12.345.678-9" />
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Teléfono</label>
+            <input id="c_phone" class="input" placeholder="+56 9..." />
+          </div>
+          <div class="field">
+            <label>Email</label>
+            <input id="c_email" type="email" class="input" placeholder="correo@..." />
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Domicilio</label>
+          <input id="c_address" class="input" />
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label>Tipo</label>
+            <select id="c_type" class="input">
+              <option value="natural">Persona natural</option>
+              <option value="juridica">Persona jurídica</option>
+            </select>
+          </div>
+          <div class="field">
+            <label>Notas</label>
+            <input id="c_notes" class="input" placeholder="Opcional" />
+          </div>
+        </div>
+
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost btn-3d" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn-primary btn-3d">Guardar</button>
+        </div>
+
+        <div id="clientMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './app.js';
+
+    // ===== Ajusta aquí SOLO si tu tabla/columnas se llaman distinto =====
+    const T_CLIENTS = 'clients';
+    const COL = {
+      id: 'id',
+      name: 'name',
+      rut: 'rut',
+      phone: 'phone',
+      email: 'email',
+      address: 'address',
+      notes: 'notes',
+      isLegalEntity: 'is_legal_entity', // boolean
+      createdAt: 'created_at',
+    };
+
+    const el = (id) => document.getElementById(id);
+
+    const modal = el('modalCliente');
+    const tbody = el('tbodyClientes');
+    const msg = el('clientMsg');
+    const countLabel = el('countLabel');
+    const searchInput = el('searchInput');
+
+    let allClients = [];
+
+    // ---- Auth guard
+    const { data: sess } = await supabase.auth.getSession();
+    if (!sess?.session) window.location.href = './login.html';
+
+    // ---- Logout
+    el('btnLogout').addEventListener('click', async () => {
+      await supabase.auth.signOut();
+      window.location.href = './login.html';
+    });
+
+    // ---- Modal open/close
+    const openModal = () => { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); msg.textContent=''; };
+    const closeModal = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); el('formCliente').reset(); msg.textContent=''; };
+
+    el('btnNuevoCliente').addEventListener('click', openModal);
+    modal.addEventListener('click', (e) => {
+      const t = e.target;
+      if (t?.dataset?.close) closeModal();
+    });
+
+    // ---- Render
+    function render(list) {
+      countLabel.textContent = `${list.length} cliente(s)`;
+      if (!list.length) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">Sin clientes aún</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = list.map(c => {
+        const tipo = c[COL.isLegalEntity] ? 'Jurídica' : 'Natural';
+        return `
+          <tr>
+            <td>${escapeHtml(c[COL.name] ?? '')}</td>
+            <td>${escapeHtml(c[COL.rut] ?? '')}</td>
+            <td>${escapeHtml(c[COL.phone] ?? '')}</td>
+            <td>${escapeHtml(c[COL.email] ?? '')}</td>
+            <td><span class="pill">${tipo}</span></td>
+            <td class="ta-right">
+              <button class="btn btn-danger btn-3d btn-sm" data-del="${c[COL.id]}">Eliminar</button>
+            </td>
+          </tr>
+        `;
+      }).join('');
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    }
+
+    // ---- Load clients
+    async function loadClients() {
+      tbody.innerHTML = `<tr><td colspan="6" class="muted">Cargando…</td></tr>`;
+      const { data, error } = await supabase
+        .from(T_CLIENTS)
+        .select('*')
+        .order(COL.createdAt, { ascending: false });
+
+      if (error) {
+        tbody.innerHTML = `<tr><td colspan="6" class="muted">Error al cargar: ${escapeHtml(error.message)}</td></tr>`;
+        return;
+      }
+
+      allClients = data ?? [];
+      applySearch();
+    }
+
+    function applySearch() {
+      const q = (searchInput.value || '').trim().toLowerCase();
+      if (!q) return render(allClients);
+
+      const filtered = allClients.filter(c => {
+        const blob = [
+          c[COL.name], c[COL.rut], c[COL.email], c[COL.phone]
+        ].join(' ').toLowerCase();
+        return blob.includes(q);
+      });
+
+      render(filtered);
+    }
+
+    searchInput.addEventListener('input', applySearch);
+
+    // ---- Create client
+    el('formCliente').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      msg.className = 'msg';
+
+      const payload = {
+        [COL.name]: el('c_name').value.trim(),
+        [COL.rut]: el('c_rut').value.trim() || null,
+        [COL.phone]: el('c_phone').value.trim() || null,
+        [COL.email]: el('c_email').value.trim() || null,
+        [COL.address]: el('c_address').value.trim() || null,
+        [COL.notes]: el('c_notes').value.trim() || null,
+        [COL.isLegalEntity]: el('c_type').value === 'juridica',
+      };
+
+      const { error } = await supabase.from(T_CLIENTS).insert(payload);
+
+      if (error) {
+        msg.className = 'msg msg-error';
+        msg.textContent = `Error: ${error.message}`;
+        return;
+      }
+
+      msg.className = 'msg msg-ok';
+      msg.textContent = 'Cliente guardado ✅';
+      await loadClients();
+      setTimeout(closeModal, 450);
+    });
+
+    // ---- Delete client
+    tbody.addEventListener('click', async (e) => {
+      const id = e.target?.dataset?.del;
+      if (!id) return;
+
+      const ok = confirm('¿Eliminar este cliente? (No se puede deshacer)');
+      if (!ok) return;
+
+      const { error } = await supabase.from(T_CLIENTS).delete().eq(COL.id, id);
+      if (error) {
+        alert('Error al eliminar: ' + error.message);
+        return;
+      }
+      await loadClients();
+    });
+
+    await loadClients();
+  </script>
+</body>
+</html>
