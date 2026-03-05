@@ -10,6 +10,7 @@
 <body class="app-shell">
 
 <header class="topbar">
+
 <div class="brand">
 <div class="brand-mark">A</div>
 <div class="brand-text">
@@ -23,17 +24,20 @@
 <a class="btn btn-3d btn-secondary" href="./clientes.html">Clientes</a>
 <a class="btn btn-3d btn-secondary" href="./causas.html">Causas</a>
 </div>
+
 </header>
 
 <div class="layout">
 
 <aside class="sidebar">
+
 <nav class="nav">
 <a class="nav-item" href="./panel.html">Panel</a>
 <a class="nav-item" href="./clientes.html">Clientes</a>
 <a class="nav-item" href="./causas.html">Causas</a>
 <a class="nav-item active" href="./agenda.html">Agenda</a>
 </nav>
+
 </aside>
 
 <main class="main">
@@ -41,11 +45,12 @@
 <section class="card">
 
 <div class="card-head">
+
 <h2 class="card-title">Agenda</h2>
 
-<div>
-<button class="btn btn-3d btn-primary" id="btnNew">Nuevo evento</button>
-</div>
+<button class="btn btn-3d btn-primary" id="btnNew">
+Nuevo evento
+</button>
 
 <div class="search">
 <input id="search" type="search" placeholder="Buscar por título o notas">
@@ -54,6 +59,7 @@
 </div>
 
 <div class="table-wrap">
+
 <table class="table">
 
 <thead>
@@ -62,7 +68,7 @@
 <th>Hora</th>
 <th>Título</th>
 <th>Tipo</th>
-<th>Cliente</th>
+<th>Cliente / Persona</th>
 <th>Acciones</th>
 </tr>
 </thead>
@@ -72,6 +78,7 @@
 </tbody>
 
 </table>
+
 </div>
 
 </section>
@@ -88,9 +95,15 @@
 <div class="modal-card">
 
 <div class="modal-head">
+
 <div class="modal-title">Evento</div>
-<button class="btn btn-3d btn-secondary" id="btnClose">Cerrar</button>
+
+<button class="modal-close" id="btnClose">
+✕
+</button>
+
 </div>
+
 
 <div class="grid two">
 
@@ -99,6 +112,7 @@
 <input id="title">
 </label>
 
+
 <label class="field">
 <span>Tipo</span>
 <select id="event_type">
@@ -106,32 +120,59 @@
 <option value="reunion">Reunión</option>
 <option value="audiencia">Audiencia</option>
 <option value="alegato">Alegato</option>
+<option value="plazo">Plazo procesal</option>
 <option value="otro">Otro</option>
 </select>
 </label>
 
+
 <label class="field">
-<span>Cliente</span>
+<span>Cliente registrado</span>
 <select id="client_id">
-<option value="">(sin cliente)</option>
+<option value="">(ninguno)</option>
 </select>
 </label>
+
+
+<label class="field">
+<span>Causa</span>
+<select id="case_id">
+<option value="">(sin causa)</option>
+</select>
+</label>
+
+
+<label class="field full">
+<span>Persona si no es cliente</span>
+<input id="external_name" placeholder="Ej: Arquitecto Juan Soto">
+</label>
+
 
 <label class="field">
 <span>Fecha y hora</span>
 <input id="starts_at" type="datetime-local">
 </label>
 
+
 <label class="field full">
 <span>Notas</span>
 <textarea id="notes" rows="3"></textarea>
 </label>
 
+
 </div>
 
+
 <div class="modal-foot">
-<button class="btn btn-3d btn-secondary" id="btnCancel">Cancelar</button>
-<button class="btn btn-3d btn-primary" id="btnSave">Guardar</button>
+
+<button class="btn btn-3d btn-secondary" id="btnCancel">
+Cancelar
+</button>
+
+<button class="btn btn-3d btn-primary" id="btnSave">
+Guardar
+</button>
+
 </div>
 
 </div>
@@ -144,6 +185,7 @@
 import { supabase } from './app.js'
 
 const table = document.getElementById('eventsTable')
+
 const modal = document.getElementById('modal')
 
 const btnNew = document.getElementById('btnNew')
@@ -154,6 +196,8 @@ const btnClose = document.getElementById('btnClose')
 const titleEl = document.getElementById('title')
 const typeEl = document.getElementById('event_type')
 const clientEl = document.getElementById('client_id')
+const caseEl = document.getElementById('case_id')
+const externalNameEl = document.getElementById('external_name')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
 const searchEl = document.getElementById('search')
@@ -180,6 +224,7 @@ return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
 }
 
 
+
 async function loadClients(){
 
 const { data } = await supabase
@@ -189,8 +234,22 @@ const { data } = await supabase
 clientsMap = new Map((data||[]).map(c=>[c.id,c.full_name||c.name||'']))
 
 clientEl.innerHTML =
-`<option value="">(sin cliente)</option>` +
+`<option value="">(ninguno)</option>` +
 (data||[]).map(c=>`<option value="${c.id}">${esc(c.full_name||c.name||'')}</option>`).join('')
+
+}
+
+
+async function loadCases(){
+
+const { data } = await supabase
+.from('cases')
+.select('id, rol, title')
+
+caseEl.innerHTML =
+`<option value="">(sin causa)</option>` +
+(data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
+
 }
 
 
@@ -203,7 +262,13 @@ return
 
 table.innerHTML = list.map(e=>{
 
-const cliente = e.client_id ? (clientsMap.get(e.client_id)||'') : ''
+let persona = ''
+
+if(e.client_id){
+persona = clientsMap.get(e.client_id) || ''
+}else if(e.external_name){
+persona = e.external_name
+}
 
 return `
 <tr>
@@ -211,7 +276,7 @@ return `
 <td>${esc(fmtTime(e.starts_at))}</td>
 <td>${esc(e.title||'')}</td>
 <td>${esc(e.event_type||'')}</td>
-<td>${esc(cliente)}</td>
+<td>${esc(persona)}</td>
 <td>
 <button class="btn btn-small edit" data-id="${e.id}">Editar</button>
 <button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
@@ -219,7 +284,9 @@ return `
 </tr>
 `
 }).join('')
+
 }
+
 
 
 function applyFilter(){
@@ -235,6 +302,7 @@ cache.filter(e=>
 }
 
 
+
 async function loadEvents(){
 
 const { data } = await supabase
@@ -243,9 +311,11 @@ const { data } = await supabase
 .order('starts_at',{ascending:true})
 
 cache = data || []
+
 render(cache)
 
 }
+
 
 
 function openNew(){
@@ -255,12 +325,15 @@ editingId = null
 titleEl.value = ''
 typeEl.value = 'consulta'
 clientEl.value = ''
+caseEl.value = ''
+externalNameEl.value = ''
 startsEl.value = ''
 notesEl.value = ''
 
 modal.showModal()
 
 }
+
 
 
 async function save(){
@@ -270,6 +343,8 @@ const payload = {
 title: titleEl.value.trim(),
 event_type: typeEl.value,
 client_id: clientEl.value || null,
+case_id: caseEl.value || null,
+external_name: externalNameEl.value.trim() || null,
 starts_at: new Date(startsEl.value).toISOString(),
 notes: notesEl.value.trim() || null
 
@@ -277,25 +352,34 @@ notes: notesEl.value.trim() || null
 
 if(!payload.title) return
 
+let result
+
 if(editingId){
 
-await supabase
+result = await supabase
 .from('appointments')
 .update(payload)
 .eq('id',editingId)
 
 }else{
 
-await supabase
+result = await supabase
 .from('appointments')
 .insert(payload)
 
 }
 
+if(result.error){
+alert("Error al guardar evento")
+return
+}
+
 modal.close()
-loadEvents()
+
+await loadEvents()
 
 }
+
 
 
 async function del(id){
@@ -307,14 +391,14 @@ await supabase
 .delete()
 .eq('id',id)
 
-loadEvents()
+await loadEvents()
 
 }
 
 
+
 btnNew.onclick = openNew
 btnSave.onclick = save
-
 btnCancel.onclick = () => modal.close()
 btnClose.onclick = () => modal.close()
 
@@ -326,10 +410,11 @@ document.addEventListener('click',(e)=>{
 const b1 = e.target.closest('.edit')
 const b2 = e.target.closest('.delete')
 
-if(b1) editingId = b1.dataset.id, openEdit(editingId)
+if(b1) openEdit(b1.dataset.id)
 if(b2) del(b2.dataset.id)
 
 })
+
 
 
 function openEdit(id){
@@ -342,9 +427,10 @@ editingId = id
 titleEl.value = ev.title || ''
 typeEl.value = ev.event_type || ''
 clientEl.value = ev.client_id || ''
+caseEl.value = ev.case_id || ''
+externalNameEl.value = ev.external_name || ''
 
 const d = new Date(ev.starts_at)
-
 const pad=n=>String(n).padStart(2,'0')
 
 startsEl.value =
@@ -357,7 +443,9 @@ modal.showModal()
 }
 
 
+
 await loadClients()
+await loadCases()
 await loadEvents()
 
 </script>
