@@ -1,10 +1,11 @@
 <!doctype html>
 <html lang="es">
+
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 
-<title>Clientes — Alpha Avocat</title>
+<title>Causas — Alpha Avocat</title>
 
 <link rel="stylesheet" href="./style.css">
 
@@ -30,16 +31,12 @@
 
 <div class="topbar-right">
 
-<div class="search">
-<input id="search" type="search" placeholder="Buscar cliente">
-</div>
-
-<button id="btnNewClient" class="btn btn-3d btn-primary">
-Nuevo cliente
-</button>
-
 <a class="btn btn-3d btn-secondary" href="./panel.html">
 Panel
+</a>
+
+<a class="btn btn-3d btn-primary" href="./clientes.html">
+Clientes
 </a>
 
 </div>
@@ -57,9 +54,9 @@ Panel
 
 <a class="nav-item" href="./panel.html">Panel</a>
 
-<a class="nav-item active" href="./clientes.html">Clientes</a>
+<a class="nav-item" href="./clientes.html">Clientes</a>
 
-<a class="nav-item" href="./causas.html">Causas</a>
+<a class="nav-item active" href="./causas.html">Causas</a>
 
 <a class="nav-item" href="./agenda.html">Agenda</a>
 
@@ -77,7 +74,7 @@ Panel
 
 <div class="card-head">
 
-<h2 class="card-title">Clientes registrados</h2>
+<h2 class="card-title">Causas registradas</h2>
 
 </div>
 
@@ -91,15 +88,15 @@ Panel
 
 <tr>
 
-<th>Nombre</th>
+<th>Rol</th>
 
-<th>RUT</th>
+<th>Tribunal</th>
 
-<th>Teléfono</th>
+<th>Cliente</th>
 
-<th>Email</th>
+<th>Materia</th>
 
-<th>Tipo</th>
+<th>Honorarios</th>
 
 <th>Acciones</th>
 
@@ -107,7 +104,7 @@ Panel
 
 </thead>
 
-<tbody id="clientesTable">
+<tbody id="causasTable">
 
 <tr>
 
@@ -134,49 +131,62 @@ Panel
 import { supabase } from './app.js'
 
 
-const tabla = document.getElementById("clientesTable")
+const tabla = document.getElementById("causasTable")
 
 
-async function cargarClientes(){
+function formatoPesos(valor){
+
+if(!valor) return ""
+
+return new Intl.NumberFormat("es-CL",
+{ style:"currency", currency:"CLP" }).format(valor)
+
+}
+
+
+
+async function cargarCausas(){
 
 const { data , error } = await supabase
-.from("clients")
+.from("cases")
 .select("*")
 .order("created_at",{ascending:false})
 
 if(error){
 
-tabla.innerHTML = "<tr><td colspan='6'>Error al cargar clientes</td></tr>"
+tabla.innerHTML = "<tr><td colspan='6'>Error al cargar causas</td></tr>"
 return
+
 }
 
 if(!data.length){
 
-tabla.innerHTML = "<tr><td colspan='6'>Sin clientes</td></tr>"
+tabla.innerHTML = "<tr><td colspan='6'>Sin causas</td></tr>"
 return
+
 }
 
 tabla.innerHTML = ""
 
-data.forEach(cliente => {
+data.forEach(causa=>{
 
 const fila = document.createElement("tr")
 
 fila.innerHTML = `
 
-<td>${cliente.full_name ?? ""}</td>
+<td>${causa.case_number ?? ""}</td>
 
-<td>${cliente.rut ?? ""}</td>
+<td>${causa.court ?? ""}</td>
 
-<td>${cliente.phone ?? ""}</td>
+<td>${causa.client_name ?? ""}</td>
 
-<td>${cliente.email ?? ""}</td>
+<td>${causa.matter ?? ""}</td>
 
-<td>${cliente.is_legal_entity ? "Jurídica" : "Natural"}</td>
+<td>${formatoPesos(causa.fee_total)}</td>
 
 <td>
 
-<button class="btn btn-small delete" data-id="${cliente.id}">
+<button class="btn btn-small delete" data-id="${causa.id}">
 Eliminar
 </button>
 
@@ -198,14 +208,14 @@ if(e.target.classList.contains("delete")){
 
 const id = e.target.dataset.id
 
-if(confirm("Eliminar cliente?")){
+if(confirm("Eliminar causa?")){
 
 await supabase
-.from("clients")
+.from("cases")
 .delete()
 .eq("id",id)
 
-cargarClientes()
+cargarCausas()
 
 }
 
@@ -214,8 +224,7 @@ cargarClientes()
 })
 
 
-
-cargarClientes()
+cargarCausas()
 
 </script>
 
