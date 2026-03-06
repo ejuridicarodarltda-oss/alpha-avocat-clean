@@ -1,228 +1,252 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
-
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>Alpha Avocat - Panel</title>
-
 <link rel="stylesheet" href="style.css">
-
 </head>
 
 <body>
 
-<div class="app">
+<div class="layout">
 
 <!-- SIDEBAR -->
-
-<div class="sidebar">
+<aside class="sidebar">
 
 <div class="logo">
 
-<img src="logo.png">
+<div class="logo-icon">⚖</div>
 
-<h1>ALPHA AVOCAT</h1>
-
+<div class="logo-text">
+<h2>ALPHA AVOCAT</h2>
 <p>Sistema de Gestión Jurídica Inteligente</p>
-
-</div>
-
-<div class="menu">
-
-<button onclick="location.href='panel.html'">Inicio</button>
-<button onclick="location.href='clientes.html'">Clientes</button>
-<button onclick="location.href='causas.html'">Causas</button>
-<button onclick="location.href='agenda.html'">Agenda</button>
-<button onclick="location.href='configuracion.html'">Configuración</button>
-
 </div>
 
 </div>
+
+<nav class="menu">
+
+<a href="panel.html" class="menu-btn">🏠 Inicio</a>
+
+<a href="clientes.html" class="menu-btn">👤 Clientes</a>
+
+<a href="causas.html" class="menu-btn">📂 Causas</a>
+
+<a href="agenda.html" class="menu-btn">📅 Agenda</a>
+
+<a href="configuracion.html" class="menu-btn">⚙ Configuración</a>
+
+</nav>
+
+<div class="user-connected">
+👤 Usuario conectado
+</div>
+
+</aside>
+
 
 <!-- MAIN -->
+<main class="main">
 
-<div class="main">
+<!-- TOP BAR -->
+<header class="topbar">
 
-<!-- TOPBAR -->
+<input class="search" placeholder="Buscar causa o cliente...">
 
-<div class="topbar">
+<div class="top-right">
 
-<div class="search">
-<input placeholder="Buscar causa o cliente...">
+<div class="notif">🔔</div>
+
+<div class="avatar">
+👤 Usuario Activo
 </div>
 
-<div id="userName">
-Usuario
 </div>
 
-</div>
+</header>
+
 
 <!-- CONTENT -->
+<section class="content">
 
-<div class="content">
+<h1>Bienvenido(a), Usuario Activo</h1>
+<p class="subtitle">Aquí está el resumen del día.</p>
 
-<div class="welcome" id="welcomeText">
-Bienvenido
+<div class="date">
+📅 <span id="fecha"></span>
 </div>
 
-<div class="subtitle">
-Aquí está el resumen del día.
-</div>
-
-<!-- RESUMEN CARDS -->
+<!-- RESUMEN TARJETAS -->
 
 <div class="cards">
 
 <div class="card blue">
-<h3>Clientes Activos</h3>
-<span id="clientesCount">0</span>
+Clientes Activos
+<h2>1</h2>
 </div>
 
 <div class="card green">
-<h3>Causas Abiertas</h3>
-<span id="causasCount">0</span>
+Causas Abiertas
+<h2>1</h2>
 </div>
 
 <div class="card red">
-<h3>Audiencias Hoy</h3>
-<span id="audienciasCount">0</span>
+Audiencias Hoy
+<h2>4</h2>
 </div>
 
 <div class="card orange">
-<h3>Tareas Pendientes</h3>
-<span id="tareasCount">0</span>
+Tareas Pendientes
+<h2>0</h2>
 </div>
 
 </div>
+
 
 <!-- ACCIONES RAPIDAS -->
 
-<div class="actions">
+<div class="panel-row">
 
-<h2>Acciones rápidas</h2>
+<div class="box">
 
-<button onclick="location.href='clientes.html'">Nuevo Cliente</button>
-<button onclick="location.href='causas.html'">Nueva Causa</button>
-<button onclick="location.href='agenda.html'">Nuevo Evento</button>
+<h3>Acciones rápidas</h3>
+
+<div class="quick">
+
+<button class="btn blue">+ Nuevo Cliente</button>
+
+<button class="btn green">+ Nueva Causa</button>
+
+<button class="btn purple">+ Nuevo Evento</button>
+
+<button class="btn dark">+ Nuevo Documento</button>
 
 </div>
+
+</div>
+
 
 <!-- ALERTAS -->
 
-<div class="alerts">
+<div class="box">
 
-<h2>Alertas Jurídicas</h2>
+<h3>Alertas Jurídicas</h3>
 
-<div class="alert">
-Plazo para contestar demanda
-<span>3 días</span>
-</div>
+<ul class="alerts">
 
-<div class="alert">
-Apelación vence mañana
-</div>
+<li>
+🔴 Plazo: Contestación demanda — <b>3 días</b>
+</li>
 
-<div class="alert">
-Audiencia hoy 10:00 hrs
-</div>
+<li>
+🟡 Apelación vence mañana
+</li>
 
-</div>
+<li>
+🔵 Audiencia hoy — 10:00 hrs
+</li>
 
-</div>
-
-</div>
+</ul>
 
 </div>
 
-<!-- SCRIPT -->
+</div>
 
-<script type="module">
 
-import { supabase, requireAuth } from "./app.js"
+<!-- ULTIMAS CAUSAS -->
 
-/* ======================
-VALIDAR SESION
-====================== */
+<div class="panel-row">
 
-const user = await requireAuth()
+<div class="box">
 
-if(user){
+<h3>Últimas Causas</h3>
 
-const nombre = user.email || "Usuario"
+<table>
 
-document.getElementById("userName").innerText = nombre
+<tr>
+<th>Cliente</th>
+<th>Materia</th>
+<th>Estado</th>
+<th>Fecha</th>
+</tr>
 
-document.getElementById("welcomeText").innerText =
-"Bienvenido, " + nombre
+<tr>
+<td>María González</td>
+<td>Divorcio</td>
+<td class="state green">En proceso</td>
+<td>26/04/2024</td>
+</tr>
 
-}
+<tr>
+<td>Luis Ramirez</td>
+<td>Accidente laboral</td>
+<td class="state red">Audiencia</td>
+<td>25/04/2024</td>
+</tr>
 
-/* ======================
-CLIENTES ACTIVOS
-====================== */
+<tr>
+<td>Empresa XYZ</td>
+<td>Cobranza</td>
+<td class="state orange">Archivada</td>
+<td>-</td>
+</tr>
 
-async function loadClientes(){
+</table>
 
-const { count } = await supabase
-.from("clients")
-.select("*", { count:"exact", head:true })
+</div>
 
-document.getElementById("clientesCount").innerText = count || 0
 
-}
+<!-- PROXIMAS AUDIENCIAS -->
 
-/* ======================
-CAUSAS ABIERTAS
-====================== */
+<div class="box">
 
-async function loadCausas(){
+<h3>Próximas Audiencias</h3>
 
-const { count } = await supabase
-.from("cases")
-.select("*", { count:"exact", head:true })
+<div class="audiencia">
 
-document.getElementById("causasCount").innerText = count || 0
+👨‍⚖ José Martinez  
+<span>Tribunal Civil</span>  
+<b>Hoy 10:00</b>
 
-}
+</div>
 
-/* ======================
-AUDIENCIAS HOY
-====================== */
+<div class="audiencia">
 
-async function loadAudiencias(){
+👩‍⚖ Paula Fernández  
+<span>Juzgado Familia</span>  
+<b>25/04 12:30</b>
 
-const hoy = new Date().toISOString().slice(0,10)
+</div>
 
-const { count } = await supabase
-.from("appointments")
-.select("*",{count:"exact", head:true})
-.gte("starts_at", hoy)
+<div class="audiencia">
 
-document.getElementById("audienciasCount").innerText = count || 0
+👨‍⚖ Carlos Muñoz  
+<span>Corte de Apelaciones</span>  
+<b>30/04 09:15</b>
 
-}
+</div>
 
-/* ======================
-TAREAS
-====================== */
+</div>
 
-async function loadTareas(){
+</div>
 
-document.getElementById("tareasCount").innerText = 0
+</section>
 
-}
+</main>
 
-/* ======================
-CARGAR PANEL
-====================== */
+</div>
 
-loadClientes()
-loadCausas()
-loadAudiencias()
-loadTareas()
+
+<script>
+
+const fecha = new Date().toLocaleDateString('es-CL', {
+weekday:'long',
+year:'numeric',
+month:'long',
+day:'numeric'
+})
+
+document.getElementById("fecha").innerText = fecha
 
 </script>
 
