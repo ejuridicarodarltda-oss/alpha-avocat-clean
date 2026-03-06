@@ -85,7 +85,6 @@ Nuevo evento
 
 </div>
 
-
 <dialog id="modal" class="modal">
 
 <div class="modal-card">
@@ -99,7 +98,6 @@ Nuevo evento
 </button>
 
 </div>
-
 
 <div class="grid two">
 
@@ -167,19 +165,12 @@ Guardar
 
 </dialog>
 
-
 <script type="module">
 
 import { supabase } from './app.js'
 
 const table = document.getElementById('eventsTable')
-
 const modal = document.getElementById('modal')
-
-const btnNew = document.getElementById('btnNew')
-const btnSave = document.getElementById('btnSave')
-const btnCancel = document.getElementById('btnCancel')
-const btnClose = document.getElementById('btnClose')
 
 const titleEl = document.getElementById('title')
 const typeEl = document.getElementById('event_type')
@@ -203,11 +194,9 @@ function closeModal(){
 modal.close()
 }
 
-
 function esc(s=''){
 return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
-
 
 function fmtDate(iso){
 const d = new Date(iso)
@@ -218,7 +207,6 @@ function fmtTime(iso){
 const d = new Date(iso)
 return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
 }
-
 
 async function loadClients(){
 
@@ -234,7 +222,6 @@ clientEl.innerHTML =
 
 }
 
-
 async function loadCases(){
 
 const { data } = await supabase
@@ -246,7 +233,6 @@ caseEl.innerHTML =
 (data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
 
 }
-
 
 function render(list){
 
@@ -273,7 +259,6 @@ return `
 <td>${esc(e.event_type||'')}</td>
 <td>${esc(persona)}</td>
 <td>
-<button class="btn btn-small edit" data-id="${e.id}">Editar</button>
 <button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
 </td>
 </tr>
@@ -281,7 +266,6 @@ return `
 }).join('')
 
 }
-
 
 async function loadEvents(){
 
@@ -291,11 +275,9 @@ const { data } = await supabase
 .order('starts_at',{ascending:true})
 
 cache = data || []
-
 render(cache)
 
 }
-
 
 function openNew(){
 
@@ -312,7 +294,6 @@ notesEl.value = ''
 openModal()
 
 }
-
 
 async function save(){
 
@@ -363,22 +344,29 @@ result = await supabase
 }
 
 if(result.error){
+console.error(result.error)
 alert("Error al guardar evento")
 return
 }
 
 closeModal()
-
 await loadEvents()
 
 }
 
+document.addEventListener("DOMContentLoaded", () => {
 
-btnNew.onclick = openNew
-btnSave.onclick = save
-btnCancel.onclick = closeModal
-btnClose.onclick = closeModal
+const btnNew = document.getElementById("btnNew")
+const btnSave = document.getElementById("btnSave")
+const btnCancel = document.getElementById("btnCancel")
+const btnClose = document.getElementById("btnClose")
 
+if(btnNew) btnNew.addEventListener("click", openNew)
+if(btnSave) btnSave.addEventListener("click", save)
+if(btnCancel) btnCancel.addEventListener("click", closeModal)
+if(btnClose) btnClose.addEventListener("click", closeModal)
+
+})
 
 await loadClients()
 await loadCases()
