@@ -340,13 +340,18 @@ await loadEvents()
 
 document.addEventListener("DOMContentLoaded", () => {
 
-document.getElementById("btnNew").addEventListener("click", openModal)
+const btnNew = document.getElementById("btnNew")
+const btnCancel = document.getElementById("btnCancel")
+const btnClose = document.getElementById("btnClose")
+const btnSave = document.getElementById("btnSave")
 
-document.getElementById("btnCancel").addEventListener("click", closeModal)
+if(btnNew) btnNew.onclick = () => modal.showModal()
 
-document.getElementById("btnClose").addEventListener("click", closeModal)
+if(btnCancel) btnCancel.onclick = () => modal.close()
 
-document.getElementById("btnSave").addEventListener("click", save)
+if(btnClose) btnClose.onclick = () => modal.close()
+
+if(btnSave) btnSave.onclick = save
 
 })
 
