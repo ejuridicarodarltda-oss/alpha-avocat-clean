@@ -138,6 +138,32 @@ Nuevo evento
 </label>
 
 <label class="field">
+<span>Correo electrónico</span>
+<input id="email" type="email">
+</label>
+
+<label class="field">
+<span>Teléfono</span>
+<input id="phone">
+</label>
+
+<label class="field">
+<span>Modalidad</span>
+<select id="meeting_mode">
+<option value="presencial">Presencial</option>
+<option value="videoconferencia">Videoconferencia</option>
+</select>
+</label>
+
+<label class="field">
+<span>Autorización grabación</span>
+<select id="recording_authorized">
+<option value="true">Sí</option>
+<option value="false">No</option>
+</select>
+</label>
+
+<label class="field">
 <span>Fecha y hora</span>
 <input id="starts_at" type="datetime-local">
 </label>
@@ -177,32 +203,23 @@ const typeEl = document.getElementById('event_type')
 const clientEl = document.getElementById('client_id')
 const caseEl = document.getElementById('case_id')
 const externalNameEl = document.getElementById('external_name')
+const emailEl = document.getElementById('email')
+const phoneEl = document.getElementById('phone')
+const meetingModeEl = document.getElementById('meeting_mode')
+const recordingEl = document.getElementById('recording_authorized')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
-const searchEl = document.getElementById('search')
 
 let cache = []
 let clientsMap = new Map()
 let editingId = null
 
 function openModal(){
-if(!modal.open) modal.showModal()
+modal.showModal()
 }
 
 function closeModal(){
-if(modal.open) modal.close()
-}
-
-function esc(s=''){
-return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
-}
-
-function fmtDate(iso){
-return new Date(iso).toLocaleDateString('es-CL')
-}
-
-function fmtTime(iso){
-return new Date(iso).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
+modal.close()
 }
 
 async function loadClients(){
@@ -215,7 +232,7 @@ clientsMap = new Map((data||[]).map(c=>[c.id,c.full_name||c.name||'']))
 
 clientEl.innerHTML =
 `<option value="">(ninguno)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${esc(c.full_name||c.name||'')}</option>`).join('')
+(data||[]).map(c=>`<option value="${c.id}">${c.full_name||c.name||''}</option>`).join('')
 
 }
 
@@ -227,7 +244,19 @@ const { data } = await supabase
 
 caseEl.innerHTML =
 `<option value="">(sin causa)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
+(data||[]).map(c=>`<option value="${c.id}">${(c.rol||'')+' '+(c.title||'')}</option>`).join('')
+
+}
+
+async function loadEvents(){
+
+const { data } = await supabase
+.from('appointments')
+.select('*')
+.order('starts_at',{ascending:true})
+
+cache = data || []
+render(cache)
 
 }
 
@@ -250,11 +279,11 @@ persona = e.external_name
 
 return `
 <tr>
-<td>${fmtDate(e.starts_at)}</td>
-<td>${fmtTime(e.starts_at)}</td>
-<td>${esc(e.title)}</td>
-<td>${esc(e.event_type)}</td>
-<td>${esc(persona)}</td>
+<td>${new Date(e.starts_at).toLocaleDateString()}</td>
+<td>${new Date(e.starts_at).toLocaleTimeString()}</td>
+<td>${e.title||''}</td>
+<td>${e.event_type||''}</td>
+<td>${persona}</td>
 <td>
 <button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
 </td>
@@ -265,34 +294,6 @@ return `
 
 }
 
-async function loadEvents(){
-
-const { data } = await supabase
-.from('appointments')
-.select('*')
-.order('starts_at',{ascending:true})
-
-cache = data || []
-render(cache)
-
-}
-
-function openNew(){
-
-editingId = null
-
-titleEl.value=''
-typeEl.value='consulta'
-clientEl.value=''
-caseEl.value=''
-externalNameEl.value=''
-startsEl.value=''
-notesEl.value=''
-
-openModal()
-
-}
-
 async function save(){
 
 if(!titleEl.value.trim()){
@@ -300,47 +301,35 @@ alert("Debe ingresar un título")
 return
 }
 
-if(!startsEl.value){
-alert("Debe ingresar fecha y hora")
-return
-}
-
 const fecha = new Date(startsEl.value)
 
-if(isNaN(fecha.getTime())){
-alert("Fecha inválida")
-return
-}
-
 const payload = {
-title:titleEl.value.trim(),
-event_type:typeEl.value,
-client_id:clientEl.value || null,
-case_id:caseEl.value || null,
-external_name:externalNameEl.value.trim() || null,
-starts_at:fecha.toISOString(),
-notes:notesEl.value.trim() || null
-}
 
-let error
+title: titleEl.value.trim(),
+event_type: typeEl.value,
 
-if(editingId){
+client_id: clientEl.value || null,
+case_id: caseEl.value || null,
 
-({ error } = await supabase
-.from('appointments')
-.update(payload)
-.eq('id',editingId))
+external_name: externalNameEl.value.trim() || null,
 
-}else{
+email: emailEl.value.trim() || null,
+phone: phoneEl.value.trim() || null,
+meeting_mode: meetingModeEl.value || null,
+recording_authorized: recordingEl.value === "true",
 
-({ error } = await supabase
-.from('appointments')
-.insert(payload))
+starts_at: fecha.toISOString(),
+notes: notesEl.value.trim() || null
 
 }
+
+const { error } = await supabase
+.from('appointments')
+.insert(payload)
 
 if(error){
-alert("Error al guardar evento: "+error.message)
+alert("Error al guardar evento")
+console.error(error)
 return
 }
 
@@ -349,47 +338,15 @@ await loadEvents()
 
 }
 
-table.addEventListener("click", async (e)=>{
-
-if(!e.target.classList.contains("delete")) return
-
-const id = e.target.dataset.id
-
-if(!confirm("¿Eliminar este evento?")) return
-
-const { error } = await supabase
-.from("appointments")
-.delete()
-.eq("id",id)
-
-if(error){
-alert("Error al eliminar evento")
-return
-}
-
-await loadEvents()
-
-})
-
-searchEl.addEventListener("input", ()=>{
-
-const q = searchEl.value.toLowerCase()
-
-const filtered = cache.filter(e=>
-(e.title||'').toLowerCase().includes(q) ||
-(e.notes||'').toLowerCase().includes(q)
-)
-
-render(filtered)
-
-})
-
 document.addEventListener("DOMContentLoaded", () => {
 
-document.getElementById("btnNew").addEventListener("click", openNew)
-document.getElementById("btnSave").addEventListener("click", save)
+document.getElementById("btnNew").addEventListener("click", openModal)
+
 document.getElementById("btnCancel").addEventListener("click", closeModal)
+
 document.getElementById("btnClose").addEventListener("click", closeModal)
+
+document.getElementById("btnSave").addEventListener("click", save)
 
 })
 
