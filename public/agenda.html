@@ -30,14 +30,12 @@
 <div class="layout">
 
 <aside class="sidebar">
-
 <nav class="nav">
 <a class="nav-item" href="./panel.html">Panel</a>
 <a class="nav-item" href="./clientes.html">Clientes</a>
 <a class="nav-item" href="./causas.html">Causas</a>
 <a class="nav-item active" href="./agenda.html">Agenda</a>
 </nav>
-
 </aside>
 
 <main class="main">
@@ -87,6 +85,7 @@ Nuevo evento
 
 </div>
 
+
 <dialog id="modal" class="modal">
 
 <div class="modal-card">
@@ -95,9 +94,12 @@ Nuevo evento
 
 <div class="modal-title">Evento</div>
 
-<button class="modal-close" id="btnClose">✕</button>
+<button type="button" class="modal-close" id="btnClose">
+✕
+</button>
 
 </div>
+
 
 <div class="grid two">
 
@@ -134,7 +136,7 @@ Nuevo evento
 
 <label class="field full">
 <span>Persona si no es cliente</span>
-<input id="external_name" placeholder="Ej: Arquitecto Juan Soto">
+<input id="external_name">
 </label>
 
 <label class="field">
@@ -151,11 +153,11 @@ Nuevo evento
 
 <div class="modal-foot">
 
-<button class="btn btn-3d btn-secondary" id="btnCancel">
+<button type="button" class="btn btn-3d btn-secondary" id="btnCancel">
 Cancelar
 </button>
 
-<button class="btn btn-3d btn-primary" id="btnSave">
+<button type="button" class="btn btn-3d btn-primary" id="btnSave">
 Guardar
 </button>
 
@@ -164,6 +166,7 @@ Guardar
 </div>
 
 </dialog>
+
 
 <script type="module">
 
@@ -191,9 +194,20 @@ let cache = []
 let clientsMap = new Map()
 let editingId = null
 
+
+function openModal(){
+modal.showModal()
+}
+
+function closeModal(){
+modal.close()
+}
+
+
 function esc(s=''){
 return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
+
 
 function fmtDate(iso){
 const d = new Date(iso)
@@ -204,6 +218,7 @@ function fmtTime(iso){
 const d = new Date(iso)
 return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
 }
+
 
 async function loadClients(){
 
@@ -219,6 +234,7 @@ clientEl.innerHTML =
 
 }
 
+
 async function loadCases(){
 
 const { data } = await supabase
@@ -230,6 +246,7 @@ caseEl.innerHTML =
 (data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
 
 }
+
 
 function render(list){
 
@@ -265,17 +282,6 @@ return `
 
 }
 
-function applyFilter(){
-
-const q = (searchEl.value||'').toLowerCase()
-
-render(
-cache.filter(e=>
-`${e.title||''} ${e.notes||''}`.toLowerCase().includes(q)
-)
-)
-
-}
 
 async function loadEvents(){
 
@@ -290,6 +296,7 @@ render(cache)
 
 }
 
+
 function openNew(){
 
 editingId = null
@@ -302,9 +309,10 @@ externalNameEl.value = ''
 startsEl.value = ''
 notesEl.value = ''
 
-modal.showModal()
+openModal()
 
 }
+
 
 async function save(){
 
@@ -318,9 +326,9 @@ alert("Debe ingresar fecha y hora")
 return
 }
 
-const d = new Date(startsEl.value)
+const fecha = new Date(startsEl.value)
 
-if(isNaN(d.getTime())){
+if(isNaN(fecha.getTime())){
 alert("Fecha inválida")
 return
 }
@@ -332,7 +340,7 @@ event_type: typeEl.value,
 client_id: clientEl.value || null,
 case_id: caseEl.value || null,
 external_name: externalNameEl.value.trim() || null,
-starts_at: d.toISOString(),
+starts_at: fecha.toISOString(),
 notes: notesEl.value.trim() || null
 
 }
@@ -359,66 +367,18 @@ alert("Error al guardar evento")
 return
 }
 
-modal.close()
+closeModal()
 
 await loadEvents()
 
 }
 
-async function del(id){
-
-if(!confirm('¿Eliminar evento?')) return
-
-await supabase
-.from('appointments')
-.delete()
-.eq('id',id)
-
-await loadEvents()
-
-}
 
 btnNew.onclick = openNew
 btnSave.onclick = save
-btnCancel.onclick = () => modal.close()
-btnClose.onclick = () => modal.close()
+btnCancel.onclick = closeModal
+btnClose.onclick = closeModal
 
-searchEl.oninput = applyFilter
-
-document.addEventListener('click',(e)=>{
-
-const b1 = e.target.closest('.edit')
-const b2 = e.target.closest('.delete')
-
-if(b1) openEdit(b1.dataset.id)
-if(b2) del(b2.dataset.id)
-
-})
-
-function openEdit(id){
-
-const ev = cache.find(x=>x.id===id)
-if(!ev) return
-
-editingId = id
-
-titleEl.value = ev.title || ''
-typeEl.value = ev.event_type || ''
-clientEl.value = ev.client_id || ''
-caseEl.value = ev.case_id || ''
-externalNameEl.value = ev.external_name || ''
-
-const d = new Date(ev.starts_at)
-const pad=n=>String(n).padStart(2,'0')
-
-startsEl.value =
-`${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
-
-notesEl.value = ev.notes || ''
-
-modal.showModal()
-
-}
 
 await loadClients()
 await loadCases()
