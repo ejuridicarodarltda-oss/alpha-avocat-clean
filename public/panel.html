@@ -1,230 +1,161 @@
 <!DOCTYPE html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
 <title>Alpha Avocat - Panel</title>
+
 <link rel="stylesheet" href="style.css">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
 </head>
 
 <body>
 
 <div class="layout">
 
-<!-- SIDEBAR -->
 <aside class="sidebar">
 
-<div class="logo">
+<div class="logo-box">
 
-<div class="logo-icon">⚖</div>
+<div class="logo-balance">⚖</div>
 
-<div class="logo-text">
-<h2>ALPHA AVOCAT</h2>
-<p>Sistema de Gestión Jurídica Inteligente</p>
+<div class="logo-title">
+ALPHA AVOCAT
+</div>
+
+<div class="logo-sub">
+Sistema de Gestión Inteligente
 </div>
 
 </div>
 
 <nav class="menu">
 
-<a href="panel.html" class="menu-btn">🏠 Inicio</a>
-
-<a href="clientes.html" class="menu-btn">👤 Clientes</a>
-
-<a href="causas.html" class="menu-btn">📂 Causas</a>
-
-<a href="agenda.html" class="menu-btn">📅 Agenda</a>
-
-<a href="configuracion.html" class="menu-btn">⚙ Configuración</a>
+<a href="#"><i class="fa-solid fa-house"></i> Inicio</a>
+<a href="#"><i class="fa-solid fa-users"></i> Clientes</a>
+<a href="#"><i class="fa-solid fa-folder-open"></i> Causas</a>
+<a href="#"><i class="fa-solid fa-calendar"></i> Agenda</a>
+<a href="#"><i class="fa-solid fa-gear"></i> Configuración</a>
 
 </nav>
-
-<div class="user-connected">
-👤 Usuario conectado
-</div>
 
 </aside>
 
 
-<!-- MAIN -->
 <main class="main">
 
-<!-- TOP BAR -->
 <header class="topbar">
 
-<input class="search" placeholder="Buscar causa o cliente...">
-
-<div class="top-right">
-
-<div class="notif">🔔</div>
-
-<div class="avatar">
-👤 Usuario Activo
+<div class="search">
+<input type="text" placeholder="Buscar...">
 </div>
 
+<div class="top-icons">
+<i class="fa-solid fa-bell"></i>
+<i class="fa-solid fa-envelope"></i>
+<i class="fa-solid fa-user"></i>
 </div>
 
 </header>
 
 
-<!-- CONTENT -->
-<section class="content">
+<section class="dashboard">
 
-<h1>Bienvenido(a), Usuario Activo</h1>
-<p class="subtitle">Aquí está el resumen del día.</p>
+<div class="dashboard-grid">
 
-<div class="date">
-📅 <span id="fecha"></span>
-</div>
+<div class="dashboard-card blue">
 
-<!-- RESUMEN TARJETAS -->
+<i class="fa-solid fa-users card-icon"></i>
 
-<div class="cards">
-
-<div class="card blue">
-Clientes Activos
-<h2>1</h2>
-</div>
-
-<div class="card green">
-Causas Abiertas
-<h2>1</h2>
-</div>
-
-<div class="card red">
-Audiencias Hoy
-<h2>4</h2>
-</div>
-
-<div class="card orange">
-Tareas Pendientes
-<h2>0</h2>
-</div>
+<div class="card-title">Clientes Activos</div>
+<div class="card-number">48</div>
 
 </div>
 
 
-<!-- ACCIONES RAPIDAS -->
+<div class="dashboard-card green">
 
-<div class="panel-row">
+<i class="fa-solid fa-folder-open card-icon"></i>
 
-<div class="box">
+<div class="card-title">Causas Abiertas</div>
+<div class="card-number">12</div>
 
-<h3>Acciones rápidas</h3>
+</div>
 
-<div class="quick">
 
-<button class="btn blue">+ Nuevo Cliente</button>
+<div class="dashboard-card red">
 
-<button class="btn green">+ Nueva Causa</button>
+<i class="fa-solid fa-scale-balanced card-icon"></i>
 
-<button class="btn purple">+ Nuevo Evento</button>
+<div class="card-title">Audiencias Hoy</div>
+<div class="card-number">3</div>
 
-<button class="btn dark">+ Nuevo Documento</button>
+</div>
+
+
+<div class="dashboard-card orange">
+
+<i class="fa-solid fa-list-check card-icon"></i>
+
+<div class="card-title">Tareas Pendientes</div>
+<div class="card-number">7</div>
 
 </div>
 
 </div>
 
 
-<!-- ALERTAS -->
+<div class="alertas-plazos">
 
-<div class="box">
+<h2>⚠ Alertas de Plazos Procesales</h2>
 
-<h3>Alertas Jurídicas</h3>
+<ul id="lista-plazos"></ul>
 
-<ul class="alerts">
+</div>
 
-<li>
-🔴 Plazo: Contestación demanda — <b>3 días</b>
-</li>
 
-<li>
-🟡 Apelación vence mañana
-</li>
+<div class="control-juridico">
 
-<li>
-🔵 Audiencia hoy — 10:00 hrs
-</li>
 
+<div class="control-card">
+
+<h3>Audiencias de la Semana</h3>
+
+<ul>
+<li>Juzgado Civil — 10:00</li>
+<li>Tribunal Laboral — 12:30</li>
+<li>Tribunal de Garantía — 15:00</li>
 </ul>
 
 </div>
 
-</div>
 
+<div class="control-card">
 
-<!-- ULTIMAS CAUSAS -->
+<h3>Causas Activas</h3>
 
-<div class="panel-row">
-
-<div class="box">
-
-<h3>Últimas Causas</h3>
-
-<table>
-
-<tr>
-<th>Cliente</th>
-<th>Materia</th>
-<th>Estado</th>
-<th>Fecha</th>
-</tr>
-
-<tr>
-<td>María González</td>
-<td>Divorcio</td>
-<td class="state green">En proceso</td>
-<td>26/04/2024</td>
-</tr>
-
-<tr>
-<td>Luis Ramirez</td>
-<td>Accidente laboral</td>
-<td class="state red">Audiencia</td>
-<td>25/04/2024</td>
-</tr>
-
-<tr>
-<td>Empresa XYZ</td>
-<td>Cobranza</td>
-<td class="state orange">Archivada</td>
-<td>-</td>
-</tr>
-
-</table>
+<ul>
+<li>Rodríguez vs Pérez</li>
+<li>Empresa Norte Ltda</li>
+<li>Contrato Comercial 245</li>
+</ul>
 
 </div>
 
 
-<!-- PROXIMAS AUDIENCIAS -->
+<div class="control-card">
 
-<div class="box">
+<h3>Actividad Reciente</h3>
 
-<h3>Próximas Audiencias</h3>
-
-<div class="audiencia">
-
-👨‍⚖ José Martinez  
-<span>Tribunal Civil</span>  
-<b>Hoy 10:00</b>
-
-</div>
-
-<div class="audiencia">
-
-👩‍⚖ Paula Fernández  
-<span>Juzgado Familia</span>  
-<b>25/04 12:30</b>
-
-</div>
-
-<div class="audiencia">
-
-👨‍⚖ Carlos Muñoz  
-<span>Corte de Apelaciones</span>  
-<b>30/04 09:15</b>
-
-</div>
+<ul>
+<li>Nuevo cliente registrado</li>
+<li>Documento subido</li>
+<li>Audiencia agregada</li>
+</ul>
 
 </div>
 
@@ -237,16 +168,87 @@ Tareas Pendientes
 </div>
 
 
+
 <script>
 
-const fecha = new Date().toLocaleDateString('es-CL', {
-weekday:'long',
-year:'numeric',
-month:'long',
-day:'numeric'
+const causas = [
+
+{
+nombre:"Contestación demanda",
+fecha_notificacion:"2026-03-01",
+plazo:18
+},
+
+{
+nombre:"Apelación",
+fecha_notificacion:"2026-03-05",
+plazo:5
+}
+
+];
+
+
+function calcularVencimiento(fecha,dias){
+
+let f=new Date(fecha)
+
+f.setDate(f.getDate()+dias)
+
+return f
+
+}
+
+
+function diasRestantes(fecha){
+
+let hoy=new Date()
+
+let venc=new Date(fecha)
+
+let diff=venc-hoy
+
+return Math.ceil(diff/(1000*60*60*24))
+
+}
+
+
+function cargarAlertas(){
+
+const lista=document.getElementById("lista-plazos")
+
+causas.forEach(c=>{
+
+let venc=calcularVencimiento(c.fecha_notificacion,c.plazo)
+
+let dias=diasRestantes(venc)
+
+let li=document.createElement("li")
+
+if(dias<=1){
+
+li.innerHTML="🔴 "+c.nombre+" vence mañana"
+
+}
+
+else if(dias<=3){
+
+li.innerHTML="🟠 "+c.nombre+" vence en "+dias+" días"
+
+}
+
+else{
+
+li.innerHTML="🟢 "+c.nombre+" vence en "+dias+" días"
+
+}
+
+lista.appendChild(li)
+
 })
 
-document.getElementById("fecha").innerText = fecha
+}
+
+cargarAlertas()
 
 </script>
 
