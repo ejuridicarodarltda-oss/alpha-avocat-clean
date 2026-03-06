@@ -1,10 +1,54 @@
 <!doctype html>
 <html lang="es">
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+
 <title>Agenda — Alpha Avocat</title>
+
 <link rel="stylesheet" href="./style.css">
+
+<style>
+
+.modal-bg{
+position:fixed;
+inset:0;
+background:rgba(0,0,0,0.4);
+display:none;
+align-items:center;
+justify-content:center;
+z-index:1000;
+}
+
+.modal-bg.show{
+display:flex;
+}
+
+.modal-card{
+background:white;
+padding:20px;
+border-radius:10px;
+width:500px;
+max-width:95%;
+}
+
+.modal-head{
+display:flex;
+justify-content:space-between;
+align-items:center;
+margin-bottom:10px;
+}
+
+.modal-close{
+cursor:pointer;
+font-size:20px;
+border:none;
+background:none;
+}
+
+</style>
+
 </head>
 
 <body class="app-shell">
@@ -12,352 +56,219 @@
 <header class="topbar">
 
 <div class="brand">
-<div class="brand-mark">A</div>
-<div class="brand-text">
-<div class="brand-title">ALPHA AVOCAT</div>
-<div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
-</div>
+<h1>ALPHA AVOCAT</h1>
 </div>
 
-<div class="topbar-right">
-<a class="btn btn-3d btn-secondary" href="./panel.html">Panel</a>
-<a class="btn btn-3d btn-secondary" href="./clientes.html">Clientes</a>
-<a class="btn btn-3d btn-secondary" href="./causas.html">Causas</a>
-</div>
+<nav>
+<a href="panel.html">Panel</a>
+<a href="clientes.html">Clientes</a>
+<a href="causas.html">Causas</a>
+</nav>
 
 </header>
 
-<div class="layout">
+<main>
 
-<aside class="sidebar">
-<nav class="nav">
-<a class="nav-item" href="./panel.html">Panel</a>
-<a class="nav-item" href="./clientes.html">Clientes</a>
-<a class="nav-item" href="./causas.html">Causas</a>
-<a class="nav-item active" href="./agenda.html">Agenda</a>
-</nav>
-</aside>
+<h2>Agenda</h2>
 
-<main class="main">
+<button id="btnNew">Nuevo evento</button>
 
-<section class="card">
-
-<div class="card-head">
-
-<h2 class="card-title">Agenda</h2>
-
-<button class="btn btn-3d btn-primary" id="btnNew">
-Nuevo evento
-</button>
-
-<div class="search">
-<input id="search" type="search" placeholder="Buscar por título o notas">
-</div>
-
-</div>
-
-<div class="table-wrap">
-
-<table class="table">
+<table>
 
 <thead>
 <tr>
 <th>Fecha</th>
-<th>Hora</th>
 <th>Título</th>
 <th>Tipo</th>
-<th>Cliente / Persona</th>
-<th>Acciones</th>
+<th>Persona</th>
+<th></th>
 </tr>
 </thead>
 
 <tbody id="eventsTable">
-<tr><td colspan="6">Cargando agenda…</td></tr>
+<tr><td colspan="5">Cargando…</td></tr>
 </tbody>
 
 </table>
 
-</div>
-
-</section>
-
 </main>
 
-</div>
+<!-- MODAL -->
 
-<dialog id="modal" class="modal">
+<div id="modalBg" class="modal-bg">
 
 <div class="modal-card">
 
 <div class="modal-head">
 
-<div class="modal-title">Evento</div>
+<strong>Nuevo evento</strong>
 
-<button type="button" class="modal-close" id="btnClose">
-✕
-</button>
+<button class="modal-close" id="btnClose">✕</button>
 
 </div>
 
-<div class="grid two">
-
-<label class="field">
-<span>Título</span>
+<label>Título</label>
 <input id="title">
-</label>
 
-<label class="field">
-<span>Tipo</span>
+<label>Tipo</label>
 <select id="event_type">
 <option value="consulta">Consulta</option>
 <option value="reunion">Reunión</option>
 <option value="audiencia">Audiencia</option>
 <option value="alegato">Alegato</option>
-<option value="plazo">Plazo procesal</option>
-<option value="otro">Otro</option>
+<option value="plazo">Plazo</option>
 </select>
-</label>
 
-<label class="field">
-<span>Cliente registrado</span>
-<select id="client_id">
-<option value="">(ninguno)</option>
-</select>
-</label>
-
-<label class="field">
-<span>Causa</span>
-<select id="case_id">
-<option value="">(sin causa)</option>
-</select>
-</label>
-
-<label class="field full">
-<span>Persona si no es cliente</span>
+<label>Persona</label>
 <input id="external_name">
-</label>
 
-<label class="field">
-<span>Correo electrónico</span>
-<input id="email" type="email">
-</label>
+<label>Email</label>
+<input id="email">
 
-<label class="field">
-<span>Teléfono</span>
+<label>Teléfono</label>
 <input id="phone">
-</label>
 
-<label class="field">
-<span>Modalidad</span>
+<label>Modalidad</label>
 <select id="meeting_mode">
 <option value="presencial">Presencial</option>
 <option value="videoconferencia">Videoconferencia</option>
 </select>
-</label>
 
-<label class="field">
-<span>Autorización grabación</span>
+<label>Grabación autorizada</label>
 <select id="recording_authorized">
 <option value="true">Sí</option>
 <option value="false">No</option>
 </select>
-</label>
 
-<label class="field">
-<span>Fecha y hora</span>
+<label>Fecha</label>
 <input id="starts_at" type="datetime-local">
-</label>
 
-<label class="field full">
-<span>Notas</span>
-<textarea id="notes" rows="3"></textarea>
-</label>
+<label>Notas</label>
+<textarea id="notes"></textarea>
 
-</div>
+<br>
 
-<div class="modal-foot">
-
-<button type="button" class="btn btn-3d btn-secondary" id="btnCancel">
-Cancelar
-</button>
-
-<button type="button" class="btn btn-3d btn-primary" id="btnSave">
-Guardar
-</button>
+<button id="btnCancel">Cancelar</button>
+<button id="btnSave">Guardar</button>
 
 </div>
 
 </div>
-
-</dialog>
 
 <script type="module">
 
 import { supabase } from './app.js'
 
-const table = document.getElementById('eventsTable')
-const modal = document.getElementById('modal')
+const table = document.getElementById("eventsTable")
 
-const titleEl = document.getElementById('title')
-const typeEl = document.getElementById('event_type')
-const clientEl = document.getElementById('client_id')
-const caseEl = document.getElementById('case_id')
-const externalNameEl = document.getElementById('external_name')
-const emailEl = document.getElementById('email')
-const phoneEl = document.getElementById('phone')
-const meetingModeEl = document.getElementById('meeting_mode')
-const recordingEl = document.getElementById('recording_authorized')
-const startsEl = document.getElementById('starts_at')
-const notesEl = document.getElementById('notes')
+const modalBg = document.getElementById("modalBg")
 
-let cache = []
-let clientsMap = new Map()
-let editingId = null
+const btnNew = document.getElementById("btnNew")
+const btnClose = document.getElementById("btnClose")
+const btnCancel = document.getElementById("btnCancel")
+const btnSave = document.getElementById("btnSave")
 
-function openModal(){
-modal.showModal()
-}
+const titleEl = document.getElementById("title")
+const typeEl = document.getElementById("event_type")
+const externalNameEl = document.getElementById("external_name")
+const emailEl = document.getElementById("email")
+const phoneEl = document.getElementById("phone")
+const meetingModeEl = document.getElementById("meeting_mode")
+const recordingEl = document.getElementById("recording_authorized")
+const startsEl = document.getElementById("starts_at")
+const notesEl = document.getElementById("notes")
+
+btnNew.onclick = ()=> modalBg.classList.add("show")
+
+btnClose.onclick = closeModal
+btnCancel.onclick = closeModal
 
 function closeModal(){
-modal.close()
-}
-
-async function loadClients(){
-
-const { data } = await supabase
-.from('clients')
-.select('id, full_name, name')
-
-clientsMap = new Map((data||[]).map(c=>[c.id,c.full_name||c.name||'']))
-
-clientEl.innerHTML =
-`<option value="">(ninguno)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${c.full_name||c.name||''}</option>`).join('')
-
-}
-
-async function loadCases(){
-
-const { data } = await supabase
-.from('cases')
-.select('id, rol, title')
-
-caseEl.innerHTML =
-`<option value="">(sin causa)</option>` +
-(data||[]).map(c=>`<option value="${c.id}">${(c.rol||'')+' '+(c.title||'')}</option>`).join('')
-
+modalBg.classList.remove("show")
 }
 
 async function loadEvents(){
 
 const { data } = await supabase
-.from('appointments')
-.select('*')
-.order('starts_at',{ascending:true})
+.from("appointments")
+.select("*")
+.order("starts_at",{ascending:true})
 
-cache = data || []
-render(cache)
-
-}
-
-function render(list){
-
-if(!list.length){
-table.innerHTML = `<tr><td colspan="6">Sin eventos</td></tr>`
+if(!data || data.length===0){
+table.innerHTML=`<tr><td colspan="5">Sin eventos</td></tr>`
 return
 }
 
-table.innerHTML = list.map(e=>{
-
-let persona=''
-
-if(e.client_id){
-persona = clientsMap.get(e.client_id) || ''
-}else if(e.external_name){
-persona = e.external_name
-}
-
-return `
+table.innerHTML=data.map(e=>`
 <tr>
-<td>${new Date(e.starts_at).toLocaleDateString()}</td>
-<td>${new Date(e.starts_at).toLocaleTimeString()}</td>
-<td>${e.title||''}</td>
-<td>${e.event_type||''}</td>
-<td>${persona}</td>
+<td>${new Date(e.starts_at).toLocaleString()}</td>
+<td>${e.title||""}</td>
+<td>${e.event_type||""}</td>
+<td>${e.external_name||""}</td>
 <td>
-<button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
+<button class="delete" data-id="${e.id}">Eliminar</button>
 </td>
 </tr>
-`
-
-}).join('')
+`).join("")
 
 }
 
-async function save(){
+table.addEventListener("click", async e=>{
 
-if(!titleEl.value.trim()){
-alert("Debe ingresar un título")
-return
-}
+if(!e.target.classList.contains("delete")) return
+
+const id = e.target.dataset.id
+
+if(!confirm("¿Eliminar evento?")) return
+
+await supabase
+.from("appointments")
+.delete()
+.eq("id",id)
+
+loadEvents()
+
+})
+
+btnSave.onclick = async ()=>{
 
 const fecha = new Date(startsEl.value)
 
 const payload = {
 
-title: titleEl.value.trim(),
+title: titleEl.value,
 event_type: typeEl.value,
 
-client_id: clientEl.value || null,
-case_id: caseEl.value || null,
+external_name: externalNameEl.value || null,
 
-external_name: externalNameEl.value.trim() || null,
+email: emailEl.value || null,
+phone: phoneEl.value || null,
 
-email: emailEl.value.trim() || null,
-phone: phoneEl.value.trim() || null,
-meeting_mode: meetingModeEl.value || null,
+meeting_mode: meetingModeEl.value,
 recording_authorized: recordingEl.value === "true",
 
 starts_at: fecha.toISOString(),
-notes: notesEl.value.trim() || null
+
+notes: notesEl.value || null
 
 }
 
 const { error } = await supabase
-.from('appointments')
+.from("appointments")
 .insert(payload)
 
 if(error){
-alert("Error al guardar evento")
-console.error(error)
+alert(error.message)
 return
 }
 
 closeModal()
-await loadEvents()
+
+loadEvents()
 
 }
 
-document.addEventListener("DOMContentLoaded", () => {
-
-const btnNew = document.getElementById("btnNew")
-const btnCancel = document.getElementById("btnCancel")
-const btnClose = document.getElementById("btnClose")
-const btnSave = document.getElementById("btnSave")
-
-if(btnNew) btnNew.onclick = openModal
-
-if(btnCancel) btnCancel.onclick = closeModal
-
-if(btnClose) btnClose.onclick = closeModal
-
-if(btnSave) btnSave.onclick = save
-
-})
-
-await loadClients()
-await loadCases()
-await loadEvents()
+loadEvents()
 
 </script>
 
