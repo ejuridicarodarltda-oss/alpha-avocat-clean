@@ -1,178 +1,230 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
+
 <head>
+
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Panel — Alpha Avocat</title>
-<link rel="stylesheet" href="./style.css">
+
+<title>Alpha Avocat - Panel</title>
+
+<link rel="stylesheet" href="style.css">
+
 </head>
 
-<body class="app-shell">
+<body>
 
-<header class="topbar">
-  <div class="topbar-left">
-    <div class="brand-mark" aria-hidden="true">⚖</div>
-    <div class="brand-text">
-      <div class="brand-title">ALPHA AVOCAT</div>
-      <div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
-    </div>
-  </div>
+<div class="app">
 
-  <div class="topbar-center">
-    <div class="searchbar">
-      <span class="search-icon">⌕</span>
-      <input type="search" placeholder="Buscar causa o cliente...">
-    </div>
-  </div>
+<!-- SIDEBAR -->
 
-  <div class="topbar-right">
-    <button class="icon-btn" type="button" title="Notificaciones">
-      <span class="icon-bell">🔔</span>
-      <span class="badge">1</span>
-    </button>
+<div class="sidebar">
 
-    <div class="user-chip">
-      <span class="user-name">Mario Javier Rodríguez Ardiles</span>
-      <span class="user-caret">▾</span>
-    </div>
-  </div>
-</header>
+<div class="logo">
 
-<div class="layout">
+<img src="logo.png">
 
-  <aside class="sidebar">
-    <nav class="nav">
-      <a class="nav-item active" href="./panel.html">
-        <span class="nav-icon">▣</span>
-        <span>Panel</span>
-      </a>
+<h1>ALPHA AVOCAT</h1>
 
-      <a class="nav-item" href="./clientes.html">
-        <span class="nav-icon">👤</span>
-        <span>Clientes</span>
-      </a>
-
-      <a class="nav-item" href="./causas.html">
-        <span class="nav-icon">📁</span>
-        <span>Causas</span>
-      </a>
-
-      <a class="nav-item" href="./agenda.html">
-        <span class="nav-icon">🗓</span>
-        <span>Agenda</span>
-      </a>
-    </nav>
-
-    <div class="sidebar-foot">
-      <div class="sidebar-user">
-        <span class="sidebar-user-icon">👤</span>
-        <span>Mario Javier Rodríguez Ardiles</span>
-      </div>
-
-      <a class="nav-item logout" href="./login.html">
-        <span class="nav-icon">⏻</span>
-        <span>Cerrar sesión</span>
-      </a>
-    </div>
-  </aside>
-
-  <main class="main">
-
-    <section class="dashboard-grid">
-
-      <article class="card panel-card">
-        <div class="card-head">
-          <h2 class="card-title">Agenda de Hoy</h2>
-        </div>
-
-        <div class="stack">
-          <div class="mini-row">
-            <span class="mini-icon">🕘</span>
-            <div>
-              <div class="mini-main">10:30 — Audiencia</div>
-              <div class="mini-sub">Tribunal Civil</div>
-            </div>
-          </div>
-
-          <div class="mini-row">
-            <span class="mini-icon">🗂</span>
-            <div>
-              <div class="mini-main">12:00 — Reunión con cliente</div>
-              <div class="mini-sub">Revisión de antecedentes</div>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="card panel-card">
-        <div class="card-head">
-          <h2 class="card-title">Alertas Jurídicas</h2>
-        </div>
-
-        <div class="stack">
-          <div class="mini-row warning">
-            <span class="mini-icon">⚠</span>
-            <div>
-              <div class="mini-main">Plazo procesal mañana</div>
-              <div class="mini-sub">Causa C-1920-2026</div>
-            </div>
-          </div>
-
-          <div class="mini-row">
-            <span class="mini-icon">📁</span>
-            <div>
-              <div class="mini-main">Audiencia esta semana</div>
-              <div class="mini-sub">Causa RIT O-456-2025</div>
-            </div>
-          </div>
-        </div>
-      </article>
-
-      <article class="card panel-card">
-        <div class="card-head">
-          <h2 class="card-title">Acciones rápidas</h2>
-        </div>
-
-        <div class="action-list">
-          <a class="btn btn-3d btn-primary" href="./clientes.html">＋ Nuevo Cliente</a>
-          <a class="btn btn-3d btn-primary" href="./causas.html">＋ Nueva Causa</a>
-          <a class="btn btn-3d btn-primary" href="./agenda.html">＋ Nuevo Evento</a>
-        </div>
-      </article>
-
-      <article class="card wide-card">
-        <div class="card-head">
-          <h2 class="card-title">Resumen General</h2>
-        </div>
-
-        <div class="stats-grid">
-          <div class="stat-box">
-            <div class="stat-number">28</div>
-            <div class="stat-label">Clientes activos</div>
-          </div>
-
-          <div class="stat-box">
-            <div class="stat-number">14</div>
-            <div class="stat-label">Causas abiertas</div>
-          </div>
-
-          <div class="stat-box">
-            <div class="stat-number">3</div>
-            <div class="stat-label">Audiencias esta semana</div>
-          </div>
-
-          <div class="stat-box danger">
-            <div class="stat-number">1</div>
-            <div class="stat-label">Plazo crítico</div>
-          </div>
-        </div>
-      </article>
-
-    </section>
-
-  </main>
+<p>Sistema de Gestión Jurídica Inteligente</p>
 
 </div>
+
+<div class="menu">
+
+<button onclick="location.href='panel.html'">Inicio</button>
+<button onclick="location.href='clientes.html'">Clientes</button>
+<button onclick="location.href='causas.html'">Causas</button>
+<button onclick="location.href='agenda.html'">Agenda</button>
+<button onclick="location.href='configuracion.html'">Configuración</button>
+
+</div>
+
+</div>
+
+<!-- MAIN -->
+
+<div class="main">
+
+<!-- TOPBAR -->
+
+<div class="topbar">
+
+<div class="search">
+<input placeholder="Buscar causa o cliente...">
+</div>
+
+<div id="userName">
+Usuario
+</div>
+
+</div>
+
+<!-- CONTENT -->
+
+<div class="content">
+
+<div class="welcome" id="welcomeText">
+Bienvenido
+</div>
+
+<div class="subtitle">
+Aquí está el resumen del día.
+</div>
+
+<!-- RESUMEN CARDS -->
+
+<div class="cards">
+
+<div class="card blue">
+<h3>Clientes Activos</h3>
+<span id="clientesCount">0</span>
+</div>
+
+<div class="card green">
+<h3>Causas Abiertas</h3>
+<span id="causasCount">0</span>
+</div>
+
+<div class="card red">
+<h3>Audiencias Hoy</h3>
+<span id="audienciasCount">0</span>
+</div>
+
+<div class="card orange">
+<h3>Tareas Pendientes</h3>
+<span id="tareasCount">0</span>
+</div>
+
+</div>
+
+<!-- ACCIONES RAPIDAS -->
+
+<div class="actions">
+
+<h2>Acciones rápidas</h2>
+
+<button onclick="location.href='clientes.html'">Nuevo Cliente</button>
+<button onclick="location.href='causas.html'">Nueva Causa</button>
+<button onclick="location.href='agenda.html'">Nuevo Evento</button>
+
+</div>
+
+<!-- ALERTAS -->
+
+<div class="alerts">
+
+<h2>Alertas Jurídicas</h2>
+
+<div class="alert">
+Plazo para contestar demanda
+<span>3 días</span>
+</div>
+
+<div class="alert">
+Apelación vence mañana
+</div>
+
+<div class="alert">
+Audiencia hoy 10:00 hrs
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
+<!-- SCRIPT -->
+
+<script type="module">
+
+import { supabase, requireAuth } from "./app.js"
+
+/* ======================
+VALIDAR SESION
+====================== */
+
+const user = await requireAuth()
+
+if(user){
+
+const nombre = user.email || "Usuario"
+
+document.getElementById("userName").innerText = nombre
+
+document.getElementById("welcomeText").innerText =
+"Bienvenido, " + nombre
+
+}
+
+/* ======================
+CLIENTES ACTIVOS
+====================== */
+
+async function loadClientes(){
+
+const { count } = await supabase
+.from("clients")
+.select("*", { count:"exact", head:true })
+
+document.getElementById("clientesCount").innerText = count || 0
+
+}
+
+/* ======================
+CAUSAS ABIERTAS
+====================== */
+
+async function loadCausas(){
+
+const { count } = await supabase
+.from("cases")
+.select("*", { count:"exact", head:true })
+
+document.getElementById("causasCount").innerText = count || 0
+
+}
+
+/* ======================
+AUDIENCIAS HOY
+====================== */
+
+async function loadAudiencias(){
+
+const hoy = new Date().toISOString().slice(0,10)
+
+const { count } = await supabase
+.from("appointments")
+.select("*",{count:"exact", head:true})
+.gte("starts_at", hoy)
+
+document.getElementById("audienciasCount").innerText = count || 0
+
+}
+
+/* ======================
+TAREAS
+====================== */
+
+async function loadTareas(){
+
+document.getElementById("tareasCount").innerText = 0
+
+}
+
+/* ======================
+CARGAR PANEL
+====================== */
+
+loadClientes()
+loadCausas()
+loadAudiencias()
+loadTareas()
+
+</script>
 
 </body>
 </html>
