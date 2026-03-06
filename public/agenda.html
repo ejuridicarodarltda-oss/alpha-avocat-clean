@@ -185,7 +185,6 @@ let cache = []
 let clientsMap = new Map()
 let editingId = null
 
-
 function openModal(){
 if(!modal.open) modal.showModal()
 }
@@ -194,22 +193,17 @@ function closeModal(){
 if(modal.open) modal.close()
 }
 
-
 function esc(s=''){
 return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
 
-
 function fmtDate(iso){
-const d = new Date(iso)
-return d.toLocaleDateString('es-CL')
+return new Date(iso).toLocaleDateString('es-CL')
 }
 
 function fmtTime(iso){
-const d = new Date(iso)
-return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
+return new Date(iso).toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
 }
-
 
 async function loadClients(){
 
@@ -225,7 +219,6 @@ clientEl.innerHTML =
 
 }
 
-
 async function loadCases(){
 
 const { data } = await supabase
@@ -237,7 +230,6 @@ caseEl.innerHTML =
 (data||[]).map(c=>`<option value="${c.id}">${esc((c.rol||'')+' '+(c.title||''))}</option>`).join('')
 
 }
-
 
 function render(list){
 
@@ -258,10 +250,10 @@ persona = e.external_name
 
 return `
 <tr>
-<td>${esc(fmtDate(e.starts_at))}</td>
-<td>${esc(fmtTime(e.starts_at))}</td>
-<td>${esc(e.title||'')}</td>
-<td>${esc(e.event_type||'')}</td>
+<td>${fmtDate(e.starts_at)}</td>
+<td>${fmtTime(e.starts_at)}</td>
+<td>${esc(e.title)}</td>
+<td>${esc(e.event_type)}</td>
 <td>${esc(persona)}</td>
 <td>
 <button class="btn btn-small delete" data-id="${e.id}">Eliminar</button>
@@ -272,7 +264,6 @@ return `
 }).join('')
 
 }
-
 
 async function loadEvents(){
 
@@ -285,7 +276,6 @@ cache = data || []
 render(cache)
 
 }
-
 
 function openNew(){
 
@@ -302,7 +292,6 @@ notesEl.value=''
 openModal()
 
 }
-
 
 async function save(){
 
@@ -324,41 +313,34 @@ return
 }
 
 const payload = {
-
-title: titleEl.value.trim(),
-event_type: typeEl.value,
-client_id: clientEl.value || null,
-case_id: caseEl.value || null,
-external_name: externalNameEl.value.trim() || null,
-starts_at: fecha.toISOString(),
-notes: notesEl.value.trim() || null
-
+title:titleEl.value.trim(),
+event_type:typeEl.value,
+client_id:clientEl.value || null,
+case_id:caseEl.value || null,
+external_name:externalNameEl.value.trim() || null,
+starts_at:fecha.toISOString(),
+notes:notesEl.value.trim() || null
 }
 
 let error
 
 if(editingId){
 
-const response = await supabase
+({ error } = await supabase
 .from('appointments')
 .update(payload)
-.eq('id',editingId)
-
-error = response.error
+.eq('id',editingId))
 
 }else{
 
-const response = await supabase
+({ error } = await supabase
 .from('appointments')
-.insert(payload)
-
-error = response.error
+.insert(payload))
 
 }
 
 if(error){
-console.error(error)
-alert("Error al guardar evento: " + error.message)
+alert("Error al guardar evento: "+error.message)
 return
 }
 
@@ -366,7 +348,6 @@ closeModal()
 await loadEvents()
 
 }
-
 
 table.addEventListener("click", async (e)=>{
 
@@ -390,6 +371,18 @@ await loadEvents()
 
 })
 
+searchEl.addEventListener("input", ()=>{
+
+const q = searchEl.value.toLowerCase()
+
+const filtered = cache.filter(e=>
+(e.title||'').toLowerCase().includes(q) ||
+(e.notes||'').toLowerCase().includes(q)
+)
+
+render(filtered)
+
+})
 
 document.addEventListener("DOMContentLoaded", () => {
 
@@ -399,7 +392,6 @@ document.getElementById("btnCancel").addEventListener("click", closeModal)
 document.getElementById("btnClose").addEventListener("click", closeModal)
 
 })
-
 
 await loadClients()
 await loadCases()
