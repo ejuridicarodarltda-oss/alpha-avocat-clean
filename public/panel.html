@@ -1,154 +1,178 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Panel — Alpha Avocat</title>
-  <link rel="stylesheet" href="./style.css" />
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Panel — Alpha Avocat</title>
+<link rel="stylesheet" href="./style.css">
 </head>
 
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <!-- Si subes logo.png a /public, reemplaza la “A” por el <img> indicado abajo -->
-      <div class="brand-mark">A</div>
-      <!--
-      <div class="brand-mark" style="padding:0; overflow:hidden;">
-        <img src="./logo.png" alt="Alpha Avocat" style="width:100%;height:100%;object-fit:cover;display:block;">
-      </div>
-      -->
-      <div class="brand-text">
-        <div class="brand-title">ALPHA AVOCAT</div>
-        <div class="brand-subtitle">Sistema de Gestión Jurídica Inteligente</div>
-      </div>
+<body class="app-shell">
+
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="brand-mark" aria-hidden="true">⚖</div>
+    <div class="brand-text">
+      <div class="brand-title">ALPHA AVOCAT</div>
+      <div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
     </div>
-
-    <div class="topbar-actions">
-      <a class="btn btn-ghost btn-3d" href="./clientes.html">Clientes</a>
-      <a class="btn btn-ghost btn-3d" href="./causas.html">Causas</a>
-      <a class="btn btn-ghost btn-3d" href="./agenda.html">Agenda</a>
-      <button id="btnLogoutTop" class="btn btn-danger btn-3d">Cerrar sesión</button>
-    </div>
-  </header>
-
-  <div class="layout">
-    <aside class="sidebar">
-      <nav class="nav">
-        <a class="nav-link active" href="./panel.html">Panel</a>
-        <a class="nav-link" href="./clientes.html">Clientes</a>
-        <a class="nav-link" href="./causas.html">Causas</a>
-        <a class="nav-link" href="./agenda.html">Agenda</a>
-      </nav>
-
-      <div class="sidebar-card">
-        <div class="sidebar-card-title">Acceso a registro</div>
-        <div style="display:flex; flex-direction:column; gap:10px;">
-          <a class="btn btn-primary btn-3d w-full" href="./clientes.html">+ Nuevo cliente</a>
-          <a class="btn btn-primary btn-3d w-full" href="./causas.html">+ Nueva causa</a>
-          <a class="btn btn-primary btn-3d w-full" href="./agenda.html">+ Nuevo evento</a>
-        </div>
-      </div>
-
-      <div class="sidebar-card" style="margin-top:12px;">
-        <div class="sidebar-card-title">Sesión</div>
-        <div class="muted" id="whoami">Cargando…</div>
-        <button id="btnLogout" class="btn btn-danger btn-3d w-full" style="margin-top:10px;">Cerrar sesión</button>
-      </div>
-    </aside>
-
-    <main class="content">
-      <section class="card">
-        <div class="card-header">
-          <h1>Panel principal</h1>
-          <div class="muted" id="dateLabel">—</div>
-        </div>
-
-        <div style="padding: 12px 16px 16px 16px;">
-          <!-- Resumen del día (simple, sin métricas internas) -->
-          <div class="card" style="box-shadow:none; border: 1px solid rgba(15,23,42,.08); background: rgba(255,255,255,.70);">
-            <div class="card-header" style="border-bottom: 1px solid rgba(15,23,42,.06);">
-              <h1 style="font-size:16px; margin:0;">Resumen del día</h1>
-              <div class="muted" id="summaryHint">—</div>
-            </div>
-            <div style="padding: 14px 16px;">
-              <ul class="muted" style="margin:0; padding-left:18px; line-height:1.7;">
-                <li>Revisa novedades en <b>Agenda</b>, y registra reuniones/atenciones/audiencias.</li>
-                <li>Gestiona <b>Clientes</b> y crea nuevos registros cuando sea necesario.</li>
-                <li>Gestiona <b>Causas</b> y agrega nuevas causas asociadas a clientes.</li>
-              </ul>
-            </div>
-          </div>
-
-          <!-- Accesos principales -->
-          <div style="display:grid; grid-template-columns: repeat(3, 1fr); gap:12px; margin-top:14px;">
-            <a class="card" href="./clientes.html" style="text-decoration:none; color:inherit;">
-              <div style="padding:16px;">
-                <div style="font-weight:900; font-size:14px;">Clientes</div>
-                <div class="muted" style="margin-top:6px;">Crear, buscar, eliminar y administrar clientes.</div>
-                <div style="margin-top:12px;">
-                  <span class="pill">Abrir</span>
-                </div>
-              </div>
-            </a>
-
-            <a class="card" href="./causas.html" style="text-decoration:none; color:inherit;">
-              <div style="padding:16px;">
-                <div style="font-weight:900; font-size:14px;">Causas</div>
-                <div class="muted" style="margin-top:6px;">Registrar causas, asociar cliente, honorarios.</div>
-                <div style="margin-top:12px;">
-                  <span class="pill">Abrir</span>
-                </div>
-              </div>
-            </a>
-
-            <a class="card" href="./agenda.html" style="text-decoration:none; color:inherit;">
-              <div style="padding:16px;">
-                <div style="font-weight:900; font-size:14px;">Agenda</div>
-                <div class="muted" style="margin-top:6px;">Eventos, reuniones, reseña y acuerdos.</div>
-                <div style="margin-top:12px;">
-                  <span class="pill">Abrir</span>
-                </div>
-              </div>
-            </a>
-          </div>
-
-          <!-- Nota de uso -->
-          <div class="muted" style="margin-top:14px;">
-            Consejo: si no ves cambios visuales, recarga con <b>Ctrl+F5</b> o abre en modo incógnito.
-          </div>
-        </div>
-      </section>
-    </main>
   </div>
 
-  <script type="module">
-    import { supabase } from './app.js';
+  <div class="topbar-center">
+    <div class="searchbar">
+      <span class="search-icon">⌕</span>
+      <input type="search" placeholder="Buscar causa o cliente...">
+    </div>
+  </div>
 
-    // Guard: sesión
-    const { data } = await supabase.auth.getSession();
-    if (!data?.session) {
-      window.location.href = './login.html';
-    }
+  <div class="topbar-right">
+    <button class="icon-btn" type="button" title="Notificaciones">
+      <span class="icon-bell">🔔</span>
+      <span class="badge">1</span>
+    </button>
 
-    // Mostrar usuario
-    const email = data?.session?.user?.email || '(sesión)';
-    document.getElementById('whoami').textContent = `Sesión iniciada como: ${email}`;
+    <div class="user-chip">
+      <span class="user-name">Mario Javier Rodríguez Ardiles</span>
+      <span class="user-caret">▾</span>
+    </div>
+  </div>
+</header>
 
-    // Fecha
-    const now = new Date();
-    const dateLabel = now.toLocaleDateString('es-CL', { weekday:'long', year:'numeric', month:'long', day:'numeric' });
-    document.getElementById('dateLabel').textContent = dateLabel;
+<div class="layout">
 
-    // Hint
-    document.getElementById('summaryHint').textContent = 'Accesos rápidos a módulos';
+  <aside class="sidebar">
+    <nav class="nav">
+      <a class="nav-item active" href="./panel.html">
+        <span class="nav-icon">▣</span>
+        <span>Panel</span>
+      </a>
 
-    // Logout
-    async function doLogout(){
-      await supabase.auth.signOut();
-      window.location.href = './login.html';
-    }
-    document.getElementById('btnLogout').addEventListener('click', doLogout);
-    document.getElementById('btnLogoutTop').addEventListener('click', doLogout);
-  </script>
+      <a class="nav-item" href="./clientes.html">
+        <span class="nav-icon">👤</span>
+        <span>Clientes</span>
+      </a>
+
+      <a class="nav-item" href="./causas.html">
+        <span class="nav-icon">📁</span>
+        <span>Causas</span>
+      </a>
+
+      <a class="nav-item" href="./agenda.html">
+        <span class="nav-icon">🗓</span>
+        <span>Agenda</span>
+      </a>
+    </nav>
+
+    <div class="sidebar-foot">
+      <div class="sidebar-user">
+        <span class="sidebar-user-icon">👤</span>
+        <span>Mario Javier Rodríguez Ardiles</span>
+      </div>
+
+      <a class="nav-item logout" href="./login.html">
+        <span class="nav-icon">⏻</span>
+        <span>Cerrar sesión</span>
+      </a>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <section class="dashboard-grid">
+
+      <article class="card panel-card">
+        <div class="card-head">
+          <h2 class="card-title">Agenda de Hoy</h2>
+        </div>
+
+        <div class="stack">
+          <div class="mini-row">
+            <span class="mini-icon">🕘</span>
+            <div>
+              <div class="mini-main">10:30 — Audiencia</div>
+              <div class="mini-sub">Tribunal Civil</div>
+            </div>
+          </div>
+
+          <div class="mini-row">
+            <span class="mini-icon">🗂</span>
+            <div>
+              <div class="mini-main">12:00 — Reunión con cliente</div>
+              <div class="mini-sub">Revisión de antecedentes</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card panel-card">
+        <div class="card-head">
+          <h2 class="card-title">Alertas Jurídicas</h2>
+        </div>
+
+        <div class="stack">
+          <div class="mini-row warning">
+            <span class="mini-icon">⚠</span>
+            <div>
+              <div class="mini-main">Plazo procesal mañana</div>
+              <div class="mini-sub">Causa C-1920-2026</div>
+            </div>
+          </div>
+
+          <div class="mini-row">
+            <span class="mini-icon">📁</span>
+            <div>
+              <div class="mini-main">Audiencia esta semana</div>
+              <div class="mini-sub">Causa RIT O-456-2025</div>
+            </div>
+          </div>
+        </div>
+      </article>
+
+      <article class="card panel-card">
+        <div class="card-head">
+          <h2 class="card-title">Acciones rápidas</h2>
+        </div>
+
+        <div class="action-list">
+          <a class="btn btn-3d btn-primary" href="./clientes.html">＋ Nuevo Cliente</a>
+          <a class="btn btn-3d btn-primary" href="./causas.html">＋ Nueva Causa</a>
+          <a class="btn btn-3d btn-primary" href="./agenda.html">＋ Nuevo Evento</a>
+        </div>
+      </article>
+
+      <article class="card wide-card">
+        <div class="card-head">
+          <h2 class="card-title">Resumen General</h2>
+        </div>
+
+        <div class="stats-grid">
+          <div class="stat-box">
+            <div class="stat-number">28</div>
+            <div class="stat-label">Clientes activos</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-number">14</div>
+            <div class="stat-label">Causas abiertas</div>
+          </div>
+
+          <div class="stat-box">
+            <div class="stat-number">3</div>
+            <div class="stat-label">Audiencias esta semana</div>
+          </div>
+
+          <div class="stat-box danger">
+            <div class="stat-number">1</div>
+            <div class="stat-label">Plazo crítico</div>
+          </div>
+        </div>
+      </article>
+
+    </section>
+
+  </main>
+
+</div>
+
 </body>
 </html>
