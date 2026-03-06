@@ -3,161 +3,238 @@
 <head>
 <meta charset="UTF-8">
 <title>Alpha Avocat - Panel</title>
-<link rel="stylesheet" href="style.css">
+
+<style>
+
+body{
+margin:0;
+font-family:Arial, Helvetica, sans-serif;
+background:#f3f4f6;
+}
+
+/* Layout general */
+
+.container{
+display:flex;
+height:100vh;
+}
+
+/* Sidebar */
+
+.sidebar{
+width:240px;
+background:#0f3c6e;
+color:white;
+padding:20px;
+}
+
+.logo{
+font-size:22px;
+font-weight:bold;
+margin-bottom:30px;
+}
+
+.menu{
+list-style:none;
+padding:0;
+}
+
+.menu li{
+padding:12px;
+margin-bottom:8px;
+background:rgba(255,255,255,0.08);
+border-radius:8px;
+cursor:pointer;
+}
+
+/* Main */
+
+.main{
+flex:1;
+display:flex;
+flex-direction:column;
+}
+
+/* Barra superior */
+
+.topbar{
+background:#8b1e2d;
+color:white;
+padding:15px 25px;
+display:flex;
+justify-content:space-between;
+align-items:center;
+}
+
+.search{
+background:white;
+padding:8px 15px;
+border-radius:6px;
+width:300px;
+border:none;
+}
+
+/* Contenido */
+
+.content{
+padding:25px;
+}
+
+/* Tarjetas */
+
+.cards{
+display:flex;
+gap:20px;
+margin-top:20px;
+}
+
+.card{
+flex:1;
+padding:20px;
+color:white;
+border-radius:10px;
+}
+
+.blue{background:#2563eb;}
+.green{background:#10b981;}
+.red{background:#ef4444;}
+.orange{background:#f59e0b;}
+
+/* Acciones */
+
+.actions{
+margin-top:25px;
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:15px;
+}
+
+.btn{
+padding:15px;
+border:none;
+border-radius:8px;
+color:white;
+font-weight:bold;
+cursor:pointer;
+}
+
+.btn-client{background:#2563eb;}
+.btn-case{background:#10b981;}
+.btn-event{background:#7c3aed;}
+.btn-doc{background:#374151;}
+
+/* Paneles inferiores */
+
+.panels{
+display:grid;
+grid-template-columns:1fr 1fr;
+gap:20px;
+margin-top:30px;
+}
+
+.panel{
+background:white;
+padding:20px;
+border-radius:10px;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+}
+
+th,td{
+padding:10px;
+border-bottom:1px solid #eee;
+text-align:left;
+}
+
+</style>
 </head>
 
 <body>
 
-<div class="layout">
+<div class="container">
 
-<!-- SIDEBAR -->
-<aside class="sidebar">
+<!-- Sidebar -->
+
+<div class="sidebar">
 
 <div class="logo">
-
-<div class="logo-icon">⚖</div>
-
-<div class="logo-text">
-<h2>ALPHA AVOCAT</h2>
-<p>Sistema de Gestión Jurídica Inteligente</p>
+ALPHA AVOCAT
 </div>
 
+<ul class="menu">
+<li>Inicio</li>
+<li>Clientes</li>
+<li>Causas</li>
+<li>Agenda</li>
+<li>Configuración</li>
+</ul>
+
 </div>
 
-<nav class="menu">
+<!-- Main -->
 
-<a href="panel.html" class="menu-btn">🏠 Inicio</a>
+<div class="main">
 
-<a href="clientes.html" class="menu-btn">👤 Clientes</a>
-
-<a href="causas.html" class="menu-btn">📂 Causas</a>
-
-<a href="agenda.html" class="menu-btn">📅 Agenda</a>
-
-<a href="configuracion.html" class="menu-btn">⚙ Configuración</a>
-
-</nav>
-
-<div class="user-connected">
-👤 Usuario conectado
-</div>
-
-</aside>
-
-
-<!-- MAIN -->
-<main class="main">
-
-<!-- TOP BAR -->
-<header class="topbar">
+<div class="topbar">
 
 <input class="search" placeholder="Buscar causa o cliente...">
 
-<div class="top-right">
-
-<div class="notif">🔔</div>
-
-<div class="avatar">
-👤 Usuario Activo
-</div>
+<div>Usuario Activo</div>
 
 </div>
 
-</header>
+<div class="content">
 
+<h2>Bienvenido(a), Usuario Activo</h2>
+<p>Aquí está el resumen del día.</p>
 
-<!-- CONTENT -->
-<section class="content">
-
-<h1>Bienvenido(a), Usuario Activo</h1>
-<p class="subtitle">Aquí está el resumen del día.</p>
-
-<div class="date">
-📅 <span id="fecha"></span>
-</div>
-
-<!-- RESUMEN TARJETAS -->
+<!-- Tarjetas -->
 
 <div class="cards">
 
 <div class="card blue">
 Clientes Activos
-<h2>1</h2>
+<h1>1</h1>
 </div>
 
 <div class="card green">
 Causas Abiertas
-<h2>1</h2>
+<h1>1</h1>
 </div>
 
 <div class="card red">
 Audiencias Hoy
-<h2>4</h2>
+<h1>4</h1>
 </div>
 
 <div class="card orange">
 Tareas Pendientes
-<h2>0</h2>
+<h1>0</h1>
 </div>
 
 </div>
 
-
-<!-- ACCIONES RAPIDAS -->
-
-<div class="panel-row">
-
-<div class="box">
+<!-- Acciones rápidas -->
 
 <h3>Acciones rápidas</h3>
 
-<div class="quick">
+<div class="actions">
 
-<button class="btn blue">+ Nuevo Cliente</button>
-
-<button class="btn green">+ Nueva Causa</button>
-
-<button class="btn purple">+ Nuevo Evento</button>
-
-<button class="btn dark">+ Nuevo Documento</button>
+<button class="btn btn-client">Nuevo Cliente</button>
+<button class="btn btn-case">Nueva Causa</button>
+<button class="btn btn-event">Nuevo Evento</button>
+<button class="btn btn-doc">Nuevo Documento</button>
 
 </div>
 
-</div>
+<!-- Paneles inferiores -->
 
+<div class="panels">
 
-<!-- ALERTAS -->
-
-<div class="box">
-
-<h3>Alertas Jurídicas</h3>
-
-<ul class="alerts">
-
-<li>
-🔴 Plazo: Contestación demanda — <b>3 días</b>
-</li>
-
-<li>
-🟡 Apelación vence mañana
-</li>
-
-<li>
-🔵 Audiencia hoy — 10:00 hrs
-</li>
-
-</ul>
-
-</div>
-
-</div>
-
-
-<!-- ULTIMAS CAUSAS -->
-
-<div class="panel-row">
-
-<div class="box">
+<div class="panel">
 
 <h3>Últimas Causas</h3>
 
@@ -167,62 +244,34 @@ Tareas Pendientes
 <th>Cliente</th>
 <th>Materia</th>
 <th>Estado</th>
-<th>Fecha</th>
+<th>Próxima Fecha</th>
 </tr>
 
 <tr>
 <td>María González</td>
 <td>Divorcio</td>
-<td class="state green">En proceso</td>
-<td>26/04/2024</td>
+<td>En proceso</td>
+<td>26/04</td>
 </tr>
 
 <tr>
-<td>Luis Ramirez</td>
-<td>Accidente laboral</td>
-<td class="state red">Audiencia</td>
-<td>25/04/2024</td>
-</tr>
-
-<tr>
-<td>Empresa XYZ</td>
-<td>Cobranza</td>
-<td class="state orange">Archivada</td>
-<td>-</td>
+<td>Luis Ramírez</td>
+<td>Accidente</td>
+<td>Audiencia</td>
+<td>25/04</td>
 </tr>
 
 </table>
 
 </div>
 
-
-<!-- PROXIMAS AUDIENCIAS -->
-
-<div class="box">
+<div class="panel">
 
 <h3>Próximas Audiencias</h3>
 
-<div class="audiencia">
-
-👨‍⚖ José Martinez  
-<span>Tribunal Civil</span>  
-<b>Hoy 10:00</b>
-
-</div>
-
-<div class="audiencia">
-
-👩‍⚖ Paula Fernández  
-<span>Juzgado Familia</span>  
-<b>25/04 12:30</b>
-
-</div>
-
-<div class="audiencia">
-
-👨‍⚖ Carlos Muñoz  
-<span>Corte de Apelaciones</span>  
-<b>30/04 09:15</b>
+<p>José Martínez — Hoy 10:00</p>
+<p>Paula Fernández — 25/04</p>
+<p>Carlos Muñoz — 30/04</p>
 
 </div>
 
@@ -230,25 +279,9 @@ Tareas Pendientes
 
 </div>
 
-</section>
-
-</main>
-
 </div>
 
-
-<script>
-
-const fecha = new Date().toLocaleDateString('es-CL', {
-weekday:'long',
-year:'numeric',
-month:'long',
-day:'numeric'
-})
-
-document.getElementById("fecha").innerText = fecha
-
-</script>
+</div>
 
 </body>
 </html>
