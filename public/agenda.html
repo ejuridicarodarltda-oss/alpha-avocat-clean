@@ -345,11 +345,11 @@ const btnCancel = document.getElementById("btnCancel")
 const btnClose = document.getElementById("btnClose")
 const btnSave = document.getElementById("btnSave")
 
-if(btnNew) btnNew.onclick = () => modal.showModal()
+if(btnNew) btnNew.onclick = openModal
 
-if(btnCancel) btnCancel.onclick = () => modal.close()
+if(btnCancel) btnCancel.onclick = closeModal
 
-if(btnClose) btnClose.onclick = () => modal.close()
+if(btnClose) btnClose.onclick = closeModal
 
 if(btnSave) btnSave.onclick = save
 
