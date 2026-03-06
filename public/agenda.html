@@ -187,16 +187,18 @@ let editingId = null
 
 
 function openModal(){
-modal.showModal()
+if(!modal.open) modal.showModal()
 }
 
 function closeModal(){
-modal.close()
+if(modal.open) modal.close()
 }
+
 
 function esc(s=''){
 return String(s ?? '').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))
 }
+
 
 function fmtDate(iso){
 const d = new Date(iso)
@@ -207,6 +209,7 @@ function fmtTime(iso){
 const d = new Date(iso)
 return d.toLocaleTimeString('es-CL',{hour:'2-digit',minute:'2-digit'})
 }
+
 
 async function loadClients(){
 
@@ -222,6 +225,7 @@ clientEl.innerHTML =
 
 }
 
+
 async function loadCases(){
 
 const { data } = await supabase
@@ -234,6 +238,7 @@ caseEl.innerHTML =
 
 }
 
+
 function render(list){
 
 if(!list.length){
@@ -243,7 +248,7 @@ return
 
 table.innerHTML = list.map(e=>{
 
-let persona = ''
+let persona=''
 
 if(e.client_id){
 persona = clientsMap.get(e.client_id) || ''
@@ -263,9 +268,11 @@ return `
 </td>
 </tr>
 `
+
 }).join('')
 
 }
+
 
 async function loadEvents(){
 
@@ -279,21 +286,23 @@ render(cache)
 
 }
 
+
 function openNew(){
 
 editingId = null
 
-titleEl.value = ''
-typeEl.value = 'consulta'
-clientEl.value = ''
-caseEl.value = ''
-externalNameEl.value = ''
-startsEl.value = ''
-notesEl.value = ''
+titleEl.value=''
+typeEl.value='consulta'
+clientEl.value=''
+caseEl.value=''
+externalNameEl.value=''
+startsEl.value=''
+notesEl.value=''
 
 openModal()
 
 }
+
 
 async function save(){
 
@@ -326,26 +335,30 @@ notes: notesEl.value.trim() || null
 
 }
 
-let result
+let error
 
 if(editingId){
 
-result = await supabase
+const response = await supabase
 .from('appointments')
 .update(payload)
 .eq('id',editingId)
 
+error = response.error
+
 }else{
 
-result = await supabase
+const response = await supabase
 .from('appointments')
 .insert(payload)
 
+error = response.error
+
 }
 
-if(result.error){
-console.error(result.error)
-alert("Error al guardar evento")
+if(error){
+console.error(error)
+alert("Error al guardar evento: " + error.message)
 return
 }
 
@@ -354,19 +367,39 @@ await loadEvents()
 
 }
 
-document.addEventListener("DOMContentLoaded", () => {
 
-const btnNew = document.getElementById("btnNew")
-const btnSave = document.getElementById("btnSave")
-const btnCancel = document.getElementById("btnCancel")
-const btnClose = document.getElementById("btnClose")
+table.addEventListener("click", async (e)=>{
 
-if(btnNew) btnNew.addEventListener("click", openNew)
-if(btnSave) btnSave.addEventListener("click", save)
-if(btnCancel) btnCancel.addEventListener("click", closeModal)
-if(btnClose) btnClose.addEventListener("click", closeModal)
+if(!e.target.classList.contains("delete")) return
+
+const id = e.target.dataset.id
+
+if(!confirm("¿Eliminar este evento?")) return
+
+const { error } = await supabase
+.from("appointments")
+.delete()
+.eq("id",id)
+
+if(error){
+alert("Error al eliminar evento")
+return
+}
+
+await loadEvents()
 
 })
+
+
+document.addEventListener("DOMContentLoaded", () => {
+
+document.getElementById("btnNew").addEventListener("click", openNew)
+document.getElementById("btnSave").addEventListener("click", save)
+document.getElementById("btnCancel").addEventListener("click", closeModal)
+document.getElementById("btnClose").addEventListener("click", closeModal)
+
+})
+
 
 await loadClients()
 await loadCases()
