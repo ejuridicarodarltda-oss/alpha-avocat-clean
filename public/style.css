@@ -243,3 +243,80 @@ padding:10px;
 font-size:12px;
 color:#444;
 }
+/* ===== Mejoras visuales Alpha Avocat ===== */
+
+/* Logo más visible */
+.logo img{
+  width:110px;
+  filter:drop-shadow(0 8px 14px rgba(0,0,0,.6));
+}
+
+/* Iconos de menú con color suave */
+.menu .icon{
+  font-size:18px;
+  width:22px;
+  text-align:center;
+}
+
+/* Tarjetas con gradiente y más profundidad */
+.azul{
+  background:linear-gradient(135deg,#3b82f6,#2563eb);
+}
+.verde{
+  background:linear-gradient(135deg,#10b981,#059669);
+}
+.rojo{
+  background:linear-gradient(135deg,#ef4444,#dc2626);
+}
+.naranja{
+  background:linear-gradient(135deg,#f59e0b,#d97706);
+}
+
+.card{
+  box-shadow:
+    0 10px 25px rgba(0,0,0,.25),
+    inset 0 1px 0 rgba(255,255,255,.35);
+  transition:transform .2s, box-shadow .2s;
+}
+
+.card:hover{
+  transform:translateY(-4px);
+  box-shadow:
+    0 16px 35px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,.4);
+}
+
+.card-icon{
+  font-size:28px;
+  margin-bottom:10px;
+}
+
+/* Botones con relieve */
+.botones button{
+  box-shadow:0 6px 14px rgba(0,0,0,.25);
+  transition:transform .15s, box-shadow .15s;
+}
+
+.botones button:hover{
+  transform:translateY(-2px);
+  box-shadow:0 10px 18px rgba(0,0,0,.35);
+}
+
+/* Paneles inferiores con borde de color */
+.panel:nth-child(1){
+  border-top:4px solid #3b82f6;
+}
+
+.panel:nth-child(2){
+  border-top:4px solid #10b981;
+}
+
+.panel:nth-child(3){
+  border-top:4px solid #f59e0b;
+}
+
+/* Texto de bienvenida más visible */
+.welcome h2{
+  font-size:30px;
+  font-weight:700;
+}
