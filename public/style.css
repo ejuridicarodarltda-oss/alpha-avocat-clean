@@ -12,12 +12,12 @@ height:100vh;
 
 .sidebar{
 width:240px;
-background:#1c2b3a;
+background:linear-gradient(180deg,#162433,#1c2b3a);
 color:white;
 display:flex;
 flex-direction:column;
-padding:20px;
-box-shadow:4px 0 12px rgba(0,0,0,0.25);
+padding:22px;
+box-shadow:4px 0 14px rgba(0,0,0,0.35);
 }
 
 .logo-box{
@@ -29,7 +29,7 @@ margin-bottom:30px;
 font-size:42px;
 margin-bottom:10px;
 display:inline-block;
-animation:logoSpin 8s linear infinite;
+animation:logoSpin 10s linear infinite;
 }
 
 @keyframes logoSpin{
@@ -62,11 +62,13 @@ border-radius:8px;
 display:flex;
 align-items:center;
 gap:10px;
-transition:all .2s;
+transition:all .25s;
+background:linear-gradient(180deg,rgba(255,255,255,0.05),rgba(0,0,0,0.25));
+box-shadow:inset 0 1px 0 rgba(255,255,255,0.2);
 }
 
 .menu a:hover{
-background:#2f4156;
+background:linear-gradient(180deg,rgba(255,255,255,0.15),rgba(0,0,0,0.35));
 transform:translateX(4px);
 }
 
@@ -84,7 +86,7 @@ justify-content:space-between;
 align-items:center;
 padding:0 20px;
 color:white;
-box-shadow:0 2px 10px rgba(0,0,0,0.2);
+box-shadow:0 3px 10px rgba(0,0,0,0.25);
 }
 
 .search input{
@@ -118,16 +120,29 @@ padding:25px;
 border-radius:16px;
 color:white;
 box-shadow:
-0 14px 24px rgba(0,0,0,0.28),
-inset 0 1px 0 rgba(255,255,255,0.4);
+0 14px 28px rgba(0,0,0,0.35),
+inset 0 1px 0 rgba(255,255,255,0.5),
+inset 0 -4px 8px rgba(0,0,0,0.25);
 transition:all .25s ease;
+overflow:hidden;
+}
+
+.dashboard-card::before{
+content:"";
+position:absolute;
+top:0;
+left:0;
+right:0;
+height:45%;
+background:linear-gradient(rgba(255,255,255,0.35),rgba(255,255,255,0));
+border-radius:16px 16px 0 0;
 }
 
 .dashboard-card:hover{
-transform:translateY(-10px);
+transform:translateY(-8px);
 box-shadow:
-0 24px 40px rgba(0,0,0,0.35),
-inset 0 1px 0 rgba(255,255,255,0.45);
+0 22px 40px rgba(0,0,0,0.45),
+inset 0 1px 0 rgba(255,255,255,0.6);
 }
 
 .card-icon{
@@ -151,10 +166,10 @@ font-weight:bold;
 .orange{background:#ff8c00;}
 
 .alertas-plazos{
-background:#ffffff;
-padding:20px;
+background:white;
+padding:22px;
 border-radius:14px;
-box-shadow:0 8px 18px rgba(0,0,0,0.15);
+box-shadow:0 10px 20px rgba(0,0,0,0.18);
 margin-bottom:25px;
 border-left:6px solid #e55353;
 }
@@ -169,13 +184,13 @@ gap:20px;
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 10px 18px rgba(0,0,0,0.15);
-transition:all .2s;
+box-shadow:0 10px 20px rgba(0,0,0,0.18);
+transition:all .25s;
 }
 
 .control-card:hover{
 transform:translateY(-6px);
-box-shadow:0 16px 30px rgba(0,0,0,0.25);
+box-shadow:0 18px 34px rgba(0,0,0,0.3);
 }
 
 .control-card h3{
