@@ -32,11 +32,11 @@ Sistema de Gestión Jurídica Inteligente
 
 <nav class="menu">
 
-<a href="#"><i class="fa-solid fa-house"></i> Inicio</a>
-<a href="#"><i class="fa-solid fa-users"></i> Clientes</a>
-<a href="#"><i class="fa-solid fa-folder-open"></i> Causas</a>
-<a href="#"><i class="fa-solid fa-calendar"></i> Agenda</a>
-<a href="#"><i class="fa-solid fa-gear"></i> Configuración</a>
+<a href="#"><i class="fa-solid fa-house icon-home"></i> Inicio</a>
+<a href="#"><i class="fa-solid fa-users icon-clientes"></i> Clientes</a>
+<a href="#"><i class="fa-solid fa-folder-open icon-causas"></i> Causas</a>
+<a href="#"><i class="fa-solid fa-calendar icon-agenda"></i> Agenda</a>
+<a href="#"><i class="fa-solid fa-gear icon-config"></i> Configuración</a>
 
 </nav>
 
@@ -54,14 +54,12 @@ Usuario conectado
 <header class="topbar">
 
 <div class="search">
-
 <input type="text" placeholder="Buscar causa o cliente...">
-
 </div>
 
 <div class="top-right">
 
-<div class="date" id="fecha"></div>
+<div id="fecha" class="date"></div>
 
 <i class="fa-solid fa-bell"></i>
 <i class="fa-solid fa-envelope"></i>
@@ -84,7 +82,7 @@ Usuario conectado
 
 <h1 id="bienvenida">Bienvenido, Usuario</h1>
 
-<p>Aquí está el resumen del día.</p>
+<p class="welcome-sub">Aquí está el resumen del día.</p>
 
 </div>
 
@@ -132,7 +130,7 @@ Usuario conectado
 
 <div class="panel acciones">
 
-<h3>Acciones Rápidas</h3>
+<h3><i class="fa-solid fa-bolt section-icon"></i> Acciones Rápidas</h3>
 
 <div class="quick-actions">
 
@@ -162,7 +160,7 @@ Nuevo Documento
 
 <div class="panel alertas">
 
-<h3>Alertas Jurídicas</h3>
+<h3><i class="fa-solid fa-triangle-exclamation section-icon"></i> Alertas Jurídicas</h3>
 
 <ul id="lista-plazos"></ul>
 
@@ -172,9 +170,9 @@ Nuevo Documento
 
 <div class="bottom-grid">
 
-<div class="panel">
+<div class="panel panel-blue">
 
-<h3>Audiencias de la Semana</h3>
+<h3><i class="fa-solid fa-calendar-days section-icon"></i> Audiencias de la Semana</h3>
 
 <ul>
 
@@ -197,9 +195,9 @@ Tribunal de Garantía — 15:00
 
 </div>
 
-<div class="panel">
+<div class="panel panel-green">
 
-<h3>Causas Activas</h3>
+<h3><i class="fa-solid fa-folder-open section-icon"></i> Causas Activas</h3>
 
 <ul>
 
@@ -211,9 +209,9 @@ Tribunal de Garantía — 15:00
 
 </div>
 
-<div class="panel">
+<div class="panel panel-orange">
 
-<h3>Actividad Reciente</h3>
+<h3><i class="fa-solid fa-chart-line section-icon"></i> Actividad Reciente</h3>
 
 <ul>
 
@@ -261,9 +259,7 @@ plazo:5
 function calcularVencimiento(fecha,dias){
 
 let f=new Date(fecha)
-
 f.setDate(f.getDate()+dias)
-
 return f
 
 }
@@ -271,9 +267,7 @@ return f
 function diasRestantes(fecha){
 
 let hoy=new Date()
-
 let venc=new Date(fecha)
-
 let diff=venc-hoy
 
 return Math.ceil(diff/(1000*60*60*24))
@@ -322,7 +316,11 @@ cargarAlertas()
 
 const fecha=new Date()
 
-const opciones={day:'numeric',month:'long',year:'numeric'}
+const opciones={
+day:'numeric',
+month:'long',
+year:'numeric'
+}
 
 document.getElementById("fecha").innerText=
 fecha.toLocaleDateString("es-ES",opciones)
