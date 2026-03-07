@@ -3,229 +3,259 @@
 <head>
 
 <meta charset="UTF-8">
-<title>Alpha Avocat - Panel</title>
+<title>Alpha Avocat Panel</title>
 
 <link rel="stylesheet" href="style.css">
 
-<link rel="stylesheet"
-href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
-
 </head>
+
 
 <body>
 
 <div class="layout">
 
+
 <aside class="sidebar">
 
-<div class="logo-box">
+<div class="logo">
 
-<img src="img/logo-alpha-avocat.svg" class="logo-img">
+<img src="img/logo-alpha-avocat.svg">
 
-<div class="logo-title">ALPHA AVOCAT</div>
+<h1>ALPHA AVOCAT</h1>
 
-<div class="logo-sub">
-Sistema de Gestión Jurídica Inteligente
-</div>
+<p>Sistema de Gestión Jurídica Inteligente</p>
 
 </div>
+
 
 <nav class="menu">
 
-<a href="#"><i class="fa-solid fa-house icon-home"></i> Inicio</a>
-<a href="#"><i class="fa-solid fa-users icon-clientes"></i> Clientes</a>
-<a href="#"><i class="fa-solid fa-folder-open icon-causas"></i> Causas</a>
-<a href="#"><i class="fa-solid fa-calendar icon-agenda"></i> Agenda</a>
-<a href="#"><i class="fa-solid fa-gear icon-config"></i> Configuración</a>
+<a class="active">
+<span class="icon">🏠</span>
+Inicio
+</a>
+
+<a>
+<span class="icon">👥</span>
+Clientes
+</a>
+
+<a>
+<span class="icon">📂</span>
+Causas
+</a>
+
+<a>
+<span class="icon">📅</span>
+Agenda
+</a>
+
+<a>
+<span class="icon">⚙</span>
+Configuración
+</a>
 
 </nav>
 
-<div class="sidebar-footer">
 
-<i class="fa-solid fa-user"></i>
+<div class="user-status">
 Usuario conectado
-
 </div>
 
 </aside>
 
+
 <main class="main">
+
 
 <header class="topbar">
 
-<div class="search">
-<input type="text" placeholder="Buscar causa o cliente...">
-</div>
+<input class="search" placeholder="Buscar causa o cliente...">
 
-<div class="top-right">
 
-<div id="fecha" class="date"></div>
+<div class="top-info">
 
-<i class="fa-solid fa-bell"></i>
-<i class="fa-solid fa-envelope"></i>
+<span id="fecha"></span>
 
-<div class="user-box">
-
-<img src="img/avatar-default.png" class="avatar">
-
-<span id="usuarioNombre">Usuario Activo</span>
-
-</div>
+<span class="usuario">
+Usuario Activo
+</span>
 
 </div>
 
 </header>
 
-<section class="dashboard">
 
-<div class="welcome">
 
-<h1 id="bienvenida">Bienvenido, Usuario</h1>
+<section class="welcome">
 
-<p class="welcome-sub">Aquí está el resumen del día.</p>
+<h2>Bienvenido, Usuario</h2>
 
-</div>
+<p>Aquí está el resumen del día.</p>
 
-<div class="dashboard-grid">
+</section>
 
-<div class="dashboard-card blue">
 
-<i class="fa-solid fa-users card-icon"></i>
 
-<div class="card-title">Clientes Activos</div>
-<div class="card-number">48</div>
+<section class="cards">
 
-</div>
 
-<div class="dashboard-card green">
+<div class="card azul">
 
-<i class="fa-solid fa-folder-open card-icon"></i>
+<div class="card-icon">👥</div>
 
-<div class="card-title">Causas Abiertas</div>
-<div class="card-number">12</div>
+<h3>Clientes Activos</h3>
+
+<span class="numero">48</span>
 
 </div>
 
-<div class="dashboard-card red">
 
-<i class="fa-solid fa-scale-balanced card-icon"></i>
 
-<div class="card-title">Audiencias Hoy</div>
-<div class="card-number">3</div>
+<div class="card verde">
 
-</div>
+<div class="card-icon">📂</div>
 
-<div class="dashboard-card orange">
+<h3>Causas Abiertas</h3>
 
-<i class="fa-solid fa-list-check card-icon"></i>
-
-<div class="card-title">Tareas Pendientes</div>
-<div class="card-number">7</div>
+<span class="numero">12</span>
 
 </div>
 
-</div>
 
-<div class="panel-grid">
 
-<div class="panel acciones">
+<div class="card rojo">
 
-<h3><i class="fa-solid fa-bolt section-icon"></i> Acciones Rápidas</h3>
+<div class="card-icon">⚖</div>
 
-<div class="quick-actions">
+<h3>Audiencias Hoy</h3>
 
-<button class="btn blue-btn">
-<i class="fa-solid fa-plus"></i>
-Nuevo Cliente
-</button>
-
-<button class="btn green-btn">
-<i class="fa-solid fa-plus"></i>
-Nueva Causa
-</button>
-
-<button class="btn purple-btn">
-<i class="fa-solid fa-plus"></i>
-Nuevo Evento
-</button>
-
-<button class="btn cyan-btn">
-<i class="fa-solid fa-plus"></i>
-Nuevo Documento
-</button>
+<span class="numero">3</span>
 
 </div>
 
+
+
+<div class="card naranja">
+
+<div class="card-icon">✔</div>
+
+<h3>Tareas Pendientes</h3>
+
+<span class="numero">7</span>
+
 </div>
 
-<div class="panel alertas">
 
-<h3><i class="fa-solid fa-triangle-exclamation section-icon"></i> Alertas Jurídicas</h3>
+</section>
 
-<ul id="lista-plazos"></ul>
+
+
+
+<section class="acciones">
+
+
+
+<div class="acciones-box">
+
+<h3>Acciones Rápidas</h3>
+
+<div class="botones">
+
+<button class="b1">+ Nuevo Cliente</button>
+
+<button class="b2">+ Nueva Causa</button>
+
+<button class="b3">+ Nuevo Evento</button>
+
+<button class="b4">+ Nuevo Documento</button>
 
 </div>
 
 </div>
 
-<div class="bottom-grid">
 
-<div class="panel panel-blue">
 
-<h3><i class="fa-solid fa-calendar-days section-icon"></i> Audiencias de la Semana</h3>
+<div class="alertas">
+
+<h3>Alertas Jurídicas</h3>
 
 <ul>
 
-<li>
-<img src="img/avatar-default.png" class="mini-avatar">
-Juzgado Civil — 10:00
-</li>
+<li>Contestación demanda vence en 12 días</li>
 
-<li>
-<img src="img/avatar-default.png" class="mini-avatar">
-Tribunal Laboral — 12:30
-</li>
-
-<li>
-<img src="img/avatar-default.png" class="mini-avatar">
-Tribunal de Garantía — 15:00
-</li>
+<li>Apelación vence en 3 días</li>
 
 </ul>
 
 </div>
 
-<div class="panel panel-green">
 
-<h3><i class="fa-solid fa-folder-open section-icon"></i> Causas Activas</h3>
+</section>
+
+
+
+
+<section class="paneles">
+
+
+<div class="panel">
+
+<h3>Audiencias de la Semana</h3>
+
+<ul>
+
+<li>Juzgado Civil — 10:00</li>
+
+<li>Tribunal Laboral — 12:30</li>
+
+<li>Tribunal de Garantía — 15:00</li>
+
+</ul>
+
+</div>
+
+
+
+<div class="panel">
+
+<h3>Causas Activas</h3>
 
 <ul>
 
 <li>Rodríguez vs Pérez</li>
+
 <li>Empresa Norte Ltda</li>
+
 <li>Contrato Comercial 245</li>
 
 </ul>
 
 </div>
 
-<div class="panel panel-orange">
 
-<h3><i class="fa-solid fa-chart-line section-icon"></i> Actividad Reciente</h3>
+
+<div class="panel">
+
+<h3>Actividad Reciente</h3>
 
 <ul>
 
 <li>Nuevo cliente registrado</li>
+
 <li>Documento subido</li>
+
 <li>Audiencia agregada</li>
 
 </ul>
 
 </div>
 
-</div>
 
 </section>
+
+
+
 
 <footer class="footer">
 
@@ -234,98 +264,28 @@ Mario Javier Rodríguez Ardiles
 
 </footer>
 
+
+
 </main>
+
 
 </div>
 
+
+
 <script>
 
-const causas=[
+const fecha = new Date();
 
-{
-nombre:"Contestación demanda",
-fecha_notificacion:"2026-03-01",
-plazo:18
-},
-
-{
-nombre:"Apelación",
-fecha_notificacion:"2026-03-05",
-plazo:5
-}
-
-];
-
-function calcularVencimiento(fecha,dias){
-
-let f=new Date(fecha)
-f.setDate(f.getDate()+dias)
-return f
-
-}
-
-function diasRestantes(fecha){
-
-let hoy=new Date()
-let venc=new Date(fecha)
-let diff=venc-hoy
-
-return Math.ceil(diff/(1000*60*60*24))
-
-}
-
-function cargarAlertas(){
-
-const lista=document.getElementById("lista-plazos")
-
-lista.innerHTML=""
-
-causas.forEach(c=>{
-
-let venc=calcularVencimiento(c.fecha_notificacion,c.plazo)
-
-let dias=diasRestantes(venc)
-
-let li=document.createElement("li")
-
-if(dias<=1){
-
-li.innerHTML="🔴 "+c.nombre+" vence mañana"
-
-}
-
-else if(dias<=3){
-
-li.innerHTML="🟠 "+c.nombre+" vence en "+dias+" días"
-
-}
-
-else{
-
-li.innerHTML="🟢 "+c.nombre+" vence en "+dias+" días"
-
-}
-
-lista.appendChild(li)
-
-})
-
-}
-
-cargarAlertas()
-
-const fecha=new Date()
-
-const opciones={
-day:'numeric',
-month:'long',
-year:'numeric'
-}
-
-document.getElementById("fecha").innerText=
-fecha.toLocaleDateString("es-ES",opciones)
+document.getElementById("fecha").innerText =
+fecha.toLocaleDateString("es-CL",{
+day:"numeric",
+month:"long",
+year:"numeric"
+});
 
 </script>
+
 
 </body>
 </html>
