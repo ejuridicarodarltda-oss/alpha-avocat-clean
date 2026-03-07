@@ -22,19 +22,25 @@ flex-direction:column;
 
 /* LOGO */
 
+.logo{
+text-align:center;
+}
+
 .logo img{
-width:110px;
-margin-bottom:10px;
+width:105px;
+margin-bottom:4px;
 filter:drop-shadow(0 10px 18px rgba(0,0,0,.7));
 }
 
+/* ROTACION ELEGANTE */
+
 .logo-spin{
-animation:logoRotate 18s linear infinite;
+animation:logoRotate 26s linear infinite;
 }
 
 @keyframes logoRotate{
-0%{transform:rotateY(0deg);}
-100%{transform:rotateY(360deg);}
+0%{transform:rotate(0deg);}
+100%{transform:rotate(360deg);}
 }
 
 .logo h1{
@@ -131,7 +137,7 @@ font-weight:700;
 margin-bottom:5px;
 }
 
-/* CARDS */
+/* TARJETAS */
 
 .cards{
 display:grid;
@@ -144,17 +150,20 @@ padding:0 20px;
 padding:22px;
 border-radius:16px;
 color:white;
+
 box-shadow:
-0 12px 25px rgba(0,0,0,.25),
-inset 0 1px 0 rgba(255,255,255,.35);
-transition:transform .2s, box-shadow .2s;
+0 15px 35px rgba(0,0,0,.25),
+inset 0 2px 4px rgba(255,255,255,.25);
+
+transition:transform .25s, box-shadow .25s;
 }
 
 .card:hover{
-transform:translateY(-4px);
+transform:translateY(-6px) scale(1.02);
+
 box-shadow:
-0 18px 35px rgba(0,0,0,.35),
-inset 0 1px 0 rgba(255,255,255,.45);
+0 22px 40px rgba(0,0,0,.35),
+inset 0 2px 5px rgba(255,255,255,.35);
 }
 
 .card-icon{
@@ -198,10 +207,10 @@ padding:20px;
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 10px 20px rgba(0,0,0,.15);
+box-shadow:0 12px 24px rgba(0,0,0,.15);
 }
 
-/* BOTONES VIDRIO */
+/* BOTONES */
 
 .botones{
 display:grid;
@@ -216,14 +225,15 @@ border-radius:10px;
 color:white;
 cursor:pointer;
 font-weight:bold;
-backdrop-filter:blur(6px);
+
 box-shadow:0 8px 16px rgba(0,0,0,.25);
-transition:all .15s;
+
+transition:all .2s;
 }
 
 .botones button:hover{
-transform:translateY(-2px);
-box-shadow:0 12px 20px rgba(0,0,0,.35);
+transform:translateY(-3px);
+box-shadow:0 14px 24px rgba(0,0,0,.35);
 }
 
 .b1{background:linear-gradient(135deg,#22c3e6,#0ea5e9);}
@@ -237,7 +247,7 @@ box-shadow:0 12px 20px rgba(0,0,0,.35);
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 10px 20px rgba(0,0,0,.15);
+box-shadow:0 12px 24px rgba(0,0,0,.15);
 }
 
 /* PANELES */
@@ -253,7 +263,7 @@ padding:20px;
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 10px 20px rgba(0,0,0,.15);
+box-shadow:0 12px 24px rgba(0,0,0,.15);
 }
 
 .panel h3{
