@@ -4,47 +4,54 @@ font-family:Arial;
 background:#eef1f5;
 }
 
-
 .layout{
 display:flex;
 height:100vh;
 }
 
-
+/* SIDEBAR */
 
 .sidebar{
 width:240px;
 background:linear-gradient(180deg,#0c1f34,#142f4e);
-color:white;
+color:#d4af37;
 padding:20px;
 display:flex;
 flex-direction:column;
 }
 
-
+/* LOGO */
 
 .logo img{
-width:95px;
+width:110px;
 margin-bottom:10px;
-filter:drop-shadow(0px 4px 6px rgba(0,0,0,0.6));
+filter:drop-shadow(0 10px 18px rgba(0,0,0,.7));
 }
 
+.logo-spin{
+animation:logoRotate 18s linear infinite;
+}
 
+@keyframes logoRotate{
+0%{transform:rotateY(0deg);}
+100%{transform:rotateY(360deg);}
+}
 
 .logo h1{
 font-size:20px;
 margin:0;
 letter-spacing:1px;
+color:#d4af37;
+text-shadow:0 2px 3px rgba(0,0,0,.6);
 }
-
-
 
 .logo p{
 font-size:12px;
-opacity:0.7;
+color:#d4af37;
+opacity:.85;
 }
 
-
+/* MENU */
 
 .menu{
 margin-top:40px;
@@ -52,8 +59,6 @@ display:flex;
 flex-direction:column;
 gap:12px;
 }
-
-
 
 .menu a{
 padding:10px;
@@ -63,23 +68,34 @@ background:rgba(255,255,255,0.05);
 display:flex;
 align-items:center;
 gap:10px;
+transition:all .2s;
 }
 
-
+.menu a:hover{
+background:rgba(255,255,255,0.15);
+transform:translateX(3px);
+}
 
 .menu a.active{
 background:rgba(255,255,255,0.18);
 }
 
+/* ICONOS COLOREADOS */
 
+.icon-home{color:#ffd166;}
+.icon-clientes{color:#22c3e6;}
+.icon-causas{color:#1fbf75;}
+.icon-agenda{color:#ef4444;}
+.icon-config{color:#f59e0b;}
 
 .user-status{
 margin-top:auto;
 font-size:13px;
-opacity:0.7;
+opacity:.7;
+color:#d4af37;
 }
 
-
+/* MAIN */
 
 .main{
 flex:1;
@@ -87,7 +103,7 @@ display:flex;
 flex-direction:column;
 }
 
-
+/* TOPBAR */
 
 .topbar{
 background:#9b0f17;
@@ -97,28 +113,25 @@ justify-content:space-between;
 padding:12px 20px;
 }
 
-
-
 .search{
 padding:6px 10px;
 border-radius:6px;
 border:none;
 }
 
-
+/* BIENVENIDA */
 
 .welcome{
 padding:20px;
 }
 
-
-
 .welcome h2{
-font-size:26px;
+font-size:30px;
+font-weight:700;
 margin-bottom:5px;
 }
 
-
+/* CARDS */
 
 .cards{
 display:grid;
@@ -127,44 +140,52 @@ gap:20px;
 padding:0 20px;
 }
 
-
-
 .card{
-padding:20px;
-border-radius:14px;
+padding:22px;
+border-radius:16px;
 color:white;
-box-shadow:0 12px 25px rgba(0,0,0,0.25);
-transition:transform .2s;
+box-shadow:
+0 12px 25px rgba(0,0,0,.25),
+inset 0 1px 0 rgba(255,255,255,.35);
+transition:transform .2s, box-shadow .2s;
 }
-
-
 
 .card:hover{
-transform:translateY(-3px);
+transform:translateY(-4px);
+box-shadow:
+0 18px 35px rgba(0,0,0,.35),
+inset 0 1px 0 rgba(255,255,255,.45);
 }
 
-
-
 .card-icon{
-font-size:22px;
+font-size:30px;
 margin-bottom:10px;
 }
 
-
-
 .card .numero{
-font-size:28px;
+font-size:30px;
 font-weight:bold;
 }
 
+/* COLORES TARJETAS */
 
+.clientes{
+background:linear-gradient(135deg,#22c3e6,#06b6d4);
+}
 
-.azul{background:#3b82f6;}
-.verde{background:#10b981;}
-.rojo{background:#ef4444;}
-.naranja{background:#f59e0b;}
+.causas{
+background:linear-gradient(135deg,#1fbf75,#059669);
+}
 
+.audiencias{
+background:linear-gradient(135deg,#ef4444,#dc2626);
+}
 
+.tareas{
+background:linear-gradient(135deg,#f59e0b,#d97706);
+}
+
+/* ACCIONES */
 
 .acciones{
 display:grid;
@@ -173,16 +194,14 @@ gap:20px;
 padding:20px;
 }
 
-
-
 .acciones-box{
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 8px 15px rgba(0,0,0,0.1);
+box-shadow:0 10px 20px rgba(0,0,0,.15);
 }
 
-
+/* BOTONES VIDRIO */
 
 .botones{
 display:grid;
@@ -190,34 +209,38 @@ grid-template-columns:1fr 1fr;
 gap:10px;
 }
 
-
-
 .botones button{
 padding:12px;
 border:none;
-border-radius:8px;
+border-radius:10px;
 color:white;
 cursor:pointer;
 font-weight:bold;
+backdrop-filter:blur(6px);
+box-shadow:0 8px 16px rgba(0,0,0,.25);
+transition:all .15s;
 }
 
+.botones button:hover{
+transform:translateY(-2px);
+box-shadow:0 12px 20px rgba(0,0,0,.35);
+}
 
+.b1{background:linear-gradient(135deg,#22c3e6,#0ea5e9);}
+.b2{background:linear-gradient(135deg,#1fbf75,#059669);}
+.b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+.b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
 
-.b1{background:#3b82f6;}
-.b2{background:#10b981;}
-.b3{background:#7c3aed;}
-.b4{background:#06b6d4;}
-
-
+/* ALERTAS */
 
 .alertas{
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 8px 15px rgba(0,0,0,0.1);
+box-shadow:0 10px 20px rgba(0,0,0,.15);
 }
 
-
+/* PANELES */
 
 .paneles{
 display:grid;
@@ -226,97 +249,22 @@ gap:20px;
 padding:20px;
 }
 
-
-
 .panel{
 background:white;
 padding:20px;
 border-radius:14px;
-box-shadow:0 8px 15px rgba(0,0,0,0.1);
+box-shadow:0 10px 20px rgba(0,0,0,.15);
 }
 
+.panel h3{
+font-weight:700;
+}
 
+/* FOOTER */
 
 .footer{
 text-align:center;
 padding:10px;
 font-size:12px;
 color:#444;
-}
-/* ===== Mejoras visuales Alpha Avocat ===== */
-
-/* Logo más visible */
-.logo img{
-  width:110px;
-  filter:drop-shadow(0 8px 14px rgba(0,0,0,.6));
-}
-
-/* Iconos de menú con color suave */
-.menu .icon{
-  font-size:18px;
-  width:22px;
-  text-align:center;
-}
-
-/* Tarjetas con gradiente y más profundidad */
-.azul{
-  background:linear-gradient(135deg,#3b82f6,#2563eb);
-}
-.verde{
-  background:linear-gradient(135deg,#10b981,#059669);
-}
-.rojo{
-  background:linear-gradient(135deg,#ef4444,#dc2626);
-}
-.naranja{
-  background:linear-gradient(135deg,#f59e0b,#d97706);
-}
-
-.card{
-  box-shadow:
-    0 10px 25px rgba(0,0,0,.25),
-    inset 0 1px 0 rgba(255,255,255,.35);
-  transition:transform .2s, box-shadow .2s;
-}
-
-.card:hover{
-  transform:translateY(-4px);
-  box-shadow:
-    0 16px 35px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,.4);
-}
-
-.card-icon{
-  font-size:28px;
-  margin-bottom:10px;
-}
-
-/* Botones con relieve */
-.botones button{
-  box-shadow:0 6px 14px rgba(0,0,0,.25);
-  transition:transform .15s, box-shadow .15s;
-}
-
-.botones button:hover{
-  transform:translateY(-2px);
-  box-shadow:0 10px 18px rgba(0,0,0,.35);
-}
-
-/* Paneles inferiores con borde de color */
-.panel:nth-child(1){
-  border-top:4px solid #3b82f6;
-}
-
-.panel:nth-child(2){
-  border-top:4px solid #10b981;
-}
-
-.panel:nth-child(3){
-  border-top:4px solid #f59e0b;
-}
-
-/* Texto de bienvenida más visible */
-.welcome h2{
-  font-size:30px;
-  font-weight:700;
 }
