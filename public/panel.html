@@ -51,7 +51,7 @@ Sistema de Gestión Jurídica Inteligente
 <header class="topbar">
 
 <div class="search">
-<input type="text" placeholder="Buscar...">
+<input type="text" placeholder="Buscar causa o cliente...">
 </div>
 
 <div class="top-icons">
@@ -111,7 +111,7 @@ Sistema de Gestión Jurídica Inteligente
 
 <div class="alertas-plazos">
 
-<h2>⚠ Alertas de Plazos Procesales</h2>
+<h2><i class="fa-solid fa-triangle-exclamation"></i> Alertas de Plazos Procesales</h2>
 
 <ul id="lista-plazos"></ul>
 
@@ -168,7 +168,6 @@ Sistema de Gestión Jurídica Inteligente
 </div>
 
 
-
 <script>
 
 const causas = [
@@ -187,7 +186,6 @@ plazo:5
 
 ];
 
-
 function calcularVencimiento(fecha,dias){
 
 let f=new Date(fecha)
@@ -197,7 +195,6 @@ f.setDate(f.getDate()+dias)
 return f
 
 }
-
 
 function diasRestantes(fecha){
 
@@ -210,7 +207,6 @@ let diff=venc-hoy
 return Math.ceil(diff/(1000*60*60*24))
 
 }
-
 
 function cargarAlertas(){
 
