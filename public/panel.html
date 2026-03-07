@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="es">
-
 <head>
 
 <meta charset="UTF-8">
@@ -21,11 +20,9 @@ href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css"
 
 <div class="logo-box">
 
-<div class="logo-balance">⚖</div>
+<img src="img/logo-alpha-avocat.svg" class="logo-img">
 
-<div class="logo-title">
-ALPHA AVOCAT
-</div>
+<div class="logo-title">ALPHA AVOCAT</div>
 
 <div class="logo-sub">
 Sistema de Gestión Jurídica Inteligente
@@ -43,27 +40,53 @@ Sistema de Gestión Jurídica Inteligente
 
 </nav>
 
-</aside>
+<div class="sidebar-footer">
 
+<i class="fa-solid fa-user"></i>
+Usuario conectado
+
+</div>
+
+</aside>
 
 <main class="main">
 
 <header class="topbar">
 
 <div class="search">
+
 <input type="text" placeholder="Buscar causa o cliente...">
+
 </div>
 
-<div class="top-icons">
+<div class="top-right">
+
+<div class="date" id="fecha"></div>
+
 <i class="fa-solid fa-bell"></i>
 <i class="fa-solid fa-envelope"></i>
-<i class="fa-solid fa-user"></i>
+
+<div class="user-box">
+
+<img src="img/avatar-default.png" class="avatar">
+
+<span id="usuarioNombre">Usuario Activo</span>
+
+</div>
+
 </div>
 
 </header>
 
-
 <section class="dashboard">
+
+<div class="welcome">
+
+<h1 id="bienvenida">Bienvenido, Usuario</h1>
+
+<p>Aquí está el resumen del día.</p>
+
+</div>
 
 <div class="dashboard-grid">
 
@@ -76,7 +99,6 @@ Sistema de Gestión Jurídica Inteligente
 
 </div>
 
-
 <div class="dashboard-card green">
 
 <i class="fa-solid fa-folder-open card-icon"></i>
@@ -86,7 +108,6 @@ Sistema de Gestión Jurídica Inteligente
 
 </div>
 
-
 <div class="dashboard-card red">
 
 <i class="fa-solid fa-scale-balanced card-icon"></i>
@@ -95,7 +116,6 @@ Sistema de Gestión Jurídica Inteligente
 <div class="card-number">3</div>
 
 </div>
-
 
 <div class="dashboard-card orange">
 
@@ -108,53 +128,99 @@ Sistema de Gestión Jurídica Inteligente
 
 </div>
 
+<div class="panel-grid">
 
-<div class="alertas-plazos">
+<div class="panel acciones">
 
-<h2><i class="fa-solid fa-triangle-exclamation"></i> Alertas de Plazos Procesales</h2>
+<h3>Acciones Rápidas</h3>
+
+<div class="quick-actions">
+
+<button class="btn blue-btn">
+<i class="fa-solid fa-plus"></i>
+Nuevo Cliente
+</button>
+
+<button class="btn green-btn">
+<i class="fa-solid fa-plus"></i>
+Nueva Causa
+</button>
+
+<button class="btn purple-btn">
+<i class="fa-solid fa-plus"></i>
+Nuevo Evento
+</button>
+
+<button class="btn cyan-btn">
+<i class="fa-solid fa-plus"></i>
+Nuevo Documento
+</button>
+
+</div>
+
+</div>
+
+<div class="panel alertas">
+
+<h3>Alertas Jurídicas</h3>
 
 <ul id="lista-plazos"></ul>
 
 </div>
 
+</div>
 
-<div class="control-juridico">
+<div class="bottom-grid">
 
-
-<div class="control-card">
+<div class="panel">
 
 <h3>Audiencias de la Semana</h3>
 
 <ul>
-<li>Juzgado Civil — 10:00</li>
-<li>Tribunal Laboral — 12:30</li>
-<li>Tribunal de Garantía — 15:00</li>
+
+<li>
+<img src="img/avatar-default.png" class="mini-avatar">
+Juzgado Civil — 10:00
+</li>
+
+<li>
+<img src="img/avatar-default.png" class="mini-avatar">
+Tribunal Laboral — 12:30
+</li>
+
+<li>
+<img src="img/avatar-default.png" class="mini-avatar">
+Tribunal de Garantía — 15:00
+</li>
+
 </ul>
 
 </div>
 
-
-<div class="control-card">
+<div class="panel">
 
 <h3>Causas Activas</h3>
 
 <ul>
+
 <li>Rodríguez vs Pérez</li>
 <li>Empresa Norte Ltda</li>
 <li>Contrato Comercial 245</li>
+
 </ul>
 
 </div>
 
-
-<div class="control-card">
+<div class="panel">
 
 <h3>Actividad Reciente</h3>
 
 <ul>
+
 <li>Nuevo cliente registrado</li>
 <li>Documento subido</li>
 <li>Audiencia agregada</li>
+
 </ul>
 
 </div>
@@ -163,14 +229,20 @@ Sistema de Gestión Jurídica Inteligente
 
 </section>
 
+<footer class="footer">
+
+Alpha Avocat — Sistema de Gestión Jurídica Inteligente  
+Mario Javier Rodríguez Ardiles
+
+</footer>
+
 </main>
 
 </div>
 
-
 <script>
 
-const causas = [
+const causas=[
 
 {
 nombre:"Contestación demanda",
@@ -212,6 +284,8 @@ function cargarAlertas(){
 
 const lista=document.getElementById("lista-plazos")
 
+lista.innerHTML=""
+
 causas.forEach(c=>{
 
 let venc=calcularVencimiento(c.fecha_notificacion,c.plazo)
@@ -245,6 +319,13 @@ lista.appendChild(li)
 }
 
 cargarAlertas()
+
+const fecha=new Date()
+
+const opciones={day:'numeric',month:'long',year:'numeric'}
+
+document.getElementById("fecha").innerText=
+fecha.toLocaleDateString("es-ES",opciones)
 
 </script>
 
