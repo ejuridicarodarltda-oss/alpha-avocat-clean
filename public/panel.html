@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css?v=5">
 
 </head>
 
@@ -22,6 +22,7 @@
 <h1>ALPHA AVOCAT</h1>
 
 <p>Sistema de Gestión Jurídica Inteligente</p>
+<p class="autor">Mario Javier Rodríguez Ardiles</p>
 
 </div>
 
@@ -70,9 +71,15 @@ Usuario conectado
 
 <span id="fecha"></span>
 
-<span class="usuario">
-Usuario Activo
-</span>
+<div class="usuario">
+
+<img src="avatars/usuario.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar">
+
+<span>Usuario Activo</span>
+
+</div>
 
 </div>
 
@@ -136,8 +143,8 @@ Usuario Activo
 <h3>Alertas Jurídicas</h3>
 
 <ul>
-<li>Contestación demanda vence en 12 días</li>
-<li>Apelación vence en 3 días</li>
+<li>🔴 Contestación demanda vence en 12 días</li>
+<li>🟠 Apelación vence en 3 días</li>
 </ul>
 
 </div>
@@ -151,9 +158,28 @@ Usuario Activo
 <h3>Audiencias de la Semana</h3>
 
 <ul>
-<li>Juzgado Civil — 10:00</li>
-<li>Tribunal Laboral — 12:30</li>
-<li>Tribunal de Garantía — 15:00</li>
+
+<li>
+<img src="avatars/abogado1.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini">
+Juzgado Civil — 10:00
+</li>
+
+<li>
+<img src="avatars/abogado2.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini">
+Tribunal Laboral — 12:30
+</li>
+
+<li>
+<img src="avatars/abogado1.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini">
+Tribunal de Garantía — 15:00
+</li>
+
 </ul>
 
 </div>
@@ -163,9 +189,9 @@ Usuario Activo
 <h3>Causas Activas</h3>
 
 <ul>
-<li>Rodríguez vs Pérez</li>
-<li>Empresa Norte Ltda</li>
-<li>Contrato Comercial 245</li>
+<li>📂 Rodríguez vs Pérez</li>
+<li>📂 Empresa Norte Ltda</li>
+<li>📂 Contrato Comercial 245</li>
 </ul>
 
 </div>
@@ -175,9 +201,9 @@ Usuario Activo
 <h3>Actividad Reciente</h3>
 
 <ul>
-<li>Nuevo cliente registrado</li>
-<li>Documento subido</li>
-<li>Audiencia agregada</li>
+<li>👤 Nuevo cliente registrado</li>
+<li>📄 Documento subido</li>
+<li>⚖ Audiencia agregada</li>
 </ul>
 
 </div>
@@ -187,7 +213,8 @@ Usuario Activo
 <footer class="footer">
 
 Alpha Avocat — Sistema de Gestión Jurídica Inteligente  
-Mario Javier Rodríguez Ardiles
+Mario Javier Rodríguez Ardiles  
+Todos los derechos reservados
 
 </footer>
 
