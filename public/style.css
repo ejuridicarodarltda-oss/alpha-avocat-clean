@@ -32,15 +32,16 @@ margin-bottom:4px;
 filter:drop-shadow(0 10px 18px rgba(0,0,0,.7));
 }
 
-/* ROTACION ELEGANTE */
+/* MOVIMIENTO SUAVE (NO VOLTEA EL LOGO) */
 
 .logo-spin{
-animation:logoRotate 26s linear infinite;
+animation:logoFloat 6s ease-in-out infinite;
 }
 
-@keyframes logoRotate{
-0%{transform:rotate(0deg);}
-100%{transform:rotate(360deg);}
+@keyframes logoFloat{
+0%{transform:translateY(0);}
+50%{transform:translateY(-4px);}
+100%{transform:translateY(0);}
 }
 
 .logo h1{
@@ -75,6 +76,7 @@ display:flex;
 align-items:center;
 gap:10px;
 transition:all .2s;
+color:white;
 }
 
 .menu a:hover{
