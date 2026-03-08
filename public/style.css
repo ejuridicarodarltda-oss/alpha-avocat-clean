@@ -4,10 +4,11 @@ font-family:Arial;
 background:#eef1f5;
 }
 
+/* AJUSTE 100% PANTALLA */
+
 .layout{
 display:flex;
-height:100vh;
-overflow:hidden;
+min-height:100vh;
 }
 
 /* SIDEBAR */
@@ -165,8 +166,7 @@ opacity:.8;
 flex:1;
 display:flex;
 flex-direction:column;
-height:100vh;
-overflow:hidden;
+min-height:100vh;
 }
 
 /* TOPBAR */
@@ -227,7 +227,7 @@ margin-bottom:4px;
 
 .cards{
 display:grid;
-grid-template-columns:repeat(4,1fr);
+grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
 gap:18px;
 padding:0 26px;
 }
@@ -290,24 +290,6 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
 
-/* ICONOS TARJETAS */
-
-.card.clientes .card-icon{
-color:#7c3aed;
-}
-
-.card.causas .card-icon{
-color:#facc15;
-}
-
-.card.audiencias .card-icon{
-color:#fb923c;
-}
-
-.card.tareas .card-icon{
-color:#38bdf8;
-}
-
 /* ACCIONES */
 
 .acciones{
@@ -363,7 +345,7 @@ transform:translateY(3px);
 .b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
 .b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
 
-/* ALERTAS TURQUESA */
+/* ALERTAS */
 
 .alertas{
 background:linear-gradient(180deg,#5eead4,#2dd4bf);
@@ -376,10 +358,9 @@ box-shadow:0 14px 28px rgba(0,0,0,.15);
 
 .paneles{
 display:grid;
-grid-template-columns:1fr 1fr 1fr;
+grid-template-columns:repeat(auto-fit,minmax(320px,1fr));
 gap:18px;
-padding:0 26px 16px 26px;
-flex:1;
+padding:0 26px 20px 26px;
 }
 
 .panel{
@@ -405,14 +386,6 @@ background:linear-gradient(180deg,#6ee7b7,#34d399);
 
 .paneles .panel:nth-child(3){
 background:linear-gradient(180deg,#ede9fe,#ddd6fe);
-}
-
-/* AVATARES AUDIENCIAS */
-
-.avatar-group{
-display:flex;
-gap:6px;
-margin-top:8px;
 }
 
 /* FOOTER */
