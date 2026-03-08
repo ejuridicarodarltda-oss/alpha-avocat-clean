@@ -84,7 +84,8 @@ border-radius:12px;
 cursor:pointer;
 display:flex;
 align-items:center;
-gap:14px;
+justify-content:center;
+gap:12px;
 transition:all .25s;
 color:white;
 font-size:17px;
@@ -105,7 +106,7 @@ inset 1px 1px 2px rgba(255,255,255,.12);
 /* COLORES BOTONES MENU */
 
 .menu .inicio{
-background:linear-gradient(135deg,#1e3a8a,#1e40af);
+background:linear-gradient(135deg,#9b0f17,#7f0d13);
 }
 
 .menu .clientes{
@@ -113,7 +114,7 @@ background:linear-gradient(135deg,#22c3e6,#06b6d4);
 }
 
 .menu .causas{
-background:linear-gradient(135deg,#1fbf75,#059669);
+background:linear-gradient(135deg,#16a34a,#15803d);
 }
 
 .menu .agenda{
@@ -121,7 +122,8 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 }
 
 .menu .config{
-background:linear-gradient(135deg,#8b5a2b,#6f451f);
+background:linear-gradient(135deg,#d4af37,#b8962e);
+color:#0c1f34;
 }
 
 /* ICONOS */
@@ -183,10 +185,11 @@ border:2px solid white;
 }
 
 .avatar-mini{
-width:24px;
-height:24px;
+width:26px;
+height:26px;
 border-radius:50%;
 margin-right:6px;
+border:2px solid #ffffff;
 }
 
 /* BIENVENIDA */
@@ -249,7 +252,7 @@ font-size:34px;
 font-weight:bold;
 }
 
-/* COLORES */
+/* COLORES TARJETAS */
 
 .clientes{
 background:linear-gradient(135deg,#22c3e6,#06b6d4);
@@ -265,6 +268,24 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 
 .tareas{
 background:linear-gradient(135deg,#f59e0b,#d97706);
+}
+
+/* ICONOS TARJETAS */
+
+.card.clientes .card-icon{
+color:#7c3aed;
+}
+
+.card.causas .card-icon{
+color:#facc15;
+}
+
+.card.audiencias .card-icon{
+color:#fb923c;
+}
+
+.card.tareas .card-icon{
+color:#38bdf8;
 }
 
 /* ACCIONES */
@@ -318,14 +339,14 @@ transform:translateY(3px);
 }
 
 .b1{background:linear-gradient(135deg,#22c3e6,#0ea5e9);}
-.b2{background:linear-gradient(135deg,#1fbf75,#059669);}
+.b2{background:linear-gradient(135deg,#16a34a,#15803d);}
 .b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
 .b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
 
-/* ALERTAS */
+/* ALERTAS (VERDE MEDIO) */
 
 .alertas{
-background:linear-gradient(180deg,#e8f7ee,#dff5e7);
+background:linear-gradient(180deg,#dcfce7,#bbf7d0);
 padding:22px;
 border-radius:16px;
 box-shadow:0 14px 28px rgba(0,0,0,.15);
@@ -352,18 +373,28 @@ font-size:18px;
 margin-bottom:8px;
 }
 
-/* COLORES SUAVES */
+/* DEGRADÉ VERDE DE CAUSAS */
 
 .audiencias-panel{
-background:linear-gradient(180deg,#f0fff4,#e2fbe8);
+background:linear-gradient(180deg,#ecfdf5,#d1fae5);
 }
 
 .causas-panel{
-background:linear-gradient(180deg,#ecfdf5,#dcfce7);
+background:linear-gradient(180deg,#f0fdf4,#dcfce7);
 }
+
+/* EVENTOS */
 
 .actividad-panel{
 background:linear-gradient(180deg,#f5f3ff,#ede9fe);
+}
+
+/* AVATARES AUDIENCIAS */
+
+.avatar-group{
+display:flex;
+gap:6px;
+margin-top:8px;
 }
 
 /* FOOTER */
