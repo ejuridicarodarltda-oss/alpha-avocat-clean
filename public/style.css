@@ -93,7 +93,7 @@ box-shadow:6px 6px 16px rgba(0,0,0,.6);
 
 .menu .inicio{background:linear-gradient(145deg,#c31432,#7f0d13);}
 .menu .clientes{background:linear-gradient(145deg,#38bdf8,#0ea5e9);}
-.menu .causas{background:linear-gradient(145deg,#22c55e,#15803d);}
+.menu .causas{background:linear-gradient(145deg,#2dd4bf,#0f766e);}
 .menu .agenda{background:linear-gradient(145deg,#a855f7,#6d28d9);}
 .menu .config{background:linear-gradient(145deg,#fb923c,#ea580c);}
 
@@ -174,6 +174,8 @@ background:#f3f4f6;
 padding:10px 26px 4px 26px;
 }
 
+/* TARJETAS SUPERIORES */
+
 .cards{
 display:grid;
 grid-template-columns:repeat(4,1fr);
@@ -198,21 +200,31 @@ font-size:24px;
 font-weight:bold;
 }
 
+/* colores columna 1 */
+
 .clientes{
 background:linear-gradient(135deg,#22c3e6,#06b6d4);
 }
+
+/* columna 2 verde turquesa */
 
 .causas{
 background:linear-gradient(135deg,#14b8a6,#0f766e);
 }
 
+/* columna 3 lila */
+
 .audiencias{
 background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 }
 
+/* columna 4 naranja */
+
 .tareas{
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
+
+/* SEGUNDA FILA BOTONES */
 
 .acciones{
 display:grid;
@@ -232,21 +244,31 @@ font-size:14px;
 box-shadow:0 10px 16px rgba(0,0,0,.22);
 }
 
+/* columna 1 */
+
 .b1{
-background:linear-gradient(135deg,#38d9f6,#22c3e6);
+background:linear-gradient(135deg,#67e8f9,#22c3e6);
 }
+
+/* columna 2 */
 
 .b2{
 background:linear-gradient(135deg,#2dd4bf,#14b8a6);
 }
 
+/* columna 3 */
+
 .b3{
-background:linear-gradient(135deg,#a78bfa,#8b5cf6);
+background:linear-gradient(135deg,#c4b5fd,#8b5cf6);
 }
+
+/* columna 4 */
 
 .b4{
 background:linear-gradient(135deg,#fbbf24,#f59e0b);
 }
+
+/* TERCERA FILA PANELES */
 
 .paneles{
 display:grid;
@@ -264,24 +286,32 @@ overflow:auto;
 max-height:180px;
 }
 
-.panel.alertas{
-background:#fde68a;
-color:#7c2d12;
+/* columna 1 actividad reciente */
+
+.panel.actividad{
+background:#a5f3fc;
+color:#083344;
 }
+
+/* columna 2 causas activas */
 
 .panel:nth-child(2){
-background:#5eead4;
-color:#064e3b;
-}
-
-.panel:nth-child(3){
 background:#99f6e4;
 color:#064e3b;
 }
 
-.panel.actividad{
-background:#c4b5fd;
+/* columna 3 audiencias semana */
+
+.panel:nth-child(3){
+background:#ddd6fe;
 color:#4c1d95;
+}
+
+/* columna 4 alertas */
+
+.panel.alertas{
+background:#fde68a;
+color:#7c2d12;
 }
 
 .footer{
@@ -290,6 +320,8 @@ padding:4px;
 font-size:10px;
 color:#444;
 }
+
+/* DARK MODE */
 
 .dark-mode{
 background:#0f172a;
@@ -300,24 +332,24 @@ color:#e5e7eb;
 background:#0f172a;
 }
 
-.dark-mode .panel.alertas{
-background:#fcd34d;
-color:#7c2d12;
+.dark-mode .panel.actividad{
+background:#0891b2;
+color:white;
 }
 
 .dark-mode .panel:nth-child(2){
-background:#2dd4bf;
-color:#022c22;
+background:#0d9488;
+color:white;
 }
 
 .dark-mode .panel:nth-child(3){
-background:#5eead4;
-color:#022c22;
+background:#7c3aed;
+color:white;
 }
 
-.dark-mode .panel.actividad{
-background:#a78bfa;
-color:white;
+.dark-mode .panel.alertas{
+background:#f59e0b;
+color:#422006;
 }
 
 .dark-mode .footer{
