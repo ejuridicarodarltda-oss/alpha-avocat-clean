@@ -393,20 +393,18 @@ font-size:18px;
 margin-bottom:8px;
 }
 
-/* DEGRADÉ TURQUESA */
+/* COLORES TARJETAS INFERIORES */
 
-.audiencias-panel{
-background:linear-gradient(180deg,#99f6e4,#5eead4);
+.paneles .panel:nth-child(1){
+background:linear-gradient(180deg,#a7f3d0,#6ee7b7);
 }
 
-.causas-panel{
-background:linear-gradient(180deg,#ccfbf1,#99f6e4);
+.paneles .panel:nth-child(2){
+background:linear-gradient(180deg,#6ee7b7,#34d399);
 }
 
-/* EVENTOS */
-
-.actividad-panel{
-background:linear-gradient(180deg,#faf9ff,#f1efff);
+.paneles .panel:nth-child(3){
+background:linear-gradient(180deg,#ede9fe,#ddd6fe);
 }
 
 /* AVATARES AUDIENCIAS */
