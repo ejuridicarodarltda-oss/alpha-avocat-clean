@@ -185,8 +185,6 @@ padding:0 26px;
 padding:18px;
 border-radius:18px;
 color:white;
-background:linear-gradient(135deg,rgba(255,255,255,0.18),rgba(255,255,255,0.05));
-backdrop-filter:blur(10px);
 box-shadow:0 20px 30px rgba(0,0,0,.25);
 }
 
@@ -194,11 +192,6 @@ box-shadow:0 20px 30px rgba(0,0,0,.25);
 font-size:30px;
 margin-bottom:6px;
 }
-
-.card.clientes .card-icon{color:#7c3aed;}
-.card.causas .card-icon{color:#facc15;}
-.card.audiencias .card-icon{color:#fb923c;}
-.card.tareas .card-icon{color:#38bdf8;}
 
 .card .numero{
 font-size:26px;
@@ -225,4 +218,73 @@ color:white;
 cursor:pointer;
 font-weight:bold;
 font-size:15px;
-box-shadow:0 14px 20px rgba
+box-shadow:0 14px 20px rgba(0,0,0,.25);
+}
+
+.b1{background:linear-gradient(135deg,#22c3e6,#0ea5e9);}
+.b2{background:linear-gradient(135deg,#16a34a,#15803d);}
+.b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+.b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
+
+.paneles{
+display:grid;
+grid-template-columns:repeat(4,1fr);
+gap:14px;
+padding:12px 26px;
+flex:1;
+}
+
+.panel{
+padding:16px;
+border-radius:16px;
+box-shadow:0 12px 18px rgba(0,0,0,.18);
+background:#2dd4bf;
+color:#053b3a;
+overflow:auto;
+}
+
+.panel.alertas{
+background:#2dd4bf;
+}
+
+.panel:nth-child(2){
+background:#2dd4bf;
+}
+
+.panel:nth-child(3){
+background:#2dd4bf;
+}
+
+.panel.actividad{
+background:#a78bfa;
+color:white;
+}
+
+.footer{
+text-align:center;
+padding:6px;
+font-size:11px;
+color:#444;
+}
+
+.dark-mode{
+background:#0f172a;
+color:#e5e7eb;
+}
+
+.dark-mode .main{
+background:#0f172a;
+}
+
+.dark-mode .panel{
+background:#1e293b;
+color:white;
+}
+
+.dark-mode .panel.actividad{
+background:#7c3aed;
+}
+
+.dark-mode .footer{
+color:#9ca3af;
+}
