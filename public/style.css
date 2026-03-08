@@ -185,11 +185,12 @@ border:2px solid white;
 }
 
 .avatar-mini{
-width:26px;
-height:26px;
+width:28px;
+height:28px;
 border-radius:50%;
 margin-right:6px;
-border:2px solid #ffffff;
+border:2px solid #d1d5db;
+background:#f3f4f6;
 }
 
 /* BIENVENIDA */
@@ -343,10 +344,10 @@ transform:translateY(3px);
 .b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
 .b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
 
-/* ALERTAS (VERDE MEDIO) */
+/* ALERTAS TURQUESA */
 
 .alertas{
-background:linear-gradient(180deg,#dcfce7,#bbf7d0);
+background:linear-gradient(180deg,#5eead4,#2dd4bf);
 padding:22px;
 border-radius:16px;
 box-shadow:0 14px 28px rgba(0,0,0,.15);
@@ -373,20 +374,20 @@ font-size:18px;
 margin-bottom:8px;
 }
 
-/* DEGRADÉ VERDE DE CAUSAS */
+/* DEGRADÉ TURQUESA */
 
 .audiencias-panel{
-background:linear-gradient(180deg,#ecfdf5,#d1fae5);
+background:linear-gradient(180deg,#99f6e4,#5eead4);
 }
 
 .causas-panel{
-background:linear-gradient(180deg,#f0fdf4,#dcfce7);
+background:linear-gradient(180deg,#ccfbf1,#99f6e4);
 }
 
 /* EVENTOS */
 
 .actividad-panel{
-background:linear-gradient(180deg,#f5f3ff,#ede9fe);
+background:linear-gradient(180deg,#faf9ff,#f1efff);
 }
 
 /* AVATARES AUDIENCIAS */
