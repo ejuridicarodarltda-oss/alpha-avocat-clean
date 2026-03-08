@@ -198,10 +198,21 @@ font-size:24px;
 font-weight:bold;
 }
 
-.clientes{background:linear-gradient(135deg,#22c3e6,#06b6d4);}
-.causas{background:linear-gradient(135deg,#1fbf75,#059669);}
-.audiencias{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
-.tareas{background:linear-gradient(135deg,#f59e0b,#d97706);}
+.clientes{
+background:linear-gradient(135deg,#22c3e6,#06b6d4);
+}
+
+.causas{
+background:linear-gradient(135deg,#14b8a6,#0f766e);
+}
+
+.audiencias{
+background:linear-gradient(135deg,#8b5cf6,#6d28d9);
+}
+
+.tareas{
+background:linear-gradient(135deg,#f59e0b,#d97706);
+}
 
 .acciones{
 display:grid;
@@ -221,10 +232,21 @@ font-size:14px;
 box-shadow:0 10px 16px rgba(0,0,0,.22);
 }
 
-.b1{background:linear-gradient(135deg,#22c3e6,#0ea5e9);}
-.b2{background:linear-gradient(135deg,#16a34a,#15803d);}
-.b3{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
-.b4{background:linear-gradient(135deg,#06b6d4,#0e7490);}
+.b1{
+background:linear-gradient(135deg,#38d9f6,#22c3e6);
+}
+
+.b2{
+background:linear-gradient(135deg,#2dd4bf,#14b8a6);
+}
+
+.b3{
+background:linear-gradient(135deg,#a78bfa,#8b5cf6);
+}
+
+.b4{
+background:linear-gradient(135deg,#fbbf24,#f59e0b);
+}
 
 .paneles{
 display:grid;
@@ -238,27 +260,28 @@ flex:1;
 padding:14px;
 border-radius:16px;
 box-shadow:0 10px 16px rgba(0,0,0,.18);
-background:#2dd4bf;
-color:#053b3a;
 overflow:auto;
 max-height:180px;
 }
 
 .panel.alertas{
-background:#2dd4bf;
+background:#fde68a;
+color:#7c2d12;
 }
 
 .panel:nth-child(2){
-background:#2dd4bf;
+background:#5eead4;
+color:#064e3b;
 }
 
 .panel:nth-child(3){
-background:#2dd4bf;
+background:#99f6e4;
+color:#064e3b;
 }
 
 .panel.actividad{
-background:#a78bfa;
-color:white;
+background:#c4b5fd;
+color:#4c1d95;
 }
 
 .footer{
@@ -277,9 +300,19 @@ color:#e5e7eb;
 background:#0f172a;
 }
 
-.dark-mode .panel{
+.dark-mode .panel.alertas{
+background:#fcd34d;
+color:#7c2d12;
+}
+
+.dark-mode .panel:nth-child(2){
 background:#2dd4bf;
-color:#053b3a;
+color:#022c22;
+}
+
+.dark-mode .panel:nth-child(3){
+background:#5eead4;
+color:#022c22;
 }
 
 .dark-mode .panel.actividad{
