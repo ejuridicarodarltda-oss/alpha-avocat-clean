@@ -2,11 +2,13 @@ body{
 margin:0;
 font-family:Arial;
 background:#eef1f5;
+height:100vh;
 }
 
 .layout{
 display:flex;
 min-height:100vh;
+height:100vh;
 }
 
 .sidebar{
@@ -89,25 +91,11 @@ transform:translateX(6px);
 box-shadow:6px 6px 16px rgba(0,0,0,.6),inset 1px 1px 2px rgba(255,255,255,.12);
 }
 
-.menu .inicio{
-background:linear-gradient(145deg,#c31432,#7f0d13);
-}
-
-.menu .clientes{
-background:linear-gradient(145deg,#38bdf8,#0ea5e9);
-}
-
-.menu .causas{
-background:linear-gradient(145deg,#22c55e,#15803d);
-}
-
-.menu .agenda{
-background:linear-gradient(145deg,#a855f7,#6d28d9);
-}
-
-.menu .config{
-background:linear-gradient(145deg,#fb923c,#ea580c);
-}
+.menu .inicio{background:linear-gradient(145deg,#c31432,#7f0d13);}
+.menu .clientes{background:linear-gradient(145deg,#38bdf8,#0ea5e9);}
+.menu .causas{background:linear-gradient(145deg,#22c55e,#15803d);}
+.menu .agenda{background:linear-gradient(145deg,#a855f7,#6d28d9);}
+.menu .config{background:linear-gradient(145deg,#fb923c,#ea580c);}
 
 .icon{
 font-size:22px;
@@ -125,7 +113,7 @@ opacity:.8;
 flex:1;
 display:flex;
 flex-direction:column;
-min-height:100vh;
+height:100vh;
 }
 
 .topbar{
@@ -338,10 +326,11 @@ background:#1e293b;
 color:white;
 }
 
-.dark-mode .alertas{
-background:#1e293b;
-}
-
 .dark-mode .footer{
 color:#9ca3af;
+}
+
+.dark-mode .alertas{
+background:linear-gradient(180deg,#5eead4,#2dd4bf);
+color:#0f172a;
 }
