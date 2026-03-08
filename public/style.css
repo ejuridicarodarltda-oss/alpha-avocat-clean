@@ -4,7 +4,7 @@ font-family:Arial;
 background:#eef1f5;
 }
 
-/* AJUSTE 100% PANTALLA */
+/* LAYOUT */
 
 .layout{
 display:flex;
@@ -104,7 +104,7 @@ box-shadow:
 inset 1px 1px 2px rgba(255,255,255,.12);
 }
 
-/* COLORES BOTONES MENU */
+/* BOTONES MENU */
 
 .menu .inicio{
 background:linear-gradient(145deg,#c31432,#7f0d13);
@@ -223,7 +223,7 @@ font-size:34px;
 margin-bottom:4px;
 }
 
-/* TARJETAS */
+/* TARJETAS SUPERIORES */
 
 .cards{
 display:grid;
@@ -263,9 +263,12 @@ font-size:36px;
 margin-bottom:10px;
 }
 
-.card h3{
-font-size:18px;
-}
+/* COLORES ICONOS */
+
+.card.clientes .card-icon{color:#7c3aed;}
+.card.causas .card-icon{color:#facc15;}
+.card.audiencias .card-icon{color:#fb923c;}
+.card.tareas .card-icon{color:#38bdf8;}
 
 .card .numero{
 font-size:34px;
@@ -274,21 +277,10 @@ font-weight:bold;
 
 /* COLORES TARJETAS */
 
-.clientes{
-background:linear-gradient(135deg,#22c3e6,#06b6d4);
-}
-
-.causas{
-background:linear-gradient(135deg,#1fbf75,#059669);
-}
-
-.audiencias{
-background:linear-gradient(135deg,#8b5cf6,#6d28d9);
-}
-
-.tareas{
-background:linear-gradient(135deg,#f59e0b,#d97706);
-}
+.clientes{background:linear-gradient(135deg,#22c3e6,#06b6d4);}
+.causas{background:linear-gradient(135deg,#1fbf75,#059669);}
+.audiencias{background:linear-gradient(135deg,#8b5cf6,#6d28d9);}
+.tareas{background:linear-gradient(135deg,#f59e0b,#d97706);}
 
 /* ACCIONES */
 
@@ -332,8 +324,7 @@ transition:all .2s;
 
 .botones button:hover{
 transform:translateY(-4px);
-box-shadow:
-0 22px 40px rgba(0,0,0,.55);
+box-shadow:0 22px 40px rgba(0,0,0,.55);
 }
 
 .botones button:active{
@@ -363,29 +354,26 @@ gap:18px;
 padding:0 26px 20px 26px;
 }
 
+/* PANEL BASE */
+
 .panel{
 padding:18px;
 border-radius:16px;
 box-shadow:0 12px 22px rgba(0,0,0,.15);
 }
 
-.panel h3{
-font-size:18px;
-margin-bottom:8px;
-}
-
-/* COLORES TARJETAS INFERIORES */
+/* COLORES PANELES */
 
 .paneles .panel:nth-child(1){
-background:linear-gradient(180deg,#a7f3d0,#6ee7b7);
+background:linear-gradient(180deg,#bbf7d0,#86efac);
 }
 
 .paneles .panel:nth-child(2){
-background:linear-gradient(180deg,#6ee7b7,#34d399);
+background:linear-gradient(180deg,#86efac,#4ade80);
 }
 
 .paneles .panel:nth-child(3){
-background:linear-gradient(180deg,#ede9fe,#ddd6fe);
+background:linear-gradient(180deg,#d8b4fe,#c084fc);
 }
 
 /* FOOTER */
