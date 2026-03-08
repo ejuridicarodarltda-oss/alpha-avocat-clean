@@ -5,7 +5,7 @@
 <meta charset="UTF-8">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=7">
+<link rel="stylesheet" href="style.css?v=8">
 
 </head>
 
@@ -68,6 +68,8 @@ Usuario conectado
 <input class="search" placeholder="Buscar causa o cliente...">
 
 <div class="top-info">
+
+<button id="modo-toggle" class="modo-btn">🌙</button>
 
 <span id="fecha"></span>
 
@@ -243,6 +245,27 @@ day:"numeric",
 month:"long",
 year:"numeric"
 });
+
+const botonModo = document.getElementById("modo-toggle");
+
+botonModo.onclick = function(){
+
+document.body.classList.toggle("dark-mode");
+
+if(document.body.classList.contains("dark-mode")){
+localStorage.setItem("modo","oscuro");
+botonModo.innerText="☀️";
+}else{
+localStorage.setItem("modo","claro");
+botonModo.innerText="🌙";
+}
+
+};
+
+if(localStorage.getItem("modo")==="oscuro"){
+document.body.classList.add("dark-mode");
+botonModo.innerText="☀️";
+}
 
 </script>
 
