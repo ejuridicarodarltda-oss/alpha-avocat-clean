@@ -345,3 +345,14 @@ background:#0f172a;
 .dark-mode .footer{
 color:#9ca3af;
 }
+/* icono Audiencias Hoy */
+
+.card.audiencias .card-icon{
+filter: brightness(0) saturate(100%) invert(86%) sepia(13%) saturate(726%) hue-rotate(222deg) brightness(105%) contrast(96%);
+}
+
+/* icono Tareas Pendientes */
+
+.card.tareas .card-icon{
+filter: brightness(0) saturate(100%) invert(92%) sepia(18%) saturate(965%) hue-rotate(335deg) brightness(102%) contrast(95%);
+}
