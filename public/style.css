@@ -195,6 +195,16 @@ font-size:28px;
 margin-bottom:6px;
 }
 
+/* iconos coloreados */
+
+.card.audiencias .card-icon{
+color:#f3e8ff;
+}
+
+.card.tareas .card-icon{
+color:#fff7ed;
+}
+
 .card .numero{
 font-size:24px;
 font-weight:bold;
@@ -265,7 +275,7 @@ background:linear-gradient(135deg,#c4b5fd,#8b5cf6);
 /* columna 4 naranja medio */
 
 .b4{
-background:linear-gradient(135deg,#fbbf24,#f59e0b);
+background:linear-gradient(135deg,#fdba74,#f59e0b);
 }
 
 /* TERCERA FILA */
@@ -296,21 +306,21 @@ color:#083344;
 /* columna 2 verde turquesa suave */
 
 .panel.causas-activas{
-background:#99f6e4;
+background:#5eead4;
 color:#064e3b;
 }
 
 /* columna 3 lila suave */
 
 .panel.audiencias-semana{
-background:#ddd6fe;
+background:#c4b5fd;
 color:#4c1d95;
 }
 
 /* columna 4 naranja suave */
 
 .panel.alertas{
-background:#fde68a;
+background:#fed7aa;
 color:#7c2d12;
 }
 
@@ -348,8 +358,8 @@ color:white;
 }
 
 .dark-mode .panel.alertas{
-background:#f59e0b;
-color:#422006;
+background:#ea580c;
+color:white;
 }
 
 .dark-mode .footer{
