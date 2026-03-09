@@ -200,25 +200,25 @@ font-size:24px;
 font-weight:bold;
 }
 
-/* colores columna 1 */
+/* columna 1 celeste fuerte */
 
 .clientes{
 background:linear-gradient(135deg,#22c3e6,#06b6d4);
 }
 
-/* columna 2 verde turquesa */
+/* columna 2 verde turquesa fuerte */
 
 .causas{
 background:linear-gradient(135deg,#14b8a6,#0f766e);
 }
 
-/* columna 3 lila */
+/* columna 3 lila fuerte */
 
 .audiencias{
 background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 }
 
-/* columna 4 naranja */
+/* columna 4 naranja fuerte */
 
 .tareas{
 background:linear-gradient(135deg,#f59e0b,#d97706);
@@ -244,31 +244,31 @@ font-size:14px;
 box-shadow:0 10px 16px rgba(0,0,0,.22);
 }
 
-/* columna 1 */
+/* columna 1 celeste medio */
 
 .b1{
 background:linear-gradient(135deg,#67e8f9,#22c3e6);
 }
 
-/* columna 2 */
+/* columna 2 verde turquesa medio */
 
 .b2{
 background:linear-gradient(135deg,#2dd4bf,#14b8a6);
 }
 
-/* columna 3 */
+/* columna 3 lila medio */
 
 .b3{
 background:linear-gradient(135deg,#c4b5fd,#8b5cf6);
 }
 
-/* columna 4 */
+/* columna 4 naranja medio */
 
 .b4{
 background:linear-gradient(135deg,#fbbf24,#f59e0b);
 }
 
-/* TERCERA FILA PANELES */
+/* TERCERA FILA */
 
 .paneles{
 display:grid;
@@ -286,28 +286,28 @@ overflow:auto;
 max-height:180px;
 }
 
-/* columna 1 actividad reciente */
+/* columna 1 celeste suave */
 
 .panel.actividad{
 background:#a5f3fc;
 color:#083344;
 }
 
-/* columna 2 causas activas */
+/* columna 2 verde turquesa suave */
 
-.panel:nth-child(2){
+.panel.causas-activas{
 background:#99f6e4;
 color:#064e3b;
 }
 
-/* columna 3 audiencias semana */
+/* columna 3 lila suave */
 
-.panel:nth-child(3){
+.panel.audiencias-semana{
 background:#ddd6fe;
 color:#4c1d95;
 }
 
-/* columna 4 alertas */
+/* columna 4 naranja suave */
 
 .panel.alertas{
 background:#fde68a;
@@ -337,12 +337,12 @@ background:#0891b2;
 color:white;
 }
 
-.dark-mode .panel:nth-child(2){
+.dark-mode .panel.causas-activas{
 background:#0d9488;
 color:white;
 }
 
-.dark-mode .panel:nth-child(3){
+.dark-mode .panel.audiencias-semana{
 background:#7c3aed;
 color:white;
 }
