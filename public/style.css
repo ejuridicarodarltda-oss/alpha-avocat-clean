@@ -4,23 +4,30 @@ height:100%;
 width:100%;
 font-family:Arial;
 background:#eef1f5;
+overflow:hidden; /* elimina scroll global */
 }
+
+/* LAYOUT PRINCIPAL */
 
 .layout{
 display:flex;
-min-height:100vh;
+height:100vh;
 width:100%;
 }
+
+/* SIDEBAR */
 
 .sidebar{
 width:300px;
 background:linear-gradient(180deg,#0c1f34,#142f4e);
 color:#d4af37;
-padding:28px 24px;
+padding:20px 24px;
 display:flex;
 flex-direction:column;
 box-shadow:4px 0 18px rgba(0,0,0,.35);
 }
+
+/* LOGO */
 
 .logo{
 display:flex;
@@ -28,19 +35,18 @@ flex-direction:column;
 align-items:center;
 justify-content:center;
 text-align:center;
-margin-top:40px;
-margin-bottom:25px;
+margin-top:10px;   /* antes 40px */
+margin-bottom:20px;
 }
 
 .logo img{
-width:240px;
-margin-bottom:12px;
+width:220px;
+margin-bottom:8px;
 filter:drop-shadow(0 18px 40px rgba(0,0,0,.95));
 }
 
 .logo-spin{
 animation:logoRotate 22s linear infinite;
-transform-style:preserve-3d;
 }
 
 @keyframes logoRotate{
@@ -49,24 +55,26 @@ transform-style:preserve-3d;
 }
 
 .logo h1{
-font-size:34px;
+font-size:30px;
 letter-spacing:3px;
 margin:0;
 color:#d4af37;
 }
 
 .logo p{
-font-size:15px;
+font-size:14px;
 opacity:.95;
 }
 
 .autor{
-font-size:14px;
+font-size:13px;
 margin-top:6px;
 }
 
+/* MENU */
+
 .menu{
-margin-top:25px;
+margin-top:10px;
 display:flex;
 flex-direction:column;
 gap:12px;
@@ -84,12 +92,11 @@ transition:.25s;
 color:white;
 font-size:16px;
 font-weight:600;
-box-shadow:4px 4px 12px rgba(0,0,0,.45),inset 1px 1px 2px rgba(255,255,255,.08);
+box-shadow:4px 4px 12px rgba(0,0,0,.45);
 }
 
 .menu a:hover{
 transform:translateX(6px);
-box-shadow:6px 6px 16px rgba(0,0,0,.6);
 }
 
 .menu .inicio{background:linear-gradient(145deg,#c31432,#7f0d13);}
@@ -98,24 +105,24 @@ box-shadow:6px 6px 16px rgba(0,0,0,.6);
 .menu .agenda{background:linear-gradient(145deg,#a855f7,#6d28d9);}
 .menu .config{background:linear-gradient(145deg,#fb923c,#ea580c);}
 
-.icon{
-font-size:20px;
-min-width:24px;
-text-align:center;
-}
-
 .user-status{
 margin-top:auto;
 font-size:13px;
 opacity:.8;
 }
 
+/* CONTENIDO PRINCIPAL */
+
 .main{
 flex:1;
 display:flex;
 flex-direction:column;
-background:#0f172a;
+height:100vh;
+overflow:hidden;
+background:#eef1f5;
 }
+
+/* TOPBAR */
 
 .topbar{
 background:#9b0f17;
@@ -148,12 +155,6 @@ cursor:pointer;
 color:white;
 }
 
-.usuario{
-display:flex;
-align-items:center;
-gap:10px;
-}
-
 .avatar{
 width:34px;
 height:34px;
@@ -169,6 +170,8 @@ margin-right:6px;
 border:2px solid #d1d5db;
 background:#f3f4f6;
 }
+
+/* BIENVENIDA */
 
 .welcome{
 padding:10px 26px 4px 26px;
@@ -208,6 +211,8 @@ font-size:24px;
 font-weight:bold;
 }
 
+/* COLORES TARJETAS */
+
 .clientes{
 background:linear-gradient(135deg,#22c3e6,#06b6d4);
 }
@@ -224,7 +229,7 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
 
-/* SEGUNDA FILA BOTONES */
+/* BOTONES */
 
 .acciones{
 display:grid;
@@ -244,38 +249,28 @@ font-size:14px;
 box-shadow:0 10px 16px rgba(0,0,0,.22);
 }
 
-.b1{
-background:linear-gradient(135deg,#67e8f9,#22c3e6);
-}
+.b1{background:linear-gradient(135deg,#67e8f9,#22c3e6);}
+.b2{background:linear-gradient(135deg,#2dd4bf,#14b8a6);}
+.b3{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);}
+.b4{background:linear-gradient(135deg,#fdba74,#f59e0b);}
 
-.b2{
-background:linear-gradient(135deg,#2dd4bf,#14b8a6);
-}
-
-.b3{
-background:linear-gradient(135deg,#c4b5fd,#8b5cf6);
-}
-
-.b4{
-background:linear-gradient(135deg,#fdba74,#f59e0b);
-}
-
-/* TERCERA FILA */
+/* PANEL INFERIOR */
 
 .paneles{
 display:grid;
 grid-template-columns:repeat(4,1fr);
 gap:14px;
 padding:10px 26px;
+flex:1;
+overflow:hidden;
 }
 
 .panel{
 padding:14px;
 border-radius:16px;
 box-shadow:0 10px 16px rgba(0,0,0,.18);
-min-height:180px;
+height:100%;
 overflow-y:auto;
-overflow-x:hidden;
 }
 
 .panel.actividad{
@@ -298,23 +293,24 @@ background:#fed7aa;
 color:#7c2d12;
 }
 
+/* FOOTER */
+
 .footer{
 text-align:center;
-padding:4px;
+padding:6px;
 font-size:10px;
 color:#444;
-margin-top:auto;
 }
 
 /* DARK MODE */
 
 .dark-mode{
 background:#0f172a;
-color:#e5e7eb;
 }
 
 .dark-mode .main{
 background:#0f172a;
+color:#e5e7eb;
 }
 
 .dark-mode .footer{
