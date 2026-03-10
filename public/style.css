@@ -78,10 +78,10 @@ margin-top:4px;
 }
 
 .menu{
-margin-top:16px;
+margin-top:18px;
 display:flex;
 flex-direction:column;
-gap:6px;
+gap:8px;
 }
 
 .menu a{
