@@ -178,7 +178,7 @@ background:#f3f4f6;
 /* BIENVENIDA */
 
 .welcome{
-padding:10px 26px 4px 26px;
+padding:4px 26px 0px 26px;
 }
 
 /* TARJETAS SUPERIORES */
@@ -191,12 +191,11 @@ padding:0 26px;
 }
 
 .card{
-padding:8px 16px;   /* antes 16px */
+padding:6px 14px;
 border-radius:18px;
 color:white;
 box-shadow:0 18px 24px rgba(0,0,0,.22);
 }
-
 .card-icon{
 font-size:28px;
 margin-bottom:6px;
