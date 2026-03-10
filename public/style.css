@@ -364,7 +364,7 @@ color:#e5e7eb;
 color:#9ca3af;
 }
 
-/* PANTALLAS MÁS BAJAS */
+/* PANTALLAS MÁS BAJAS EN PC / NOTEBOOK */
 
 @media (max-height: 760px){
 .sidebar{
@@ -427,7 +427,7 @@ padding:6px 20px;
 }
 }
 
-/* MÓVIL / TABLET */
+/* TABLET Y MÓVIL */
 
 @media (max-width: 768px){
 html,body{
@@ -435,42 +435,145 @@ overflow:auto;
 }
 
 .layout{
+flex-direction:column;
 height:auto;
 min-height:100dvh;
-flex-direction:column;
+overflow:visible;
 }
 
 .sidebar{
 width:100%;
 height:auto;
 overflow:visible;
-position:static;
+padding:10px 12px 12px 12px;
+}
+
+.logo{
+margin-top:8px;
+margin-bottom:12px;
+}
+
+.logo img{
+width:110px;
+margin-bottom:4px;
+}
+
+.logo h1{
+font-size:20px;
+letter-spacing:2px;
+}
+
+.logo p{
+font-size:11px;
+}
+
+.autor{
+font-size:10px;
+}
+
+.menu{
+margin-top:6px;
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
+}
+
+.menu a{
+padding:10px 8px;
+font-size:14px;
+min-height:46px;
+}
+
+.user-status{
+margin-top:8px;
+padding-top:0;
+text-align:center;
 }
 
 .main{
+display:block;
 height:auto;
-grid-template-rows:auto auto auto auto auto auto;
+overflow:visible;
 }
 
-.cards,
-.acciones,
-.paneles{
+.topbar{
+padding:10px 12px;
+min-height:62px;
+gap:8px;
+flex-wrap:wrap;
+}
+
+.search{
+flex:1 1 160px;
+width:100%;
+font-size:12px;
+}
+
+.top-info{
+width:100%;
+justify-content:space-between;
+gap:8px;
+flex-wrap:wrap;
+}
+
+.welcome{
+padding:10px 12px 0 12px;
+}
+
+.welcome h2{
+font-size:20px;
+}
+
+.welcome p{
+font-size:12px;
+}
+
+.cards{
 grid-template-columns:repeat(2,1fr);
+gap:10px;
+padding:0 12px;
+}
+
+.card{
+min-height:86px;
+padding:8px 10px;
+}
+
+.card h3{
+font-size:14px;
+}
+
+.card .numero{
+font-size:20px;
+}
+
+.acciones{
+grid-template-columns:repeat(2,1fr);
+gap:8px;
+padding:8px 12px;
+}
+
+.acciones button{
+min-height:48px;
+padding:8px 10px;
+font-size:12px;
 }
 
 .paneles{
+grid-template-columns:1fr;
+gap:10px;
+padding:8px 12px 12px 12px;
 overflow:visible;
 }
 
 .panel{
-min-height:180px;
-}
+min-height:auto;
+max-height:none;
+overflow:visible;
 }
 
-@media (max-width: 640px){
-.cards,
-.acciones,
-.paneles{
-grid-template-columns:1fr;
+.footer{
+padding:10px 8px 14px 8px;
+font-size:9px;
 }
 }
