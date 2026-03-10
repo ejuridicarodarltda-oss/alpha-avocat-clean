@@ -186,7 +186,11 @@ padding:0 26px;
 }
 
 .card{
-padding:10px 16
+padding:16px;
+border-radius:18px;
+color:white;
+box-shadow:0 18px 24px rgba(0,0,0,.22);
+}
 
 .card-icon{
 font-size:28px;
