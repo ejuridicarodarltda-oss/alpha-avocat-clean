@@ -429,7 +429,7 @@ padding:6px 20px;
 
 /* MÓVIL / TABLET */
 
-@media (max-width: 1024px){
+@media (max-width: 768px){
 html,body{
 overflow:auto;
 }
