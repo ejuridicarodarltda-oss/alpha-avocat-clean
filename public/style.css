@@ -264,16 +264,15 @@ display:grid;
 grid-template-columns:repeat(4,1fr);
 gap:14px;
 padding:10px 26px;
-height:calc(100vh - 380px);
+flex:1;
+min-height:0;
 }
 
 .panel{
 padding:14px;
 border-radius:16px;
 box-shadow:0 10px 16px rgba(0,0,0,.18);
-overflow-y:auto;
-overflow-x:hidden;
-}
+overflow
 
 /* PANEL COLORES */
 
