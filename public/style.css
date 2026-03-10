@@ -38,8 +38,8 @@ flex-direction:column;
 align-items:center;
 justify-content:center;
 text-align:center;
-margin-top:8px;
-margin-bottom:16px;
+margin-top:26px;
+margin-bottom:28px;
 }
 
 .logo img{
@@ -78,7 +78,7 @@ margin-top:4px;
 }
 
 .menu{
-margin-top:4px;
+margin-top:18px;
 display:flex;
 flex-direction:column;
 gap:8px;
