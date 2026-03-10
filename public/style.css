@@ -266,7 +266,7 @@ display:grid;
 grid-template-columns:repeat(4,1fr);
 gap:14px;
 padding:10px 26px;
-flex:1;
+height:calc(100vh - 380px);
 }
 
 .panel{
