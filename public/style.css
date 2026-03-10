@@ -186,10 +186,10 @@ padding:0 26px;
 }
 
 .card{
-padding:0px 16px;   /* antes 16px */
-border-radius:16px;
+padding:8px 16px;   /* antes 16px */
+border-radius:18px;
 color:white;
-box-shadow:0 16px 20px rgba(0,0,0,.22);
+box-shadow:0 18px 24px rgba(0,0,0,.22);
 }
 
 .card-icon{
