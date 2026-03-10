@@ -268,11 +268,13 @@ flex:1;
 min-height:0;
 }
 
-.panel{
-padding:14px;
-border-radius:16px;
-box-shadow:0 10px 16px rgba(0,0,0,.18);
-overflow
+.panel{ 
+padding:14px; 
+border-radius:16px; 
+box-shadow:0 10px 16px rgba(0,0,0,.18); 
+overflow-y:auto; 
+overflow-x:hidden; 
+}
 
 /* PANEL COLORES */
 
