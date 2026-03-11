@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=12">
 
 </head>
 
@@ -78,7 +78,8 @@ Usuario conectado
 
 <img src="avatars/usuario.jpg"
 onerror="this.src='avatars/default-avatar.png'"
-class="avatar">
+class="avatar"
+alt="Usuario">
 
 <span>Usuario Activo</span>
 
@@ -179,21 +180,24 @@ class="avatar">
 <li>
 <img src="avatars/abogado1.jpg"
 onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
+class="avatar-mini"
+alt="Abogado 1">
 Juzgado Civil — 10:00
 </li>
 
 <li>
 <img src="avatars/abogado2.jpg"
 onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
+class="avatar-mini"
+alt="Abogado 2">
 Tribunal Laboral — 12:30
 </li>
 
 <li>
 <img src="avatars/abogado1.jpg"
 onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
+class="avatar-mini"
+alt="Abogado 1">
 Tribunal de Garantía — 15:00
 </li>
 
@@ -231,31 +235,31 @@ Todos los derechos reservados
 const fecha = new Date();
 
 document.getElementById("fecha").innerText =
-fecha.toLocaleDateString("es-CL",{
-day:"numeric",
-month:"long",
-year:"numeric"
+fecha.toLocaleDateString("es-CL", {
+day: "numeric",
+month: "long",
+year: "numeric"
 });
 
 const botonModo = document.getElementById("modo-toggle");
 
-botonModo.onclick = function(){
+botonModo.onclick = function () {
 
 document.body.classList.toggle("dark-mode");
 
-if(document.body.classList.contains("dark-mode")){
-localStorage.setItem("modo","oscuro");
-botonModo.innerText="☀️";
-}else{
-localStorage.setItem("modo","claro");
-botonModo.innerText="🌙";
+if (document.body.classList.contains("dark-mode")) {
+localStorage.setItem("modo", "oscuro");
+botonModo.innerText = "☀️";
+} else {
+localStorage.setItem("modo", "claro");
+botonModo.innerText = "🌙";
 }
 
 };
 
-if(localStorage.getItem("modo")==="oscuro"){
+if (localStorage.getItem("modo") === "oscuro") {
 document.body.classList.add("dark-mode");
-botonModo.innerText="☀️";
+botonModo.innerText = "☀️";
 }
 
 </script>
