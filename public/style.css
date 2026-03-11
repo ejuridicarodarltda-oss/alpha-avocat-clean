@@ -561,6 +561,16 @@ font-size:10px;
 /* MOVIL */
 
 @media (max-width:768px){
+.sidebar{
+padding:10px 12px;
+min-height:auto;
+}
+
+.logo{
+margin-top:8px;
+margin-bottom:12px;
+}
+
 .logo img{
 width:110px;
 margin-bottom:4px;
@@ -579,13 +589,16 @@ font-size:10px;
 }
 
 .menu{
-grid-template-columns:1fr;
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
 }
 
 .menu a{
 justify-content:flex-start;
-padding:12px 12px;
+padding:10px 10px;
 font-size:14px;
+min-height:46px;
 }
 
 .topbar{
@@ -593,7 +606,7 @@ padding:10px 12px;
 min-height:auto;
 flex-direction:column;
 align-items:stretch;
-gap:10px;
+gap:8px;
 }
 
 .search{
@@ -603,9 +616,11 @@ font-size:12px;
 
 .top-info{
 width:100%;
-flex-direction:column;
-align-items:stretch;
-gap:10px;
+display:grid;
+grid-template-columns:1fr;
+justify-items:center;
+gap:8px;
+text-align:center;
 }
 
 .usuario{
@@ -634,39 +649,39 @@ font-size:12px;
 }
 
 .cards{
-grid-template-columns:1fr;
-gap:10px;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
 padding:0 12px;
 }
 
 .card{
-min-height:84px;
-padding:10px 12px;
+min-height:78px;
+padding:8px 10px;
 }
 
 .card h3{
-font-size:14px;
+font-size:13px;
 }
 
 .card .numero{
-font-size:20px;
+font-size:18px;
 }
 
 .acciones{
-grid-template-columns:1fr;
+grid-template-columns:repeat(2,1fr);
 gap:8px;
 padding:8px 12px;
 }
 
 .acciones button{
-min-height:48px;
-padding:10px 12px;
+min-height:46px;
+padding:9px 10px;
 font-size:12px;
 }
 
 .paneles{
 grid-template-columns:1fr;
-gap:10px;
+gap:8px;
 padding:8px 12px 12px 12px;
 }
 
@@ -695,7 +710,7 @@ margin-bottom:10px;
 }
 
 .logo img{
-width:95px;
+width:90px;
 }
 
 .logo h1{
@@ -705,6 +720,14 @@ letter-spacing:1.5px;
 
 .logo p{
 font-size:10px;
+}
+
+.autor{
+font-size:9px;
+}
+
+.menu{
+grid-template-columns:1fr;
 }
 
 .menu a{
@@ -732,6 +755,14 @@ padding-left:10px;
 padding-right:10px;
 }
 
+.cards{
+grid-template-columns:1fr;
+}
+
+.acciones{
+grid-template-columns:1fr;
+}
+
 .card,
 .panel,
 .acciones button{
@@ -740,7 +771,7 @@ border-radius:14px;
 
 .card h3,
 .panel h3{
-font-size:15px;
+font-size:14px;
 }
 
 .card .numero{
