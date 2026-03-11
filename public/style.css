@@ -726,14 +726,17 @@ font-size:10px;
 font-size:9px;
 }
 
+/* DEJAR 2 COLUMNAS TAMBIÉN EN CELULAR */
 .menu{
-grid-template-columns:1fr;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
 }
 
 .menu a{
-font-size:13px;
-padding:11px 10px;
+font-size:12px;
+padding:10px 8px;
 border-radius:10px;
+min-height:42px;
 }
 
 .topbar{
@@ -756,11 +759,13 @@ padding-right:10px;
 }
 
 .cards{
-grid-template-columns:1fr;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
 }
 
 .acciones{
-grid-template-columns:1fr;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
 }
 
 .card,
@@ -769,13 +774,24 @@ grid-template-columns:1fr;
 border-radius:14px;
 }
 
+.card{
+padding:8px 9px;
+min-height:74px;
+}
+
 .card h3,
 .panel h3{
-font-size:14px;
+font-size:13px;
 }
 
 .card .numero{
-font-size:18px;
+font-size:17px;
+}
+
+.acciones button{
+font-size:11px;
+min-height:44px;
+padding:8px 8px;
 }
 
 .footer{
