@@ -6,7 +6,210 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=13">
+<link rel="stylesheet" href="style.css?v=20">
+
+<style>
+/* FORZADO SOLO PARA MOVIL */
+@media (max-width: 768px){
+  .layout{
+    display:flex !important;
+    flex-direction:column !important;
+    min-height:100dvh !important;
+    width:100% !important;
+  }
+
+  .sidebar{
+    width:100% !important;
+    min-height:auto !important;
+    height:auto !important;
+    padding:10px 12px !important;
+    box-shadow:none !important;
+  }
+
+  .logo{
+    margin-top:8px !important;
+    margin-bottom:12px !important;
+  }
+
+  .logo img{
+    width:100px !important;
+  }
+
+  .logo h1{
+    font-size:20px !important;
+    letter-spacing:1.5px !important;
+  }
+
+  .logo p{
+    font-size:11px !important;
+  }
+
+  .autor{
+    font-size:10px !important;
+  }
+
+  .menu{
+    display:grid !important;
+    grid-template-columns:repeat(2,1fr) !important;
+    gap:8px !important;
+  }
+
+  .menu a{
+    display:flex !important;
+    align-items:center !important;
+    justify-content:flex-start !important;
+    width:100% !important;
+    min-height:44px !important;
+    padding:10px 8px !important;
+    font-size:13px !important;
+  }
+
+  .main{
+    display:block !important;
+    min-height:auto !important;
+    width:100% !important;
+  }
+
+  .topbar{
+    display:flex !important;
+    flex-direction:column !important;
+    align-items:stretch !important;
+    gap:8px !important;
+    padding:10px 12px !important;
+    min-height:auto !important;
+  }
+
+  .search{
+    width:100% !important;
+    font-size:12px !important;
+  }
+
+  .top-info{
+    width:100% !important;
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    justify-items:center !important;
+    gap:8px !important;
+    text-align:center !important;
+  }
+
+  .usuario{
+    justify-content:center !important;
+  }
+
+  #fecha{
+    text-align:center !important;
+  }
+
+  .modo-btn{
+    align-self:center !important;
+  }
+
+  .welcome{
+    padding:10px 12px 0 12px !important;
+    text-align:center !important;
+  }
+
+  .welcome h2{
+    font-size:20px !important;
+  }
+
+  .welcome p{
+    font-size:12px !important;
+  }
+
+  .cards{
+    display:grid !important;
+    grid-template-columns:repeat(2,1fr) !important;
+    gap:8px !important;
+    padding:0 12px !important;
+  }
+
+  .card{
+    min-height:78px !important;
+    padding:8px 10px !important;
+  }
+
+  .card h3{
+    font-size:13px !important;
+  }
+
+  .card .numero{
+    font-size:18px !important;
+  }
+
+  .acciones{
+    display:grid !important;
+    grid-template-columns:repeat(2,1fr) !important;
+    gap:8px !important;
+    padding:8px 12px !important;
+  }
+
+  .acciones button{
+    min-height:46px !important;
+    padding:9px 10px !important;
+    font-size:12px !important;
+  }
+
+  .paneles{
+    display:grid !important;
+    grid-template-columns:1fr !important;
+    gap:8px !important;
+    padding:8px 12px 12px 12px !important;
+  }
+
+  .panel{
+    overflow:visible !important;
+    min-height:auto !important;
+    max-height:none !important;
+  }
+
+  .footer{
+    padding:10px 8px 14px 8px !important;
+    font-size:9px !important;
+  }
+}
+
+@media (max-width: 480px){
+  .menu{
+    grid-template-columns:repeat(2,1fr) !important;
+  }
+
+  .cards{
+    grid-template-columns:repeat(2,1fr) !important;
+  }
+
+  .acciones{
+    grid-template-columns:repeat(2,1fr) !important;
+  }
+
+  .menu a{
+    font-size:12px !important;
+    min-height:42px !important;
+    padding:9px 8px !important;
+  }
+
+  .card{
+    min-height:72px !important;
+    padding:8px !important;
+  }
+
+  .card h3{
+    font-size:12px !important;
+  }
+
+  .card .numero{
+    font-size:17px !important;
+  }
+
+  .acciones button{
+    font-size:11px !important;
+    min-height:42px !important;
+    padding:8px !important;
+  }
+}
+</style>
+
 </head>
 
 <body>
@@ -147,35 +350,26 @@ alt="Usuario">
 <section class="paneles">
 
 <div class="panel actividad">
-
 <h3>Actividad Reciente</h3>
-
 <ul>
 <li>👤 Nuevo cliente registrado</li>
 <li>📄 Documento subido</li>
 <li><span style="color:#d4af37">⚖</span> Audiencia agregada</li>
 </ul>
-
 </div>
 
 <div class="panel causas-activas">
-
 <h3>Causas Activas</h3>
-
 <ul>
 <li>📂 Rodríguez vs Pérez</li>
 <li>📂 Empresa Norte Ltda</li>
 <li>📂 Contrato Comercial 245</li>
 </ul>
-
 </div>
 
 <div class="panel audiencias-semana">
-
 <h3>Audiencias de la Semana</h3>
-
 <ul>
-
 <li>
 <img src="avatars/abogado1.jpg"
 onerror="this.src='avatars/default-avatar.png'"
@@ -183,7 +377,6 @@ class="avatar-mini"
 alt="Abogado 1">
 Juzgado Civil — 10:00
 </li>
-
 <li>
 <img src="avatars/abogado2.jpg"
 onerror="this.src='avatars/default-avatar.png'"
@@ -191,7 +384,6 @@ class="avatar-mini"
 alt="Abogado 2">
 Tribunal Laboral — 12:30
 </li>
-
 <li>
 <img src="avatars/abogado1.jpg"
 onerror="this.src='avatars/default-avatar.png'"
@@ -199,30 +391,23 @@ class="avatar-mini"
 alt="Abogado 1">
 Tribunal de Garantía — 15:00
 </li>
-
 </ul>
-
 </div>
 
 <div class="panel alertas">
-
 <h3>Alertas Jurídicas</h3>
-
 <ul>
 <li>🔴 Contestación demanda vence en 12 días</li>
 <li>🟠 Apelación vence en 3 días</li>
 </ul>
-
 </div>
 
 </section>
 
 <footer class="footer">
-
 Alpha Avocat — Sistema de Gestión Jurídica Inteligente<br>
 Mario Javier Rodríguez Ardiles<br>
 Todos los derechos reservados
-
 </footer>
 
 </main>
@@ -230,7 +415,6 @@ Todos los derechos reservados
 </div>
 
 <script>
-
 const fecha = new Date();
 
 document.getElementById("fecha").innerText =
@@ -243,7 +427,6 @@ year: "numeric"
 const botonModo = document.getElementById("modo-toggle");
 
 botonModo.onclick = function () {
-
 document.body.classList.toggle("dark-mode");
 
 if (document.body.classList.contains("dark-mode")) {
@@ -253,14 +436,12 @@ botonModo.innerText = "☀️";
 localStorage.setItem("modo", "claro");
 botonModo.innerText = "🌙";
 }
-
 };
 
 if (localStorage.getItem("modo") === "oscuro") {
 document.body.classList.add("dark-mode");
 botonModo.innerText = "☀️";
 }
-
 </script>
 
 </body>
