@@ -8,11 +8,11 @@ min-height:100%;
 width:100%;
 font-family:Arial, sans-serif;
 background:#eef1f5;
+overflow:auto;
 }
 
 body{
-overflow-x:hidden;
-overflow-y:auto;
+overflow:auto;
 }
 
 img{
@@ -161,7 +161,7 @@ border-radius:8px;
 border:none;
 font-weight:600;
 font-size:13px;
-min-width:0;
+min-width:220px;
 }
 
 .top-info{
@@ -454,13 +454,14 @@ padding:6px 20px;
 
 @media (max-width:1024px){
 body{
-overflow-x:hidden;
-overflow-y:auto;
+overflow:auto;
 }
 
 .layout{
+display:flex;
 flex-direction:column;
 min-height:100dvh;
+width:100%;
 }
 
 .sidebar{
@@ -519,6 +520,7 @@ align-items:center;
 .search{
 width:100%;
 flex:1 1 100%;
+min-width:0;
 }
 
 .top-info{
@@ -558,244 +560,186 @@ font-size:10px;
 }
 }
 
-/* MOVIL */
+/* MOVIL: mantener misma estructura visual */
 
-@media (max-width:768px){
+@media (max-width:480px){
+html,body{
+overflow:auto;
+}
+
+.layout{
+display:flex;
+flex-direction:row;
+width:100%;
+min-width:1200px;
+min-height:100dvh;
+height:100dvh;
+}
+
 .sidebar{
-padding:10px 12px;
-min-height:auto;
+width:300px;
+min-width:300px;
+min-height:100dvh;
+height:100dvh;
+padding:12px 20px;
+box-shadow:4px 0 18px rgba(0,0,0,.35);
 }
 
 .logo{
-margin-top:8px;
-margin-bottom:12px;
+margin-top:26px;
+margin-bottom:28px;
 }
 
 .logo img{
-width:110px;
-margin-bottom:4px;
+width:200px;
+margin-bottom:6px;
 }
 
 .logo h1{
-font-size:20px;
+font-size:28px;
+letter-spacing:3px;
 }
 
 .logo p{
-font-size:11px;
+font-size:13px;
 }
 
 .autor{
-font-size:10px;
+font-size:12px;
 }
 
 .menu{
-display:grid;
-grid-template-columns:repeat(2,1fr);
+display:flex;
+flex-direction:column;
 gap:8px;
 }
 
 .menu a{
-justify-content:flex-start;
-padding:10px 10px;
-font-size:14px;
-min-height:46px;
+justify-content:center;
+padding:9px 12px;
+font-size:15px;
+min-height:44px;
+border-radius:12px;
+}
+
+.user-status{
+margin-top:auto;
+font-size:12px;
+text-align:left;
+padding-top:8px;
+}
+
+.main{
+flex:1;
+display:grid;
+grid-template-rows:auto auto auto auto 1fr auto;
+min-height:100dvh;
+height:100dvh;
+min-width:0;
 }
 
 .topbar{
-padding:10px 12px;
-min-height:auto;
-flex-direction:column;
-align-items:stretch;
-gap:8px;
+display:flex;
+flex-direction:row;
+justify-content:space-between;
+align-items:center;
+padding:8px 24px;
+min-height:52px;
+gap:12px;
 }
 
 .search{
-width:100%;
-font-size:12px;
+width:auto;
+min-width:220px;
+font-size:13px;
 }
 
 .top-info{
-width:100%;
-display:grid;
-grid-template-columns:1fr;
-justify-items:center;
-gap:8px;
-text-align:center;
+width:auto;
+display:flex;
+align-items:center;
+justify-content:flex-end;
+gap:14px;
+text-align:left;
 }
 
 .usuario{
-justify-content:center;
+justify-content:flex-start;
 }
 
 #fecha{
-text-align:center;
+text-align:left;
 }
 
 .modo-btn{
-align-self:center;
+align-self:auto;
 }
 
 .welcome{
-padding:10px 12px 0 12px;
-text-align:center;
+padding:4px 26px 0 26px;
+text-align:left;
 }
 
 .welcome h2{
-font-size:20px;
+font-size:26px;
 }
 
 .welcome p{
-font-size:12px;
+font-size:inherit;
 }
 
 .cards{
-grid-template-columns:repeat(2,1fr);
-gap:8px;
-padding:0 12px;
+grid-template-columns:repeat(4,1fr);
+gap:14px;
+padding:0 26px;
 }
 
 .card{
-min-height:78px;
-padding:8px 10px;
+min-height:74px;
+padding:6px 14px;
+border-radius:18px;
 }
 
 .card h3{
-font-size:13px;
+font-size:16px;
 }
 
 .card .numero{
-font-size:18px;
+font-size:22px;
 }
 
 .acciones{
-grid-template-columns:repeat(2,1fr);
-gap:8px;
-padding:8px 12px;
+grid-template-columns:repeat(4,1fr);
+gap:10px;
+padding:8px 26px;
 }
 
 .acciones button{
-min-height:46px;
-padding:9px 10px;
-font-size:12px;
+font-size:13px;
+min-height:54px;
+padding:10px 12px;
+border-radius:16px;
 }
 
 .paneles{
-grid-template-columns:1fr;
-gap:8px;
-padding:8px 12px 12px 12px;
+grid-template-columns:repeat(4,1fr);
+gap:14px;
+padding:8px 26px;
 }
 
 .panel{
-min-height:auto;
+border-radius:16px;
+overflow:auto;
+min-height:0;
 max-height:none;
-overflow:visible;
 }
 
-.footer{
-padding:10px 8px 14px 8px;
-font-size:9px;
-}
-}
-
-/* MOVIL PEQUEÑO */
-
-@media (max-width:480px){
-.sidebar{
-padding:10px;
-}
-
-.logo{
-margin-top:6px;
-margin-bottom:10px;
-}
-
-.logo img{
-width:90px;
-}
-
-.logo h1{
-font-size:18px;
-letter-spacing:1.5px;
-}
-
-.logo p{
-font-size:10px;
-}
-
-.autor{
-font-size:9px;
-}
-
-/* DEJAR 2 COLUMNAS TAMBIÉN EN CELULAR */
-.menu{
-grid-template-columns:repeat(2,1fr);
-gap:8px;
-}
-
-.menu a{
-font-size:12px;
-padding:10px 8px;
-border-radius:10px;
-min-height:42px;
-}
-
-.topbar{
-padding:8px 10px;
-}
-
-.welcome h2{
-font-size:18px;
-}
-
-.welcome p{
-font-size:11px;
-}
-
-.cards,
-.acciones,
-.paneles{
-padding-left:10px;
-padding-right:10px;
-}
-
-.cards{
-grid-template-columns:repeat(2,1fr);
-gap:8px;
-}
-
-.acciones{
-grid-template-columns:repeat(2,1fr);
-gap:8px;
-}
-
-.card,
-.panel,
-.acciones button{
-border-radius:14px;
-}
-
-.card{
-padding:8px 9px;
-min-height:74px;
-}
-
-.card h3,
 .panel h3{
-font-size:13px;
-}
-
-.card .numero{
 font-size:17px;
 }
 
-.acciones button{
-font-size:11px;
-min-height:44px;
-padding:8px 8px;
-}
-
 .footer{
-font-size:8.5px;
-padding:10px 8px 16px 8px;
+font-size:10px;
+padding:8px 10px 12px 10px;
 }
 }
