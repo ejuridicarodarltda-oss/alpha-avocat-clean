@@ -4,18 +4,26 @@ box-sizing:border-box;
 
 html,body{
 margin:0;
-height:100%;
+min-height:100%;
 width:100%;
-font-family:Arial;
+font-family:Arial, sans-serif;
 background:#eef1f5;
-overflow:hidden;
+}
+
+body{
+overflow-x:hidden;
+overflow-y:auto;
+}
+
+img{
+max-width:100%;
+height:auto;
 }
 
 .layout{
 display:flex;
-height:100dvh;
+min-height:100dvh;
 width:100%;
-overflow:hidden;
 }
 
 /* SIDEBAR */
@@ -27,9 +35,9 @@ color:#d4af37;
 padding:12px 20px;
 display:flex;
 flex-direction:column;
-height:100dvh;
-overflow:hidden;
+min-height:100dvh;
 box-shadow:4px 0 18px rgba(0,0,0,.35);
+flex-shrink:0;
 }
 
 .logo{
@@ -99,6 +107,7 @@ font-weight:600;
 box-shadow:4px 4px 12px rgba(0,0,0,.45);
 text-decoration:none;
 line-height:1.2;
+min-height:44px;
 }
 
 .menu a:hover{
@@ -130,9 +139,9 @@ text-align:center;
 flex:1;
 display:grid;
 grid-template-rows:auto auto auto auto 1fr auto;
-height:100dvh;
+min-height:100dvh;
 background:#eef1f5;
-overflow:hidden;
+min-width:0;
 }
 
 .topbar{
@@ -143,6 +152,7 @@ justify-content:space-between;
 padding:8px 24px;
 align-items:center;
 min-height:52px;
+gap:12px;
 }
 
 .search{
@@ -151,12 +161,14 @@ border-radius:8px;
 border:none;
 font-weight:600;
 font-size:13px;
+min-width:0;
 }
 
 .top-info{
 display:flex;
 align-items:center;
 gap:14px;
+flex-wrap:wrap;
 }
 
 .modo-btn{
@@ -172,6 +184,7 @@ width:34px;
 height:34px;
 border-radius:50%;
 border:2px solid white;
+object-fit:cover;
 }
 
 .avatar-mini{
@@ -181,6 +194,14 @@ border-radius:50%;
 margin-right:6px;
 border:2px solid #d1d5db;
 background:#f3f4f6;
+object-fit:cover;
+vertical-align:middle;
+}
+
+.usuario{
+display:flex;
+align-items:center;
+gap:8px;
 }
 
 .welcome{
@@ -215,6 +236,7 @@ min-height:74px;
 display:flex;
 flex-direction:column;
 justify-content:center;
+min-width:0;
 }
 
 .card-icon{
@@ -279,6 +301,7 @@ font-size:13px;
 box-shadow:0 10px 16px rgba(0,0,0,.22);
 line-height:1.15;
 min-height:54px;
+width:100%;
 }
 
 .b1{background:linear-gradient(135deg,#67e8f9,#22c3e6);}
@@ -294,16 +317,15 @@ grid-template-columns:repeat(4,1fr);
 gap:14px;
 padding:8px 26px;
 min-height:0;
-overflow:hidden;
 }
 
 .panel{
 padding:12px;
 border-radius:16px;
 box-shadow:0 10px 16px rgba(0,0,0,.18);
-overflow-y:auto;
-overflow-x:hidden;
+overflow:auto;
 min-height:0;
+min-width:0;
 }
 
 .panel h3{
@@ -344,9 +366,10 @@ color:#7c2d12;
 
 .footer{
 text-align:center;
-padding:4px 6px;
+padding:8px 10px 12px 10px;
 font-size:10px;
 color:#444;
+line-height:1.4;
 }
 
 /* DARK MODE */
@@ -366,7 +389,7 @@ color:#9ca3af;
 
 /* PANTALLAS MÁS BAJAS EN PC / NOTEBOOK */
 
-@media (max-height: 760px){
+@media (max-height:760px){
 .sidebar{
 padding:10px 18px;
 }
@@ -427,32 +450,117 @@ padding:6px 20px;
 }
 }
 
-/* TABLET Y MÓVIL */
+/* TABLET */
 
-@media (max-width: 768px){
-html,body{
-overflow:auto;
+@media (max-width:1024px){
+body{
+overflow-x:hidden;
+overflow-y:auto;
 }
 
 .layout{
 flex-direction:column;
-height:auto;
 min-height:100dvh;
-overflow:visible;
 }
 
 .sidebar{
 width:100%;
-height:auto;
-overflow:visible;
-padding:10px 12px 12px 12px;
+min-height:auto;
+padding:12px 14px;
 }
 
 .logo{
-margin-top:8px;
-margin-bottom:12px;
+margin-top:10px;
+margin-bottom:14px;
 }
 
+.logo img{
+width:130px;
+}
+
+.logo h1{
+font-size:22px;
+letter-spacing:2px;
+}
+
+.logo p{
+font-size:12px;
+}
+
+.menu{
+display:grid;
+grid-template-columns:repeat(2,1fr);
+gap:8px;
+}
+
+.menu a{
+font-size:14px;
+padding:10px 10px;
+min-height:46px;
+}
+
+.user-status{
+margin-top:10px;
+text-align:center;
+padding-top:0;
+}
+
+.main{
+display:block;
+min-height:auto;
+}
+
+.topbar{
+padding:10px 14px;
+flex-wrap:wrap;
+align-items:center;
+}
+
+.search{
+width:100%;
+flex:1 1 100%;
+}
+
+.top-info{
+width:100%;
+justify-content:space-between;
+}
+
+.welcome{
+padding:12px 14px 0 14px;
+}
+
+.cards{
+grid-template-columns:repeat(2,1fr);
+gap:10px;
+padding:0 14px;
+}
+
+.acciones{
+grid-template-columns:repeat(2,1fr);
+gap:10px;
+padding:8px 14px;
+}
+
+.paneles{
+grid-template-columns:1fr 1fr;
+gap:10px;
+padding:8px 14px 14px 14px;
+}
+
+.panel{
+overflow:visible;
+}
+
+.footer{
+padding:12px 10px 16px 10px;
+font-size:10px;
+}
+}
+
+/* MOVIL */
+
+@media (max-width:768px){
 .logo img{
 width:110px;
 margin-bottom:4px;
@@ -460,7 +568,6 @@ margin-bottom:4px;
 
 .logo h1{
 font-size:20px;
-letter-spacing:2px;
 }
 
 .logo p{
@@ -472,52 +579,50 @@ font-size:10px;
 }
 
 .menu{
-margin-top:6px;
-display:grid;
-grid-template-columns:repeat(2,1fr);
-gap:8px;
+grid-template-columns:1fr;
 }
 
 .menu a{
-padding:10px 8px;
+justify-content:flex-start;
+padding:12px 12px;
 font-size:14px;
-min-height:46px;
-}
-
-.user-status{
-margin-top:8px;
-padding-top:0;
-text-align:center;
-}
-
-.main{
-display:block;
-height:auto;
-overflow:visible;
 }
 
 .topbar{
 padding:10px 12px;
-min-height:62px;
-gap:8px;
-flex-wrap:wrap;
+min-height:auto;
+flex-direction:column;
+align-items:stretch;
+gap:10px;
 }
 
 .search{
-flex:1 1 160px;
 width:100%;
 font-size:12px;
 }
 
 .top-info{
 width:100%;
-justify-content:space-between;
-gap:8px;
-flex-wrap:wrap;
+flex-direction:column;
+align-items:stretch;
+gap:10px;
+}
+
+.usuario{
+justify-content:center;
+}
+
+#fecha{
+text-align:center;
+}
+
+.modo-btn{
+align-self:center;
 }
 
 .welcome{
 padding:10px 12px 0 12px;
+text-align:center;
 }
 
 .welcome h2{
@@ -529,14 +634,14 @@ font-size:12px;
 }
 
 .cards{
-grid-template-columns:repeat(2,1fr);
+grid-template-columns:1fr;
 gap:10px;
 padding:0 12px;
 }
 
 .card{
-min-height:86px;
-padding:8px 10px;
+min-height:84px;
+padding:10px 12px;
 }
 
 .card h3{
@@ -548,14 +653,14 @@ font-size:20px;
 }
 
 .acciones{
-grid-template-columns:repeat(2,1fr);
+grid-template-columns:1fr;
 gap:8px;
 padding:8px 12px;
 }
 
 .acciones button{
 min-height:48px;
-padding:8px 10px;
+padding:10px 12px;
 font-size:12px;
 }
 
@@ -563,7 +668,6 @@ font-size:12px;
 grid-template-columns:1fr;
 gap:10px;
 padding:8px 12px 12px 12px;
-overflow:visible;
 }
 
 .panel{
@@ -575,5 +679,76 @@ overflow:visible;
 .footer{
 padding:10px 8px 14px 8px;
 font-size:9px;
+}
+}
+
+/* MOVIL PEQUEÑO */
+
+@media (max-width:480px){
+.sidebar{
+padding:10px;
+}
+
+.logo{
+margin-top:6px;
+margin-bottom:10px;
+}
+
+.logo img{
+width:95px;
+}
+
+.logo h1{
+font-size:18px;
+letter-spacing:1.5px;
+}
+
+.logo p{
+font-size:10px;
+}
+
+.menu a{
+font-size:13px;
+padding:11px 10px;
+border-radius:10px;
+}
+
+.topbar{
+padding:8px 10px;
+}
+
+.welcome h2{
+font-size:18px;
+}
+
+.welcome p{
+font-size:11px;
+}
+
+.cards,
+.acciones,
+.paneles{
+padding-left:10px;
+padding-right:10px;
+}
+
+.card,
+.panel,
+.acciones button{
+border-radius:14px;
+}
+
+.card h3,
+.panel h3{
+font-size:15px;
+}
+
+.card .numero{
+font-size:18px;
+}
+
+.footer{
+font-size:8.5px;
+padding:10px 8px 16px 8px;
 }
 }
