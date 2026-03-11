@@ -3,16 +3,47 @@
 <head>
 
 <meta charset="UTF-8">
-<meta name="viewport" content="width=1200, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=33">
+<link rel="stylesheet" href="style.css?v=34">
+
+<style>
+@media (max-width:480px){
+  html,body{
+    margin:0;
+    padding:0;
+    width:100%;
+    height:100%;
+    overflow:hidden !important;
+    background:#eef1f5;
+  }
+
+  .mobile-stage{
+    width:100vw;
+    height:100dvh;
+    overflow:hidden;
+    position:relative;
+    background:#eef1f5;
+  }
+
+  #appLayout{
+    width:1200px !important;
+    min-width:1200px !important;
+    height:100dvh !important;
+    min-height:100dvh !important;
+    transform-origin:top left;
+    will-change:transform;
+  }
+}
+</style>
 
 </head>
 
 <body>
 
-<div class="layout">
+<div class="mobile-stage">
+<div class="layout" id="appLayout">
 
 <aside class="sidebar">
 
@@ -211,6 +242,7 @@ Todos los derechos reservados
 </main>
 
 </div>
+</div>
 
 <script>
 const fecha = new Date();
@@ -240,6 +272,33 @@ if (localStorage.getItem("modo") === "oscuro") {
 document.body.classList.add("dark-mode");
 botonModo.innerText = "☀️";
 }
+
+function ajustarVistaMovil() {
+  const layout = document.getElementById("appLayout");
+  const esMovil = window.innerWidth <= 480;
+
+  if (!layout) return;
+
+  if (!esMovil) {
+    layout.style.transform = "";
+    layout.style.position = "";
+    layout.style.left = "";
+    layout.style.top = "";
+    return;
+  }
+
+  const anchoBase = 1200;
+  const scale = window.innerWidth / anchoBase;
+
+  layout.style.transform = "scale(" + scale + ")";
+  layout.style.position = "absolute";
+  layout.style.left = "0";
+  layout.style.top = "0";
+}
+ajustarVistaMovil();
+
+window.addEventListener("resize", ajustarVistaMovil);
+window.addEventListener("orientationchange", ajustarVistaMovil);
 </script>
 
 </body>
