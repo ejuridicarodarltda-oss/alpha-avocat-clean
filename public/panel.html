@@ -1,236 +1,275 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-  <title>Alpha Avocat Panel</title>
-  <link rel="stylesheet" href="style.css?v=39" />
+
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alpha Avocat Panel</title>
+
+<link rel="stylesheet" href="style.css?v=38">
+
 </head>
+
 <body>
-  <div class="layout">
-    <aside class="sidebar" id="sidebar">
-      <div class="logo">
-        <img src="img/logo-alpha-avocat.png" class="logo-spin" alt="Alpha Avocat Logo" />
-        <h2>Alpha Avocat</h2>
-        <p>Sistema de Gestión Jurídica Inteligente</p>
-        <p class="autor">Mario Javier Rodríguez Ardiles</p>
-      </div>
 
-      <nav class="menu">
-        <a class="inicio active" href="panel.html">
-          <span class="icon icon-home">🏠</span>
-          Inicio
-        </a>
+<div class="mobile-stage">
+<div class="layout" id="appLayout">
 
-        <a class="clientes" href="clientes.html">
-          <span class="icon icon-clientes">👥</span>
-          Clientes
-        </a>
+<aside class="sidebar">
 
-        <a class="causas" href="causas.html">
-          <span class="icon icon-causas">📂</span>
-          Causas
-        </a>
+<div class="logo">
 
-        <a class="agenda" href="agenda.html">
-          <span class="icon icon-agenda">📅</span>
-          Agenda
-        </a>
+<img src="img/logo-alpha-avocat.png" class="logo-spin" alt="Alpha Avocat Logo">
 
-        <a class="config" href="#">
-          <span class="icon icon-config">⚙</span>
-          Configuración
-        </a>
-      </nav>
+<h1>ALPHA AVOCAT</h1>
 
-      <div class="user-status">Usuario conectado</div>
-    </aside>
+<p>Sistema de Gestión Jurídica Inteligente</p>
+<p class="autor">Mario Javier Rodríguez Ardiles</p>
 
-    <main class="main-content">
-      <header class="topbar">
-        <button class="menu-toggle" id="menuToggle" type="button">☰</button>
+</div>
 
-        <input class="search" placeholder="Buscar causa o cliente..." />
+<nav class="menu">
 
-        <div class="top-info">
-          <button id="modo-toggle" class="modo-btn" type="button">🌙</button>
-          <span id="fecha"></span>
+<a class="inicio active" href="panel.html">
+<span class="icon icon-home">🏠</span>
+Inicio
+</a>
 
-          <div class="usuario">
-            <img
-              src="avatars/default-avatar.png"
-              onerror="this.src='avatars/default-avatar.png'"
-              class="avatar"
-              alt="Usuario"
-            />
-            <span>Usuario Activo</span>
-          </div>
-        </div>
-      </header>
+<a class="clientes" href="clientes.html">
+<span class="icon icon-clientes">👥</span>
+Clientes
+</a>
 
-      <section class="welcome">
-        <h2>Bienvenido, Usuario</h2>
-        <p><strong>Resumen del día</strong></p>
-      </section>
+<a class="causas" href="causas.html">
+<span class="icon icon-causas">📂</span>
+Causas
+</a>
 
-      <section class="cards-grid">
-        <div class="card clientes">
-          <div class="card-icon">👥</div>
-          <h3>Clientes Activos</h3>
-          <span class="numero">48</span>
-        </div>
+<a class="agenda" href="agenda.html">
+<span class="icon icon-agenda">📅</span>
+Agenda
+</a>
 
-        <div class="card causas">
-          <div class="card-icon">📂</div>
-          <h3>Causas Abiertas</h3>
-          <span class="numero">12</span>
-        </div>
+<a class="config" href="#">
+<span class="icon icon-config">⚙</span>
+Configuración
+</a>
 
-        <div class="card audiencias">
-          <div class="card-icon">⚖</div>
-          <h3>Audiencias Hoy</h3>
-          <span class="numero">3</span>
-        </div>
+</nav>
 
-        <div class="card tareas">
-          <div class="card-icon">✔</div>
-          <h3>Tareas Pendientes</h3>
-          <span class="numero">7</span>
-        </div>
-      </section>
+<div class="user-status">
+Usuario conectado
+</div>
 
-      <section class="acciones">
-        <button class="b1" type="button" onclick="window.location='clientes.html'">
-          👤 Nuevo Cliente
-        </button>
+</aside>
 
-        <button class="b2" type="button" onclick="window.location='causas.html'">
-          📂 Nueva Causa
-        </button>
+<main class="main">
 
-        <button class="b3" type="button" onclick="window.location='agenda.html'">
-          📅 Nuevo Evento
-        </button>
+<header class="topbar">
 
-        <button class="b4" type="button">
-          📄 Nuevo Documento
-        </button>
-      </section>
+<input class="search" placeholder="Buscar causa o cliente...">
 
-      <section class="paneles">
-        <div class="panel actividad">
-          <h3>Actividad Reciente</h3>
-          <ul>
-            <li>👤 Nuevo cliente registrado</li>
-            <li>📄 Documento subido</li>
-            <li><span style="color:#d4af37">⚖</span> Audiencia agregada</li>
-          </ul>
-        </div>
+<div class="top-info">
 
-        <div class="panel causas-activas">
-          <h3>Causas Activas</h3>
-          <ul>
-            <li>📂 Rodríguez vs Pérez</li>
-            <li>📂 Empresa Norte Ltda</li>
-            <li>📂 Contrato Comercial 245</li>
-          </ul>
-        </div>
+<button id="modo-toggle" class="modo-btn">🌙</button>
 
-        <div class="panel audiencias-semana">
-          <h3>Audiencias de la Semana</h3>
-          <ul>
-            <li>
-              <img
-                src="avatars/default-avatar.png"
-                onerror="this.src='avatars/default-avatar.png'"
-                class="avatar-mini"
-                alt="Abogado 1"
-              />
-              Juzgado Civil — 10:00
-            </li>
+<span id="fecha"></span>
 
-            <li>
-              <img
-                src="avatars/default-avatar.png"
-                onerror="this.src='avatars/default-avatar.png'"
-                class="avatar-mini"
-                alt="Abogado 2"
-              />
-              Tribunal Laboral — 12:30
-            </li>
+<div class="usuario">
 
-            <li>
-              <img
-                src="avatars/default-avatar.png"
-                onerror="this.src='avatars/default-avatar.png'"
-                class="avatar-mini"
-                alt="Abogado 3"
-              />
-              Tribunal de Garantía — 15:00
-            </li>
-          </ul>
-        </div>
+<img src="avatars/usuario.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar"
+alt="Usuario">
 
-        <div class="panel alertas">
-          <h3>Alertas Jurídicas</h3>
-          <ul>
-            <li>🔴 Contestación demanda vence en 12 días</li>
-            <li>🟠 Apelación vence en 3 días</li>
-          </ul>
-        </div>
-      </section>
+<span>Usuario Activo</span>
 
-      <footer class="footer">
-        Alpha Avocat — Sistema de Gestión Jurídica Inteligente<br />
-        Mario Javier Rodríguez Ardiles<br />
-        Todos los derechos reservados
-      </footer>
-    </main>
-  </div>
+</div>
 
-  <script>
-    const fecha = new Date();
-    document.getElementById("fecha").innerText = fecha.toLocaleDateString("es-CL", {
-      day: "numeric",
-      month: "long",
-      year: "numeric"
-    });
+</div>
 
-    const botonModo = document.getElementById("modo-toggle");
+</header>
 
-    botonModo.onclick = function () {
-      document.body.classList.toggle("dark-mode");
+<section class="welcome">
 
-      if (document.body.classList.contains("dark-mode")) {
-        localStorage.setItem("modo", "oscuro");
-        botonModo.innerText = "☀️";
-      } else {
-        localStorage.setItem("modo", "claro");
-        botonModo.innerText = "🌙";
-      }
-    };
+<h2>Bienvenido, Usuario</h2>
 
-    if (localStorage.getItem("modo") === "oscuro") {
-      document.body.classList.add("dark-mode");
-      botonModo.innerText = "☀️";
-    }
+<p><strong>Resumen del día</strong></p>
 
-    const menuToggle = document.getElementById("menuToggle");
-    const sidebar = document.getElementById("sidebar");
+</section>
 
-    menuToggle.addEventListener("click", () => {
-      sidebar.classList.toggle("open");
-    });
+<section class="cards">
 
-    document.addEventListener("click", (e) => {
-      if (
-        window.innerWidth <= 900 &&
-        !sidebar.contains(e.target) &&
-        !menuToggle.contains(e.target)
-      ) {
-        sidebar.classList.remove("open");
-      }
-    });
-  </script>
+<div class="card clientes">
+<div class="card-icon">👥</div>
+<h3>Clientes Activos</h3>
+<span class="numero">48</span>
+</div>
+
+<div class="card causas">
+<div class="card-icon">📂</div>
+<h3>Causas Abiertas</h3>
+<span class="numero">12</span>
+</div>
+
+<div class="card audiencias">
+<div class="card-icon">⚖</div>
+<h3>Audiencias Hoy</h3>
+<span class="numero">3</span>
+</div>
+
+<div class="card tareas">
+<div class="card-icon">✔</div>
+<h3>Tareas Pendientes</h3>
+<span class="numero">7</span>
+</div>
+
+</section>
+
+<section class="acciones">
+
+<button class="b1" onclick="window.location='clientes.html'">
+👤 Nuevo Cliente
+</button>
+
+<button class="b2" onclick="window.location='causas.html'">
+📂 Nueva Causa
+</button>
+
+<button class="b3" onclick="window.location='agenda.html'">
+📅 Nuevo Evento
+</button>
+
+<button class="b4">
+📄 Nuevo Documento
+</button>
+
+</section>
+
+<section class="paneles">
+
+<div class="panel actividad">
+<h3>Actividad Reciente</h3>
+<ul>
+<li>👤 Nuevo cliente registrado</li>
+<li>📄 Documento subido</li>
+<li><span style="color:#d4af37">⚖</span> Audiencia agregada</li>
+</ul>
+</div>
+
+<div class="panel causas-activas">
+<h3>Causas Activas</h3>
+<ul>
+<li>📂 Rodríguez vs Pérez</li>
+<li>📂 Empresa Norte Ltda</li>
+<li>📂 Contrato Comercial 245</li>
+</ul>
+</div>
+
+<div class="panel audiencias-semana">
+<h3>Audiencias de la Semana</h3>
+<ul>
+<li>
+<img src="avatars/abogado1.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini"
+alt="Abogado 1">
+Juzgado Civil — 10:00
+</li>
+<li>
+<img src="avatars/abogado2.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini"
+alt="Abogado 2">
+Tribunal Laboral — 12:30
+</li>
+<li>
+<img src="avatars/abogado1.jpg"
+onerror="this.src='avatars/default-avatar.png'"
+class="avatar-mini"
+alt="Abogado 1">
+Tribunal de Garantía — 15:00
+</li>
+</ul>
+</div>
+
+<div class="panel alertas">
+<h3>Alertas Jurídicas</h3>
+<ul>
+<li>🔴 Contestación demanda vence en 12 días</li>
+<li>🟠 Apelación vence en 3 días</li>
+</ul>
+</div>
+
+</section>
+
+<footer class="footer">
+Alpha Avocat — Sistema de Gestión Jurídica Inteligente<br>
+Mario Javier Rodríguez Ardiles<br>
+Todos los derechos reservados
+</footer>
+
+</main>
+
+</div>
+</div>
+
+<script>
+const fecha = new Date();
+
+document.getElementById("fecha").innerText =
+fecha.toLocaleDateString("es-CL", {
+day: "numeric",
+month: "long",
+year: "numeric"
+});
+
+const botonModo = document.getElementById("modo-toggle");
+
+botonModo.onclick = function () {
+document.body.classList.toggle("dark-mode");
+
+if (document.body.classList.contains("dark-mode")) {
+localStorage.setItem("modo", "oscuro");
+botonModo.innerText = "☀️";
+} else {
+localStorage.setItem("modo", "claro");
+botonModo.innerText = "🌙";
+}
+};
+
+if (localStorage.getItem("modo") === "oscuro") {
+document.body.classList.add("dark-mode");
+botonModo.innerText = "☀️";
+}
+
+function ajustarVistaMovil() {
+  const layout = document.getElementById("appLayout");
+  const esMovil = window.innerWidth <= 480;
+
+  if (!layout) return;
+
+  if (!esMovil) {
+    layout.style.transform = "";
+    layout.style.position = "";
+    layout.style.left = "";
+    layout.style.top = "";
+    return;
+  }
+
+  const anchoBase = 1200;
+  const scale = window.innerWidth / anchoBase;
+
+  layout.style.transform = "scale(" + scale + ")";
+  layout.style.position = "absolute";
+  layout.style.left = "0";
+  layout.style.top = "0";
+}
+ajustarVistaMovil();
+
+window.addEventListener("resize", ajustarVistaMovil);
+window.addEventListener("orientationchange", ajustarVistaMovil);
+</script>
+
 </body>
 </html>
