@@ -431,24 +431,31 @@ padding:6px 20px;
 }
 
 /* SOLO CELULAR */
-
 @media (max-width: 480px){
 html,body{
-overflow:hidden;
+margin:0;
+padding:0;
+width:100%;
+height:100%;
+overflow:hidden !important;
+background:#eef1f5;
 }
 
-.layout{
-display:flex;
-flex-direction:row;
-width:1200px;
-min-width:1200px;
+.mobile-stage{
+width:100vw;
 height:100dvh;
-position:absolute;
-left:0;
-top:0;
-transform:scale(calc(100vw / 1200));
-transform-origin:top left;
 overflow:hidden;
+position:relative;
+background:#eef1f5;
+}
+
+#appLayout{
+width:1200px !important;
+min-width:1200px !important;
+height:100dvh !important;
+min-height:100dvh !important;
+transform-origin:top left;
+will-change:transform;
 }
 
 .sidebar{
