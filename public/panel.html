@@ -6,13 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=37">
+<link rel="stylesheet" href="style.css?v=38">
 
 </head>
 
 <body>
 
-<div class="layout">
+<div class="mobile-stage">
+<div class="layout" id="appLayout">
 
 <aside class="sidebar">
 
@@ -211,6 +212,7 @@ Todos los derechos reservados
 </main>
 
 </div>
+</div>
 
 <script>
 const fecha = new Date();
@@ -240,6 +242,33 @@ if (localStorage.getItem("modo") === "oscuro") {
 document.body.classList.add("dark-mode");
 botonModo.innerText = "☀️";
 }
+
+function ajustarVistaMovil() {
+  const layout = document.getElementById("appLayout");
+  const esMovil = window.innerWidth <= 480;
+
+  if (!layout) return;
+
+  if (!esMovil) {
+    layout.style.transform = "";
+    layout.style.position = "";
+    layout.style.left = "";
+    layout.style.top = "";
+    return;
+  }
+
+  const anchoBase = 1200;
+  const scale = window.innerWidth / anchoBase;
+
+  layout.style.transform = "scale(" + scale + ")";
+  layout.style.position = "absolute";
+  layout.style.left = "0";
+  layout.style.top = "0";
+}
+ajustarVistaMovil();
+
+window.addEventListener("resize", ajustarVistaMovil);
+window.addEventListener("orientationchange", ajustarVistaMovil);
 </script>
 
 </body>
