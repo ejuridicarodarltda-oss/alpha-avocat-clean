@@ -430,17 +430,17 @@ padding:6px 20px;
 }
 }
 
-/* TABLET Y MÓVIL */
+/* SOLO CELULAR */
 
-@media (max-width: 768px){
+@media (max-width: 480px){
 html,body{
 overflow:auto;
 }
 
 .layout{
 display:block;
-min-height:100dvh;
 height:auto;
+min-height:100dvh;
 overflow:visible;
 }
 
