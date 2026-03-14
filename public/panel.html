@@ -278,17 +278,18 @@ return;
 }
 
 const anchoBase=1200;
-const altoBase=layout.offsetHeight||window.innerHeight;
+const altoBase=layout.scrollHeight||layout.offsetHeight||window.innerHeight;
 
 const scale=Math.min(window.innerWidth/anchoBase,window.innerHeight/altoBase);
+const offsetY=Math.max((window.innerHeight-(altoBase*scale))/2,0);
 
 layout.style.position="absolute";
 layout.style.left="50%";
-layout.style.top="0";
+layout.style.top=offsetY+"px";
 layout.style.transform="translateX(-50%) scale("+scale+")";
 
 if(mobileStage){
-mobileStage.style.overflow="hidden";
+mobileStage.style.overflow="auto";
 }
 
 }
