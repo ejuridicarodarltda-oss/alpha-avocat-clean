@@ -402,101 +402,31 @@ html,body{
 margin:0;
 padding:0;
 width:100%;
-height:100%;
-overflow:auto;
+height:100dvh;
+overflow:hidden;
 background:#eef1f5;
 }
 
 .mobile-stage{
 width:100vw;
-min-height:100dvh;
-overflow:visible;
+height:100dvh;
+overflow:hidden;
 position:relative;
 }
 
 #appLayout{
-width:100%;
-min-height:100dvh;
-transform:none !important;
-position:static !important;
-left:auto !important;
-top:auto !important;
+position:absolute;
+top:0;
+left:0;
+transform-origin:top left;
 }
 
 .layout{
-flex-direction:column;
-height:auto;
-min-height:100dvh;
-overflow:visible;
-}
-
-.sidebar{
-width:100%;
-height:auto;
-padding:16px;
-box-shadow:none;
-}
-
-.logo{
-margin:0 0 14px 0;
-}
-
-.logo img{
-width:130px;
-}
-
-.logo h1{
-font-size:24px;
-}
-
-.menu{
-gap:8px;
+height:100%;
 }
 
 .main{
-height:auto;
-min-height:calc(100dvh - 1px);
-grid-template-rows:auto auto auto auto auto auto;
-overflow:visible;
-}
-
-.topbar{
-padding:10px 12px;
-flex-wrap:wrap;
-gap:8px;
-}
-
-.search{
-width:100%;
-}
-
-.top-info{
-width:100%;
-justify-content:space-between;
-}
-
-.welcome{
-padding:8px 12px 0;
-}
-
-.cards,
-.acciones,
-.paneles{
-grid-template-columns:1fr;
-padding:8px 12px;
-gap:10px;
-}
-
-.acciones button{
-min-height:48px;
-}
-
-.paneles{
-overflow:visible;
-}
-
-.panel{
-max-height:none;
+height:100%;
 }
 
 .sidebar .user-status{

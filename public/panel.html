@@ -260,6 +260,31 @@ const mobileStage=document.querySelector(".mobile-stage");
 
 if(!layout)return;
 
+if(window.innerWidth<=480){
+
+const baseWidth=1300;
+const baseHeight=900;
+const escala=Math.min(window.innerWidth/baseWidth,window.innerHeight/baseHeight);
+const offsetX=(window.innerWidth-(baseWidth*escala))/2;
+const offsetY=(window.innerHeight-(baseHeight*escala))/2;
+
+layout.style.width=baseWidth+"px";
+layout.style.height=baseHeight+"px";
+layout.style.transform=`translate(${offsetX}px,${offsetY}px) scale(${escala})`;
+layout.style.position="absolute";
+layout.style.left="0";
+layout.style.top="0";
+
+if(mobileStage){
+mobileStage.style.overflow="hidden";
+}
+
+return;
+
+}
+
+layout.style.width="";
+layout.style.height="";
 layout.style.transform="";
 layout.style.position="";
 layout.style.left="";
