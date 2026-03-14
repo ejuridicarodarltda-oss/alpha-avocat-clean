@@ -222,6 +222,7 @@ display:grid;
 grid-template-columns:repeat(4,1fr);
 gap:14px;
 padding:0 26px;
+margin-top:8px;
 }
 
 .card{
