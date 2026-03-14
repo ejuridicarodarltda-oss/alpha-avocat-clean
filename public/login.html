@@ -6,95 +6,29 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Alpha Avocat | Iniciar sesión</title>
   <link rel="stylesheet" href="./style.css">
-  <style>
-    .auth-wrap {
-      max-width: 420px;
-      margin: 60px auto;
-    }
-
-    .auth-card {
-      display: grid;
-      gap: 14px;
-    }
-
-    .auth-field {
-      display: grid;
-      gap: 6px;
-      text-align: left;
-    }
-
-    .auth-field label {
-      font-size: 14px;
-      color: #475569;
-      font-weight: 700;
-    }
-
-    .auth-field input {
-      border: 1px solid #cbd5e1;
-      border-radius: 12px;
-      padding: 12px;
-      background: #fff;
-      color: #0f172a;
-    }
-
-    .auth-actions {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      gap: 10px;
-      flex-wrap: wrap;
-    }
-
-    .auth-status {
-      min-height: 22px;
-      font-weight: 700;
-      font-size: 14px;
-    }
-
-    .auth-status.error {
-      color: #ef4444;
-    }
-
-    .auth-status.ok {
-      color: #16a34a;
-    }
-  </style>
 </head>
 
-<body class="app-shell">
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">A</div>
-      <div class="brand-text">
-        <div class="brand-title">ALPHA AVOCAT</div>
-        <div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
-      </div>
-    </div>
-    <a class="btn btn-3d" href="./index.html">Volver</a>
-  </header>
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <img src="./img/logo-alpha-avocat.png" alt="Logo Alpha Avocat" class="login-logo">
 
-  <main class="main auth-wrap">
-    <section class="card auth-card">
-      <h1 style="margin: 0">Iniciar sesión</h1>
-      <p class="muted" style="margin: 0 0 8px 0">Accede con tu cuenta para entrar al panel principal.</p>
+      <h1 id="login-title">Iniciar sesión</h1>
+      <p class="login-subtitle">Accede con tu cuenta para entrar al panel principal.</p>
 
-      <form id="login-form" class="auth-card">
-        <div class="auth-field">
-          <label for="email">Correo electrónico</label>
-          <input id="email" type="email" autocomplete="email" required>
+      <form id="login-form" class="login-form" novalidate>
+        <label for="email">Correo electrónico</label>
+        <input id="email" type="email" autocomplete="email" required>
+
+        <label for="password">Contraseña</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+
+        <div class="login-actions">
+          <a class="login-link" href="./reset.html">¿Olvidaste tu contraseña?</a>
+          <button id="submit-btn" type="submit">Entrar</button>
         </div>
 
-        <div class="auth-field">
-          <label for="password">Contraseña</label>
-          <input id="password" type="password" autocomplete="current-password" required>
-        </div>
-
-        <div class="auth-actions">
-          <a class="muted" href="./reset.html">¿Olvidaste tu contraseña?</a>
-          <button type="submit" class="btn btn-3d btn-primary">Entrar</button>
-        </div>
-
-        <div id="auth-status" class="auth-status" aria-live="polite"></div>
+        <p id="auth-status" class="auth-status" aria-live="polite"></p>
       </form>
     </section>
   </main>
@@ -104,17 +38,24 @@
 
     const form = document.getElementById("login-form")
     const status = document.getElementById("auth-status")
-
-    async function verificarSesion() {
-      const { data } = await supabase.auth.getSession()
-      if (data?.session) {
-        window.location.href = "./panel.html"
-      }
-    }
+    const submitBtn = document.getElementById("submit-btn")
 
     function setStatus(message, type = "") {
       status.textContent = message
       status.className = `auth-status ${type}`.trim()
+    }
+
+    async function verificarSesion() {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error) {
+        setStatus("No se pudo validar la sesión actual.", "error")
+        return
+      }
+
+      if (data?.session) {
+        window.location.href = "./panel.html"
+      }
     }
 
     form.addEventListener("submit", async (event) => {
@@ -128,12 +69,14 @@
         return
       }
 
+      submitBtn.disabled = true
       setStatus("Ingresando...")
 
       const { error } = await supabase.auth.signInWithPassword({ email, password })
 
       if (error) {
-        setStatus("No fue posible iniciar sesión. Verifica tus credenciales.", "error")
+        submitBtn.disabled = false
+        setStatus(error.message || "No fue posible iniciar sesión. Verifica tus credenciales.", "error")
         return
       }
 
