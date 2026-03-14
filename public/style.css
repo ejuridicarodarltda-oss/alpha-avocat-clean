@@ -411,4 +411,8 @@ height:100dvh;
 transform-origin:top center;
 }
 
+#appLayout .sidebar{
+height:var(--mobile-sidebar-height,100dvh);
+}
+
 }
