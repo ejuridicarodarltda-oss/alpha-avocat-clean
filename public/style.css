@@ -435,6 +435,7 @@ transform:none !important;
 position:static !important;
 left:auto !important;
 top:auto !important;
+overflow:visible;
 }
 
 .layout{
