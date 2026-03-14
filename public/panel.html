@@ -256,6 +256,7 @@ botonModo.innerText="☀️";
 function ajustarVistaMovil(){
 
 const layout=document.getElementById("appLayout");
+const mobileStage=document.querySelector(".mobile-stage");
 
 const esMovil=window.innerWidth<=480;
 
@@ -265,18 +266,30 @@ if(!esMovil){
 
 layout.style.transform="";
 layout.style.position="";
+layout.style.left="";
+layout.style.top="";
+
+if(mobileStage){
+mobileStage.style.overflow="";
+}
 
 return;
 
 }
 
 const anchoBase=1200;
+const altoBase=layout.offsetHeight||window.innerHeight;
 
-const scale=window.innerWidth/anchoBase;
+const scale=Math.min(window.innerWidth/anchoBase,window.innerHeight/altoBase);
 
-layout.style.transform="scale("+scale+")";
+layout.style.position="absolute";
+layout.style.left="50%";
+layout.style.top="0";
+layout.style.transform="translateX(-50%) scale("+scale+")";
 
-layout.style.position="relative";
+if(mobileStage){
+mobileStage.style.overflow="hidden";
+}
 
 }
 
