@@ -94,7 +94,7 @@ margin-top:4px;
 }
 
 .menu{
-margin-top:10px;
+margin-top:34px;
 display:flex;
 flex-direction:column;
 gap:8px;
@@ -276,8 +276,8 @@ text-shadow:0 0 8px rgba(254,240,138,.5);
 }
 
 .card.tareas .card-icon{
-color:#fef08a;
-text-shadow:0 0 8px rgba(254,240,138,.5);
+color:#22d3ee;
+text-shadow:0 0 8px rgba(34,211,238,.55);
 }
 
 /* BOTONES */
@@ -435,6 +435,7 @@ transform:none !important;
 position:static !important;
 left:auto !important;
 top:auto !important;
+overflow:visible;
 }
 
 .layout{
