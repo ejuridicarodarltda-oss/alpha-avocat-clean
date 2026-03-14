@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=39">
+<link rel="stylesheet" href="style.css?v=40">
 
 </head>
 
@@ -258,11 +258,7 @@ function ajustarVistaMovil(){
 const layout=document.getElementById("appLayout");
 const mobileStage=document.querySelector(".mobile-stage");
 
-const esMovil=window.innerWidth<=480;
-
 if(!layout)return;
-
-if(!esMovil){
 
 layout.style.transform="";
 layout.style.position="";
@@ -271,25 +267,6 @@ layout.style.top="";
 
 if(mobileStage){
 mobileStage.style.overflow="";
-}
-
-return;
-
-}
-
-const anchoBase=1200;
-const altoBase=layout.scrollHeight||layout.offsetHeight||window.innerHeight;
-
-const scale=Math.min(window.innerWidth/anchoBase,window.innerHeight/altoBase);
-const offsetY=Math.max((window.innerHeight-(altoBase*scale))/2,0);
-
-layout.style.position="absolute";
-layout.style.left="50%";
-layout.style.top=offsetY+"px";
-layout.style.transform="translateX(-50%) scale("+scale+")";
-
-if(mobileStage){
-mobileStage.style.overflow="auto";
 }
 
 }

@@ -24,7 +24,7 @@ overflow:hidden;
 width:300px;
 background:linear-gradient(180deg,#0c1f34,#142f4e);
 color:#d4af37;
-padding:12px 20px;
+padding:18px 20px 12px;
 display:flex;
 flex-direction:column;
 height:100dvh;
@@ -39,8 +39,8 @@ flex-direction:column;
 align-items:center;
 justify-content:center;
 text-align:center;
-margin-top:26px;
-margin-bottom:28px;
+margin-top:10px;
+margin-bottom:20px;
 }
 
 .logo img{
@@ -80,7 +80,7 @@ margin-top:4px;
 }
 
 .menu{
-margin-top:4px;
+margin-top:10px;
 display:flex;
 flex-direction:column;
 gap:8px;
@@ -254,6 +254,17 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
 
+
+.card.audiencias .card-icon{
+color:#fef08a;
+text-shadow:0 0 8px rgba(254,240,138,.5);
+}
+
+.card.tareas .card-icon{
+color:#fff7ed;
+text-shadow:0 0 8px rgba(255,247,237,.5);
+}
+
 /* BOTONES */
 
 .acciones{
@@ -391,39 +402,100 @@ margin:0;
 padding:0;
 width:100%;
 height:100%;
-overflow:hidden;
+overflow:auto;
 background:#eef1f5;
 }
 
 .mobile-stage{
 width:100vw;
-height:100dvh;
-overflow:auto;
+min-height:100dvh;
+overflow:visible;
 position:relative;
-overscroll-behavior:contain;
 }
 
 #appLayout{
-width:1200px;
+width:100%;
 min-height:100dvh;
-transform-origin:top center;
-will-change:transform;
+transform:none !important;
+position:static !important;
+left:auto !important;
+top:auto !important;
 }
 
-.sidebar .menu{
-margin-top:6px;
+.layout{
+flex-direction:column;
+height:auto;
+min-height:100dvh;
+overflow:visible;
 }
 
-@media (max-width:600px){
+.sidebar{
+width:100%;
+height:auto;
+padding:16px;
+box-shadow:none;
+}
 
-.topbar,
-.welcome,
+.logo{
+margin:0 0 14px 0;
+}
+
+.logo img{
+width:130px;
+}
+
+.logo h1{
+font-size:24px;
+}
+
+.menu{
+gap:8px;
+}
+
+.main{
+height:auto;
+min-height:calc(100dvh - 1px);
+grid-template-rows:auto auto auto auto auto auto;
+overflow:visible;
+}
+
+.topbar{
+padding:10px 12px;
+flex-wrap:wrap;
+gap:8px;
+}
+
+.search{
+width:100%;
+}
+
+.top-info{
+width:100%;
+justify-content:space-between;
+}
+
+.welcome{
+padding:8px 12px 0;
+}
+
 .cards,
 .acciones,
 .paneles{
-min-width:0;
+grid-template-columns:1fr;
+padding:8px 12px;
+gap:10px;
 }
 
+.acciones button{
+min-height:48px;
+}
+
+.paneles{
+overflow:visible;
+}
+
+.panel{
+max-height:none;
 }
 
 .sidebar .user-status{
