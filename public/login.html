@@ -1,264 +1,91 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="es">
+
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Alpha Avocat Panel</title>
-
-<link rel="stylesheet" href="style.css?v=11">
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpha Avocat | Iniciar sesión</title>
+  <link rel="stylesheet" href="./style.css">
 </head>
 
-<body>
-
-<div class="layout">
-
-<aside class="sidebar">
-
-<div class="logo">
-
-<img src="img/logo-alpha-avocat.png" class="logo-spin" alt="Alpha Avocat Logo">
-
-<h1>ALPHA AVOCAT</h1>
-
-<p>Sistema de Gestión Jurídica Inteligente</p>
-<p class="autor">Mario Javier Rodríguez Ardiles</p>
-
-</div>
-
-<nav class="menu">
-
-<a class="inicio active" href="panel.html">
-<span class="icon icon-home">🏠</span>
-Inicio
-</a>
-
-<a class="clientes" href="clientes.html">
-<span class="icon icon-clientes">👥</span>
-Clientes
-</a>
-
-<a class="causas" href="causas.html">
-<span class="icon icon-causas">📂</span>
-Causas
-</a>
-
-<a class="agenda" href="agenda.html">
-<span class="icon icon-agenda">📅</span>
-Agenda
-</a>
-
-<a class="config" href="#">
-<span class="icon icon-config">⚙</span>
-Configuración
-</a>
-
-</nav>
-
-<div class="user-status">
-Usuario conectado
-</div>
-
-</aside>
-
-<main class="main">
-
-<header class="topbar">
-
-<input class="search" placeholder="Buscar causa o cliente...">
-
-<div class="top-info">
-
-<button id="modo-toggle" class="modo-btn">🌙</button>
-
-<span id="fecha"></span>
-
-<div class="usuario">
-
-<img src="avatars/usuario.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar">
-
-<span>Usuario Activo</span>
-
-</div>
-
-</div>
-
-</header>
-
-<section class="welcome">
-
-<h2>Bienvenido, Usuario</h2>
-
-<p><strong>Resumen del día</strong></p>
-
-</section>
-
-<section class="cards">
-
-<div class="card clientes">
-<div class="card-icon">👥</div>
-<h3>Clientes Activos</h3>
-<span class="numero">48</span>
-</div>
-
-<div class="card causas">
-<div class="card-icon">📂</div>
-<h3>Causas Abiertas</h3>
-<span class="numero">12</span>
-</div>
-
-<div class="card audiencias">
-<div class="card-icon">⚖</div>
-<h3>Audiencias Hoy</h3>
-<span class="numero">3</span>
-</div>
-
-<div class="card tareas">
-<div class="card-icon">✔</div>
-<h3>Tareas Pendientes</h3>
-<span class="numero">7</span>
-</div>
-
-</section>
-
-<section class="acciones">
-
-<button class="b1" onclick="window.location='clientes.html'">
-👤 Nuevo Cliente
-</button>
-
-<button class="b2" onclick="window.location='causas.html'">
-📂 Nueva Causa
-</button>
-
-<button class="b3" onclick="window.location='agenda.html'">
-📅 Nuevo Evento
-</button>
-
-<button class="b4">
-📄 Nuevo Documento
-</button>
-
-</section>
-
-<section class="paneles">
-
-<div class="panel actividad">
-
-<h3>Actividad Reciente</h3>
-
-<ul>
-<li>👤 Nuevo cliente registrado</li>
-<li>📄 Documento subido</li>
-<li><span style="color:#d4af37">⚖</span> Audiencia agregada</li>
-</ul>
-
-</div>
-
-<div class="panel causas-activas">
-
-<h3>Causas Activas</h3>
-
-<ul>
-<li>📂 Rodríguez vs Pérez</li>
-<li>📂 Empresa Norte Ltda</li>
-<li>📂 Contrato Comercial 245</li>
-</ul>
-
-</div>
-
-<div class="panel audiencias-semana">
-
-<h3>Audiencias de la Semana</h3>
-
-<ul>
-
-<li>
-<img src="avatars/abogado1.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
-Juzgado Civil — 10:00
-</li>
-
-<li>
-<img src="avatars/abogado2.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
-Tribunal Laboral — 12:30
-</li>
-
-<li>
-<img src="avatars/abogado1.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini">
-Tribunal de Garantía — 15:00
-</li>
-
-</ul>
-
-</div>
-
-<div class="panel alertas">
-
-<h3>Alertas Jurídicas</h3>
-
-<ul>
-<li>🔴 Contestación demanda vence en 12 días</li>
-<li>🟠 Apelación vence en 3 días</li>
-</ul>
-
-</div>
-
-</section>
-
-<footer class="footer">
-
-Alpha Avocat — Sistema de Gestión Jurídica Inteligente<br>
-Mario Javier Rodríguez Ardiles<br>
-Todos los derechos reservados
-
-</footer>
-
-</main>
-
-</div>
-
-<script>
-
-const fecha = new Date();
-
-document.getElementById("fecha").innerText =
-fecha.toLocaleDateString("es-CL",{
-day:"numeric",
-month:"long",
-year:"numeric"
-});
-
-const botonModo = document.getElementById("modo-toggle");
-
-botonModo.onclick = function(){
-
-document.body.classList.toggle("dark-mode");
-
-if(document.body.classList.contains("dark-mode")){
-localStorage.setItem("modo","oscuro");
-botonModo.innerText="☀️";
-}else{
-localStorage.setItem("modo","claro");
-botonModo.innerText="🌙";
-}
-
-};
-
-if(localStorage.getItem("modo")==="oscuro"){
-document.body.classList.add("dark-mode");
-botonModo.innerText="☀️";
-}
-
-</script>
-
+<body class="login-page">
+  <main class="login-shell">
+    <section class="login-card" aria-labelledby="login-title">
+      <img src="./img/logo-alpha-avocat.png" alt="Logo Alpha Avocat" class="login-logo">
+
+      <h1 id="login-title">Iniciar sesión</h1>
+      <p class="login-subtitle">Accede con tu cuenta para entrar al panel principal.</p>
+
+      <form id="login-form" class="login-form" novalidate>
+        <label for="email">Correo electrónico</label>
+        <input id="email" type="email" autocomplete="email" required>
+
+        <label for="password">Contraseña</label>
+        <input id="password" type="password" autocomplete="current-password" required>
+
+        <div class="login-actions">
+          <a class="login-link" href="./reset.html">¿Olvidaste tu contraseña?</a>
+          <button id="submit-btn" type="submit">Entrar</button>
+        </div>
+
+        <p id="auth-status" class="auth-status" aria-live="polite"></p>
+      </form>
+    </section>
+  </main>
+
+  <script type="module">
+    import { supabase } from "./app.js"
+
+    const form = document.getElementById("login-form")
+    const status = document.getElementById("auth-status")
+    const submitBtn = document.getElementById("submit-btn")
+
+    function setStatus(message, type = "") {
+      status.textContent = message
+      status.className = `auth-status ${type}`.trim()
+    }
+
+    async function verificarSesion() {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error) {
+        setStatus("No se pudo validar la sesión actual.", "error")
+        return
+      }
+
+      if (data?.session) {
+        window.location.href = "./panel.html"
+      }
+    }
+
+    form.addEventListener("submit", async (event) => {
+      event.preventDefault()
+
+      const email = document.getElementById("email").value.trim()
+      const password = document.getElementById("password").value
+
+      if (!email || !password) {
+        setStatus("Debes completar correo y contraseña.", "error")
+        return
+      }
+
+      submitBtn.disabled = true
+      setStatus("Ingresando...")
+
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+
+      if (error) {
+        submitBtn.disabled = false
+        setStatus(error.message || "No fue posible iniciar sesión. Verifica tus credenciales.", "error")
+        return
+      }
+
+      setStatus("Acceso correcto. Redirigiendo...", "ok")
+      window.location.href = "./panel.html"
+    })
+
+    verificarSesion()
+  </script>
 </body>
+
 </html>
