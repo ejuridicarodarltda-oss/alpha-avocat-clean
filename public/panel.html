@@ -6,13 +6,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Alpha Avocat Panel</title>
 
-<link rel="stylesheet" href="style.css?v=38">
+<link rel="stylesheet" href="style.css?v=39">
 
 </head>
 
 <body>
 
 <div class="mobile-stage">
+
 <div class="layout" id="appLayout">
 
 <aside class="sidebar">
@@ -215,6 +216,7 @@ Todos los derechos reservados
 </div>
 
 <script>
+
 const fecha = new Date();
 
 document.getElementById("fecha").innerText =
@@ -227,48 +229,62 @@ year: "numeric"
 const botonModo = document.getElementById("modo-toggle");
 
 botonModo.onclick = function () {
+
 document.body.classList.toggle("dark-mode");
 
 if (document.body.classList.contains("dark-mode")) {
-localStorage.setItem("modo", "oscuro");
-botonModo.innerText = "☀️";
-} else {
-localStorage.setItem("modo", "claro");
-botonModo.innerText = "🌙";
+
+localStorage.setItem("modo","oscuro");
+botonModo.innerText="☀️";
+
+}else{
+
+localStorage.setItem("modo","claro");
+botonModo.innerText="🌙";
+
 }
+
 };
 
-if (localStorage.getItem("modo") === "oscuro") {
+if(localStorage.getItem("modo")==="oscuro"){
+
 document.body.classList.add("dark-mode");
-botonModo.innerText = "☀️";
+botonModo.innerText="☀️";
+
 }
 
-function ajustarVistaMovil() {
-  const layout = document.getElementById("appLayout");
-  const esMovil = window.innerWidth <= 480;
+function ajustarVistaMovil(){
 
-  if (!layout) return;
+const layout=document.getElementById("appLayout");
 
-  if (!esMovil) {
-    layout.style.transform = "";
-    layout.style.position = "";
-    layout.style.left = "";
-    layout.style.top = "";
-    return;
-  }
+const esMovil=window.innerWidth<=480;
 
-  const anchoBase = 1200;
-  const scale = window.innerWidth / anchoBase;
+if(!layout)return;
 
-  layout.style.transform = "scale(" + scale + ")";
-  layout.style.position = "absolute";
-  layout.style.left = "0";
-  layout.style.top = "0";
+if(!esMovil){
+
+layout.style.transform="";
+layout.style.position="";
+
+return;
+
 }
+
+const anchoBase=1200;
+
+const scale=window.innerWidth/anchoBase;
+
+layout.style.transform="scale("+scale+")";
+
+layout.style.position="relative";
+
+}
+
 ajustarVistaMovil();
 
-window.addEventListener("resize", ajustarVistaMovil);
-window.addEventListener("orientationchange", ajustarVistaMovil);
+window.addEventListener("resize",ajustarVistaMovil);
+window.addEventListener("orientationchange",ajustarVistaMovil);
+
 </script>
 
 </body>
