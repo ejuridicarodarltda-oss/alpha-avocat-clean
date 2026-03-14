@@ -398,18 +398,32 @@ background:#eef1f5;
 .mobile-stage{
 width:100vw;
 height:100dvh;
-overflow:hidden;
+overflow:auto;
 position:relative;
+overscroll-behavior:contain;
 }
 
 #appLayout{
 width:1200px;
-height:100dvh;
+min-height:100dvh;
 transform-origin:top center;
+will-change:transform;
 }
 
 .sidebar .menu{
 margin-top:6px;
+}
+
+@media (max-width:600px){
+
+.topbar,
+.welcome,
+.cards,
+.acciones,
+.paneles{
+min-width:0;
+}
+
 }
 
 .sidebar .user-status{
