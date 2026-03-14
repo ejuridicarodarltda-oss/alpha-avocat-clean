@@ -400,15 +400,20 @@ width:100vw;
 height:100dvh;
 overflow:hidden;
 position:relative;
-display:flex;
-justify-content:center;
-align-items:flex-start;
 }
 
 #appLayout{
 width:1200px;
 height:100dvh;
 transform-origin:top center;
+}
+
+.sidebar .menu{
+margin-top:6px;
+}
+
+.sidebar .user-status{
+display:none;
 }
 
 }
