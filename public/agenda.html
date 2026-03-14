@@ -189,10 +189,15 @@ modalBg.classList.remove("show")
 
 async function loadEvents(){
 
-const { data } = await supabase
+const { data, error } = await supabase
 .from("appointments")
 .select("*")
 .order("starts_at",{ascending:true})
+
+if(error){
+table.innerHTML=`<tr><td colspan="5">Error al cargar eventos: ${error.message}</td></tr>`
+return
+}
 
 if(!data || data.length===0){
 table.innerHTML=`<tr><td colspan="5">Sin eventos</td></tr>`
@@ -232,7 +237,17 @@ loadEvents()
 
 btnSave.onclick = async ()=>{
 
+if(!startsEl.value){
+alert("Debes ingresar una fecha y hora")
+return
+}
+
 const fecha = new Date(startsEl.value)
+
+if(Number.isNaN(fecha.getTime())){
+alert("Fecha inválida")
+return
+}
 
 const payload = {
 
