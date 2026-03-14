@@ -18,6 +18,20 @@ width:100%;
 overflow:hidden;
 }
 
+
+body.panel-page{
+overflow:auto;
+}
+
+body.panel-page .mobile-stage{
+width:100%;
+min-height:100dvh;
+}
+
+body.panel-page .layout{
+min-height:100dvh;
+}
+
 /* SIDEBAR */
 
 .sidebar{
