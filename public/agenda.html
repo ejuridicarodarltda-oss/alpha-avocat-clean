@@ -178,6 +178,21 @@ const recordingEl = document.getElementById("recording_authorized")
 const startsEl = document.getElementById("starts_at")
 const notesEl = document.getElementById("notes")
 
+function escapeHtml(value){
+return String(value ?? "").replace(/[&<>"']/g, c => ({
+"&":"&amp;",
+"<":"&lt;",
+">":"&gt;",
+'"':"&quot;",
+"'":"&#039;"
+}[c]))
+}
+
+const { data: sess } = await supabase.auth.getSession()
+if(!sess?.session){
+window.location.href = './login.html'
+}
+
 btnNew.onclick = ()=> modalBg.classList.add("show")
 
 btnClose.onclick = closeModal
@@ -207,11 +222,11 @@ return
 table.innerHTML=data.map(e=>`
 <tr>
 <td>${new Date(e.starts_at).toLocaleString()}</td>
-<td>${e.title||""}</td>
-<td>${e.event_type||""}</td>
-<td>${e.external_name||""}</td>
+<td>${escapeHtml(e.title)}</td>
+<td>${escapeHtml(e.event_type)}</td>
+<td>${escapeHtml(e.external_name)}</td>
 <td>
-<button class="delete" data-id="${e.id}">Eliminar</button>
+<button class="delete" data-id="${escapeHtml(e.id)}">Eliminar</button>
 </td>
 </tr>
 `).join("")
