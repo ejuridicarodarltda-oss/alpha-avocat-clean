@@ -64,7 +64,7 @@ border-radius:0;
 }
 
 .logo img{
-width:400px;
+width:200px;
 margin-bottom:6px;
 filter:drop-shadow(0 18px 40px rgba(0,0,0,.95));
 }
@@ -413,7 +413,7 @@ color:#9ca3af;
 @media (max-height:760px){
 
 .logo img{
-width:360px;
+width:180px;
 }
 
 .logo h1{
@@ -555,7 +555,7 @@ display:none;
 
 @media (max-width:480px){
 .logo img{
-width:260px;
+width:130px;
 }
 
 .logo h1{
@@ -601,7 +601,7 @@ margin-bottom:20px;
 }
 
 body.panel-page .logo img{
-width:400px;
+width:200px;
 }
 
 body.panel-page .logo h1{
