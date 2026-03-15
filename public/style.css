@@ -847,7 +847,7 @@ overflow:hidden;
 display:grid;
 justify-items:center;
 gap:8px;
-animation:transitionBrandTraverse 4.8s cubic-bezier(.42,0,.2,1) forwards;
+animation:transitionBrandTraverse 10s cubic-bezier(.2,.65,.22,1) forwards;
 will-change:transform;
 }
 
@@ -904,10 +904,10 @@ text-decoration:underline;
 
 @keyframes transitionBrandTraverse{
 0%{
-transform:translateX(-42vw);
+transform:translateX(-110vw);
 }
-55%{
-transform:translateX(42vw);
+65%{
+transform:translateX(110vw);
 }
 100%{
 transform:translateX(0);
