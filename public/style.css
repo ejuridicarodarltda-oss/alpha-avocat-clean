@@ -113,7 +113,7 @@ gap:8px;
 }
 
 body.panel-page .menu{
-margin-top:20px;
+margin-top:120px;
 }
 
 .menu a{
@@ -475,6 +475,10 @@ margin:8px 0 14px 0;
 
 .menu{
 gap:8px;
+}
+
+body.panel-page .menu{
+margin-top:20px;
 }
 
 .main{
