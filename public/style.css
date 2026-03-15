@@ -75,6 +75,21 @@ mix-blend-mode:multiply;
 filter:brightness(0) saturate(100%) invert(80%) sepia(56%) saturate(1040%) hue-rotate(356deg) brightness(95%) contrast(97%);
 }
 
+body.panel-page .brand-logo-transparent{
+mix-blend-mode:normal;
+filter:
+brightness(0)
+saturate(100%)
+invert(86%)
+sepia(72%)
+saturate(1850%)
+hue-rotate(357deg)
+brightness(101%)
+contrast(107%)
+drop-shadow(0 0 8px rgba(255,210,88,.55))
+drop-shadow(0 5px 10px rgba(120,78,8,.5));
+}
+
 .logo-spin{
 animation:logoRotate 22s linear infinite;
 transform-style:preserve-3d;
