@@ -81,10 +81,9 @@ filter:var(--brand-logo-filter);
 }
 
 body.panel-page .brand-logo-transparent{
-mix-blend-mode:normal;
 filter:
 var(--brand-logo-filter)
-drop-shadow(0 18px 40px rgba(0,0,0,.55));
+drop-shadow(0 0 10px color-mix(in srgb, var(--brand-gold) 60%, transparent));
 }
 
 .logo-spin{
