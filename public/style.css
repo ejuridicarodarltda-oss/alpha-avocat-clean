@@ -57,6 +57,12 @@ margin-top:10px;
 margin-bottom:20px;
 }
 
+.logo-texto{
+background:transparent;
+padding:0;
+border-radius:0;
+}
+
 .logo img{
 width:200px;
 margin-bottom:6px;
@@ -86,6 +92,12 @@ font-size:13px;
 opacity:.95;
 margin:2px 0 0 0;
 line-height:1.2;
+}
+
+.logo-texto h1,
+.logo-texto p,
+.logo-texto .autor{
+background:transparent;
 }
 
 .autor{
