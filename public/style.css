@@ -695,6 +695,36 @@ gap:12px;
 .login-logo{
 width:100px;
 margin:0 auto 6px auto;
+display:block;
+animation:logoTraverseAndSpin 4.4s cubic-bezier(.65,0,.35,1) forwards;
+transform-origin:center;
+will-change:transform;
+}
+
+.login-logo-track{
+position:relative;
+width:min(320px,100%);
+margin:0 auto 6px auto;
+min-height:110px;
+display:flex;
+justify-content:center;
+align-items:center;
+overflow:visible;
+}
+
+@keyframes logoTraverseAndSpin{
+0%{
+transform:translateX(-120px) rotateY(0deg);
+}
+42%{
+transform:translateX(120px) rotateY(0deg);
+}
+72%{
+transform:translateX(0) rotateY(0deg);
+}
+100%{
+transform:translateX(0) rotateY(1080deg);
+}
 }
 
 .login-card h1{
