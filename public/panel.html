@@ -260,26 +260,35 @@ const mobileStage=document.querySelector(".mobile-stage");
 
 if(!layout)return;
 
+layout.style.width="";
+layout.style.transform="";
+layout.style.transformOrigin="";
+layout.style.position="";
+layout.style.left="";
+layout.style.top="";
+
+if(!mobileStage)return;
+
+mobileStage.style.overflow="";
+mobileStage.style.overflowX="";
+mobileStage.style.overflowY="";
+mobileStage.style.minHeight="";
+
 if(window.innerWidth<=768){
 layout.style.transform="none";
 layout.style.position="static";
 layout.style.left="auto";
 layout.style.top="auto";
 
-if(mobileStage){
 mobileStage.style.overflow="auto";
+
+if(window.innerWidth<=480){
+mobileStage.style.overflowX="auto";
+mobileStage.style.overflowY="auto";
+mobileStage.style.minHeight="100dvh";
 }
 
 return;
-}
-
-layout.style.transform="";
-layout.style.position="";
-layout.style.left="";
-layout.style.top="";
-
-if(mobileStage){
-mobileStage.style.overflow="";
 }
 
 }
