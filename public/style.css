@@ -53,7 +53,7 @@ flex-direction:column;
 align-items:center;
 justify-content:center;
 text-align:center;
-margin-top:10px;
+margin-top:20px;
 margin-bottom:20px;
 }
 
@@ -478,7 +478,7 @@ gap:8px;
 }
 
 body.panel-page .menu{
-margin-top:4px;
+margin-top:20px;
 }
 
 .main{
