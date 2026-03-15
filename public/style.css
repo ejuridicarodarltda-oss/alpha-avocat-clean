@@ -770,3 +770,73 @@ color:#dc2626;
 .auth-status.ok{
 color:#16a34a;
 }
+
+/* TRANSICIÓN */
+
+.transition-page{
+margin:0;
+min-height:100dvh;
+display:grid;
+place-items:center;
+background:radial-gradient(circle at top,#1f3c5a,#0c1f34 55%,#080f1a);
+overflow:auto;
+}
+
+.transition-shell{
+width:min(460px,100%);
+background:rgba(255,255,255,.95);
+border-radius:24px;
+padding:34px 24px;
+box-shadow:0 24px 45px rgba(0,0,0,.35);
+display:grid;
+justify-items:center;
+text-align:center;
+gap:12px;
+}
+
+.transition-logo{
+width:98px;
+filter:drop-shadow(0 12px 24px rgba(12,31,52,.25));
+}
+
+.transition-shell h1{
+margin:0;
+font-size:28px;
+color:#0c1f34;
+}
+
+.transition-shell p{
+margin:0;
+font-size:14px;
+font-weight:600;
+color:#334155;
+}
+
+.transition-shell p.error{
+color:#dc2626;
+}
+
+.transition-spinner{
+width:58px;
+height:58px;
+border-radius:50%;
+border:5px solid #e2e8f0;
+border-top-color:#9b0f17;
+animation:spin 1s linear infinite;
+}
+
+.transition-link{
+font-size:13px;
+font-weight:700;
+color:#9b0f17;
+text-decoration:none;
+}
+
+.transition-link:hover{
+text-decoration:underline;
+}
+
+@keyframes spin{
+from{transform:rotate(0deg);}
+to{transform:rotate(360deg);}
+}
