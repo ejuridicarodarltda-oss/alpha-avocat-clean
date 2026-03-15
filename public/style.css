@@ -100,6 +100,10 @@ flex-direction:column;
 gap:8px;
 }
 
+body.panel-page .menu{
+margin-top:120px;
+}
+
 .menu a{
 padding:9px 12px;
 border-radius:12px;
