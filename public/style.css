@@ -659,7 +659,7 @@ margin:0;
 min-height:100dvh;
 display:grid;
 place-items:center;
-background:linear-gradient(160deg,#0c1f34,#1f3c5a 55%,#9b0f17);
+background:#4b0013;
 overflow:auto;
 }
 
