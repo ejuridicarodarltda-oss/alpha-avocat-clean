@@ -69,6 +69,11 @@ margin-bottom:6px;
 filter:drop-shadow(0 18px 40px rgba(0,0,0,.95));
 }
 
+.brand-logo-transparent{
+background:transparent;
+mix-blend-mode:multiply;
+}
+
 .logo-spin{
 animation:logoRotate 22s linear infinite;
 transform-style:preserve-3d;
