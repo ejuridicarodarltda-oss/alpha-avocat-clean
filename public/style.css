@@ -806,12 +806,14 @@ color:#1e293b;
 margin-top:4px;
 }
 
-.login-form input{
+..login-form input{
 width:100%;
 border:1px solid #cbd5e1;
 border-radius:10px;
 padding:11px 12px;
 font-size:14px;
+background:#ffffff;
+color:#1e293b;
 }
 
 .login-form input:focus{
