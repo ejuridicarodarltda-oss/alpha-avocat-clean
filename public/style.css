@@ -72,6 +72,7 @@ filter:drop-shadow(0 18px 40px rgba(0,0,0,.95));
 .brand-logo-transparent{
 background:transparent;
 mix-blend-mode:multiply;
+filter:brightness(0) saturate(100%) invert(80%) sepia(56%) saturate(1040%) hue-rotate(356deg) brightness(95%) contrast(97%);
 }
 
 .logo-spin{
