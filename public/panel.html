@@ -293,35 +293,10 @@ return;
 
 }
 
-function alinearMenuConActividad(){
-
-const menu=document.querySelector(".sidebar .menu");
-const inicio=document.querySelector(".sidebar .menu .inicio");
-const actividad=document.querySelector(".paneles .panel.actividad");
-
-if(!menu||!inicio||!actividad)return;
-
-if(window.innerWidth<=768){
-menu.style.marginTop="";
-return;
-}
-
-const inicioTop=inicio.getBoundingClientRect().top;
-const actividadTop=actividad.getBoundingClientRect().top;
-const diferencia=actividadTop-inicioTop;
-const margenActual=parseFloat(getComputedStyle(menu).marginTop)||0;
-
-menu.style.marginTop=`${Math.max(0,margenActual+diferencia)}px`;
-
-}
-
 ajustarVistaMovil();
-alinearMenuConActividad();
 
 window.addEventListener("resize",ajustarVistaMovil);
 window.addEventListener("orientationchange",ajustarVistaMovil);
-window.addEventListener("resize",alinearMenuConActividad);
-window.addEventListener("orientationchange",alinearMenuConActividad);
 
 </script>
 
