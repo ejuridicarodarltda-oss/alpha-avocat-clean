@@ -261,33 +261,70 @@ const mobileStage=document.querySelector(".mobile-stage");
 if(!layout)return;
 
 if(window.innerWidth<=480){
-layout.style.transform="none";
-layout.style.position="static";
-layout.style.left="auto";
-layout.style.top="auto";
+const anchoBase=1366;
+const escala=Math.min(1,window.innerWidth/anchoBase);
+
+layout.style.width=`${anchoBase}px`;
+layout.style.transform=`scale(${escala})`;
+layout.style.transformOrigin="top left";
+layout.style.position="relative";
+layout.style.left="0";
+layout.style.top="0";
 
 if(mobileStage){
-mobileStage.style.overflow="auto";
+mobileStage.style.overflowX="auto";
+mobileStage.style.overflowY="auto";
+mobileStage.style.minHeight=`${Math.ceil(layout.scrollHeight*escala)}px`;
 }
 
 return;
 }
 
+layout.style.width="";
 layout.style.transform="";
+layout.style.transformOrigin="";
 layout.style.position="";
 layout.style.left="";
 layout.style.top="";
 
 if(mobileStage){
 mobileStage.style.overflow="";
+mobileStage.style.overflowX="";
+mobileStage.style.overflowY="";
+mobileStage.style.minHeight="";
 }
+
+}
+
+function alinearMenuConActividad(){
+
+const menu=document.querySelector(".sidebar .menu");
+const inicio=document.querySelector(".sidebar .menu .inicio");
+const actividad=document.querySelector(".paneles .panel.actividad");
+
+if(!menu||!inicio||!actividad)return;
+
+if(window.innerWidth<=480){
+menu.style.marginTop="";
+return;
+}
+
+const inicioTop=inicio.getBoundingClientRect().top;
+const actividadTop=actividad.getBoundingClientRect().top;
+const diferencia=actividadTop-inicioTop;
+const margenActual=parseFloat(getComputedStyle(menu).marginTop)||0;
+
+menu.style.marginTop=`${Math.max(0,margenActual+diferencia)}px`;
 
 }
 
 ajustarVistaMovil();
+alinearMenuConActividad();
 
 window.addEventListener("resize",ajustarVistaMovil);
 window.addEventListener("orientationchange",ajustarVistaMovil);
+window.addEventListener("resize",alinearMenuConActividad);
+window.addEventListener("orientationchange",alinearMenuConActividad);
 
 </script>
 

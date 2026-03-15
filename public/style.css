@@ -533,6 +533,70 @@ max-height:none;
 display:none;
 }
 
+body.panel-page .layout{
+flex-direction:row;
+height:100dvh;
+min-height:100dvh;
+overflow:hidden;
+}
+
+body.panel-page .sidebar{
+width:300px;
+height:100dvh;
+padding:18px 20px 12px;
+box-shadow:4px 0 18px rgba(0,0,0,.35);
+}
+
+body.panel-page .logo img{
+width:200px;
+}
+
+body.panel-page .logo h1{
+font-size:28px;
+}
+
+body.panel-page .logo p,
+body.panel-page .autor{
+font-size:13px;
+}
+
+body.panel-page .main{
+height:100dvh;
+min-height:0;
+grid-template-rows:auto auto auto auto 1fr auto;
+overflow:hidden;
+}
+
+body.panel-page .topbar,
+body.panel-page .welcome,
+body.panel-page .cards,
+body.panel-page .acciones,
+body.panel-page .paneles,
+body.panel-page .footer{
+padding-left:26px;
+padding-right:26px;
+}
+
+body.panel-page .search{
+width:auto;
+}
+
+body.panel-page .top-info{
+width:auto;
+justify-content:flex-end;
+}
+
+body.panel-page .cards,
+body.panel-page .acciones,
+body.panel-page .paneles{
+grid-template-columns:repeat(4,1fr);
+gap:14px;
+}
+
+body.panel-page .sidebar .user-status{
+display:block;
+}
+
 }
 
 /* LOGIN */
