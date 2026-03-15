@@ -11,6 +11,10 @@ background:#eef1f5;
 overflow:hidden;
 }
 
+:root{
+--brand-gold:#d4af37;
+}
+
 .layout{
 display:flex;
 height:100dvh;
@@ -37,7 +41,7 @@ min-height:100dvh;
 .sidebar{
 width:300px;
 background:linear-gradient(180deg,#0c1f34,#142f4e);
-color:#d4af37;
+color:var(--brand-gold);
 padding:18px 20px 12px;
 display:flex;
 flex-direction:column;
@@ -86,8 +90,7 @@ saturate(1040%)
 hue-rotate(356deg)
 brightness(95%)
 contrast(97%)
-drop-shadow(0 0 8px rgba(212,175,55,.55))
-drop-shadow(0 5px 10px rgba(120,78,8,.45));
+drop-shadow(0 0 10px color-mix(in srgb, var(--brand-gold) 60%, transparent));
 }
 
 .logo-spin{
@@ -104,7 +107,7 @@ transform-style:preserve-3d;
 font-size:28px;
 letter-spacing:3px;
 margin:0;
-color:#d4af37;
+color:var(--brand-gold);
 line-height:1.1;
 }
 
@@ -113,6 +116,7 @@ font-size:13px;
 opacity:.95;
 margin:2px 0 0 0;
 line-height:1.2;
+color:var(--brand-gold);
 }
 
 .logo-texto h1,
