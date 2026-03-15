@@ -833,18 +833,29 @@ overflow:auto;
 }
 
 .transition-shell{
-width:min(520px,100%);
+width:min(1000px,100%);
 padding:20px;
 display:grid;
 justify-items:center;
 text-align:center;
 gap:8px;
 background:transparent;
+overflow:hidden;
+}
+
+.transition-brand-motion{
+display:grid;
+justify-items:center;
+gap:8px;
+will-change:transform;
+animation:brandTravel 30s linear forwards;
 }
 
 .transition-logo{
 width:160px;
 filter:drop-shadow(0 10px 18px rgba(12,31,52,.22));
+transform-style:preserve-3d;
+animation:coinSpin 30s linear forwards;
 }
 
 .transition-shell h1{
@@ -896,4 +907,17 @@ text-decoration:underline;
 @keyframes spin{
 from{transform:rotate(0deg);}
 to{transform:rotate(360deg);}
+}
+
+@keyframes brandTravel{
+0%{transform:translateX(-120vw);}
+33.333%{transform:translateX(0);}
+66.666%{transform:translateX(0);}
+100%{transform:translateX(120vw);}
+}
+
+@keyframes coinSpin{
+0%,33.333%{transform:rotateY(0deg);}
+66.666%{transform:rotateY(2160deg);}
+100%{transform:rotateY(2160deg);}
 }
