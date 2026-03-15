@@ -260,26 +260,6 @@ const mobileStage=document.querySelector(".mobile-stage");
 
 if(!layout)return;
 
-if(window.innerWidth<=480){
-const anchoBase=1366;
-const escala=Math.min(1,window.innerWidth/anchoBase);
-
-layout.style.width=`${anchoBase}px`;
-layout.style.transform=`scale(${escala})`;
-layout.style.transformOrigin="top left";
-layout.style.position="relative";
-layout.style.left="0";
-layout.style.top="0";
-
-if(mobileStage){
-mobileStage.style.overflowX="auto";
-mobileStage.style.overflowY="auto";
-mobileStage.style.minHeight=`${Math.ceil(layout.scrollHeight*escala)}px`;
-}
-
-return;
-}
-
 layout.style.width="";
 layout.style.transform="";
 layout.style.transformOrigin="";
@@ -287,12 +267,19 @@ layout.style.position="";
 layout.style.left="";
 layout.style.top="";
 
-if(mobileStage){
+if(!mobileStage)return;
+
+if(window.innerWidth<=480){
+mobileStage.style.overflowX="auto";
+mobileStage.style.overflowY="auto";
+mobileStage.style.minHeight="100dvh";
+return;
+}
+
 mobileStage.style.overflow="";
 mobileStage.style.overflowX="";
 mobileStage.style.overflowY="";
 mobileStage.style.minHeight="";
-}
 
 }
 
