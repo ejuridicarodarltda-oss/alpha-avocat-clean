@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="es">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpha Avocat | Ingresando al panel</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+
+<body class="transition-page">
+  <main class="transition-shell" aria-live="polite">
+    <img src="./img/logo-alpha-avocat.png" alt="Logo Alpha Avocat" class="transition-logo">
+    <h1>Alpha Avocat</h1>
+    <p class="transition-subtitle">Sistema de Gestión Jurídica Inteligente</p>
+    <p id="transition-message">Validando tu sesión de forma segura...</p>
+    <div class="transition-spinner" aria-hidden="true"></div>
+    <a class="transition-link" href="./panel.html">Continuar al panel</a>
+  </main>
+
+  <script type="module">
+    import { supabase } from "./app.js"
+
+    const message = document.getElementById("transition-message")
+
+    function setMessage(text, isError = false) {
+      message.textContent = text
+      message.classList.toggle("error", isError)
+    }
+
+    async function irAlPanel() {
+      const { data, error } = await supabase.auth.getSession()
+
+      if (error || !data?.session) {
+        setMessage("No encontramos una sesión activa. Serás redirigido al login.", true)
+        setTimeout(() => {
+          window.location.href = "./login.html"
+        }, 1600)
+        return
+      }
+
+      setMessage("Acceso confirmado. Abriendo panel principal...")
+      setTimeout(() => {
+        window.location.href = "./panel.html"
+      }, 1500)
+    }
+
+    irAlPanel()
+  </script>
+</body>
+
+</html>
