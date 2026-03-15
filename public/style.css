@@ -94,7 +94,7 @@ margin-top:4px;
 }
 
 .menu{
-margin-top:34px;
+margin-top:220px;
 display:flex;
 flex-direction:column;
 gap:8px;
@@ -588,7 +588,7 @@ font-size:13px;
 }
 
 body.panel-page .menu{
-margin-top:34px;
+margin-top:220px;
 }
 
 body.panel-page .sidebar .user-status{
