@@ -721,6 +721,37 @@ align-items:center;
 overflow:visible;
 }
 
+.login-brand-stack{
+text-align:center;
+display:grid;
+gap:2px;
+margin:-2px 0 6px 0;
+}
+
+.login-brand-title,
+.login-brand-subtitle,
+.login-brand-author{
+margin:0;
+color:#d4af37;
+text-shadow:0 2px 8px rgba(0,0,0,.18);
+}
+
+.login-brand-title{
+font-size:18px;
+font-weight:900;
+letter-spacing:2px;
+}
+
+.login-brand-subtitle{
+font-size:13px;
+font-weight:700;
+}
+
+.login-brand-author{
+font-size:12px;
+font-weight:700;
+}
+
 @keyframes logoTraverseAndSpin{
 0%{
 transform:translateX(-120px) rotateY(0deg);
