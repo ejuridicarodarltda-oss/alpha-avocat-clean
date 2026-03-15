@@ -18,7 +18,6 @@ width:100%;
 overflow:hidden;
 }
 
-
 body.panel-page{
 overflow:auto;
 }
@@ -38,7 +37,7 @@ min-height:100dvh;
 width:300px;
 background:linear-gradient(180deg,#0c1f34,#142f4e);
 color:#d4af37;
-padding:18px 20px 12px;
+padding:32px 20px 12px;
 display:flex;
 flex-direction:column;
 height:100dvh;
@@ -113,7 +112,7 @@ gap:8px;
 }
 
 body.panel-page .menu{
-margin-top:40px;
+margin-top:24px;
 }
 
 .menu a{
@@ -285,7 +284,6 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 .tareas{
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
-
 
 .card.audiencias .card-icon{
 color:#fef08a;
@@ -675,7 +673,7 @@ margin:0;
 min-height:100dvh;
 display:grid;
 place-items:center;
-background:#0c1f34;
+background:#4b0013;
 overflow:auto;
 }
 
@@ -828,7 +826,7 @@ margin:0;
 min-height:100dvh;
 display:grid;
 place-items:center;
-background:#4b0013;
+background:transparent;
 overflow:auto;
 }
 
@@ -840,15 +838,6 @@ justify-items:center;
 text-align:center;
 gap:8px;
 background:transparent;
-overflow:hidden;
-}
-
-.transition-brand-motion{
-display:grid;
-justify-items:center;
-gap:8px;
-animation:transitionBrandTraverse 10s cubic-bezier(.2,.65,.22,1) forwards;
-will-change:transform;
 }
 
 .transition-logo{
@@ -859,21 +848,21 @@ filter:drop-shadow(0 10px 18px rgba(12,31,52,.22));
 .transition-shell h1{
 margin:0;
 font-size:32px;
-color:#f8fafc;
+color:#0c1f34;
 }
 
 .transition-subtitle{
 margin:0;
 font-size:15px;
 font-weight:700;
-color:#e2e8f0;
+color:#334155;
 }
 
 .transition-shell p{
 margin:0;
 font-size:14px;
 font-weight:600;
-color:#e2e8f0;
+color:#334155;
 }
 
 .transition-shell p.error{
@@ -884,7 +873,7 @@ color:#dc2626;
 width:52px;
 height:52px;
 border-radius:50%;
-border:4px solid rgba(255,255,255,.35);
+border:4px solid #dbe3ef;
 border-top-color:#9b0f17;
 animation:spin 1s linear infinite;
 margin-top:6px;
@@ -900,18 +889,6 @@ margin-top:4px;
 
 .transition-link:hover{
 text-decoration:underline;
-}
-
-@keyframes transitionBrandTraverse{
-0%{
-transform:translateX(-110vw);
-}
-65%{
-transform:translateX(110vw);
-}
-100%{
-transform:translateX(0);
-}
 }
 
 @keyframes spin{
