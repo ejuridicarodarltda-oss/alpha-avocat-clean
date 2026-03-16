@@ -92,6 +92,10 @@ alt="Usuario">
 
 </div>
 
+<button id="cerrar-sesion-btn" class="cerrar-sesion-btn">
+Cerrar sesión
+</button>
+
 </div>
 
 </header>
@@ -303,6 +307,30 @@ ajustarVistaMovil();
 window.addEventListener("resize",ajustarVistaMovil);
 window.addEventListener("orientationchange",ajustarVistaMovil);
 
+</script>
+
+<script type="module">
+import { supabase } from "./app.js"
+
+const cerrarSesionBtn = document.getElementById("cerrar-sesion-btn")
+
+if (cerrarSesionBtn) {
+  cerrarSesionBtn.addEventListener("click", async () => {
+    cerrarSesionBtn.disabled = true
+    cerrarSesionBtn.textContent = "Cerrando..."
+
+    const { error } = await supabase.auth.signOut()
+
+    if (error) {
+      alert("No fue posible cerrar sesión.")
+      cerrarSesionBtn.disabled = false
+      cerrarSesionBtn.textContent = "Cerrar sesión"
+      return
+    }
+
+    window.location.href = "./login.html"
+  })
+}
 </script>
 
 </body>
