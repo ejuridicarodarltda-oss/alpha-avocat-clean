@@ -1046,7 +1046,12 @@ to{transform:translateX(-50%) rotate(360deg);}
 33.333%,99%{opacity:1;}
 100%{opacity:0;}
 }
-
+@media (min-width:901px){
+#transition-message{
+font-size:14px;
+bottom:40px;
+}
+}
 @media (max-width:900px){
 .transition-brand-unit{
 width:min(92vw,760px);
