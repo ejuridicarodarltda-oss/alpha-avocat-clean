@@ -23,7 +23,6 @@ width:100%;
 overflow:hidden;
 }
 
-
 body.panel-page{
 overflow:auto;
 }
@@ -211,6 +210,27 @@ align-items:center;
 gap:14px;
 }
 
+.cerrar-sesion-btn{
+border:none;
+border-radius:10px;
+background:linear-gradient(135deg,#9b0f17,#c31432);
+color:#ffffff;
+font-size:13px;
+font-weight:700;
+padding:9px 14px;
+cursor:pointer;
+box-shadow:0 8px 14px rgba(0,0,0,.18);
+}
+
+.cerrar-sesion-btn:hover{
+filter:brightness(1.05);
+}
+
+.cerrar-sesion-btn:disabled{
+opacity:.7;
+cursor:not-allowed;
+}
+
 .modo-btn{
 background:none;
 border:none;
@@ -303,7 +323,6 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 .tareas{
 background:linear-gradient(135deg,#f59e0b,#d97706);
 }
-
 
 .card.audiencias .card-icon{
 color:#fef08a;
@@ -532,6 +551,10 @@ width:100%;
 justify-content:space-between;
 flex-wrap:wrap;
 row-gap:6px;
+}
+
+.cerrar-sesion-btn{
+width:100%;
 }
 
 .welcome{
@@ -806,7 +829,7 @@ color:#1e293b;
 margin-top:4px;
 }
 
-..login-form input{
+.login-form input{
 width:100%;
 border:1px solid #cbd5e1;
 border-radius:10px;
@@ -1046,12 +1069,14 @@ to{transform:translateX(-50%) rotate(360deg);}
 33.333%,99%{opacity:1;}
 100%{opacity:0;}
 }
+
 @media (min-width:901px){
 #transition-message{
 font-size:14px;
 bottom:40px;
 }
 }
+
 @media (max-width:900px){
 .transition-brand-unit{
 width:min(92vw,760px);
