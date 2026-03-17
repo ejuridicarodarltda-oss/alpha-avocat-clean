@@ -22,6 +22,7 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .agenda-screen.show{display:block;}
 .block{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:12px;}
 .block h3{margin:0 0 10px;font-size:16px;color:#111827;}
+.hidden{display:none;}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
@@ -83,7 +84,25 @@ textarea{min-height:74px;resize:vertical;}
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="act_phone"></label></div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label></div></div>
-    <div class="block"><h3>Bloque C. Modalidad del evento</h3><div class="fields"><label>Presencial<input placeholder="Dispositivo / Externa"></label><label>Remota Anfitrión<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Crear reunión<input></label><label>Enviar código e ID<input></label><label>Remota Invitado<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Recibir e ingresar código e ID<input></label></div></div>
+    <div class="block hidden" id="activityModalidadBlock"><h3>Bloque C. Modalidad del evento</h3>
+      <div class="fields hidden" id="actividadPresencialFields">
+        <label>Grabación presencial
+          <select id="act_recording_device">
+            <option value="">Seleccionar opción</option>
+            <option value="dispositivo">Cámara del dispositivo (PC, tablet o móvil)</option>
+            <option value="externa">Cámara externa conectada al equipo</option>
+          </select>
+        </label>
+      </div>
+      <div class="fields hidden" id="actividadRemotaFields">
+        <label>Remota Anfitrión<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Crear reunión<input></label>
+        <label>Enviar código e ID<input></label>
+        <label>Remota Invitado<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Recibir e ingresar código e ID<input></label>
+        <label>Grabación remota<input placeholder="Indicar canal y respaldo de grabación"></label>
+      </div>
+    </div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
@@ -132,6 +151,12 @@ const subjectEl = document.getElementById('subject')
 const eventNumberEl = document.getElementById('event_number')
 const saveButton = document.getElementById('btnSave')
 const btnGoActividad = document.getElementById('btnGoActividad')
+const activityModalidadBlock = document.getElementById('activityModalidadBlock')
+const actividadPresencialFields = document.getElementById('actividadPresencialFields')
+const actividadRemotaFields = document.getElementById('actividadRemotaFields')
+
+const modalidadRadios = document.querySelectorAll('input[name="modalidad"]')
+const grabacionRadios = document.querySelectorAll('input[name="grabacion"]')
 
 const activityFields = {
   eventNumber: document.getElementById('act_event_number'),
@@ -218,7 +243,27 @@ function copyEventToActivity(){
   activityFields.rut.value = rutEl?.value || ''
   activityFields.email.value = emailEl.value || ''
   activityFields.phone.value = phoneEl.value || ''
+  updateActivityModalityBlock()
 }
+
+function updateActivityModalityBlock(){
+  const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
+  const grabacionAutorizada = (document.querySelector('input[name="grabacion"]:checked')?.value || 'audio') !== 'no'
+
+  if (!grabacionAutorizada) {
+    activityModalidadBlock?.classList.add('hidden')
+    actividadPresencialFields?.classList.add('hidden')
+    actividadRemotaFields?.classList.add('hidden')
+    return
+  }
+
+  activityModalidadBlock?.classList.remove('hidden')
+  actividadPresencialFields?.classList.toggle('hidden', modalidad !== 'presencial')
+  actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
+}
+
+modalidadRadios.forEach(radio => radio.addEventListener('change', updateActivityModalityBlock))
+grabacionRadios.forEach(radio => radio.addEventListener('change', updateActivityModalityBlock))
 
 document.addEventListener('click', (e)=>{
   const target = e.target
