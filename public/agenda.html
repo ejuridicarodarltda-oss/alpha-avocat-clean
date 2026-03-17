@@ -69,7 +69,7 @@ textarea{min-height:74px;resize:vertical;}
       <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="phone"></label>
     </div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields">
-      <label>N° Evento<input id="event_number" readonly></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
+      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="subject"></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
     </div></div>
     <div class="block"><h3>Bloque C. Modalidad</h3><div class="check-grid"><label><input type="radio" name="modalidad" value="presencial" checked>Presencial</label><label><input type="radio" name="modalidad" value="remota">Remota</label></div></div>
     <div class="block"><h3>Bloque D. Grabación</h3><div class="check-grid"><label><input type="radio" name="grabacion" value="audio" checked>Autorizada - Audio</label><label><input type="radio" name="grabacion" value="audio-video">Autorizada - Audio y video</label><label><input type="radio" name="grabacion" value="no">No autorizada</label></div></div>
@@ -81,8 +81,8 @@ textarea{min-height:74px;resize:vertical;}
 
   <section class="agenda-screen" id="actividad">
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
-    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input></label><label>RUT<input></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input></label><label>Profesión u oficio<input></label><label>Teléfono<input></label></div></div>
-    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="activity_event_number" readonly></label><label>Título<input></label><label>Tipo<select><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input type="datetime-local"></label></div></div>
+    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="act_phone"></label></div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label></div></div>
     <div class="block"><h3>Bloque C. Modalidad del evento</h3><div class="fields"><label>Presencial<input placeholder="Dispositivo / Externa"></label><label>Remota Anfitrión<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Crear reunión<input></label><label>Enviar código e ID<input></label><label>Remota Invitado<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Recibir e ingresar código e ID<input></label></div></div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
@@ -127,10 +127,23 @@ const emailEl = document.getElementById('email')
 const phoneEl = document.getElementById('phone')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
+const rutEl = document.getElementById('rut')
+const subjectEl = document.getElementById('subject')
 const eventNumberEl = document.getElementById('event_number')
-const activityEventNumberEl = document.getElementById('activity_event_number')
 const saveButton = document.getElementById('btnSave')
 const btnGoActividad = document.getElementById('btnGoActividad')
+
+const activityFields = {
+  eventNumber: document.getElementById('act_event_number'),
+  title: document.getElementById('act_title'),
+  eventType: document.getElementById('act_event_type'),
+  subject: document.getElementById('act_subject'),
+  startsAt: document.getElementById('act_starts_at'),
+  name: document.getElementById('act_name'),
+  rut: document.getElementById('act_rut'),
+  email: document.getElementById('act_email'),
+  phone: document.getElementById('act_phone')
+}
 
 let editingEventId = null
 let eventsCache = []
@@ -147,8 +160,8 @@ function showHome(){
 function openScreen(id){
   home.style.display = 'none'
   screens.forEach(s => s.classList.toggle('show', s.id === id))
-  if (id === 'actividad' && activityEventNumberEl) {
-    activityEventNumberEl.value = pendingActivityEventNumber || eventNumberEl?.value || ''
+  if (id === 'actividad') {
+    copyEventToActivity()
   }
 }
 
@@ -188,9 +201,23 @@ function startEditingEvent(eventData){
   phoneEl.value = eventData.phone || ''
   startsEl.value = eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''
   notesEl.value = eventData.notes || ''
+  rutEl.value = ''
+  subjectEl.value = ''
   document.querySelector(`input[name="modalidad"][value="${eventData.meeting_mode === 'videoconferencia' ? 'remota' : 'presencial'}"]`)?.click()
   const recording = eventData.recording_authorized ? 'audio' : 'no'
   document.querySelector(`input[name="grabacion"][value="${recording}"]`)?.click()
+}
+
+function copyEventToActivity(){
+  activityFields.eventNumber.value = pendingActivityEventNumber || eventNumberEl?.value || ''
+  activityFields.title.value = titleEl.value || ''
+  activityFields.eventType.value = typeEl.value || 'Consulta'
+  activityFields.subject.value = subjectEl?.value || ''
+  activityFields.startsAt.value = startsEl.value || ''
+  activityFields.name.value = nameEl.value || ''
+  activityFields.rut.value = rutEl?.value || ''
+  activityFields.email.value = emailEl.value || ''
+  activityFields.phone.value = phoneEl.value || ''
 }
 
 document.addEventListener('click', (e)=>{
@@ -299,6 +326,7 @@ saveButton.addEventListener('click', async ()=>{
     if (error) return alert(error.message)
     alert('Evento actualizado correctamente')
     pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
+    copyEventToActivity()
     resetNuevoEventoForm()
     loadEvents()
     return
@@ -309,6 +337,7 @@ saveButton.addEventListener('click', async ()=>{
 
   const savedId = insertedRows?.[0]?.id ?? null
   await loadEvents(savedId)
+  copyEventToActivity()
   alert(`Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
   resetNuevoEventoForm()
 })
