@@ -69,7 +69,7 @@ textarea{min-height:74px;resize:vertical;}
       <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="phone"></label>
     </div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields">
-      <label>N° Evento<input></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
+      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="subject"></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
     </div></div>
     <div class="block"><h3>Bloque C. Modalidad</h3><div class="check-grid"><label><input type="radio" name="modalidad" value="presencial" checked>Presencial</label><label><input type="radio" name="modalidad" value="remota">Remota</label></div></div>
     <div class="block"><h3>Bloque D. Grabación</h3><div class="check-grid"><label><input type="radio" name="grabacion" value="audio" checked>Autorizada - Audio</label><label><input type="radio" name="grabacion" value="audio-video">Autorizada - Audio y video</label><label><input type="radio" name="grabacion" value="no">No autorizada</label></div></div>
@@ -81,8 +81,8 @@ textarea{min-height:74px;resize:vertical;}
 
   <section class="agenda-screen" id="actividad">
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
-    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input></label><label>RUT<input></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input></label><label>Profesión u oficio<input></label><label>Teléfono<input></label></div></div>
-    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>Título<input></label><label>Tipo<select><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input type="datetime-local"></label></div></div>
+    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="act_phone"></label></div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label></div></div>
     <div class="block"><h3>Bloque C. Modalidad del evento</h3><div class="fields"><label>Presencial<input placeholder="Dispositivo / Externa"></label><label>Remota Anfitrión<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Crear reunión<input></label><label>Enviar código e ID<input></label><label>Remota Invitado<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Recibir e ingresar código e ID<input></label></div></div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
@@ -127,6 +127,23 @@ const emailEl = document.getElementById('email')
 const phoneEl = document.getElementById('phone')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
+const rutEl = document.getElementById('rut')
+const subjectEl = document.getElementById('subject')
+const eventNumberEl = document.getElementById('event_number')
+
+const activityFields = {
+  eventNumber: document.getElementById('act_event_number'),
+  title: document.getElementById('act_title'),
+  eventType: document.getElementById('act_event_type'),
+  subject: document.getElementById('act_subject'),
+  startsAt: document.getElementById('act_starts_at'),
+  name: document.getElementById('act_name'),
+  rut: document.getElementById('act_rut'),
+  email: document.getElementById('act_email'),
+  phone: document.getElementById('act_phone')
+}
+
+let lastSavedEvent = null
 
 const { data: sess } = await supabase.auth.getSession()
 if (!sess?.session) window.location.href = './login.html'
@@ -143,7 +160,12 @@ function openScreen(id){
 
 document.addEventListener('click', (e)=>{
   const target = e.target
-  if (target.matches('[data-target]')) openScreen(target.dataset.target)
+  if (target.matches('[data-target]')) {
+    openScreen(target.dataset.target)
+    if (target.dataset.target === 'actividad' && lastSavedEvent) {
+      copyEventToActivity(lastSavedEvent)
+    }
+  }
   if (target.matches('[data-home]')) showHome()
   if (target.matches('[data-clear]')) {
     document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
@@ -155,6 +177,26 @@ document.addEventListener('click', (e)=>{
 
 function escapeHtml(value){
   return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))
+}
+
+function eventNumberFromId(id){
+  if (!id) return ''
+  const compact = String(id).replace(/[^0-9a-z]/gi, '').toUpperCase()
+  return compact.slice(-8)
+}
+
+function copyEventToActivity(eventData){
+  if (!eventData) return
+
+  activityFields.eventNumber.value = eventData.eventNumber || ''
+  activityFields.title.value = eventData.title || ''
+  activityFields.eventType.value = eventData.eventType || 'Consulta'
+  activityFields.subject.value = eventData.subject || ''
+  activityFields.startsAt.value = eventData.startsAtLocal || ''
+  activityFields.name.value = eventData.name || ''
+  activityFields.rut.value = eventData.rut || ''
+  activityFields.email.value = eventData.email || ''
+  activityFields.phone.value = eventData.phone || ''
 }
 
 async function loadEvents(){
@@ -203,9 +245,27 @@ document.getElementById('btnSave').addEventListener('click', async ()=>{
     notes: notesEl.value || null
   }
 
-  const { error } = await supabase.from('appointments').insert(payload)
+  const { data, error } = await supabase.from('appointments').insert(payload).select('id').single()
   if (error) return alert(error.message)
-  alert('Evento guardado correctamente')
+
+  const savedEvent = {
+    eventNumber: eventNumberFromId(data?.id),
+    title: titleEl.value,
+    eventType: typeEl.value,
+    subject: subjectEl.value,
+    startsAtLocal: startsEl.value,
+    name: nameEl.value,
+    rut: rutEl.value,
+    email: emailEl.value,
+    phone: phoneEl.value
+  }
+
+  eventNumberEl.value = savedEvent.eventNumber
+  lastSavedEvent = savedEvent
+  copyEventToActivity(savedEvent)
+
+  alert(`Evento guardado correctamente. N° evento: ${savedEvent.eventNumber}`)
+  openScreen('actividad')
   loadEvents()
 })
 
