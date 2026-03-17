@@ -37,7 +37,17 @@ textarea{min-height:74px;resize:vertical;}
 .btn-nav{background:#7c3aed;}
 #eventsTable{width:100%;border-collapse:collapse;margin-top:12px;}
 #eventsTable th,#eventsTable td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px;}
-@media (max-width:720px){.topbar{padding:10px 12px;} main.agenda-main{padding:14px;} .nav-btn{font-size:16px;}}
+.btn-danger{background:#dc2626;}
+@media (max-width:720px){
+  .topbar{padding:10px 12px;}
+  main.agenda-main{padding:14px;}
+  .nav-btn{font-size:16px;}
+  #eventsTable thead{display:none;}
+  #eventsTable,#eventsTable tbody,#eventsTable tr,#eventsTable td{display:block;width:100%;}
+  #eventsTable tr{padding:8px 0;border-bottom:1px solid #e5e7eb;}
+  #eventsTable td{border:none;padding:6px 0;}
+  #eventsTable td::before{content:attr(data-label);display:block;font-size:12px;font-weight:700;text-transform:uppercase;color:#475569;}
+}
 </style>
 </head>
 <body class="app-shell">
@@ -75,7 +85,7 @@ textarea{min-height:74px;resize:vertical;}
     <div class="actions">
       <button class="btn-save" id="btnSave">Guardar evento</button><button class="btn-clear" data-clear="nuevo-evento">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-nav" data-target="actividad">Ir a Actividad</button><button class="btn-close" data-home>Cerrar</button>
     </div>
-    <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th></tr></thead><tbody><tr><td colspan="4">Cargando…</td></tr></tbody></table>
+    <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th><th>Acciones</th></tr></thead><tbody><tr><td colspan="5">Cargando…</td></tr></tbody></table>
   </section>
 
   <section class="agenda-screen" id="actividad">
@@ -159,15 +169,28 @@ function escapeHtml(value){
 async function loadEvents(){
   const { data, error } = await supabase.from('appointments').select('*').order('starts_at',{ascending:true})
   if (error){
-    tableBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`
+    tableBody.innerHTML = `<tr><td colspan="5">Error: ${escapeHtml(error.message)}</td></tr>`
     return
   }
   if (!data?.length){
-    tableBody.innerHTML = '<tr><td colspan="4">Sin eventos</td></tr>'
+    tableBody.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
     return
   }
-  tableBody.innerHTML = data.map(e=>`<tr><td>${new Date(e.starts_at).toLocaleString()}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.event_type)}</td><td>${escapeHtml(e.external_name || '')}</td></tr>`).join('')
+  tableBody.innerHTML = data.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 }
+
+
+
+tableBody.addEventListener('click', async (e)=>{
+  const target = e.target.closest('.delete')
+  if (!target) return
+
+  if (!confirm('¿Eliminar evento?')) return
+
+  const { error } = await supabase.from('appointments').delete().eq('id', target.dataset.id)
+  if (error) return alert(error.message)
+  loadEvents()
+})
 
 document.getElementById('btnSave').addEventListener('click', async ()=>{
   if(!startsEl.value) return alert('Debes ingresar una fecha y hora')
