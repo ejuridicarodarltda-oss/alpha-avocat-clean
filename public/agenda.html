@@ -1,306 +1,258 @@
 <!doctype html>
 <html lang="es">
 <head>
-
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-
-<title>Agenda — Alpha Avocat</title>
-
-<link rel="stylesheet" href="./style.css">
-
-<style>
-
-.modal-bg{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.4);
-display:none;
-align-items:center;
-justify-content:center;
-z-index:1000;
-}
-
-.modal-bg.show{
-display:flex;
-}
-
-.modal-card{
-background:white;
-padding:20px;
-border-radius:10px;
-width:500px;
-max-width:95%;
-}
-
-.modal-head{
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:10px;
-}
-
-.modal-close{
-cursor:pointer;
-font-size:20px;
-border:none;
-background:none;
-}
-
-</style>
-
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Agenda — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css?v=42">
+  <style>
+    body.agenda-page{overflow:auto;background:#eef1f5;}
+    .agenda-shell{max-width:1080px;margin:20px auto;padding:0 16px;}
+    .agenda-card{background:#fff;border-radius:14px;box-shadow:0 10px 24px rgba(0,0,0,.14);padding:18px;}
+    .agenda-head{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px;}
+    .agenda-head h2{margin:0;font-size:24px;}
+    .agenda-table{width:100%;border-collapse:collapse;}
+    .agenda-table th,.agenda-table td{padding:10px;border-bottom:1px solid #e5e7eb;text-align:left;font-size:14px;}
+    .agenda-actions{display:flex;gap:8px;}
+    .agenda-btn{border:none;border-radius:10px;padding:9px 12px;cursor:pointer;font-weight:700;}
+    .agenda-btn-primary{background:#7c3aed;color:#fff;}
+    .agenda-btn-danger{background:#dc2626;color:#fff;}
+    .agenda-btn-ghost{background:#e5e7eb;color:#111827;}
+    .modal-bg{position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1000;padding:12px;}
+    .modal-bg.show{display:flex;}
+    .modal-card{background:#fff;border-radius:14px;padding:18px;width:min(680px,100%);max-height:92vh;overflow:auto;}
+    .modal-head{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:10px;}
+    .modal-head strong{font-size:20px;}
+    .modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+    .modal-field{display:flex;flex-direction:column;gap:5px;}
+    .modal-field-full{grid-column:1 / -1;}
+    .modal-field input,.modal-field select,.modal-field textarea{border:1px solid #d1d5db;border-radius:8px;padding:8px;font-size:14px;}
+    .modal-foot{display:flex;justify-content:flex-end;gap:8px;margin-top:14px;}
+    @media (max-width:760px){.modal-grid{grid-template-columns:1fr;}}
+  </style>
 </head>
 
-<body class="app-shell">
-
-<header class="topbar">
-
-<div class="brand">
-<h1>ALPHA AVOCAT</h1>
-</div>
-
-<nav>
-<a href="panel.html">Panel</a>
-<a href="clientes.html">Clientes</a>
-<a href="causas.html">Causas</a>
-</nav>
-
-</header>
-
-<main>
-
-<h2>Agenda</h2>
-
-<button id="btnNew">Nuevo evento</button>
-
-<table>
-
-<thead>
-<tr>
-<th>Fecha</th>
-<th>Título</th>
-<th>Tipo</th>
-<th>Persona</th>
-<th></th>
-</tr>
-</thead>
-
-<tbody id="eventsTable">
-<tr><td colspan="5">Cargando…</td></tr>
-</tbody>
-
-</table>
-
-</main>
-
-<!-- MODAL -->
-
-<div id="modalBg" class="modal-bg">
-
-<div class="modal-card">
-
-<div class="modal-head">
-
-<strong>Nuevo evento</strong>
-
-<button class="modal-close" id="btnClose">✕</button>
-
-</div>
-
-<label>Título</label>
-<input id="title">
-
-<label>Tipo</label>
-<select id="event_type">
-<option value="consulta">Consulta</option>
-<option value="reunion">Reunión</option>
-<option value="audiencia">Audiencia</option>
-<option value="alegato">Alegato</option>
-<option value="plazo">Plazo</option>
-</select>
-
-<label>Persona</label>
-<input id="external_name">
-
-<label>Email</label>
-<input id="email">
-
-<label>Teléfono</label>
-<input id="phone">
-
-<label>Modalidad</label>
-<select id="meeting_mode">
-<option value="presencial">Presencial</option>
-<option value="videoconferencia">Videoconferencia</option>
-</select>
-
-<label>Grabación autorizada</label>
-<select id="recording_authorized">
-<option value="true">Sí</option>
-<option value="false">No</option>
-</select>
-
-<label>Fecha</label>
-<input id="starts_at" type="datetime-local">
-
-<label>Notas</label>
-<textarea id="notes"></textarea>
-
-<br>
-
-<button id="btnCancel">Cancelar</button>
-<button id="btnSave">Guardar</button>
-
-</div>
-
-</div>
-
-<script type="module">
-
-import { supabase } from './app.js'
-
-const table = document.getElementById("eventsTable")
-
-const modalBg = document.getElementById("modalBg")
-
-const btnNew = document.getElementById("btnNew")
-const btnClose = document.getElementById("btnClose")
-const btnCancel = document.getElementById("btnCancel")
-const btnSave = document.getElementById("btnSave")
-
-const titleEl = document.getElementById("title")
-const typeEl = document.getElementById("event_type")
-const externalNameEl = document.getElementById("external_name")
-const emailEl = document.getElementById("email")
-const phoneEl = document.getElementById("phone")
-const meetingModeEl = document.getElementById("meeting_mode")
-const recordingEl = document.getElementById("recording_authorized")
-const startsEl = document.getElementById("starts_at")
-const notesEl = document.getElementById("notes")
-
-function escapeHtml(value){
-return String(value ?? "").replace(/[&<>"']/g, c => ({
-"&":"&amp;",
-"<":"&lt;",
-">":"&gt;",
-'"':"&quot;",
-"'":"&#039;"
-}[c]))
-}
-
-const { data: sess } = await supabase.auth.getSession()
-if(!sess?.session){
-window.location.href = './login.html'
-}
-
-btnNew.onclick = ()=> modalBg.classList.add("show")
-
-btnClose.onclick = closeModal
-btnCancel.onclick = closeModal
-
-function closeModal(){
-modalBg.classList.remove("show")
-}
-
-async function loadEvents(){
-
-const { data, error } = await supabase
-.from("appointments")
-.select("*")
-.order("starts_at",{ascending:true})
-
-if(error){
-table.innerHTML=`<tr><td colspan="5">Error al cargar eventos: ${error.message}</td></tr>`
-return
-}
-
-if(!data || data.length===0){
-table.innerHTML=`<tr><td colspan="5">Sin eventos</td></tr>`
-return
-}
-
-table.innerHTML=data.map(e=>`
-<tr>
-<td>${new Date(e.starts_at).toLocaleString()}</td>
-<td>${escapeHtml(e.title)}</td>
-<td>${escapeHtml(e.event_type)}</td>
-<td>${escapeHtml(e.external_name)}</td>
-<td>
-<button class="delete" data-id="${escapeHtml(e.id)}">Eliminar</button>
-</td>
-</tr>
-`).join("")
-
-}
-
-table.addEventListener("click", async e=>{
-
-if(!e.target.classList.contains("delete")) return
-
-const id = e.target.dataset.id
-
-if(!confirm("¿Eliminar evento?")) return
-
-await supabase
-.from("appointments")
-.delete()
-.eq("id",id)
-
-loadEvents()
-
-})
-
-btnSave.onclick = async ()=>{
-
-if(!startsEl.value){
-alert("Debes ingresar una fecha y hora")
-return
-}
-
-const fecha = new Date(startsEl.value)
-
-if(Number.isNaN(fecha.getTime())){
-alert("Fecha inválida")
-return
-}
-
-const payload = {
-
-title: titleEl.value,
-event_type: typeEl.value,
-
-external_name: externalNameEl.value || null,
-
-email: emailEl.value || null,
-phone: phoneEl.value || null,
-
-meeting_mode: meetingModeEl.value,
-recording_authorized: recordingEl.value === "true",
-
-starts_at: fecha.toISOString(),
-
-notes: notesEl.value || null
-
-}
-
-const { error } = await supabase
-.from("appointments")
-.insert(payload)
-
-if(error){
-alert(error.message)
-return
-}
-
-closeModal()
-
-loadEvents()
-
-}
-
-loadEvents()
-
-</script>
-
+<body class="agenda-page">
+  <header class="topbar">
+    <div class="brand"><h1>ALPHA AVOCAT</h1></div>
+    <nav>
+      <a href="panel.html">Panel</a>
+      <a href="clientes.html">Clientes</a>
+      <a href="causas.html">Causas</a>
+      <a href="agenda.html">Agenda</a>
+    </nav>
+  </header>
+
+  <main class="agenda-shell">
+    <section class="agenda-card">
+      <div class="agenda-head">
+        <h2>Agenda</h2>
+        <button id="btnNew" class="agenda-btn agenda-btn-primary">Nuevo evento</button>
+      </div>
+
+      <table class="agenda-table">
+        <thead>
+          <tr>
+            <th>Fecha</th>
+            <th>Título</th>
+            <th>Tipo</th>
+            <th>Persona</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody id="eventsTable">
+          <tr><td colspan="5">Cargando…</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </main>
+
+  <div id="modalBg" class="modal-bg">
+    <div class="modal-card">
+      <div class="modal-head">
+        <strong>Nuevo evento</strong>
+        <button class="agenda-btn agenda-btn-ghost" id="btnClose">Cerrar</button>
+      </div>
+
+      <div class="modal-grid">
+        <label class="modal-field modal-field-full">Título
+          <input id="title" placeholder="Ej: Reunión con cliente">
+        </label>
+
+        <label class="modal-field">Tipo
+          <select id="event_type">
+            <option value="consulta">Consulta</option>
+            <option value="reunion">Reunión</option>
+            <option value="audiencia">Audiencia</option>
+            <option value="alegato">Alegato</option>
+            <option value="plazo">Plazo</option>
+          </select>
+        </label>
+
+        <label class="modal-field">Persona
+          <input id="external_name" placeholder="Nombre persona / cliente">
+        </label>
+
+        <label class="modal-field">Email
+          <input id="email" type="email" placeholder="correo@dominio.com">
+        </label>
+
+        <label class="modal-field">Teléfono
+          <input id="phone" placeholder="+56 9...">
+        </label>
+
+        <label class="modal-field">Modalidad
+          <select id="meeting_mode">
+            <option value="presencial">Presencial</option>
+            <option value="videoconferencia">Videoconferencia</option>
+          </select>
+        </label>
+
+        <label class="modal-field">Grabación autorizada
+          <select id="recording_authorized">
+            <option value="true">Sí</option>
+            <option value="false">No</option>
+          </select>
+        </label>
+
+        <label class="modal-field modal-field-full">Fecha y hora
+          <input id="starts_at" type="datetime-local">
+        </label>
+
+        <label class="modal-field modal-field-full">Notas
+          <textarea id="notes" rows="4" placeholder="Detalles opcionales"></textarea>
+        </label>
+      </div>
+
+      <div class="modal-foot">
+        <button id="btnCancel" class="agenda-btn agenda-btn-ghost">Cancelar</button>
+        <button id="btnSave" class="agenda-btn agenda-btn-primary">Guardar</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import { supabase } from './app.js'
+
+    const table = document.getElementById('eventsTable')
+    const modalBg = document.getElementById('modalBg')
+
+    const btnNew = document.getElementById('btnNew')
+    const btnClose = document.getElementById('btnClose')
+    const btnCancel = document.getElementById('btnCancel')
+    const btnSave = document.getElementById('btnSave')
+
+    const titleEl = document.getElementById('title')
+    const typeEl = document.getElementById('event_type')
+    const externalNameEl = document.getElementById('external_name')
+    const emailEl = document.getElementById('email')
+    const phoneEl = document.getElementById('phone')
+    const meetingModeEl = document.getElementById('meeting_mode')
+    const recordingEl = document.getElementById('recording_authorized')
+    const startsEl = document.getElementById('starts_at')
+    const notesEl = document.getElementById('notes')
+
+    function escapeHtml(value) {
+      return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]))
+    }
+
+    function openModal() {
+      modalBg.classList.add('show')
+    }
+
+    function closeModal() {
+      modalBg.classList.remove('show')
+    }
+
+    const { data: sess } = await supabase.auth.getSession()
+    if (!sess?.session) window.location.href = './login.html'
+
+    btnNew.onclick = openModal
+    btnClose.onclick = closeModal
+    btnCancel.onclick = closeModal
+
+    modalBg.addEventListener('click', (event) => {
+      if (event.target === modalBg) closeModal()
+    })
+
+    async function loadEvents() {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('starts_at', { ascending: true })
+
+      if (error) {
+        table.innerHTML = `<tr><td colspan="5">Error al cargar eventos: ${escapeHtml(error.message)}</td></tr>`
+        return
+      }
+
+      if (!data || data.length === 0) {
+        table.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
+        return
+      }
+
+      table.innerHTML = data.map((e) => `
+        <tr>
+          <td>${new Date(e.starts_at).toLocaleString()}</td>
+          <td>${escapeHtml(e.title)}</td>
+          <td>${escapeHtml(e.event_type)}</td>
+          <td>${escapeHtml(e.external_name)}</td>
+          <td>
+            <button class="agenda-btn agenda-btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button>
+          </td>
+        </tr>
+      `).join('')
+    }
+
+    table.addEventListener('click', async (e) => {
+      if (!e.target.classList.contains('delete')) return
+
+      const id = e.target.dataset.id
+      if (!confirm('¿Eliminar evento?')) return
+
+      await supabase.from('appointments').delete().eq('id', id)
+      loadEvents()
+    })
+
+    btnSave.onclick = async () => {
+      if (!startsEl.value) {
+        alert('Debes ingresar una fecha y hora')
+        return
+      }
+
+      const fecha = new Date(startsEl.value)
+      if (Number.isNaN(fecha.getTime())) {
+        alert('Fecha inválida')
+        return
+      }
+
+      const payload = {
+        title: titleEl.value,
+        event_type: typeEl.value,
+        external_name: externalNameEl.value || null,
+        email: emailEl.value || null,
+        phone: phoneEl.value || null,
+        meeting_mode: meetingModeEl.value,
+        recording_authorized: recordingEl.value === 'true',
+        starts_at: fecha.toISOString(),
+        notes: notesEl.value || null,
+      }
+
+      const { error } = await supabase.from('appointments').insert(payload)
+      if (error) {
+        alert(error.message)
+        return
+      }
+
+      closeModal()
+      loadEvents()
+    }
+
+    if (new URLSearchParams(window.location.search).get('nuevo') === '1') {
+      openModal()
+    }
+
+    loadEvents()
+  </script>
 </body>
 </html>
