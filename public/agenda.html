@@ -167,8 +167,21 @@ async function loadEvents(){
     tableBody.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
     return
   }
-  tableBody.innerHTML = data.map(e=>`<tr><td>${new Date(e.starts_at).toLocaleString()}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.event_type)}</td><td>${escapeHtml(e.external_name || '')}</td><td><button class="btn-cancel" data-delete-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
+  tableBody.innerHTML = data.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 }
+
+tableBody.addEventListener('click', async (event) => {
+  const deleteButton = event.target.closest('.delete')
+  if (!deleteButton) return
+  if (!confirm('¿Eliminar evento?')) return
+
+  const { error } = await supabase.from('appointments').delete().eq('id', deleteButton.dataset.id)
+  if (error) {
+    alert(error.message)
+    return
+  }
+  loadEvents()
+})
 
 document.getElementById('btnSave').addEventListener('click', async ()=>{
   if(!startsEl.value) return alert('Debes ingresar una fecha y hora')
@@ -193,19 +206,6 @@ document.getElementById('btnSave').addEventListener('click', async ()=>{
   const { error } = await supabase.from('appointments').insert(payload)
   if (error) return alert(error.message)
   alert('Evento guardado correctamente')
-  loadEvents()
-})
-
-tableBody.addEventListener('click', async (event) => {
-  const deleteId = event.target?.dataset?.deleteId
-  if (!deleteId) return
-  if (!confirm('¿Eliminar evento?')) return
-
-  const { error } = await supabase.from('appointments').delete().eq('id', deleteId)
-  if (error) {
-    alert(error.message)
-    return
-  }
   loadEvents()
 })
 
