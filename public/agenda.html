@@ -1,306 +1,212 @@
 <!doctype html>
 <html lang="es">
 <head>
-
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-
 <title>Agenda — Alpha Avocat</title>
-
 <link rel="stylesheet" href="./style.css">
-
 <style>
-
-.modal-bg{
-position:fixed;
-inset:0;
-background:rgba(0,0,0,0.4);
-display:none;
-align-items:center;
-justify-content:center;
-z-index:1000;
-}
-
-.modal-bg.show{
-display:flex;
-}
-
-.modal-card{
-background:white;
-padding:20px;
-border-radius:10px;
-width:500px;
-max-width:95%;
-}
-
-.modal-head{
-display:flex;
-justify-content:space-between;
-align-items:center;
-margin-bottom:10px;
-}
-
-.modal-close{
-cursor:pointer;
-font-size:20px;
-border:none;
-background:none;
-}
-
+body.app-shell{overflow:auto;background:#eef1f5;}
+main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18px;}
+.agenda-home,.agenda-screen{background:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.09);padding:20px;}
+.agenda-home h2,.agenda-screen h2{margin:0 0 4px;}
+.subtitle{margin:0;color:#4b5563;font-size:14px;}
+.nav-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:18px;}
+.nav-btn{border:none;border-radius:12px;padding:20px 14px;font-size:18px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.2);}
+.nav-btn[data-target="nuevo-evento"]{background:linear-gradient(135deg,#7c3aed,#5b21b6);} 
+.nav-btn[data-target="actividad"]{background:linear-gradient(135deg,#0ea5e9,#0369a1);} 
+.nav-btn[data-target="contenedor"]{background:linear-gradient(135deg,#0f766e,#134e4a);} 
+.nav-btn[data-target="calendario"]{background:linear-gradient(135deg,#f59e0b,#b45309);} 
+.nav-btn[data-target="honorarios"]{background:linear-gradient(135deg,#b91c1c,#7f1d1d);} 
+.agenda-screen{display:none;}
+.agenda-screen.show{display:block;}
+.block{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:12px;}
+.block h3{margin:0 0 10px;font-size:16px;color:#111827;}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
+label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
+input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
+textarea{min-height:74px;resize:vertical;}
+.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
+.check-grid label{flex-direction:row;align-items:center;font-weight:500;}
+.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
+.actions button{border:none;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700;color:#fff;}
+.btn-save{background:#059669;}
+.btn-clear{background:#2563eb;}
+.btn-cancel{background:#dc2626;}
+.btn-close{background:#6b7280;}
+.btn-nav{background:#7c3aed;}
+#eventsTable{width:100%;border-collapse:collapse;margin-top:12px;}
+#eventsTable th,#eventsTable td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px;}
+@media (max-width:720px){.topbar{padding:10px 12px;} main.agenda-main{padding:14px;} .nav-btn{font-size:16px;}}
 </style>
-
 </head>
-
 <body class="app-shell">
-
 <header class="topbar">
-
-<div class="brand">
-<h1>ALPHA AVOCAT</h1>
-</div>
-
-<nav>
-<a href="panel.html">Panel</a>
-<a href="clientes.html">Clientes</a>
-<a href="causas.html">Causas</a>
-</nav>
-
+  <div class="brand"><h1>ALPHA AVOCAT</h1></div>
+  <nav>
+    <a href="panel.html">Panel</a>
+    <a href="clientes.html">Clientes</a>
+    <a href="causas.html">Causas</a>
+  </nav>
 </header>
+<main class="agenda-main">
+  <section class="agenda-home" id="agendaHome">
+    <h2>Pantalla principal de Agenda</h2>
+    <p class="subtitle">Selecciona una vista exclusiva del módulo Agenda.</p>
+    <div class="nav-grid">
+      <button class="nav-btn" data-target="nuevo-evento">Nuevo evento</button>
+      <button class="nav-btn" data-target="actividad">Actividad</button>
+      <button class="nav-btn" data-target="contenedor">Contenedor y registro de actividades</button>
+      <button class="nav-btn" data-target="calendario">Calendario y reloj</button>
+      <button class="nav-btn" data-target="honorarios">Honorarios de atención</button>
+    </div>
+  </section>
 
-<main>
+  <section class="agenda-screen" id="nuevo-evento">
+    <h2>Nuevo evento</h2><p class="subtitle">creación de atención o gestión agendada</p>
+    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields">
+      <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="phone"></label>
+    </div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields">
+      <label>N° Evento<input></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
+    </div></div>
+    <div class="block"><h3>Bloque C. Modalidad</h3><div class="check-grid"><label><input type="radio" name="modalidad" value="presencial" checked>Presencial</label><label><input type="radio" name="modalidad" value="remota">Remota</label></div></div>
+    <div class="block"><h3>Bloque D. Grabación</h3><div class="check-grid"><label><input type="radio" name="grabacion" value="audio" checked>Autorizada - Audio</label><label><input type="radio" name="grabacion" value="audio-video">Autorizada - Audio y video</label><label><input type="radio" name="grabacion" value="no">No autorizada</label></div></div>
+    <div class="actions">
+      <button class="btn-save" id="btnSave">Guardar evento</button><button class="btn-clear" data-clear="nuevo-evento">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-nav" data-target="actividad">Ir a Actividad</button><button class="btn-close" data-home>Cerrar</button>
+    </div>
+    <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th></tr></thead><tbody><tr><td colspan="4">Cargando…</td></tr></tbody></table>
+  </section>
 
-<h2>Agenda</h2>
+  <section class="agenda-screen" id="actividad">
+    <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
+    <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input></label><label>RUT<input></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input></label><label>Profesión u oficio<input></label><label>Teléfono<input></label></div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>Título<input></label><label>Tipo<select><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input></label><label>Fecha y hora<input type="datetime-local"></label></div></div>
+    <div class="block"><h3>Bloque C. Modalidad del evento</h3><div class="fields"><label>Presencial<input placeholder="Dispositivo / Externa"></label><label>Remota Anfitrión<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Crear reunión<input></label><label>Enviar código e ID<input></label><label>Remota Invitado<input placeholder="Zoom/Met/Team/AnyDesk vínculo"></label><label>Recibir e ingresar código e ID<input></label></div></div>
+    <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+  </section>
 
-<button id="btnNew">Nuevo evento</button>
+  <section class="agenda-screen" id="contenedor">
+    <h2>Contenedor y registro de actividades</h2><p class="subtitle">respaldo documental y salida del trabajo realizado</p>
+    <div class="block"><h3>Bloque A. Grabación</h3><div class="check-grid"><label><input type="checkbox">Audio</label><label><input type="checkbox">Audio y video</label></div></div>
+    <div class="block"><h3>Bloque B. Transcripción</h3><div class="check-grid"><label><input type="checkbox">Acta Word</label><label><input type="checkbox">Revisar</label><label><input type="checkbox">Corregir</label><label><input type="checkbox">Aprobar</label><label><input type="checkbox">Convertir a PDF</label><label><input type="checkbox">Acta PDF</label></div></div>
+    <div class="block"><h3>Bloque C. Depositar grabación</h3><div class="check-grid"><label><input type="checkbox">Guardar en contenedor de archivos por asunto asociado a causa</label><label><input type="checkbox">Guardar en contenedor de archivos por asunto asociado a cliente</label><label><input type="checkbox">Guardar en contenedor de Agenda para no cliente</label></div></div>
+    <div class="block"><h3>Bloque D. Imprimir y enviar</h3><div class="check-grid"><label><input type="checkbox">Imprimir acta en PDF</label><label><input type="checkbox">Enviar acta PDF al cliente</label><label><input type="checkbox">Correo</label><label><input type="checkbox">WhatsApp</label></div></div>
+    <div class="actions"><button class="btn-save">Subir grabación</button><button class="btn-save">Generar acta Word</button><button class="btn-save">Convertir a PDF</button><button class="btn-save">Guardar archivo</button><button class="btn-save">Imprimir</button><button class="btn-save">Enviar</button><button class="btn-nav" data-target="honorarios">Ir a Honorarios de atención</button><button class="btn-nav" data-target="actividad">Volver a Actividad</button><button class="btn-clear" data-clear="contenedor">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+  </section>
 
-<table>
+  <section class="agenda-screen" id="calendario">
+    <h2>Calendario y reloj</h2><p class="subtitle">control temporal del módulo Agenda</p>
+    <div class="block"><h3>Bloque A. Calendario</h3><div class="check-grid"><label><input type="radio" name="vista" checked>Vista diaria</label><label><input type="radio" name="vista">Vista semanal</label><label><input type="radio" name="vista">Vista mensual</label></div></div>
+    <div class="block"><h3>Bloque B. Eventos</h3><div class="check-grid"><label><input type="checkbox">Eventos del día</label><label><input type="checkbox">Próximos eventos</label><label><input type="checkbox">Evento en curso</label><label><input type="checkbox">Evento vencido</label><label><input type="checkbox">Evento finalizado</label></div></div>
+    <div class="block"><h3>Bloque C. Reloj</h3><div class="fields"><label>Fecha actual<input id="fechaActual" readonly></label><label>Hora actual<input id="horaActual" readonly></label></div></div>
+    <div class="actions"><button class="btn-save">Ver día</button><button class="btn-save">Ver semana</button><button class="btn-save">Ver mes</button><button class="btn-nav" data-target="nuevo-evento">Abrir evento</button><button class="btn-nav" data-target="nuevo-evento">Crear nuevo evento</button><button class="btn-nav" data-home>Volver a Agenda principal</button><button class="btn-clear" data-clear="calendario">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+  </section>
 
-<thead>
-<tr>
-<th>Fecha</th>
-<th>Título</th>
-<th>Tipo</th>
-<th>Persona</th>
-<th></th>
-</tr>
-</thead>
-
-<tbody id="eventsTable">
-<tr><td colspan="5">Cargando…</td></tr>
-</tbody>
-
-</table>
-
+  <section class="agenda-screen" id="honorarios">
+    <h2>Honorarios de atención</h2><p class="subtitle">honorarios solo de la atención agendada</p>
+    <div class="block"><h3>Bloque A. Estado de la atención</h3><div class="check-grid"><label><input type="radio" name="estado">Paga</label><label><input type="radio" name="estado">Gratuita</label></div></div>
+    <div class="block"><h3>Bloque B. Emisión de boleta</h3><div class="fields"><label>Link a la página del SII<input value="https://www.sii.cl"></label><label>Ingresar clave de usuario<input type="password"></label><label>Emitir boleta por la atención<input></label><label>Registrar N° de boleta<input></label><label>Registrar fecha de emisión<input type="date"></label><label>Registrar monto<input type="number"></label><label>Registrar observación<textarea></textarea></label></div></div>
+    <div class="block"><h3>Bloque C. Guardar boleta</h3><div class="check-grid"><label><input type="checkbox">Subir boleta en PDF</label><label><input type="checkbox">Guardar boleta en el sistema</label><label><input type="checkbox">Asociar boleta al evento</label><label><input type="checkbox">Asociar boleta al cliente</label><label><input type="checkbox">Asociar boleta a la causa, si la hubiere</label></div></div>
+    <div class="block"><h3>Bloque D. Enviar boleta</h3><div class="check-grid"><label><input type="checkbox">Correo</label><label><input type="checkbox">WhatsApp</label></div></div>
+    <div class="actions"><button class="btn-save">Ir al SII</button><button class="btn-save">Guardar boleta</button><button class="btn-save">Ver boleta</button><button class="btn-save">Enviar boleta</button><button class="btn-cancel">Marcar gratuidad</button><button class="btn-nav" data-target="contenedor">Volver a Contenedor y registro</button><button class="btn-clear" data-clear="honorarios">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+  </section>
 </main>
 
-<!-- MODAL -->
-
-<div id="modalBg" class="modal-bg">
-
-<div class="modal-card">
-
-<div class="modal-head">
-
-<strong>Nuevo evento</strong>
-
-<button class="modal-close" id="btnClose">✕</button>
-
-</div>
-
-<label>Título</label>
-<input id="title">
-
-<label>Tipo</label>
-<select id="event_type">
-<option value="consulta">Consulta</option>
-<option value="reunion">Reunión</option>
-<option value="audiencia">Audiencia</option>
-<option value="alegato">Alegato</option>
-<option value="plazo">Plazo</option>
-</select>
-
-<label>Persona</label>
-<input id="external_name">
-
-<label>Email</label>
-<input id="email">
-
-<label>Teléfono</label>
-<input id="phone">
-
-<label>Modalidad</label>
-<select id="meeting_mode">
-<option value="presencial">Presencial</option>
-<option value="videoconferencia">Videoconferencia</option>
-</select>
-
-<label>Grabación autorizada</label>
-<select id="recording_authorized">
-<option value="true">Sí</option>
-<option value="false">No</option>
-</select>
-
-<label>Fecha</label>
-<input id="starts_at" type="datetime-local">
-
-<label>Notas</label>
-<textarea id="notes"></textarea>
-
-<br>
-
-<button id="btnCancel">Cancelar</button>
-<button id="btnSave">Guardar</button>
-
-</div>
-
-</div>
-
 <script type="module">
-
 import { supabase } from './app.js'
 
-const table = document.getElementById("eventsTable")
-
-const modalBg = document.getElementById("modalBg")
-
-const btnNew = document.getElementById("btnNew")
-const btnClose = document.getElementById("btnClose")
-const btnCancel = document.getElementById("btnCancel")
-const btnSave = document.getElementById("btnSave")
-
-const titleEl = document.getElementById("title")
-const typeEl = document.getElementById("event_type")
-const externalNameEl = document.getElementById("external_name")
-const emailEl = document.getElementById("email")
-const phoneEl = document.getElementById("phone")
-const meetingModeEl = document.getElementById("meeting_mode")
-const recordingEl = document.getElementById("recording_authorized")
-const startsEl = document.getElementById("starts_at")
-const notesEl = document.getElementById("notes")
-
-function escapeHtml(value){
-return String(value ?? "").replace(/[&<>"']/g, c => ({
-"&":"&amp;",
-"<":"&lt;",
-">":"&gt;",
-'"':"&quot;",
-"'":"&#039;"
-}[c]))
-}
+const screens = document.querySelectorAll('.agenda-screen')
+const home = document.getElementById('agendaHome')
+const tableBody = document.querySelector('#eventsTable tbody')
+const titleEl = document.getElementById('title')
+const typeEl = document.getElementById('event_type')
+const nameEl = document.getElementById('nombre')
+const emailEl = document.getElementById('email')
+const phoneEl = document.getElementById('phone')
+const startsEl = document.getElementById('starts_at')
+const notesEl = document.getElementById('notes')
 
 const { data: sess } = await supabase.auth.getSession()
-if(!sess?.session){
-window.location.href = './login.html'
+if (!sess?.session) window.location.href = './login.html'
+
+function showHome(){
+  screens.forEach(s => s.classList.remove('show'))
+  home.style.display = 'block'
 }
 
-btnNew.onclick = ()=> modalBg.classList.add("show")
+function openScreen(id){
+  home.style.display = 'none'
+  screens.forEach(s => s.classList.toggle('show', s.id === id))
+}
 
-btnClose.onclick = closeModal
-btnCancel.onclick = closeModal
+document.addEventListener('click', (e)=>{
+  const target = e.target
+  if (target.matches('[data-target]')) openScreen(target.dataset.target)
+  if (target.matches('[data-home]')) showHome()
+  if (target.matches('[data-clear]')) {
+    document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
+      if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
+      else el.value = ''
+    })
+  }
+})
 
-function closeModal(){
-modalBg.classList.remove("show")
+function escapeHtml(value){
+  return String(value ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))
 }
 
 async function loadEvents(){
-
-const { data, error } = await supabase
-.from("appointments")
-.select("*")
-.order("starts_at",{ascending:true})
-
-if(error){
-table.innerHTML=`<tr><td colspan="5">Error al cargar eventos: ${error.message}</td></tr>`
-return
+  const { data, error } = await supabase.from('appointments').select('*').order('starts_at',{ascending:true})
+  if (error){
+    tableBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`
+    return
+  }
+  if (!data?.length){
+    tableBody.innerHTML = '<tr><td colspan="4">Sin eventos</td></tr>'
+    return
+  }
+  tableBody.innerHTML = data.map(e=>`<tr><td>${new Date(e.starts_at).toLocaleString()}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.event_type)}</td><td>${escapeHtml(e.external_name || '')}</td></tr>`).join('')
 }
 
-if(!data || data.length===0){
-table.innerHTML=`<tr><td colspan="5">Sin eventos</td></tr>`
-return
-}
+document.getElementById('btnSave').addEventListener('click', async ()=>{
+  if(!startsEl.value) return alert('Debes ingresar una fecha y hora')
+  const fecha = new Date(startsEl.value)
+  if(Number.isNaN(fecha.getTime())) return alert('Fecha inválida')
 
-table.innerHTML=data.map(e=>`
-<tr>
-<td>${new Date(e.starts_at).toLocaleString()}</td>
-<td>${escapeHtml(e.title)}</td>
-<td>${escapeHtml(e.event_type)}</td>
-<td>${escapeHtml(e.external_name)}</td>
-<td>
-<button class="delete" data-id="${escapeHtml(e.id)}">Eliminar</button>
-</td>
-</tr>
-`).join("")
+  const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
+  const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
 
-}
+  const payload = {
+    title: titleEl.value,
+    event_type: typeEl.value.toLowerCase(),
+    external_name: nameEl.value || null,
+    email: emailEl.value || null,
+    phone: phoneEl.value || null,
+    meeting_mode: modalidad === 'remota' ? 'videoconferencia' : 'presencial',
+    recording_authorized: grabacion !== 'no',
+    starts_at: fecha.toISOString(),
+    notes: notesEl.value || null
+  }
 
-table.addEventListener("click", async e=>{
-
-if(!e.target.classList.contains("delete")) return
-
-const id = e.target.dataset.id
-
-if(!confirm("¿Eliminar evento?")) return
-
-await supabase
-.from("appointments")
-.delete()
-.eq("id",id)
-
-loadEvents()
-
+  const { error } = await supabase.from('appointments').insert(payload)
+  if (error) return alert(error.message)
+  alert('Evento guardado correctamente')
+  loadEvents()
 })
 
-btnSave.onclick = async ()=>{
-
-if(!startsEl.value){
-alert("Debes ingresar una fecha y hora")
-return
-}
-
-const fecha = new Date(startsEl.value)
-
-if(Number.isNaN(fecha.getTime())){
-alert("Fecha inválida")
-return
-}
-
-const payload = {
-
-title: titleEl.value,
-event_type: typeEl.value,
-
-external_name: externalNameEl.value || null,
-
-email: emailEl.value || null,
-phone: phoneEl.value || null,
-
-meeting_mode: meetingModeEl.value,
-recording_authorized: recordingEl.value === "true",
-
-starts_at: fecha.toISOString(),
-
-notes: notesEl.value || null
-
-}
-
-const { error } = await supabase
-.from("appointments")
-.insert(payload)
-
-if(error){
-alert(error.message)
-return
-}
-
-closeModal()
+setInterval(()=>{
+  const now = new Date()
+  const fecha = document.getElementById('fechaActual')
+  const hora = document.getElementById('horaActual')
+  if (fecha && hora){
+    fecha.value = now.toLocaleDateString('es-CL')
+    hora.value = now.toLocaleTimeString('es-CL')
+  }
+},1000)
 
 loadEvents()
-
-}
-
-loadEvents()
-
+showHome()
 </script>
-
 </body>
 </html>
