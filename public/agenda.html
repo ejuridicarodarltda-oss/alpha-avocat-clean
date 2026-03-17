@@ -127,6 +127,8 @@ const emailEl = document.getElementById('email')
 const phoneEl = document.getElementById('phone')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
+const saveButton = document.getElementById('btnSave')
+let editingEventId = null
 
 const { data: sess } = await supabase.auth.getSession()
 if (!sess?.session) window.location.href = './login.html'
@@ -141,15 +143,46 @@ function openScreen(id){
   screens.forEach(s => s.classList.toggle('show', s.id === id))
 }
 
+function resetNuevoEventoForm(){
+  editingEventId = null
+  saveButton.textContent = 'Guardar evento'
+  document.querySelectorAll('#nuevo-evento input, #nuevo-evento textarea, #nuevo-evento select').forEach(el=>{
+    if (el.type === 'radio' || el.type === 'checkbox') {
+      el.checked = el.hasAttribute('checked')
+      return
+    }
+    el.value = ''
+  })
+}
+
+function startEditingEvent(eventData){
+  editingEventId = eventData.id
+  saveButton.textContent = 'Actualizar evento'
+  titleEl.value = eventData.title || ''
+  typeEl.value = eventData.event_type ? `${eventData.event_type}`.charAt(0).toUpperCase() + `${eventData.event_type}`.slice(1) : 'Consulta'
+  nameEl.value = eventData.external_name || ''
+  emailEl.value = eventData.email || ''
+  phoneEl.value = eventData.phone || ''
+  startsEl.value = eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''
+  notesEl.value = eventData.notes || ''
+  document.querySelector(`input[name="modalidad"][value="${eventData.meeting_mode === 'videoconferencia' ? 'remota' : 'presencial'}"]`)?.click()
+  const recording = eventData.recording_authorized ? 'audio' : 'no'
+  document.querySelector(`input[name="grabacion"][value="${recording}"]`)?.click()
+}
+
 document.addEventListener('click', (e)=>{
   const target = e.target
   if (target.matches('[data-target]')) openScreen(target.dataset.target)
   if (target.matches('[data-home]')) showHome()
   if (target.matches('[data-clear]')) {
-    document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
-      if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
-      else el.value = ''
-    })
+    if (target.dataset.clear === 'nuevo-evento') {
+      resetNuevoEventoForm()
+    } else {
+      document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
+        if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
+        else el.value = ''
+      })
+    }
   }
 })
 
@@ -167,10 +200,22 @@ async function loadEvents(){
     tableBody.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
     return
   }
-  tableBody.innerHTML = data.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
+  tableBody.innerHTML = data.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-nav edit" data-id="${escapeHtml(e.id)}">Abrir</button> <button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 }
 
 tableBody.addEventListener('click', async (event) => {
+  const editButton = event.target.closest('.edit')
+  if (editButton) {
+    const { data, error } = await supabase.from('appointments').select('*').eq('id', editButton.dataset.id).single()
+    if (error) {
+      alert(error.message)
+      return
+    }
+    startEditingEvent(data)
+    openScreen('nuevo-evento')
+    return
+  }
+
   const deleteButton = event.target.closest('.delete')
   if (!deleteButton) return
   if (!confirm('¿Eliminar evento?')) return
@@ -183,7 +228,7 @@ tableBody.addEventListener('click', async (event) => {
   loadEvents()
 })
 
-document.getElementById('btnSave').addEventListener('click', async ()=>{
+saveButton.addEventListener('click', async ()=>{
   if(!startsEl.value) return alert('Debes ingresar una fecha y hora')
   const fecha = new Date(startsEl.value)
   if(Number.isNaN(fecha.getTime())) return alert('Fecha inválida')
@@ -203,9 +248,14 @@ document.getElementById('btnSave').addEventListener('click', async ()=>{
     notes: notesEl.value || null
   }
 
-  const { error } = await supabase.from('appointments').insert(payload)
+  const query = editingEventId
+    ? supabase.from('appointments').update(payload).eq('id', editingEventId)
+    : supabase.from('appointments').insert(payload)
+
+  const { error } = await query
   if (error) return alert(error.message)
-  alert('Evento guardado correctamente')
+  alert(editingEventId ? 'Evento actualizado correctamente' : 'Evento guardado correctamente')
+  resetNuevoEventoForm()
   loadEvents()
 })
 
