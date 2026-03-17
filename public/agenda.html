@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agenda — Alpha Avocat</title>
-<link rel="stylesheet" href="./style.css">
+<link rel="stylesheet" href="./style.css?v=42">
 <style>
 body.app-shell{overflow:auto;background:#eef1f5;}
 main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18px;}
@@ -47,6 +47,7 @@ textarea{min-height:74px;resize:vertical;}
     <a href="panel.html">Panel</a>
     <a href="clientes.html">Clientes</a>
     <a href="causas.html">Causas</a>
+    <a href="agenda.html">Agenda</a>
   </nav>
 </header>
 <main class="agenda-main">
@@ -75,7 +76,7 @@ textarea{min-height:74px;resize:vertical;}
     <div class="actions">
       <button class="btn-save" id="btnSave">Guardar evento</button><button class="btn-clear" data-clear="nuevo-evento">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-nav" data-target="actividad">Ir a Actividad</button><button class="btn-close" data-home>Cerrar</button>
     </div>
-    <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th></tr></thead><tbody><tr><td colspan="4">Cargando…</td></tr></tbody></table>
+    <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th><th>Acciones</th></tr></thead><tbody><tr><td colspan="5">Cargando…</td></tr></tbody></table>
   </section>
 
   <section class="agenda-screen" id="actividad">
@@ -159,14 +160,14 @@ function escapeHtml(value){
 async function loadEvents(){
   const { data, error } = await supabase.from('appointments').select('*').order('starts_at',{ascending:true})
   if (error){
-    tableBody.innerHTML = `<tr><td colspan="4">Error: ${escapeHtml(error.message)}</td></tr>`
+    tableBody.innerHTML = `<tr><td colspan="5">Error: ${escapeHtml(error.message)}</td></tr>`
     return
   }
   if (!data?.length){
-    tableBody.innerHTML = '<tr><td colspan="4">Sin eventos</td></tr>'
+    tableBody.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
     return
   }
-  tableBody.innerHTML = data.map(e=>`<tr><td>${new Date(e.starts_at).toLocaleString()}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.event_type)}</td><td>${escapeHtml(e.external_name || '')}</td></tr>`).join('')
+  tableBody.innerHTML = data.map(e=>`<tr><td>${new Date(e.starts_at).toLocaleString()}</td><td>${escapeHtml(e.title)}</td><td>${escapeHtml(e.event_type)}</td><td>${escapeHtml(e.external_name || '')}</td><td><button class="btn-cancel" data-delete-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 }
 
 document.getElementById('btnSave').addEventListener('click', async ()=>{
@@ -195,6 +196,19 @@ document.getElementById('btnSave').addEventListener('click', async ()=>{
   loadEvents()
 })
 
+tableBody.addEventListener('click', async (event) => {
+  const deleteId = event.target?.dataset?.deleteId
+  if (!deleteId) return
+  if (!confirm('¿Eliminar evento?')) return
+
+  const { error } = await supabase.from('appointments').delete().eq('id', deleteId)
+  if (error) {
+    alert(error.message)
+    return
+  }
+  loadEvents()
+})
+
 setInterval(()=>{
   const now = new Date()
   const fecha = document.getElementById('fechaActual')
@@ -206,7 +220,11 @@ setInterval(()=>{
 },1000)
 
 loadEvents()
-showHome()
+if (new URLSearchParams(window.location.search).get('nuevo') === '1') {
+  openScreen('nuevo-evento')
+} else {
+  showHome()
+}
 </script>
 </body>
 </html>
