@@ -35,6 +35,9 @@ textarea{min-height:74px;resize:vertical;}
 .btn-cancel{background:#dc2626;}
 .btn-close{background:#6b7280;}
 .btn-nav{background:#7c3aed;}
+.search-tools{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;align-items:end;}
+.search-tools .search-actions{display:flex;gap:8px;flex-wrap:wrap;}
+.search-tools button{border:none;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700;color:#fff;}
 #eventsTable{width:100%;border-collapse:collapse;margin-top:12px;}
 #eventsTable th,#eventsTable td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px;}
 @media (max-width:720px){.topbar{padding:10px 12px;} main.agenda-main{padding:14px;} .nav-btn{font-size:16px;}}
@@ -76,6 +79,11 @@ textarea{min-height:74px;resize:vertical;}
     <div class="actions">
       <button class="btn-save" id="btnSave">Guardar evento</button><button class="btn-clear" data-clear="nuevo-evento">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-nav" data-target="actividad">Ir a Actividad</button><button class="btn-close" data-home>Cerrar</button>
     </div>
+    <div class="block"><h3>Búsqueda de eventos programados</h3><div class="search-tools">
+      <label>Buscar por título, tipo o persona<input id="searchScheduledQuery" placeholder="Ej: Audiencia, Consulta, Juan Pérez"></label>
+      <label>Fecha programada<input id="searchScheduledDate" type="date"></label>
+      <div class="search-actions"><button class="btn-save" id="btnSearchScheduled" type="button">Buscar</button><button class="btn-clear" id="btnResetScheduled" type="button">Mostrar todos</button></div>
+    </div></div>
     <table id="eventsTable"><thead><tr><th>Fecha</th><th>Título</th><th>Tipo</th><th>Persona</th><th>Acciones</th></tr></thead><tbody><tr><td colspan="5">Cargando…</td></tr></tbody></table>
   </section>
 
@@ -127,6 +135,11 @@ const emailEl = document.getElementById('email')
 const phoneEl = document.getElementById('phone')
 const startsEl = document.getElementById('starts_at')
 const notesEl = document.getElementById('notes')
+const searchScheduledQueryEl = document.getElementById('searchScheduledQuery')
+const searchScheduledDateEl = document.getElementById('searchScheduledDate')
+const btnSearchScheduled = document.getElementById('btnSearchScheduled')
+const btnResetScheduled = document.getElementById('btnResetScheduled')
+let eventsCache = []
 
 const { data: sess } = await supabase.auth.getSession()
 if (!sess?.session) window.location.href = './login.html'
@@ -163,12 +176,39 @@ async function loadEvents(){
     tableBody.innerHTML = `<tr><td colspan="5">Error: ${escapeHtml(error.message)}</td></tr>`
     return
   }
-  if (!data?.length){
+  eventsCache = data || []
+  renderEvents(eventsCache)
+}
+
+function renderEvents(events){
+  if (!events?.length){
     tableBody.innerHTML = '<tr><td colspan="5">Sin eventos</td></tr>'
     return
   }
-  tableBody.innerHTML = data.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
+  tableBody.innerHTML = events.map(e=>`<tr><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 }
+
+function filterScheduledEvents(){
+  const query = searchScheduledQueryEl.value.trim().toLowerCase()
+  const selectedDate = searchScheduledDateEl.value
+  const filtered = eventsCache.filter((event) => {
+    const haystack = `${event.title || ''} ${event.event_type || ''} ${event.external_name || ''}`.toLowerCase()
+    const matchesQuery = !query || haystack.includes(query)
+    const matchesDate = !selectedDate || (event.starts_at && event.starts_at.slice(0, 10) === selectedDate)
+    return matchesQuery && matchesDate
+  })
+  renderEvents(filtered)
+}
+
+btnSearchScheduled.addEventListener('click', filterScheduledEvents)
+btnResetScheduled.addEventListener('click', () => {
+  searchScheduledQueryEl.value = ''
+  searchScheduledDateEl.value = ''
+  renderEvents(eventsCache)
+})
+searchScheduledQueryEl.addEventListener('keydown', (event) => {
+  if (event.key === 'Enter') filterScheduledEvents()
+})
 
 tableBody.addEventListener('click', async (event) => {
   const deleteButton = event.target.closest('.delete')
