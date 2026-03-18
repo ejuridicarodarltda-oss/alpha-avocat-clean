@@ -747,7 +747,8 @@ flex-wrap:wrap;
 }
 
 body.panel-page .search{
-width:auto;
+width:min(100%,280px);
+flex:0 1 280px;
 }
 
 body.panel-page .topbar-left{
