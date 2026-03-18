@@ -26,7 +26,7 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
-.recording-muted{opacity:.45;pointer-events:none;}
+.recording-muted{opacity:.45;}
 .recording-muted input,.recording-muted select,.recording-muted textarea{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
 textarea{min-height:74px;resize:vertical;}
 .check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
@@ -90,7 +90,7 @@ textarea{min-height:74px;resize:vertical;}
       <div class="fields">
         <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
       </div>
-      <div class="fields hidden" id="actividadPresencialFields">
+      <div class="fields" id="actividadPresencialFields">
         <label data-recording-field>Grabación presencial
           <select id="act_recording_device">
             <option value="">Seleccionar opción</option>
@@ -397,14 +397,14 @@ function copyEventToActivity(){
   updateActivityModalityBlock()
 }
 
-function toggleActivityRecordingFields({ disabled = false } = {}){
-  activityRecordingFields.forEach(field => {
-    field.classList.toggle('recording-muted', disabled)
-    field.querySelectorAll('input, select, textarea, button').forEach(control => {
-      control.disabled = disabled
-      if (disabled && control.tagName === 'SELECT') control.value = ''
-      if (disabled && (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA')) control.value = ''
-    })
+function toggleFieldGroupState(group, { disabled = false, clearWhenDisabled = false } = {}){
+  if (!group) return
+  group.classList.toggle('recording-muted', disabled)
+  group.querySelectorAll('input, select, textarea, button').forEach(control => {
+    control.disabled = disabled
+    if (!disabled || !clearWhenDisabled) return
+    if (control.tagName === 'SELECT') control.value = ''
+    if (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') control.value = ''
   })
 }
 
@@ -412,12 +412,24 @@ function updateActivityModalityBlock(){
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
   const grabacionAutorizada = grabacion !== 'no'
-  const shouldMuteRecordingFields = modalidad === 'presencial' && !grabacionAutorizada
+  const shouldMutePresencialRecording = modalidad === 'remota' || !grabacionAutorizada
 
   activityModalidadBlock?.classList.remove('hidden')
-  actividadPresencialFields?.classList.toggle('hidden', modalidad !== 'presencial')
+  actividadPresencialFields?.classList.remove('hidden')
   actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
-  toggleActivityRecordingFields({ disabled: shouldMuteRecordingFields })
+  toggleFieldGroupState(actividadPresencialFields, {
+    disabled: shouldMutePresencialRecording,
+    clearWhenDisabled: shouldMutePresencialRecording
+  })
+  activityRecordingFields.forEach(field => {
+    if (actividadPresencialFields?.contains(field)) return
+    field.classList.toggle('recording-muted', !grabacionAutorizada)
+    field.querySelectorAll('input, select, textarea, button').forEach(control => {
+      control.disabled = !grabacionAutorizada
+      if (!grabacionAutorizada && (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA')) control.value = ''
+      if (!grabacionAutorizada && control.tagName === 'SELECT') control.value = ''
+    })
+  })
 }
 
 modalidadRadios.forEach(radio => radio.addEventListener('change', updateActivityModalityBlock))
