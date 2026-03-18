@@ -429,9 +429,11 @@ function toggleFieldGroupState(group, { disabled = false, clearWhenDisabled = fa
   group.querySelectorAll('input, select, textarea, button').forEach(control => {
     control.disabled = disabled
     if (!disabled || !clearWhenDisabled) return
-    if (control.tagName === 'SELECT') control.value = ''
-    if (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') control.value = ''
-    if (['checkbox', 'radio'].includes(control.type)) control.checked = false
+    if (['checkbox', 'radio'].includes(control.type)) {
+      control.checked = false
+      return
+    }
+    control.value = ''
   })
 }
 
@@ -439,22 +441,27 @@ function updateActivityModalityBlock(){
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
   const grabacionAutorizada = grabacion !== 'no'
-  const shouldDisablePresencialRecording = modalidad !== 'presencial' || !grabacionAutorizada
+  const disablePresencialFields = modalidad !== 'presencial' || !grabacionAutorizada
+  const disableRemotaFields = modalidad !== 'remota' || !grabacionAutorizada
 
-  activityModalidadBlock?.classList.remove('hidden')
+  activityModalidadBlock?.classList.toggle('hidden', !grabacionAutorizada)
   actividadPresencialFields?.classList.remove('hidden')
   actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
+
   toggleFieldGroupState(actividadPresencialFields, {
-    disabled: shouldDisablePresencialRecording,
-    clearWhenDisabled: shouldDisablePresencialRecording
+    disabled: disablePresencialFields,
+    clearWhenDisabled: disablePresencialFields
   })
   toggleFieldGroupState(actividadRemotaFields, {
-    disabled: modalidad !== 'remota',
-    clearWhenDisabled: modalidad !== 'remota',
-    muted: modalidad !== 'remota'
+    disabled: disableRemotaFields,
+    clearWhenDisabled: disableRemotaFields,
+    muted: modalidad !== 'remota' || !grabacionAutorizada
   })
+
   activityRecordingFields.forEach(field => {
-    if (actividadPresencialFields?.contains(field)) return
+    const inPresencialSection = actividadPresencialFields?.contains(field)
+    const inRemotaSection = actividadRemotaFields?.contains(field)
+    if (inPresencialSection || inRemotaSection) return
     toggleFieldGroupState(field, {
       disabled: !grabacionAutorizada,
       clearWhenDisabled: !grabacionAutorizada,
