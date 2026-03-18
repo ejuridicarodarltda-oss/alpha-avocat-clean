@@ -26,6 +26,8 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
+.recording-muted{opacity:.45;pointer-events:none;}
+.recording-muted input,.recording-muted select,.recording-muted textarea{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
 textarea{min-height:74px;resize:vertical;}
 .check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
 .check-grid label{flex-direction:row;align-items:center;font-weight:500;}
@@ -89,7 +91,7 @@ textarea{min-height:74px;resize:vertical;}
         <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
       </div>
       <div class="fields hidden" id="actividadPresencialFields">
-        <label>Grabación presencial
+        <label data-recording-field>Grabación presencial
           <select id="act_recording_device">
             <option value="">Seleccionar opción</option>
             <option value="dispositivo">Cámara del dispositivo (PC, tablet o móvil)</option>
@@ -103,7 +105,7 @@ textarea{min-height:74px;resize:vertical;}
         <label>Enviar código e ID<input></label>
         <label>Remota Invitado<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
         <label>Recibir e ingresar código e ID<input></label>
-        <label>Grabación remota<input placeholder="Indicar canal y respaldo de grabación"></label>
+        <label data-recording-field>Grabación remota<input placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
@@ -188,6 +190,7 @@ const btnGoActividad = document.getElementById('btnGoActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
 const actividadPresencialFields = document.getElementById('actividadPresencialFields')
 const actividadRemotaFields = document.getElementById('actividadRemotaFields')
+const activityRecordingFields = document.querySelectorAll('[data-recording-field]')
 
 const modalidadRadios = document.querySelectorAll('input[name="modalidad"]')
 const grabacionRadios = document.querySelectorAll('input[name="grabacion"]')
@@ -394,20 +397,27 @@ function copyEventToActivity(){
   updateActivityModalityBlock()
 }
 
+function toggleActivityRecordingFields({ disabled = false } = {}){
+  activityRecordingFields.forEach(field => {
+    field.classList.toggle('recording-muted', disabled)
+    field.querySelectorAll('input, select, textarea, button').forEach(control => {
+      control.disabled = disabled
+      if (disabled && control.tagName === 'SELECT') control.value = ''
+      if (disabled && (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA')) control.value = ''
+    })
+  })
+}
+
 function updateActivityModalityBlock(){
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
-  const grabacionAutorizada = (document.querySelector('input[name="grabacion"]:checked')?.value || 'audio') !== 'no'
-
-  if (!grabacionAutorizada) {
-    activityModalidadBlock?.classList.add('hidden')
-    actividadPresencialFields?.classList.add('hidden')
-    actividadRemotaFields?.classList.add('hidden')
-    return
-  }
+  const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
+  const grabacionAutorizada = grabacion !== 'no'
+  const shouldMuteRecordingFields = modalidad === 'presencial' && !grabacionAutorizada
 
   activityModalidadBlock?.classList.remove('hidden')
   actividadPresencialFields?.classList.toggle('hidden', modalidad !== 'presencial')
   actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
+  toggleActivityRecordingFields({ disabled: shouldMuteRecordingFields })
 }
 
 modalidadRadios.forEach(radio => radio.addEventListener('change', updateActivityModalityBlock))
