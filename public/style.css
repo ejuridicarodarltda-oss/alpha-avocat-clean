@@ -269,6 +269,17 @@ flex-wrap:wrap;
 justify-content:flex-end;
 }
 
+.usuario{
+display:inline-flex;
+align-items:center;
+gap:8px;
+white-space:nowrap;
+}
+
+#fecha{
+white-space:nowrap;
+}
+
 .cerrar-sesion-btn{
 border:none;
 border-radius:10px;
@@ -754,21 +765,35 @@ body.panel-page .topbar{
 padding-top:8px;
 padding-bottom:8px;
 gap:12px;
-flex-wrap:wrap;
+flex-wrap:nowrap;
+justify-content:flex-start;
+overflow-x:auto;
+overflow-y:hidden;
+scrollbar-width:none;
+}
+
+body.panel-page .topbar::-webkit-scrollbar{
+display:none;
 }
 
 body.panel-page .search{
-width:min(100%,280px);
-flex:0 1 280px;
+width:280px;
+min-width:280px;
+flex:0 0 280px;
 }
 
 body.panel-page .topbar-left{
-flex:1 1 560px;
+flex:1 0 auto;
+min-width:max-content;
+flex-wrap:nowrap;
 }
 
 body.panel-page .top-info{
 width:auto;
+flex:0 0 auto;
 justify-content:flex-start;
+flex-wrap:nowrap;
+white-space:nowrap;
 }
 
 body.panel-page .cards,
