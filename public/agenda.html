@@ -67,10 +67,10 @@ textarea{min-height:74px;resize:vertical;}
   <section class="agenda-screen" id="nuevo-evento">
     <h2>Nuevo evento</h2><p class="subtitle">creación de atención o gestión agendada</p>
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields">
-      <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input></label><label>Estado civil<input></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input></label><label>Teléfono<input id="phone"></label>
+      <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input id="address"></label><label>Estado civil<input id="marital_status"></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input id="occupation"></label><label>Teléfono<input id="phone"></label>
     </div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields">
-      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label><label>Título<input id="title"></label><label>Asociado a causa<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Sin causa<input></label><label>Causa nueva<select><option>No</option><option>Sí</option></select></label><label>Rol<input></label><label>Tribunal<input></label><label>Asociada a cliente<select><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>No cliente<input></label><label>Nombre<input></label><label>Rut<input></label><label>Cliente nuevo<select><option>No</option><option>Sí</option></select></label><label>Nombre<input></label><label>Rut<input></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="subject"></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
+      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label><label>Título<input id="title"></label><label>Asociado a causa<select id="linked_case"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input id="linked_case_role"></label><label>Tribunal<input id="linked_case_court"></label><label>Sin causa<input id="no_case"></label><label>Causa nueva<select id="new_case"><option>No</option><option>Sí</option></select></label><label>Rol<input id="new_case_role"></label><label>Tribunal<input id="new_case_court"></label><label>Asociada a cliente<select id="linked_client"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input id="linked_client_name"></label><label>Rut<input id="linked_client_rut"></label><label>No cliente<input id="non_client"></label><label>Nombre<input id="non_client_name"></label><label>Rut<input id="non_client_rut"></label><label>Cliente nuevo<select id="new_client"><option>No</option><option>Sí</option></select></label><label>Nombre<input id="new_client_name"></label><label>Rut<input id="new_client_rut"></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="subject"></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
     </div></div>
     <div class="block"><h3>Bloque C. Modalidad</h3><div class="check-grid"><label><input type="radio" name="modalidad" value="presencial" checked>Presencial</label><label><input type="radio" name="modalidad" value="remota">Remota</label></div></div>
     <div class="block"><h3>Bloque D. Grabación</h3><div class="check-grid"><label><input type="radio" name="grabacion" value="audio" checked>Autorizada - Audio</label><label><input type="radio" name="grabacion" value="audio-video">Autorizada - Audio y video</label><label><input type="radio" name="grabacion" value="no">No autorizada</label></div></div>
@@ -150,6 +150,37 @@ const rutEl = document.getElementById('rut')
 const subjectEl = document.getElementById('subject')
 const eventNumberEl = document.getElementById('event_number')
 const saveButton = document.getElementById('btnSave')
+const FORM_METADATA_PREFIX = '__nuevo_evento__:'
+const nuevoEventoFieldIds = [
+  'nombre',
+  'rut',
+  'address',
+  'marital_status',
+  'email',
+  'occupation',
+  'phone',
+  'title',
+  'linked_case',
+  'linked_case_role',
+  'linked_case_court',
+  'no_case',
+  'new_case',
+  'new_case_role',
+  'new_case_court',
+  'linked_client',
+  'linked_client_name',
+  'linked_client_rut',
+  'non_client',
+  'non_client_name',
+  'non_client_rut',
+  'new_client',
+  'new_client_name',
+  'new_client_rut',
+  'event_type',
+  'subject',
+  'starts_at',
+  'notes'
+]
 const btnGoActividad = document.getElementById('btnGoActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
 const actividadPresencialFields = document.getElementById('actividadPresencialFields')
@@ -198,6 +229,44 @@ function refreshNextEventNumber(){
   if (eventNumberEl) eventNumberEl.value = getCorrelativeNumber(eventsCache.length)
 }
 
+function getNuevoEventoFormState(){
+  const state = {}
+  nuevoEventoFieldIds.forEach(id => {
+    const element = document.getElementById(id)
+    if (element) state[id] = element.value || ''
+  })
+  state.modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
+  state.grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
+  return state
+}
+
+function applyNuevoEventoFormState(state = {}){
+  nuevoEventoFieldIds.forEach(id => {
+    const element = document.getElementById(id)
+    if (element) element.value = state[id] || ''
+  })
+
+  const modalidad = state.modalidad || 'presencial'
+  document.querySelector(`input[name="modalidad"][value="${modalidad}"]`)?.click()
+
+  const grabacion = state.grabacion || 'audio'
+  document.querySelector(`input[name="grabacion"][value="${grabacion}"]`)?.click()
+}
+
+function serializeNuevoEventoState(){
+  return `${FORM_METADATA_PREFIX}${JSON.stringify(getNuevoEventoFormState())}`
+}
+
+function parseNuevoEventoState(serializedState){
+  if (typeof serializedState !== 'string' || !serializedState.startsWith(FORM_METADATA_PREFIX)) return null
+
+  try {
+    return JSON.parse(serializedState.slice(FORM_METADATA_PREFIX.length))
+  } catch {
+    return null
+  }
+}
+
 function resetNuevoEventoForm(){
   editingEventId = null
   saveButton.textContent = 'Guardar evento'
@@ -219,18 +288,21 @@ function startEditingEvent(eventData){
   if (eventNumberEl) {
     eventNumberEl.value = eventIndex >= 0 ? getCorrelativeNumber(eventIndex) : ''
   }
-  titleEl.value = eventData.title || ''
-  typeEl.value = eventData.event_type ? `${eventData.event_type}`.charAt(0).toUpperCase() + `${eventData.event_type}`.slice(1) : 'Consulta'
-  nameEl.value = eventData.external_name || ''
-  emailEl.value = eventData.email || ''
-  phoneEl.value = eventData.phone || ''
-  startsEl.value = eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''
-  notesEl.value = eventData.notes || ''
-  rutEl.value = ''
-  subjectEl.value = ''
-  document.querySelector(`input[name="modalidad"][value="${eventData.meeting_mode === 'videoconferencia' ? 'remota' : 'presencial'}"]`)?.click()
-  const recording = eventData.recording_authorized ? 'audio' : 'no'
-  document.querySelector(`input[name="grabacion"][value="${recording}"]`)?.click()
+
+  const persistedState = parseNuevoEventoState(eventData.required_background)
+
+  applyNuevoEventoFormState({
+    ...persistedState,
+    nombre: persistedState?.nombre || eventData.external_name || eventData.person_name || '',
+    email: persistedState?.email || eventData.email || '',
+    phone: persistedState?.phone || eventData.phone || '',
+    title: persistedState?.title || eventData.title || '',
+    event_type: persistedState?.event_type || (eventData.event_type ? `${eventData.event_type}`.charAt(0).toUpperCase() + `${eventData.event_type}`.slice(1) : 'Consulta'),
+    starts_at: persistedState?.starts_at || (eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''),
+    notes: persistedState?.notes || eventData.notes || '',
+    modalidad: persistedState?.modalidad || (eventData.meeting_mode === 'videoconferencia' ? 'remota' : 'presencial'),
+    grabacion: persistedState?.grabacion || (eventData.recording_authorized ? (eventData.record_mode || 'audio') : 'no')
+  })
 }
 
 function copyEventToActivity(){
@@ -357,13 +429,19 @@ saveButton.addEventListener('click', async ()=>{
   const payload = {
     title: titleEl.value,
     event_type: typeEl.value.toLowerCase(),
+    kind: typeEl.value.toLowerCase(),
     external_name: nameEl.value || null,
+    person_name: nameEl.value || null,
     email: emailEl.value || null,
     phone: phoneEl.value || null,
+    rol: document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || null,
+    event_date: startsEl.value ? startsEl.value.slice(0, 10) : null,
     meeting_mode: modalidad === 'remota' ? 'videoconferencia' : 'presencial',
     recording_authorized: grabacion !== 'no',
+    record_mode: grabacion,
     starts_at: fecha.toISOString(),
-    notes: notesEl.value || null
+    notes: notesEl.value || null,
+    required_background: serializeNuevoEventoState()
   }
 
   if (editingEventId) {
