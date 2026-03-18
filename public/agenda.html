@@ -27,10 +27,15 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .fields.is-disabled,.recording-muted{opacity:.45;}
 .fields.is-disabled label{color:#6b7280;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
+label.is-empty-field{opacity:.45;color:#6b7280;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
+label.is-empty-field input,
+label.is-empty-field select,
+label.is-empty-field textarea,
 .fields.is-disabled input,.fields.is-disabled select,.fields.is-disabled textarea,
 .recording-muted input,.recording-muted select,.recording-muted textarea,
-input:disabled,select:disabled,textarea:disabled{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
+input:disabled,select:disabled,textarea:disabled{background:#f3f4f6;color:#6b7280;}
+input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;}
 textarea{min-height:74px;resize:vertical;}
 .check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
 .check-grid label{flex-direction:row;align-items:center;font-weight:500;}
@@ -88,7 +93,7 @@ textarea{min-height:74px;resize:vertical;}
   <section class="agenda-screen" id="actividad">
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input id="act_address"></label><label>Estado civil<input id="act_civil_status"></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input id="act_profession"></label><label>Teléfono<input id="act_phone"></label></div></div>
-    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields" id="activityEventFields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
     <div class="block hidden" id="activityModalidadBlock"><h3>Bloque C. Modalidad del evento</h3>
       <div class="fields">
         <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
@@ -200,6 +205,7 @@ const nuevoEventoLegacyFieldAliases = {
 }
 const btnGoActividad = document.getElementById('btnGoActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
+const activityEventFields = document.getElementById('activityEventFields')
 const actividadPresencialFields = document.getElementById('actividadPresencialFields')
 const actividadRemotaFields = document.getElementById('actividadRemotaFields')
 const activityRecordingFields = document.querySelectorAll('[data-recording-field]')
@@ -374,6 +380,16 @@ function applyActivitySnapshot(){
     if (!targetField) return
     targetField.value = activitySnapshot[key] || ''
   })
+  updateActivityEventFieldAttenuation()
+}
+
+function updateActivityEventFieldAttenuation(){
+  activityEventFields?.querySelectorAll('label').forEach(label => {
+    const field = label.querySelector('input, select, textarea')
+    if (!field) return
+    const value = typeof field.value === 'string' ? field.value.trim() : field.value
+    label.classList.toggle('is-empty-field', value === '')
+  })
 }
 
 function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
@@ -469,6 +485,10 @@ document.querySelectorAll('#nuevo-evento input, #nuevo-evento textarea, #nuevo-e
   field.addEventListener('input', syncNuevoEventoToActivitySnapshot)
   field.addEventListener('change', syncNuevoEventoToActivitySnapshot)
 })
+activityEventFields?.querySelectorAll('input, select, textarea').forEach(field => {
+  field.addEventListener('input', updateActivityEventFieldAttenuation)
+  field.addEventListener('change', updateActivityEventFieldAttenuation)
+})
 
 document.addEventListener('click', (e)=>{
   const target = e.target
@@ -488,6 +508,7 @@ document.addEventListener('click', (e)=>{
         if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
         else el.value = ''
       })
+      if (target.dataset.clear === 'actividad') updateActivityEventFieldAttenuation()
     }
   }
 })
@@ -615,6 +636,7 @@ setInterval(()=>{
 },1000)
 
 syncNuevoEventoToActivitySnapshot()
+updateActivityEventFieldAttenuation()
 loadEvents()
 if (new URLSearchParams(window.location.search).get('nuevo') === '1') {
   openScreen('nuevo-evento')
