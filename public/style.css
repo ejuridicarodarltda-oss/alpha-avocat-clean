@@ -611,10 +611,12 @@ width:100%;
 
 .topbar-nav{
 justify-content:flex-start;
+gap:8px;
 }
 
 .topbar-nav-link{
-flex:1 1 calc(50% - 8px);
+flex:0 0 auto;
+padding:7px 12px;
 }
 
 .cerrar-sesion-btn{
