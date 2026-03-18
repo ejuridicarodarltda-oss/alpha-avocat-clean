@@ -6,11 +6,20 @@
 <title>Agenda — Alpha Avocat</title>
 <link rel="stylesheet" href="./style.css?v=42">
 <style>
-body.app-shell{overflow:auto;background:#eef1f5;}
+body.app-shell{overflow:auto;background:linear-gradient(180deg,#ede9fe 0%,#f5f3ff 45%,#faf5ff 100%);}
 main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18px;}
-.agenda-home,.agenda-screen{background:#fff;border-radius:14px;box-shadow:0 6px 20px rgba(0,0,0,.09);padding:20px;}
+.agenda-home,.agenda-screen{border-radius:14px;box-shadow:0 10px 28px rgba(91,33,182,.16);padding:20px;}
+.agenda-home{background:linear-gradient(180deg,#ffffff 0%,#f5f3ff 100%);}
+.agenda-screen{display:none;color:#2f1d48;border:1px solid rgba(124,58,237,.16);}
+.agenda-screen.show{display:block;}
+#nuevo-evento{background:linear-gradient(180deg,#7c3aed 0%,#8b5cf6 22%,#c4b5fd 58%,#f3e8ff 100%);}
+#actividad{background:linear-gradient(180deg,#8b5cf6 0%,#a78bfa 24%,#d8b4fe 60%,#f5e8ff 100%);}
+#contenedor{background:linear-gradient(180deg,#a78bfa 0%,#c4b5fd 28%,#e9d5ff 64%,#faf5ff 100%);}
+#calendario{background:linear-gradient(180deg,#c4b5fd 0%,#d8b4fe 30%,#ede9fe 66%,#fdf4ff 100%);}
+#honorarios{background:linear-gradient(180deg,#ddd6fe 0%,#ede9fe 34%,#f5f3ff 70%,#fff7ff 100%);}
 .agenda-home h2,.agenda-screen h2{margin:0 0 4px;}
-.subtitle{margin:0;color:#4b5563;font-size:14px;}
+.agenda-screen h2,.agenda-screen .subtitle{color:#2f1d48;}
+.subtitle{margin:0;color:#5b4b76;font-size:14px;}
 .nav-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:18px;}
 .nav-btn{border:none;border-radius:12px;padding:20px 14px;font-size:18px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 8px 18px rgba(0,0,0,.2);}
 .nav-btn[data-target="nuevo-evento"]{background:linear-gradient(135deg,#7c3aed,#5b21b6);} 
@@ -18,9 +27,7 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .nav-btn[data-target="contenedor"]{background:linear-gradient(135deg,#0f766e,#134e4a);} 
 .nav-btn[data-target="calendario"]{background:linear-gradient(135deg,#f59e0b,#b45309);} 
 .nav-btn[data-target="honorarios"]{background:linear-gradient(135deg,#b91c1c,#7f1d1d);} 
-.agenda-screen{display:none;}
-.agenda-screen.show{display:block;}
-.block{border:1px solid #e5e7eb;border-radius:10px;padding:14px;margin-top:12px;}
+.block{border:1px solid rgba(124,58,237,.18);border-radius:10px;padding:14px;margin-top:12px;background:rgba(255,255,255,.72);backdrop-filter:blur(2px);box-shadow:0 8px 18px rgba(124,58,237,.08);}
 .block h3{margin:0 0 10px;font-size:16px;color:#111827;}
 .hidden{display:none;}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
@@ -28,7 +35,7 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .fields.is-disabled label{color:#6b7280;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 label.is-empty-field{opacity:.45;color:#6b7280;}
-input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
+input,select,textarea{padding:8px 10px;border:1px solid rgba(124,58,237,.18);border-radius:8px;font:inherit;background:rgba(255,255,255,.92);color:#2f1d48;}
 label.is-empty-field input,
 label.is-empty-field select,
 label.is-empty-field textarea,
@@ -46,8 +53,9 @@ textarea{min-height:74px;resize:vertical;}
 .btn-cancel{background:#dc2626;}
 .btn-close{background:#6b7280;}
 .btn-nav{background:#7c3aed;}
-#eventsTable{width:100%;border-collapse:collapse;margin-top:12px;}
-#eventsTable th,#eventsTable td{border-bottom:1px solid #e5e7eb;padding:8px;text-align:left;font-size:14px;}
+#eventsTable{width:100%;border-collapse:collapse;margin-top:12px;background:rgba(255,255,255,.76);border-radius:12px;overflow:hidden;}
+#eventsTable th,#eventsTable td{border-bottom:1px solid rgba(124,58,237,.14);padding:8px;text-align:left;font-size:14px;}
+#eventsTable th{background:rgba(124,58,237,.12);}
 @media (max-width:720px){.topbar{padding:10px 12px;} main.agenda-main{padding:14px;} .nav-btn{font-size:16px;}}
 </style>
 </head>
