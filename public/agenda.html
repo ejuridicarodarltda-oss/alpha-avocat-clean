@@ -85,6 +85,9 @@ textarea{min-height:74px;resize:vertical;}
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input id="act_address"></label><label>Estado civil<input id="act_civil_status"></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input id="act_profession"></label><label>Teléfono<input id="act_phone"></label></div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
     <div class="block hidden" id="activityModalidadBlock"><h3>Bloque C. Modalidad del evento</h3>
+      <div class="fields">
+        <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
+      </div>
       <div class="fields hidden" id="actividadPresencialFields">
         <label>Grabación presencial
           <select id="act_recording_device">
@@ -223,6 +226,7 @@ const nuevoEventoFields = {
 const activityFields = {
   eventNumber: document.getElementById('act_event_number'),
   title: document.getElementById('act_title'),
+  modalidad: document.getElementById('act_modalidad'),
   linkedCase: document.getElementById('act_linked_case'),
   caseRole: document.getElementById('act_case_role'),
   court: document.getElementById('act_court'),
@@ -323,6 +327,12 @@ function parseNuevoEventoState(serializedState){
 
 function syncNuevoEventoToActivitySnapshot(){
   activityFieldKeys.forEach(key => {
+    if (key === 'modalidad') {
+      activitySnapshot.modalidad = document.querySelector('input[name="modalidad"]:checked')?.value === 'remota'
+        ? 'Remota'
+        : 'Presencial'
+      return
+    }
     const sourceField = nuevoEventoFields[key]
     if (!sourceField) return
     activitySnapshot[key] = sourceField.value || ''
