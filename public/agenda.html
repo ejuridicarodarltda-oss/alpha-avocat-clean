@@ -24,8 +24,16 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .block h3{margin:0 0 10px;font-size:16px;color:#111827;}
 .hidden{display:none;}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
+.fields.is-disabled{opacity:.5;}
+.fields.is-disabled label{color:#6b7280;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
+.fields.is-disabled input,
+.fields.is-disabled select,
+.fields.is-disabled textarea,
+input:disabled,
+select:disabled,
+textarea:disabled{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
 textarea{min-height:74px;resize:vertical;}
 .check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
 .check-grid label{flex-direction:row;align-items:center;font-weight:500;}
@@ -88,7 +96,7 @@ textarea{min-height:74px;resize:vertical;}
       <div class="fields">
         <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
       </div>
-      <div class="fields hidden" id="actividadPresencialFields">
+      <div class="fields" id="actividadPresencialFields">
         <label>Grabación presencial
           <select id="act_recording_device">
             <option value="">Seleccionar opción</option>
@@ -97,13 +105,13 @@ textarea{min-height:74px;resize:vertical;}
           </select>
         </label>
       </div>
-      <div class="fields hidden" id="actividadRemotaFields">
-        <label>Remota Anfitrión<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
-        <label>Crear reunión<input></label>
-        <label>Enviar código e ID<input></label>
-        <label>Remota Invitado<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
-        <label>Recibir e ingresar código e ID<input></label>
-        <label>Grabación remota<input placeholder="Indicar canal y respaldo de grabación"></label>
+      <div class="fields" id="actividadRemotaFields">
+        <label>Remota Anfitrión<input id="act_remote_host" placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Crear reunión<input id="act_create_meeting"></label>
+        <label>Enviar código e ID<input id="act_send_code"></label>
+        <label>Remota Invitado<input id="act_remote_guest" placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Recibir e ingresar código e ID<input id="act_receive_code"></label>
+        <label>Grabación remota<input id="act_remote_recording" placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
@@ -394,20 +402,29 @@ function copyEventToActivity(){
   updateActivityModalityBlock()
 }
 
+function setSectionDisabled(section, disabled){
+  if (!section) return
+  section.classList.toggle('is-disabled', disabled)
+  section.querySelectorAll('input, select, textarea, button').forEach(field => {
+    field.disabled = disabled
+    if (disabled && ['checkbox', 'radio'].includes(field.type)) field.checked = false
+  })
+}
+
 function updateActivityModalityBlock(){
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   const grabacionAutorizada = (document.querySelector('input[name="grabacion"]:checked')?.value || 'audio') !== 'no'
 
   if (!grabacionAutorizada) {
     activityModalidadBlock?.classList.add('hidden')
-    actividadPresencialFields?.classList.add('hidden')
-    actividadRemotaFields?.classList.add('hidden')
+    setSectionDisabled(actividadPresencialFields, true)
+    setSectionDisabled(actividadRemotaFields, true)
     return
   }
 
   activityModalidadBlock?.classList.remove('hidden')
-  actividadPresencialFields?.classList.toggle('hidden', modalidad !== 'presencial')
-  actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
+  setSectionDisabled(actividadPresencialFields, modalidad !== 'presencial')
+  setSectionDisabled(actividadRemotaFields, modalidad !== 'remota')
 }
 
 modalidadRadios.forEach(radio => radio.addEventListener('change', updateActivityModalityBlock))
