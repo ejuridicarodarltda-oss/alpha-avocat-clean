@@ -189,6 +189,15 @@ const nuevoEventoFieldIds = [
   'starts_at',
   'notes'
 ]
+const nuevoEventoLegacyFieldAliases = {
+  marital_status: ['civil_status'],
+  occupation: ['profession'],
+  linked_case_role: ['case_role'],
+  linked_case_court: ['court'],
+  no_case: ['without_case'],
+  linked_client_name: ['client_name'],
+  linked_client_rut: ['client_rut']
+}
 const btnGoActividad = document.getElementById('btnGoActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
 const actividadPresencialFields = document.getElementById('actividadPresencialFields')
@@ -197,6 +206,15 @@ const activityRecordingFields = document.querySelectorAll('[data-recording-field
 
 const modalidadRadios = document.querySelectorAll('input[name="modalidad"]')
 const grabacionRadios = document.querySelectorAll('input[name="grabacion"]')
+
+function getFirstDefinedValue(...values){
+  return values.find(value => value !== undefined && value !== null && value !== '') || ''
+}
+
+function getNuevoEventoStateValue(state, fieldId){
+  return getFirstDefinedValue(state[fieldId], ...(nuevoEventoLegacyFieldAliases[fieldId] || []).map(alias => state[alias]))
+}
+
 const nuevoEventoFields = {
   eventNumber: document.getElementById('event_number'),
   title: document.getElementById('title'),
@@ -297,7 +315,11 @@ function getNuevoEventoFormState(){
   const state = {}
   nuevoEventoFieldIds.forEach(id => {
     const element = document.getElementById(id)
-    if (element) state[id] = element.value || ''
+    if (!element) return
+    state[id] = element.value || ''
+    ;(nuevoEventoLegacyFieldAliases[id] || []).forEach(alias => {
+      state[alias] = state[id]
+    })
   })
   state.modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   state.grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
@@ -307,7 +329,7 @@ function getNuevoEventoFormState(){
 function applyNuevoEventoFormState(state = {}){
   nuevoEventoFieldIds.forEach(id => {
     const element = document.getElementById(id)
-    if (element) element.value = state[id] || ''
+    if (element) element.value = getNuevoEventoStateValue(state, id)
   })
 
   const modalidad = state.modalidad || 'presencial'
