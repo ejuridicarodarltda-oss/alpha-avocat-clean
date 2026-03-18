@@ -24,10 +24,13 @@ main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18
 .block h3{margin:0 0 10px;font-size:16px;color:#111827;}
 .hidden{display:none;}
 .fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
+.fields.is-disabled,.recording-muted{opacity:.45;}
+.fields.is-disabled label{color:#6b7280;}
 label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
 input,select,textarea{padding:8px 10px;border:1px solid #d1d5db;border-radius:8px;font:inherit;background:#fff;}
-.recording-muted{opacity:.45;}
-.recording-muted input,.recording-muted select,.recording-muted textarea{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
+.fields.is-disabled input,.fields.is-disabled select,.fields.is-disabled textarea,
+.recording-muted input,.recording-muted select,.recording-muted textarea,
+input:disabled,select:disabled,textarea:disabled{background:#f3f4f6;color:#6b7280;cursor:not-allowed;}
 textarea{min-height:74px;resize:vertical;}
 .check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
 .check-grid label{flex-direction:row;align-items:center;font-weight:500;}
@@ -100,12 +103,12 @@ textarea{min-height:74px;resize:vertical;}
         </label>
       </div>
       <div class="fields hidden" id="actividadRemotaFields">
-        <label>Remota Anfitrión<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
-        <label>Crear reunión<input></label>
-        <label>Enviar código e ID<input></label>
-        <label>Remota Invitado<input placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
-        <label>Recibir e ingresar código e ID<input></label>
-        <label data-recording-field>Grabación remota<input placeholder="Indicar canal y respaldo de grabación"></label>
+        <label>Remota Anfitrión<input id="act_remote_host" placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Crear reunión<input id="act_create_meeting"></label>
+        <label>Enviar código e ID<input id="act_send_code"></label>
+        <label>Remota Invitado<input id="act_remote_guest" placeholder="Zoom/Meet/Teams/AnyDesk vínculo"></label>
+        <label>Recibir e ingresar código e ID<input id="act_receive_code"></label>
+        <label data-recording-field>Grabación remota<input id="act_remote_recording" placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
     <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
@@ -397,14 +400,16 @@ function copyEventToActivity(){
   updateActivityModalityBlock()
 }
 
-function toggleFieldGroupState(group, { disabled = false, clearWhenDisabled = false } = {}){
+function toggleFieldGroupState(group, { disabled = false, clearWhenDisabled = false, muted = disabled } = {}){
   if (!group) return
-  group.classList.toggle('recording-muted', disabled)
+  group.classList.toggle('is-disabled', disabled)
+  group.classList.toggle('recording-muted', muted)
   group.querySelectorAll('input, select, textarea, button').forEach(control => {
     control.disabled = disabled
     if (!disabled || !clearWhenDisabled) return
     if (control.tagName === 'SELECT') control.value = ''
     if (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA') control.value = ''
+    if (['checkbox', 'radio'].includes(control.type)) control.checked = false
   })
 }
 
@@ -412,22 +417,26 @@ function updateActivityModalityBlock(){
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
   const grabacionAutorizada = grabacion !== 'no'
-  const shouldMutePresencialRecording = modalidad === 'remota' || !grabacionAutorizada
+  const shouldDisablePresencialRecording = modalidad !== 'presencial' || !grabacionAutorizada
 
   activityModalidadBlock?.classList.remove('hidden')
   actividadPresencialFields?.classList.remove('hidden')
   actividadRemotaFields?.classList.toggle('hidden', modalidad !== 'remota')
   toggleFieldGroupState(actividadPresencialFields, {
-    disabled: shouldMutePresencialRecording,
-    clearWhenDisabled: shouldMutePresencialRecording
+    disabled: shouldDisablePresencialRecording,
+    clearWhenDisabled: shouldDisablePresencialRecording
+  })
+  toggleFieldGroupState(actividadRemotaFields, {
+    disabled: modalidad !== 'remota',
+    clearWhenDisabled: modalidad !== 'remota',
+    muted: modalidad !== 'remota'
   })
   activityRecordingFields.forEach(field => {
     if (actividadPresencialFields?.contains(field)) return
-    field.classList.toggle('recording-muted', !grabacionAutorizada)
-    field.querySelectorAll('input, select, textarea, button').forEach(control => {
-      control.disabled = !grabacionAutorizada
-      if (!grabacionAutorizada && (control.tagName === 'INPUT' || control.tagName === 'TEXTAREA')) control.value = ''
-      if (!grabacionAutorizada && control.tagName === 'SELECT') control.value = ''
+    toggleFieldGroupState(field, {
+      disabled: !grabacionAutorizada,
+      clearWhenDisabled: !grabacionAutorizada,
+      muted: !grabacionAutorizada
     })
   })
 }
