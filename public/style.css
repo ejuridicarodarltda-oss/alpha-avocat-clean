@@ -209,10 +209,19 @@ gap:10px;
 .topbar-left{
 flex:1 1 420px;
 min-width:0;
+flex-wrap:nowrap;
 }
 
 .topbar-nav{
-flex-wrap:wrap;
+flex-wrap:nowrap;
+overflow-x:auto;
+overflow-y:hidden;
+scrollbar-width:none;
+white-space:nowrap;
+}
+
+.topbar-nav::-webkit-scrollbar{
+display:none;
 }
 
 .topbar-nav-link{
@@ -612,6 +621,8 @@ width:100%;
 .topbar-nav{
 justify-content:flex-start;
 gap:8px;
+flex-wrap:nowrap;
+overflow-x:auto;
 }
 
 .topbar-nav-link{
