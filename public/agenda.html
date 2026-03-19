@@ -71,6 +71,11 @@ textarea{min-height:74px;resize:vertical;}
   </nav>
 </header>
 <main class="agenda-main">
+  <section id="agendaIntegration" class="agenda-screen show" style="display:none;background:linear-gradient(135deg,rgba(224,242,254,.96),rgba(255,255,255,.98));border:1px solid rgba(14,165,233,.18);">
+    <h2>Integración desde Clientes / Expedientes</h2>
+    <p class="subtitle" id="agendaIntegrationText">—</p>
+  </section>
+
   <section class="agenda-home" id="agendaHome">
     <h2>Pantalla principal de Agenda</h2>
     <p class="subtitle">Selecciona una vista exclusiva del módulo Agenda.</p>
@@ -301,10 +306,53 @@ const activitySnapshot = Object.fromEntries(activityFieldKeys.map(key => [key, '
 let editingEventId = null
 let eventsCache = []
 let pendingActivityEventNumber = ''
+const params = new URLSearchParams(window.location.search)
 
 const { data: sess } = await supabase.auth.getSession()
 if (!sess?.session) window.location.href = './login.html'
 
+
+function applyClientsIntegrationPrefill() {
+  if (params.get('origen') !== 'clientes') return
+
+  const integrationBox = document.getElementById('agendaIntegration')
+  const integrationText = document.getElementById('agendaIntegrationText')
+  if (integrationBox && integrationText) {
+    integrationBox.style.display = 'block'
+    integrationText.textContent = `Se recibió contexto del expediente ${params.get('expediente') || 'sin código'} de ${params.get('client_name') || 'cliente'}. El formulario de Nuevo evento fue precargado para alimentar Historia y Eventos.`
+  }
+
+  if (nameEl) nameEl.value = params.get('client_name') || nameEl.value
+  if (rutEl) rutEl.value = params.get('client_rut') || rutEl.value
+  if (emailEl) emailEl.value = params.get('client_email') || emailEl.value
+  if (phoneEl) phoneEl.value = params.get('client_phone') || phoneEl.value
+  if (subjectEl) subjectEl.value = params.get('subject') || subjectEl.value
+  if (titleEl) titleEl.value = `Gestión expediente ${params.get('expediente') || ''}`.trim()
+  if (notesEl) {
+    const parts = [
+      params.get('notes') ? `Antecedentes: ${params.get('notes')}` : '',
+      params.get('expediente') ? `Expediente vinculado: ${params.get('expediente')}` : ''
+    ].filter(Boolean)
+    notesEl.value = parts.join(' · ')
+  }
+
+  const linkedClient = document.getElementById('linked_client')
+  const linkedClientName = document.getElementById('linked_client_name')
+  const linkedClientRut = document.getElementById('linked_client_rut')
+  const linkedCase = document.getElementById('linked_case')
+  const linkedCaseRole = document.getElementById('linked_case_role')
+  const linkedCaseCourt = document.getElementById('linked_case_court')
+
+  if (linkedClient) linkedClient.value = 'Sí'
+  if (linkedClientName) linkedClientName.value = params.get('client_name') || ''
+  if (linkedClientRut) linkedClientRut.value = params.get('client_rut') || ''
+
+  if (params.get('rol') || params.get('court')) {
+    if (linkedCase) linkedCase.value = 'Sí'
+    if (linkedCaseRole) linkedCaseRole.value = params.get('rol') || ''
+    if (linkedCaseCourt) linkedCaseCourt.value = params.get('court') || ''
+  }
+}
 function showHome(){
   screens.forEach(s => s.classList.remove('show'))
   home.style.display = 'block'
@@ -651,10 +699,11 @@ setInterval(()=>{
   }
 },1000)
 
+applyClientsIntegrationPrefill()
 syncNuevoEventoToActivitySnapshot()
 updateActivityEventFieldAttenuation()
 loadEvents()
-if (new URLSearchParams(window.location.search).get('nuevo') === '1') {
+if (params.get('nuevo') === '1') {
   openScreen('nuevo-evento')
 } else {
   showHome()
