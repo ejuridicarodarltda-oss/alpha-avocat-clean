@@ -46,6 +46,14 @@
     </aside>
 
     <main class="content">
+      <section id="integrationContext" class="card" style="display:none;margin-bottom:16px;background:linear-gradient(135deg,rgba(224,242,254,.9),rgba(255,255,255,.96));border:1px solid rgba(14,165,233,.18);">
+        <div class="card-header">
+          <h1>Integración desde Clientes / Expedientes</h1>
+          <div class="muted" id="integrationLabel">—</div>
+        </div>
+        <p id="integrationText" class="muted" style="margin:0;line-height:1.5;">—</p>
+      </section>
+
       <section class="card">
         <div class="card-header">
           <h1>Causas registradas</h1>
@@ -203,6 +211,7 @@
     const tbody = el('tbodyCausas');
     const msg = el('caseMsg');
     const countLabel = el('countLabel');
+    const params = new URLSearchParams(window.location.search);
 
     let clientsMap = new Map();
 
@@ -217,7 +226,7 @@
     });
 
     // ---- Modal open/close
-    const openModal = () => { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); msg.textContent=''; };
+    const openModal = () => { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); msg.textContent=''; applyIntegrationPrefill(); };
     const closeModal = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); el('formCausa').reset(); msg.textContent=''; };
 
     el('btnNuevaCausa').addEventListener('click', openModal);
@@ -226,6 +235,37 @@
       if (t?.dataset?.close) closeModal();
     });
 
+
+    function applyIntegrationContext() {
+      if (params.get('origen') !== 'clientes') return;
+
+      const box = el('integrationContext');
+      const cliente = params.get('client_name') || 'Cliente sin nombre';
+      const expediente = params.get('expediente') || 'Sin expediente';
+      const materia = params.get('subject') || 'Materia no especificada';
+
+      box.style.display = 'block';
+      el('integrationLabel').textContent = expediente;
+      el('integrationText').textContent = `Se recibió contexto desde Clientes para ${cliente}. Al abrir “Nueva causa”, el formulario se completará con materia, tribunal, rol y observaciones del expediente.`;
+    }
+
+    function applyIntegrationPrefill() {
+      if (params.get('origen') !== 'clientes') return;
+
+      const clientName = params.get('client_name');
+      const clientEntry = [...clientsMap.entries()].find(([, name]) => name === clientName);
+      if (clientEntry) el('k_client').value = clientEntry[0];
+
+      el('k_resp').value = params.get('lawyer') || el('k_resp').value;
+      el('k_court').value = params.get('court') || '';
+      el('k_rol').value = params.get('rol') || '';
+      el('k_subject').value = params.get('subject') || '';
+      const noteParts = [
+        params.get('expediente') ? `Expediente origen: ${params.get('expediente')}` : '',
+        params.get('notes') || ''
+      ].filter(Boolean);
+      el('k_notes').value = noteParts.join(' · ');
+    }
     // ---- Helpers
     const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
 
@@ -366,6 +406,8 @@
     });
 
     await loadClients();
+    applyIntegrationContext();
+    if (params.get('origen') === 'clientes') openModal();
     await loadCases();
   </script>
 </body>
