@@ -285,6 +285,57 @@
       color: #f8fafc;
     }
 
+    .spotlight-list {
+      display: grid;
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .spotlight-card {
+      display: grid;
+      gap: 10px;
+      padding: 16px;
+      border-radius: 18px;
+      background: rgba(15, 23, 42, 0.24);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.06);
+    }
+
+    .spotlight-card .button-row {
+      margin-top: 4px;
+    }
+
+    .spotlight-meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .spotlight-pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      background: rgba(255, 255, 255, 0.12);
+      font-size: 12px;
+      font-weight: 700;
+      color: #f8fafc;
+    }
+
+    .queue-card {
+      display: grid;
+      gap: 6px;
+    }
+
+    .queue-card strong {
+      font-size: 28px;
+      color: #8a1538;
+    }
+
+    .quick-actions {
+      margin-top: 16px;
+    }
+
     .expedientes-grid {
       grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
@@ -622,23 +673,25 @@
 
       <aside class="hero-side">
         <section class="summary-panel">
-          <h2>Continuidad operativa</h2>
-          <p class="muted-copy">Desde esta vista puedes abrir el expediente, saltar a Agenda, derivar o revisar Causas, y mover antecedentes hacia documentos sin cambiar la lógica del módulo.</p>
-          <div id="summaryGrid" class="summary-grid"></div>
+          <h2>Radar de gestión</h2>
+          <p class="muted-copy">Se destacan los expedientes visibles que concentran próximas acciones, revisión jurídica u honorarios pendientes para facilitar el seguimiento inmediato.</p>
+          <div id="spotlightList" class="spotlight-list"></div>
         </section>
 
         <section class="module-card">
           <div class="section-head">
             <div>
-              <h2 class="section-title">Vínculos del módulo</h2>
-              <p class="small-note">Se conservan accesos directos a Panel, Agenda y Causas.</p>
+              <h2 class="section-title">Carga del módulo</h2>
+              <p class="small-note">Resumen rápido de la cartera actual con accesos internos a las tareas más usadas de esta pantalla.</p>
             </div>
           </div>
-          <div class="button-row">
-            <a class="btn-outline" href="./panel.html">Panel</a>
-            <button id="btnOpenAgendaGlobal" class="btn-outline">Agenda</button>
-            <button id="btnOpenCausasGlobal" class="btn-outline">Causas</button>
-            <button id="btnFocusContenedor" class="btn-lite">Documentos</button>
+          <div id="summaryGrid" class="summary-grid"></div>
+          <div class="quick-actions">
+            <div class="button-row">
+              <button class="btn-cta" data-side-action="new-expediente">Nuevo expediente</button>
+              <button class="btn-outline" data-side-action="focus-selected">Ver expediente activo</button>
+              <button class="btn-lite" data-side-action="open-contenedor">Abrir contenedor</button>
+            </div>
           </div>
         </section>
       </aside>
@@ -1211,17 +1264,47 @@
       `).join('');
 
       const summary = [
-        { label: 'Clientes', value: data.clients.length },
-        { label: 'Eventos históricos', value: items.reduce((acc, item) => acc + item.history.length, 0) },
-        { label: 'Documentos asociados', value: items.reduce((acc, item) => acc + item.container.files.length, 0) },
-        { label: 'Boletas registradas', value: data.clients.reduce((acc, client) => acc + client.invoices, 0) }
+        { label: 'Con actividad en agenda', value: items.filter(item => item.agendaActivity).length },
+        { label: 'Honorarios por confirmar', value: items.filter(item => item.feesPending).length },
+        { label: 'Con causa vinculada', value: items.filter(item => item.derivedToCase).length },
+        { label: 'Documentos asociados', value: items.reduce((acc, item) => acc + item.container.files.length, 0) }
       ];
       el('summaryGrid').innerHTML = summary.map(item => `
-        <article class="summary-card">
+        <article class="summary-card queue-card">
           <span class="metric-label">${item.label}</span>
-          <strong style="font-size: 24px; margin-top: 8px;">${item.value}</strong>
+          <strong>${item.value}</strong>
         </article>
       `).join('');
+
+      const spotlight = items
+        .map(item => {
+          const signals = [];
+          let score = 0;
+          if (item.analysisPending) { signals.push('Revisión jurídica pendiente'); score += 3; }
+          if (item.feesPending) { signals.push('Honorarios por confirmar'); score += 2; }
+          if (item.agendaActivity) { signals.push('Actividad próxima en agenda'); score += 2; }
+          if (normalize(item.status) === 'activo') score += 1;
+          if (normalize(item.status) === 'pendiente de analisis') score += 2;
+          return { item, signals, score };
+        })
+        .sort((a, b) => b.score - a.score || String(b.item.openedAt).localeCompare(String(a.item.openedAt)))
+        .slice(0, 3);
+
+      el('spotlightList').innerHTML = spotlight.length ? spotlight.map(({ item, signals }) => `
+        <article class="spotlight-card">
+          <div>
+            <span class="metric-label">${item.code}</span>
+            <strong>${item.client.name}</strong>
+            <p class="muted-copy">${item.matter} · ${item.nextActivity}</p>
+          </div>
+          <div class="spotlight-meta">
+            ${(signals.length ? signals : ['Seguimiento general']).slice(0, 2).map(signal => `<span class="spotlight-pill">${signal}</span>`).join('')}
+          </div>
+          <div class="button-row">
+            <button class="btn-outline" data-select-expediente="${item.id}">Abrir expediente</button>
+          </div>
+        </article>
+      `).join('') : '<div class="empty-state">No hay expedientes disponibles para mostrar en el radar.</div>';
     }
 
     function renderMatterFilterOptions() {
@@ -1888,6 +1971,13 @@
         renderAll();
       }
 
+      const spotlightButton = event.target.closest('[data-select-expediente]');
+      if (spotlightButton) {
+        selectedExpedienteId = spotlightButton.dataset.selectExpediente;
+        renderAll();
+        el('workspaceTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      }
+
       const tabButton = event.target.closest('[data-tab]');
       if (tabButton) openTab(tabButton.dataset.tab);
 
@@ -1916,12 +2006,19 @@
         }
       }
 
+      const sideAction = event.target.closest('[data-side-action]');
+      if (sideAction) {
+        const action = sideAction.dataset.sideAction;
+        if (action === 'new-expediente') openModal('expediente');
+        if (action === 'focus-selected') el('workspaceTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        if (action === 'open-contenedor') {
+          openTab('Contenedor');
+          el('workspaceTitle')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+
       const modalClose = event.target.closest('[data-close-modal]');
       if (modalClose) closeModal(modalClose.dataset.closeModal);
-
-      if (event.target.id === 'btnFocusContenedor') openTab('Contenedor');
-      if (event.target.id === 'btnOpenAgendaGlobal') openModule('agenda');
-      if (event.target.id === 'btnOpenCausasGlobal') openModule('causas');
     });
 
     el('searchInput').addEventListener('input', renderAll);
