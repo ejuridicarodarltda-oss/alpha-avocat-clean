@@ -9,41 +9,69 @@
     body.clients-module {
       overflow: auto;
       background:
-        radial-gradient(circle at top left, rgba(212, 175, 55, 0.16), transparent 24%),
-        linear-gradient(180deg, #f8fafc 0%, #eef1f5 48%, #e8ecf6 100%);
+        radial-gradient(circle at top left, rgba(196, 30, 58, 0.12), transparent 26%),
+        linear-gradient(180deg, #f8fafc 0%, #eef2ff 46%, #e2e8f0 100%);
+      color: #0f172a;
     }
 
     .clients-shell {
       display: grid;
-      grid-template-columns: 360px minmax(0, 1fr);
-      gap: 18px;
-      padding: 18px;
+      gap: 20px;
+      padding: 20px;
       min-height: calc(100dvh - 68px);
-      overflow: visible;
-    }
-
-    .clients-column,
-    .workspace-column {
-      min-width: 0;
-      display: grid;
-      gap: 16px;
-      align-content: start;
     }
 
     .module-card {
-      background: rgba(255, 255, 255, 0.92);
+      background: rgba(255, 255, 255, 0.94);
       border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 22px;
-      box-shadow: 0 18px 42px rgba(15, 23, 42, 0.08);
-      padding: 18px;
-      backdrop-filter: blur(12px);
+      border-radius: 24px;
+      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+      padding: 20px;
+      backdrop-filter: blur(10px);
     }
 
-    .module-hero {
+    .dashboard-grid,
+    .workspace-grid,
+    .main-filters,
+    .expedientes-grid,
+    .detail-grid,
+    .data-grid,
+    .tab-grid,
+    .history-grid,
+    .container-grid,
+    .analysis-grid,
+    .assistant-grid,
+    .derivation-grid,
+    .fees-grid,
+    .instructions-grid,
+    .button-row,
+    .tabs-row,
+    .pill-row,
+    .workspace-actions,
+    .hero-metrics,
+    .summary-grid,
+    .fee-response-row,
+    .section-actions {
       display: grid;
-      grid-template-columns: minmax(0, 1.5fr) minmax(300px, 1fr);
+      gap: 12px;
+    }
+
+    .hero-card {
+      display: grid;
       gap: 18px;
-      align-items: stretch;
+    }
+
+    .hero-head,
+    .section-head,
+    .workspace-head,
+    .card-head,
+    .event-head,
+    .file-head,
+    .fee-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
     }
 
     .module-eyebrow {
@@ -60,315 +88,247 @@
       text-transform: uppercase;
     }
 
-    .module-hero h1,
-    .workspace-header h2,
-    .panel-title,
-    .tab-panel h3 {
+    .hero-card h1,
+    .workspace-head h2,
+    .section-title,
+    .tab-section h3,
+    .subcard h4 {
       margin: 0;
       color: #0f172a;
     }
 
-    .module-hero h1 {
-      margin-top: 12px;
-      font-size: clamp(28px, 3vw, 40px);
-      line-height: 1.04;
+    .hero-card h1 {
+      font-size: clamp(30px, 4vw, 42px);
+      line-height: 1.05;
+      margin-top: 10px;
     }
 
     .module-copy,
     .small-note,
-    .muted-copy {
+    .muted-copy,
+    .helper-text {
+      margin: 0;
       color: #475569;
       line-height: 1.55;
     }
 
-    .stats-grid,
-    .summary-grid,
-    .detail-grid,
-    .subgrid,
-    .event-grid,
-    .fees-grid,
-    .integration-grid,
-    .action-grid {
+    .main-filters {
+      grid-template-columns: minmax(260px, 1.8fr) repeat(2, minmax(180px, 1fr)) auto auto;
+      align-items: end;
+    }
+
+    .field-stack,
+    .textarea-stack {
       display: grid;
-      gap: 12px;
+      gap: 6px;
     }
 
-    .stats-grid {
-      grid-template-columns: repeat(4, minmax(0, 1fr));
-      margin-top: 18px;
-    }
-
-    .stat-tile,
-    .summary-tile,
-    .quick-link,
-    .file-card,
-    .timeline-item,
-    .analysis-card,
-    .decision-card,
-    .restricted-card {
-      border-radius: 18px;
-      border: 1px solid rgba(148, 163, 184, 0.24);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(241, 245, 249, 0.92));
-      padding: 14px;
-    }
-
-    .stat-tile strong,
-    .summary-tile strong,
-    .heading-stack strong,
-    .timeline-item strong,
-    .file-card strong,
-    .analysis-card strong,
-    .decision-card strong,
-    .restricted-card strong,
-    .field-card strong,
-    .expediente-card strong {
-      display: block;
-      color: #0f172a;
-    }
-
-    .stat-number {
-      font-size: 28px;
+    .field-stack label,
+    .textarea-stack label {
+      font-size: 13px;
       font-weight: 800;
-      color: #8a1538;
-      margin-top: 6px;
-    }
-
-    .summary-card {
-      background: linear-gradient(140deg, #0f172a, #1e3a5f);
-      color: #f8fafc;
-      border-radius: 24px;
-      padding: 20px;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
-    }
-
-    .summary-card h2,
-    .summary-card p,
-    .summary-card strong,
-    .summary-card .muted-copy {
-      color: #f8fafc;
-    }
-
-    .summary-grid {
-      grid-template-columns: repeat(2, minmax(0, 1fr));
-      margin-top: 16px;
-    }
-
-    .chip-row,
-    .toolbar-row,
-    .tabs-row,
-    .button-row,
-    .inline-pills,
-    .event-actions,
-    .integration-actions {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 10px;
-      align-items: center;
-    }
-
-    .chip,
-    .inline-pill {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 9px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      border: 1px solid rgba(148, 163, 184, 0.25);
-      background: #fff;
       color: #334155;
     }
 
-    .chip.active,
-    .inline-pill.active {
-      background: linear-gradient(135deg, #c41e3a, #8a1538);
-      color: #fff;
-      border-color: transparent;
-      box-shadow: 0 12px 20px rgba(138, 21, 56, 0.22);
-    }
-
-    .toolbar-card {
-      display: grid;
-      gap: 16px;
-    }
-
-    .toolbar-row {
-      justify-content: space-between;
-    }
-
-    .toolbar-row .button-row {
-      flex: 1 1 520px;
-    }
-
-    .search-wrap {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex: 1 1 320px;
-      justify-content: flex-end;
-    }
-
-    .search-field {
-      flex: 1 1 320px;
-      min-width: 220px;
+    .field-stack input,
+    .field-stack select,
+    .textarea-stack textarea,
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea,
+    .form-grid-full input,
+    .form-grid-full select,
+    .form-grid-full textarea {
+      width: 100%;
       padding: 12px 14px;
       border-radius: 14px;
       border: 1px solid rgba(148, 163, 184, 0.35);
       background: #fff;
       font: inherit;
+      color: #0f172a;
     }
 
-    .search-help {
-      font-size: 12px;
+    .hero-metrics,
+    .summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    }
+
+    .metric-card,
+    .summary-card,
+    .expediente-card,
+    .subcard,
+    .event-card,
+    .file-card,
+    .analysis-card,
+    .assistant-card,
+    .decision-card,
+    .fee-card,
+    .instruction-card {
+      border-radius: 20px;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+      padding: 16px;
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+    }
+
+    .metric-card strong,
+    .summary-card strong,
+    .expediente-card strong,
+    .subcard strong,
+    .event-card strong,
+    .file-card strong,
+    .analysis-card strong,
+    .assistant-card strong,
+    .decision-card strong,
+    .fee-card strong,
+    .instruction-card strong {
+      display: block;
+      color: #0f172a;
+    }
+
+    .metric-number {
+      margin-top: 8px;
+      font-size: 30px;
+      font-weight: 900;
+      color: #8a1538;
+    }
+
+    .metric-label,
+    .mini-label {
       color: #64748b;
-    }
-
-    .filter-panel {
-      display: none;
-      gap: 12px;
-      padding-top: 12px;
-      border-top: 1px solid rgba(148, 163, 184, 0.18);
-    }
-
-    .filter-panel.open {
-      display: grid;
-    }
-
-    .filter-grid {
-      display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
-      gap: 10px;
-    }
-
-    .filter-option {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 12px 14px;
-      border-radius: 16px;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      background: #fff;
+      font-size: 12px;
       font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+    }
+
+    .results-badge,
+    .status-pill,
+    .type-pill,
+    .inline-pill {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      border: 1px solid rgba(148, 163, 184, 0.24);
+      background: #fff;
       color: #334155;
     }
 
-    .panel-title-row,
-    .workspace-header {
+    .results-badge {
+      background: linear-gradient(135deg, #c41e3a, #8a1538);
+      border-color: transparent;
+      color: #fff;
+      box-shadow: 0 12px 24px rgba(138, 21, 56, 0.18);
+    }
+
+    .status-pill.activo { background: rgba(5, 150, 105, 0.14); color: #047857; border-color: transparent; }
+    .status-pill.cerrado { background: rgba(148, 163, 184, 0.18); color: #475569; border-color: transparent; }
+    .status-pill.analisis { background: rgba(245, 158, 11, 0.18); color: #b45309; border-color: transparent; }
+    .status-pill.derivado { background: rgba(14, 165, 233, 0.16); color: #0369a1; border-color: transparent; }
+
+    .button-row,
+    .tabs-row,
+    .pill-row,
+    .workspace-actions,
+    .fee-response-row,
+    .section-actions {
       display: flex;
-      justify-content: space-between;
-      gap: 14px;
-      align-items: flex-start;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 10px;
     }
 
-    .list-scroll,
-    .tab-panel {
-      min-height: 0;
+    .btn-lite,
+    .btn-outline,
+    .btn-cta,
+    .btn-danger-soft {
+      border: none;
+      border-radius: 14px;
+      padding: 11px 14px;
+      font-weight: 800;
+      cursor: pointer;
+      font: inherit;
     }
 
-    .list-scroll {
+    .btn-cta { background: linear-gradient(135deg, #c41e3a, #8a1538); color: #fff; }
+    .btn-outline { background: #fff; color: #0f172a; border: 1px solid rgba(148, 163, 184, 0.35); }
+    .btn-lite { background: rgba(15, 23, 42, 0.06); color: #0f172a; }
+    .btn-danger-soft { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+
+    .dashboard-grid {
+      grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+      align-items: start;
+    }
+
+    .hero-side {
       display: grid;
-      gap: 12px;
-      max-height: calc(100dvh - 300px);
-      overflow: auto;
-      padding-right: 6px;
+      gap: 16px;
+    }
+
+    .summary-panel {
+      border-radius: 24px;
+      padding: 20px;
+      background: linear-gradient(145deg, #0f172a, #1e293b);
+      color: #f8fafc;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.08);
+    }
+
+    .summary-panel h2,
+    .summary-panel p,
+    .summary-panel strong,
+    .summary-panel .metric-label {
+      color: #f8fafc;
+    }
+
+    .expedientes-grid {
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     }
 
     .expediente-card {
-      border-radius: 20px;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
-      padding: 16px;
       display: grid;
-      gap: 12px;
-      cursor: pointer;
+      gap: 14px;
       transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      cursor: pointer;
     }
 
     .expediente-card:hover,
     .expediente-card.active {
       transform: translateY(-2px);
-      border-color: rgba(196, 30, 58, 0.38);
-      box-shadow: 0 18px 34px rgba(138, 21, 56, 0.14);
+      border-color: rgba(196, 30, 58, 0.34);
+      box-shadow: 0 20px 36px rgba(138, 21, 56, 0.12);
     }
 
-    .expediente-head,
-    .field-row,
-    .event-head,
-    .decision-head,
-    .files-head {
-      display: flex;
-      justify-content: space-between;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .field-row,
-    .event-head,
-    .decision-head,
-    .files-head {
-      align-items: flex-start;
-    }
-
-    .heading-stack small,
-    .field-card span,
-    .timeline-item span,
-    .file-card span,
-    .analysis-card span,
-    .decision-card span,
-    .restricted-card span,
-    .mini-label,
-    .metric-label {
-      color: #64748b;
-      font-size: 12px;
-    }
-
-    .status-pill,
-    .type-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      padding: 7px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-    }
-
-    .status-pill.activo { background: rgba(5, 150, 105, 0.12); color: #047857; }
-    .status-pill.cerrado { background: rgba(148, 163, 184, 0.16); color: #475569; }
-    .status-pill.analisis { background: rgba(245, 158, 11, 0.18); color: #b45309; }
-    .status-pill.derivado { background: rgba(14, 165, 233, 0.16); color: #0369a1; }
-
-    .type-pill { background: rgba(15, 23, 42, 0.06); color: #334155; }
-
-    .detail-grid {
+    .data-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .field-card {
-      padding: 12px 14px;
+    .data-item {
       border-radius: 16px;
-      background: rgba(248, 250, 252, 0.95);
-      border: 1px solid rgba(148, 163, 184, 0.16);
+      background: rgba(248, 250, 252, 0.98);
+      border: 1px solid rgba(148, 163, 184, 0.14);
+      padding: 12px 14px;
+      display: grid;
+      gap: 4px;
+    }
+
+    .workspace-grid {
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .workspace-shell {
       display: grid;
-      gap: 16px;
-    }
-
-    .workspace-header {
-      padding-bottom: 12px;
-      border-bottom: 1px solid rgba(148, 163, 184, 0.18);
+      gap: 18px;
     }
 
     .tabs-row {
       padding: 6px;
       border-radius: 18px;
-      background: rgba(241, 245, 249, 0.9);
+      background: rgba(241, 245, 249, 0.92);
       border: 1px solid rgba(148, 163, 184, 0.18);
       position: sticky;
       top: 8px;
@@ -391,41 +351,26 @@
       box-shadow: 0 10px 18px rgba(138, 21, 56, 0.18);
     }
 
-    .tab-panel {
-      display: none;
-      gap: 16px;
-      align-content: start;
-    }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
 
-    .tab-panel.active {
+    .tab-section {
       display: grid;
+      gap: 16px;
     }
 
-    .subgrid {
+    .tab-grid,
+    .history-grid,
+    .container-grid,
+    .analysis-grid,
+    .assistant-grid,
+    .derivation-grid,
+    .fees-grid,
+    .instructions-grid {
       grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 
-    .subsection {
-      border: 1px solid rgba(148, 163, 184, 0.18);
-      border-radius: 20px;
-      background: linear-gradient(180deg, #fff 0%, #f8fafc 100%);
-      padding: 18px;
-      display: grid;
-      gap: 12px;
-    }
-
-    .subsection h3 {
-      font-size: 20px;
-    }
-
-    .subsection h4 {
-      margin: 0;
-      color: #0f172a;
-      font-size: 15px;
-    }
-
     .field-list,
-    .checkbox-list,
     .bullet-list {
       display: grid;
       gap: 10px;
@@ -438,89 +383,80 @@
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
 
-    .checkbox-list {
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .bullet-list li,
-    .checkbox-list li,
-    .field-list li {
+    .field-list li,
+    .bullet-list li {
       border-radius: 16px;
-      background: rgba(248, 250, 252, 0.95);
+      background: rgba(248, 250, 252, 0.98);
       border: 1px solid rgba(148, 163, 184, 0.14);
       padding: 12px 14px;
       color: #334155;
     }
 
-    .timeline-list,
-    .files-grid,
-    .analysis-grid,
-    .decision-grid {
+    .event-card,
+    .assistant-card,
+    .decision-card,
+    .fee-card,
+    .instruction-card {
       display: grid;
       gap: 12px;
     }
 
-    .timeline-item {
-      position: relative;
-      padding-left: 18px;
-    }
-
-    .timeline-item::before {
+    .event-card::before {
       content: "";
-      position: absolute;
-      inset: 18px auto 18px 0;
       width: 4px;
       border-radius: 999px;
       background: linear-gradient(180deg, #c41e3a, #0ea5e9);
+      position: absolute;
+      inset: 18px auto 18px 0;
     }
 
-    .timeline-meta,
-    .files-meta,
-    .analysis-actions,
-    .decision-actions {
+    .event-card {
+      position: relative;
+      padding-left: 20px;
+    }
+
+    .event-meta,
+    .file-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-      margin-top: 10px;
     }
 
-    .files-grid,
-    .analysis-grid,
-    .decision-grid {
-      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    }
-
-    .analysis-card,
-    .decision-card,
-    .restricted-card {
-      display: grid;
-      gap: 10px;
+    .text-panel {
+      min-height: 160px;
+      border-radius: 18px;
+      border: 1px dashed rgba(148, 163, 184, 0.4);
+      background: rgba(248, 250, 252, 0.75);
+      padding: 16px;
+      color: #334155;
+      line-height: 1.6;
     }
 
     .integration-banner,
-    .admin-banner {
-      border-radius: 18px;
-      padding: 14px 16px;
-      font-size: 14px;
-      line-height: 1.5;
+    .admin-banner,
+    .empty-state {
+      border-radius: 20px;
+      padding: 16px 18px;
+      line-height: 1.55;
+    }
+
+    .integration-banner {
       border: 1px solid rgba(14, 165, 233, 0.18);
       background: linear-gradient(135deg, rgba(224, 242, 254, 0.88), rgba(240, 249, 255, 0.95));
       color: #0f4c81;
     }
 
     .admin-banner {
-      border-color: rgba(245, 158, 11, 0.18);
+      border: 1px solid rgba(245, 158, 11, 0.18);
       background: linear-gradient(135deg, rgba(255, 247, 237, 0.92), rgba(255, 251, 235, 0.98));
       color: #9a3412;
     }
 
     .empty-state {
-      padding: 26px;
-      border-radius: 20px;
       border: 1px dashed rgba(148, 163, 184, 0.45);
+      background: rgba(255,255,255,.75);
       text-align: center;
       color: #64748b;
-      background: rgba(255,255,255,.75);
     }
 
     .modal-shell {
@@ -568,79 +504,44 @@
       color: #334155;
     }
 
-    .form-grid input,
-    .form-grid select,
-    .form-grid textarea,
-    .form-grid-full input,
-    .form-grid-full textarea,
-    .form-grid-full select {
-      padding: 11px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.3);
-      font: inherit;
-      background: #fff;
-    }
-
     .form-grid-full { display: grid; gap: 12px; }
 
     .button-row.end { justify-content: flex-end; }
 
-    .btn-lite,
-    .btn-outline,
-    .btn-cta,
-    .btn-danger-soft {
-      border: none;
-      border-radius: 14px;
-      padding: 11px 14px;
-      font-weight: 800;
-      cursor: pointer;
-      font: inherit;
-    }
-
-    .btn-cta { background: linear-gradient(135deg, #c41e3a, #8a1538); color: #fff; }
-    .btn-lite { background: rgba(15, 23, 42, 0.06); color: #0f172a; }
-    .btn-outline { background: #fff; color: #0f172a; border: 1px solid rgba(148, 163, 184, 0.35); }
-    .btn-danger-soft { background: rgba(239, 68, 68, 0.1); color: #b91c1c; }
-
-    .quick-link {
-      display: grid;
-      gap: 8px;
-      min-height: 120px;
-      align-content: space-between;
-    }
-
     @media (max-width: 1180px) {
-      .clients-shell,
-      .module-hero,
-      .subgrid,
-      .detail-grid,
+      .dashboard-grid,
+      .main-filters,
+      .tab-grid,
+      .history-grid,
+      .container-grid,
+      .analysis-grid,
+      .assistant-grid,
+      .derivation-grid,
+      .fees-grid,
+      .instructions-grid,
       .form-grid {
         grid-template-columns: 1fr;
-      }
-
-      .list-scroll {
-        max-height: none;
       }
     }
 
     @media (max-width: 780px) {
-      .stats-grid,
-      .summary-grid,
-      .files-grid,
-      .analysis-grid,
-      .decision-grid,
-      .field-list,
-      .checkbox-list,
-      .filter-grid {
-        grid-template-columns: 1fr;
-      }
-
-      .toolbar-row,
-      .panel-title-row,
-      .workspace-header,
-      .search-wrap {
+      .hero-head,
+      .section-head,
+      .workspace-head,
+      .card-head,
+      .event-head,
+      .file-head,
+      .fee-head {
         flex-direction: column;
         align-items: stretch;
+      }
+
+      .data-grid,
+      .hero-metrics,
+      .summary-grid,
+      .expedientes-grid,
+      .field-list {
+        grid-template-columns: 1fr;
       }
 
       .tabs-row { position: static; }
@@ -670,123 +571,94 @@
   </header>
 
   <main class="clients-shell">
-    <aside class="clients-column">
-      <section class="module-card toolbar-card">
-        <div class="panel-title-row">
-          <div>
-            <span class="module-eyebrow">Módulo Clientes</span>
-            <h2 class="panel-title">Clientes / Expedientes</h2>
-            <p class="module-copy">Todos los clientes y sus expedientes activos, cerrados o derivados, con navegación directa hacia Agenda, Causas y Contenedor documental.</p>
-          </div>
-          <span class="chip active" id="resultsChip">0 expedientes</span>
-        </div>
-
-        <div class="toolbar-row">
-          <div class="button-row">
-            <button id="btnNuevoCliente" class="btn-cta">Nuevo cliente</button>
-            <button id="btnNuevoExpediente" class="btn-outline">Nuevo expediente</button>
-            <button id="btnBuscar" class="btn-lite">Buscar</button>
-            <button id="btnFiltrar" class="btn-lite">Filtrar</button>
-            <button id="btnSoloActivos" class="btn-outline">Ver solo activos</button>
-            <button id="btnSoloCerrados" class="btn-outline">Ver cerrados</button>
-          </div>
-
-          <div class="search-wrap">
-            <input id="searchInput" class="search-field" placeholder="Buscar por cliente, RUT, expediente, materia, teléfono o correo..." />
-          </div>
-        </div>
-
-        <div class="search-help">Buscador habilitado para: nombre del cliente, RUT, N° de expediente, materia, teléfono y correo electrónico.</div>
-
-        <div id="filterPanel" class="filter-panel">
-          <div class="filter-grid">
-            <label class="filter-option"><input type="checkbox" value="activos" checked /> Activos</label>
-            <label class="filter-option"><input type="checkbox" value="cerrados" checked /> Cerrados</label>
-            <label class="filter-option"><input type="checkbox" value="pendientes de análisis" checked /> Pendientes de análisis</label>
-            <label class="filter-option"><input type="checkbox" value="derivados a causa" checked /> Derivados a causa</label>
-            <label class="filter-option"><input type="checkbox" value="con honorarios pendientes" checked /> Con honorarios pendientes</label>
-            <label class="filter-option"><input type="checkbox" value="con próxima actividad en agenda" checked /> Próxima actividad en agenda</label>
-          </div>
-        </div>
-      </section>
-
-      <section class="module-card">
-        <div class="panel-title-row">
-          <div>
-            <h2 class="panel-title">Lista de expedientes</h2>
-            <p class="small-note">Cada ficha muestra N° de expediente, cliente, RUT, materia, estado, fecha de apertura, próxima actividad y abogado responsable.</p>
-          </div>
-          <div class="chip-row" id="quickFilters"></div>
-        </div>
-
-        <div id="expedientesList" class="list-scroll"></div>
-      </section>
-    </aside>
-
-    <section class="workspace-column">
-      <section class="module-card module-hero">
+    <section class="module-card hero-card">
+      <div class="hero-head">
         <div>
-          <span class="module-eyebrow">Herramienta jurídica real</span>
-          <h1>Expedientes con pestañas fijas, historia ordenada e integración operativa.</h1>
-          <p class="module-copy">La pantalla separa cliente y expediente, reutiliza datos de Agenda, permite traspasar antecedentes a Causas, organiza archivos en un contenedor documental y resguarda Honorarios por rol.</p>
-
-          <div class="stats-grid" id="statsGrid"></div>
+          <span class="module-eyebrow">Módulo Clientes / Expedientes</span>
+          <h1>Clientes / Expedientes</h1>
+          <p class="module-copy">Nueva capa visible orientada a expedientes, manteniendo continuidad con Panel, Agenda y Causas.</p>
         </div>
+        <span id="resultsChip" class="results-badge">0 expedientes</span>
+      </div>
 
-        <div class="summary-card">
-          <h2>Flujo correcto del módulo</h2>
-          <p class="muted-copy">Crear o identificar cliente → abrir expediente → registrar eventos desde Agenda o manualmente → guardar actas y documentos → analizar jurídicamente → derivar, cerrar o convertir en causa → gestionar honorarios, contrato y boleta si corresponde.</p>
-          <div class="summary-grid" id="summaryGrid"></div>
+      <div class="main-filters">
+        <div class="field-stack">
+          <label for="searchInput">Buscador general</label>
+          <input id="searchInput" type="search" placeholder="Buscar por N° expediente, cliente, RUT, materia, abogado o actividad..." />
         </div>
-      </section>
+        <div class="field-stack">
+          <label for="estadoFilter">Filtro por estado</label>
+          <select id="estadoFilter">
+            <option value="todos">Todos</option>
+            <option value="activo">Activo</option>
+            <option value="pendiente de análisis">Pendiente de análisis</option>
+            <option value="derivado a causa">Derivado a causa</option>
+            <option value="cerrado">Cerrado</option>
+          </select>
+        </div>
+        <div class="field-stack">
+          <label for="materiaFilter">Filtro por materia</label>
+          <select id="materiaFilter">
+            <option value="todas">Todas</option>
+          </select>
+        </div>
+        <button id="btnNuevoCliente" class="btn-cta">Nuevo cliente</button>
+        <button id="btnNuevoExpediente" class="btn-outline">Nuevo expediente</button>
+      </div>
 
-      <section id="integrationBanner" class="integration-banner" hidden></section>
+      <div class="hero-metrics" id="statsGrid"></div>
+    </section>
 
-      <section class="module-card workspace-shell">
-        <div class="workspace-header">
+    <section class="dashboard-grid">
+      <section class="module-card">
+        <div class="section-head">
           <div>
-            <span class="module-eyebrow">Detalle del expediente</span>
-            <h2 id="workspaceTitle">Selecciona un expediente</h2>
-            <p id="workspaceSubtitle" class="module-copy">Visualiza identificación, historia, contenedor, análisis, derivación y honorarios en una única superficie fija.</p>
-          </div>
-          <div class="button-row" id="workspaceActions"></div>
-        </div>
-
-        <div class="tabs-row" id="tabsRow"></div>
-        <div id="tabPanels"></div>
-      </section>
-
-      <section class="module-card integration-grid">
-        <div class="panel-title-row">
-          <div>
-            <h2 class="panel-title">Relaciones del módulo</h2>
-            <p class="small-note">La misma ficha sirve para alimentar Agenda, convertir expedientes en Causas y centralizar archivos del cliente.</p>
+            <h2 class="section-title">Listado principal</h2>
+            <p class="small-note">Cada expediente muestra número, cliente, RUT, materia, estado, próxima actividad, abogado responsable y accesos visibles.</p>
           </div>
         </div>
-        <div class="action-grid" style="grid-template-columns:repeat(auto-fit,minmax(220px,1fr));">
-          <article class="quick-link">
-            <div>
-              <strong>Agenda</strong>
-              <p class="muted-copy">Todo evento agendado puede vincularse a cliente y expediente para alimentar la pestaña Historia.</p>
-            </div>
-            <button id="btnOpenAgendaGlobal" class="btn-outline">Ir a Agenda</button>
-          </article>
-          <article class="quick-link">
-            <div>
-              <strong>Causas</strong>
-              <p class="muted-copy">El expediente puede convertirse en causa con traspaso de identificación, análisis y observaciones.</p>
-            </div>
-            <button id="btnOpenCausasGlobal" class="btn-outline">Ir a Causas</button>
-          </article>
-          <article class="quick-link">
-            <div>
-              <strong>Contenedor documental</strong>
-              <p class="muted-copy">Cada archivo puede asociarse a cliente, evento, expediente o causa sin salir del módulo.</p>
-            </div>
-            <button class="btn-lite" id="btnFocusContenedor">Abrir Contenedor</button>
-          </article>
-        </div>
+        <div id="expedientesList" class="expedientes-grid"></div>
       </section>
+
+      <aside class="hero-side">
+        <section class="summary-panel">
+          <h2>Continuidad operativa</h2>
+          <p class="muted-copy">Desde esta vista puedes abrir el expediente, saltar a Agenda, derivar o revisar Causas, y mover antecedentes hacia documentos sin cambiar la lógica del módulo.</p>
+          <div id="summaryGrid" class="summary-grid"></div>
+        </section>
+
+        <section class="module-card">
+          <div class="section-head">
+            <div>
+              <h2 class="section-title">Vínculos del módulo</h2>
+              <p class="small-note">Se conservan accesos directos a Panel, Agenda y Causas.</p>
+            </div>
+          </div>
+          <div class="button-row">
+            <a class="btn-outline" href="./panel.html">Panel</a>
+            <button id="btnOpenAgendaGlobal" class="btn-outline">Agenda</button>
+            <button id="btnOpenCausasGlobal" class="btn-outline">Causas</button>
+            <button id="btnFocusContenedor" class="btn-lite">Documentos</button>
+          </div>
+        </section>
+      </aside>
+    </section>
+
+    <section id="integrationBanner" class="integration-banner" hidden></section>
+
+    <section class="module-card workspace-shell">
+      <div class="workspace-head">
+        <div>
+          <span class="module-eyebrow">Pantalla de expediente del cliente</span>
+          <h2 id="workspaceTitle">Selecciona un expediente</h2>
+          <p id="workspaceSubtitle" class="module-copy">Abre un expediente para ver identificación, historia, contenedor, análisis, asistente, derivación y honorarios.</p>
+        </div>
+        <div id="workspaceActions" class="workspace-actions"></div>
+      </div>
+
+      <div id="tabsRow" class="tabs-row"></div>
+      <div id="tabPanels"></div>
+      <div id="workspaceInstructions"></div>
     </section>
   </main>
 
@@ -865,8 +737,6 @@
     const params = new URLSearchParams(window.location.search);
 
     const el = (id) => document.getElementById(id);
-    const tabs = ['Identificación', 'Historia', 'Contenedor', 'Análisis', 'Derivación', 'Honorarios'];
-    let activeTab = 'Identificación';
 
     const seedData = {
       clients: [
@@ -1262,7 +1132,8 @@
 
     let data = loadData();
     let selectedExpedienteId = getAllExpedientes()[0]?.id || null;
-    let filters = new Set(['activos', 'cerrados', 'pendientes de análisis', 'derivados a causa', 'con honorarios pendientes', 'con próxima actividad en agenda']);
+    let activeTab = 'Identificación';
+    const tabs = ['Identificación', 'Historia', 'Contenedor', 'Análisis', 'Asistente jurídico IA ChatGPT', 'Derivación', 'Honorarios'];
 
     function getAllExpedientes() {
       return data.clients.flatMap(client => client.expedientes.map(exp => ({ ...exp, client })));
@@ -1281,40 +1152,7 @@
     }
 
     function normalize(text) {
-      return String(text || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-    }
-
-    function matchesFilters(item) {
-      const statusMap = {
-        activo: 'activos',
-        cerrado: 'cerrados',
-        'pendiente de análisis': 'pendientes de análisis',
-        'derivado a causa': 'derivados a causa'
-      };
-      const normalizedStatus = normalize(item.status);
-      const statusFilter = statusMap[normalizedStatus];
-      if (statusFilter && !filters.has(statusFilter)) return false;
-      if (item.feesPending && !filters.has('con honorarios pendientes')) return false;
-      if (item.agendaActivity && !filters.has('con próxima actividad en agenda')) return false;
-      return true;
-    }
-
-    function filteredExpedientes() {
-      const query = normalize(el('searchInput').value);
-      return getAllExpedientes().filter(item => {
-        const haystack = normalize([
-          item.client.name,
-          item.client.rut,
-          item.code,
-          item.matter,
-          item.client.phone,
-          item.client.email,
-          item.responsibleLawyer,
-          item.nextActivity
-        ].join(' '));
-        const matchesSearch = !query || haystack.includes(query);
-        return matchesSearch && matchesFilters(item);
-      });
+      return String(text || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
     }
 
     function formatDate(dateString) {
@@ -1330,47 +1168,68 @@
       return 'derivado';
     }
 
+    function getMatterOptions() {
+      return [...new Set(getAllExpedientes().map(item => item.matter).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'es'));
+    }
+
+    function filteredExpedientes() {
+      const query = normalize(el('searchInput').value);
+      const statusFilter = normalize(el('estadoFilter').value || 'todos');
+      const matterFilter = el('materiaFilter').value || 'todas';
+      return getAllExpedientes().filter(item => {
+        const haystack = normalize([
+          item.code,
+          item.client.name,
+          item.client.rut,
+          item.matter,
+          item.status,
+          item.nextActivity,
+          item.responsibleLawyer,
+          item.client.email,
+          item.client.phone
+        ].join(' '));
+        const matchesSearch = !query || haystack.includes(query);
+        const matchesStatus = statusFilter === 'todos' || normalize(item.status) === statusFilter;
+        const matchesMatter = matterFilter === 'todas' || item.matter === matterFilter;
+        return matchesSearch && matchesStatus && matchesMatter;
+      });
+    }
+
     function renderStats() {
       const items = getAllExpedientes();
       const stats = [
-        { label: 'Expedientes activos', value: items.filter(item => item.status === 'Activo').length },
-        { label: 'Cerrados', value: items.filter(item => item.status === 'Cerrado').length },
-        { label: 'Pendientes de análisis', value: items.filter(item => item.analysisPending).length },
-        { label: 'Derivados a causa', value: items.filter(item => item.derivedToCase).length }
+        { label: 'Expedientes activos', value: items.filter(item => normalize(item.status) === 'activo').length },
+        { label: 'Pendientes de análisis', value: items.filter(item => normalize(item.status) === 'pendiente de analisis').length },
+        { label: 'Derivados a causa', value: items.filter(item => normalize(item.status) === 'derivado a causa').length },
+        { label: 'Cerrados', value: items.filter(item => normalize(item.status) === 'cerrado').length }
       ];
       el('statsGrid').innerHTML = stats.map(stat => `
-        <article class="stat-tile">
+        <article class="metric-card">
           <span class="metric-label">${stat.label}</span>
-          <div class="stat-number">${stat.value}</div>
+          <div class="metric-number">${stat.value}</div>
         </article>
       `).join('');
 
       const summary = [
-        { label: 'Clientes totales', value: data.clients.length },
-        { label: 'Eventos vinculados', value: items.reduce((acc, item) => acc + item.history.length, 0) },
-        { label: 'Archivos en contenedor', value: items.reduce((acc, item) => acc + item.container.files.length, 0) },
+        { label: 'Clientes', value: data.clients.length },
+        { label: 'Eventos históricos', value: items.reduce((acc, item) => acc + item.history.length, 0) },
+        { label: 'Documentos asociados', value: items.reduce((acc, item) => acc + item.container.files.length, 0) },
         { label: 'Boletas registradas', value: data.clients.reduce((acc, client) => acc + client.invoices, 0) }
       ];
-      el('summaryGrid').innerHTML = summary.map(stat => `
-        <article class="summary-tile">
-          <span class="metric-label">${stat.label}</span>
-          <strong style="font-size:24px;margin-top:6px;">${stat.value}</strong>
+      el('summaryGrid').innerHTML = summary.map(item => `
+        <article class="summary-card">
+          <span class="metric-label">${item.label}</span>
+          <strong style="font-size: 24px; margin-top: 8px;">${item.value}</strong>
         </article>
       `).join('');
     }
 
-    function renderQuickFilters() {
-      const chips = [
-        'activos',
-        'cerrados',
-        'pendientes de análisis',
-        'derivados a causa',
-        'con honorarios pendientes',
-        'con próxima actividad en agenda'
-      ];
-      el('quickFilters').innerHTML = chips.map(filter => `
-        <button class="chip ${filters.has(filter) ? 'active' : ''}" data-filter-chip="${filter}">${filter}</button>
-      `).join('');
+    function renderMatterFilterOptions() {
+      const select = el('materiaFilter');
+      const current = select.value || 'todas';
+      const options = ['<option value="todas">Todas</option>'].concat(getMatterOptions().map(matter => `<option value="${matter}">${matter}</option>`));
+      select.innerHTML = options.join('');
+      select.value = options.some(option => option.includes(`value="${current}"`)) ? current : 'todas';
     }
 
     function renderExpedientes() {
@@ -1381,35 +1240,33 @@
       el('resultsChip').textContent = `${items.length} expediente(s)`;
       const container = el('expedientesList');
       if (!items.length) {
-        container.innerHTML = '<div class="empty-state">No hay expedientes que coincidan con la búsqueda o filtros seleccionados.</div>';
+        container.innerHTML = '<div class="empty-state">No hay expedientes que coincidan con el buscador general o con los filtros seleccionados.</div>';
         return;
       }
       container.innerHTML = items.map(item => `
         <article class="expediente-card ${item.id === selectedExpedienteId ? 'active' : ''}" data-expediente-id="${item.id}">
-          <div class="expediente-head">
-            <div class="heading-stack">
-              <small>N° de expediente</small>
+          <div class="card-head">
+            <div>
+              <span class="mini-label">N° expediente</span>
               <strong>${item.code}</strong>
             </div>
             <span class="status-pill ${statusClass(item.status)}">${item.status}</span>
           </div>
 
-          <div class="detail-grid">
-            <div class="field-card"><span>Cliente</span><strong>${item.client.name}</strong></div>
-            <div class="field-card"><span>RUT</span><strong>${item.client.rut || 'Pendiente'}</strong></div>
-            <div class="field-card"><span>Materia principal</span><strong>${item.matter}</strong></div>
-            <div class="field-card"><span>Fecha de apertura</span><strong>${formatDate(item.openedAt)}</strong></div>
-            <div class="field-card"><span>Próxima actividad</span><strong>${item.nextActivity}</strong></div>
-            <div class="field-card"><span>Abogado responsable</span><strong>${item.responsibleLawyer}</strong></div>
+          <div class="data-grid">
+            <div class="data-item"><span class="mini-label">Cliente</span><strong>${item.client.name}</strong></div>
+            <div class="data-item"><span class="mini-label">RUT</span><strong>${item.client.rut || 'Pendiente'}</strong></div>
+            <div class="data-item"><span class="mini-label">Materia</span><strong>${item.matter}</strong></div>
+            <div class="data-item"><span class="mini-label">Próxima actividad</span><strong>${item.nextActivity}</strong></div>
+            <div class="data-item"><span class="mini-label">Abogado responsable</span><strong>${item.responsibleLawyer}</strong></div>
+            <div class="data-item"><span class="mini-label">Fecha de apertura</span><strong>${formatDate(item.openedAt)}</strong></div>
           </div>
 
-          <div class="event-actions">
-            <button class="btn-outline" data-action="open">Abrir expediente</button>
-            <button class="btn-lite" data-action="agenda">Ver agenda</button>
-            <button class="btn-lite" data-action="causas">Ver causas asociadas</button>
-            <button class="btn-lite" data-action="crear-causa">Crear causa</button>
-            <button class="btn-lite" data-action="upload">Subir documento</button>
-            <button class="btn-danger-soft" data-action="close">Cerrar expediente</button>
+          <div class="button-row">
+            <button class="btn-cta" data-action="open">Abrir</button>
+            <button class="btn-outline" data-action="agenda">Agenda</button>
+            <button class="btn-outline" data-action="causas">Causas</button>
+            <button class="btn-lite" data-action="upload">Documentos</button>
           </div>
         </article>
       `).join('');
@@ -1424,115 +1281,65 @@
         return;
       }
       banner.hidden = false;
-      banner.innerHTML = `<strong>Integración activa:</strong> se cargaron datos desde <strong>${origin}</strong> para mantener continuidad entre módulos. Puedes seguir trabajando en el expediente, enviar antecedentes a Causas o volver a Agenda con contexto preservado.`;
+      banner.innerHTML = `<strong>Integración activa:</strong> se cargaron datos desde <strong>${origin}</strong> para mantener continuidad entre módulos sin perder el contexto del expediente.`;
     }
 
     function renderTabs() {
-      const visibleTabs = tabs.filter(tab => tab !== 'Honorarios' || isAdminHonorarios);
-      if (!visibleTabs.includes(activeTab)) activeTab = visibleTabs[0];
-      el('tabsRow').innerHTML = visibleTabs.map(tab => `
+      el('tabsRow').innerHTML = tabs.map(tab => `
         <button class="tab-btn ${tab === activeTab ? 'active' : ''}" data-tab="${tab}">${tab}</button>
-      `).join('');
-    }
-
-    function renderWorkspace() {
-      const selected = getSelectedExpediente();
-      const actions = el('workspaceActions');
-      if (!selected) {
-        el('workspaceTitle').textContent = 'Selecciona un expediente';
-        el('workspaceSubtitle').textContent = 'Visualiza identificación, historia, contenedor, análisis, derivación y honorarios en una única superficie fija.';
-        actions.innerHTML = '';
-        el('tabPanels').innerHTML = '<div class="empty-state">Selecciona un expediente desde la lista para revisar su información completa.</div>';
-        return;
-      }
-
-      el('workspaceTitle').textContent = `${selected.code} · ${selected.client.name}`;
-      el('workspaceSubtitle').textContent = `${selected.matter} · ${selected.status} · Próxima actividad: ${selected.nextActivity}`;
-      actions.innerHTML = `
-        <button class="btn-outline" data-workspace-action="agenda">Ver eventos en agenda</button>
-        <button class="btn-outline" data-workspace-action="causas">Ver causas asociadas</button>
-        <button class="btn-lite" data-workspace-action="same-client">Crear nuevo expediente del mismo cliente</button>
-      `;
-
-      const identification = renderIdentification(selected);
-      const history = renderHistory(selected);
-      const container = renderContainer(selected);
-      const analysis = renderAnalysis(selected);
-      const derivation = renderDerivation(selected);
-      const honorarios = renderHonorarios(selected);
-
-      const panels = {
-        Identificación: identification,
-        Historia: history,
-        Contenedor: container,
-        Análisis: analysis,
-        Derivación: derivation,
-        Honorarios: honorarios
-      };
-
-      const visibleTabs = tabs.filter(tab => tab !== 'Honorarios' || isAdminHonorarios);
-      el('tabPanels').innerHTML = visibleTabs.map(tab => `
-        <section class="tab-panel ${tab === activeTab ? 'active' : ''}" data-panel="${tab}">${panels[tab]}</section>
       `).join('');
     }
 
     function renderIdentification(selected) {
       return `
-        <div class="subgrid">
-          <article class="subsection">
-            <div class="panel-title-row">
-              <div>
-                <h3>Identificación del cliente</h3>
-                <p class="small-note">Datos base reutilizables desde Agenda y editables directamente desde este módulo.</p>
+        <section class="tab-section">
+          <div class="tab-grid">
+            <article class="subcard">
+              <div class="section-head">
+                <div>
+                  <h3>Identificación</h3>
+                  <p class="small-note">Datos del cliente y del expediente reutilizables por Agenda y Causas.</p>
+                </div>
+                <span class="type-pill">Origen: ${selected.source}</span>
               </div>
-              <span class="type-pill">Origen: ${selected.source}</span>
-            </div>
-            <h4>Subbloque A · Datos personales</h4>
-            <ul class="field-list">
-              <li><span class="mini-label">Nombre completo</span><strong>${selected.client.name}</strong></li>
-              <li><span class="mini-label">RUT</span><strong>${selected.client.rut || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Fecha de nacimiento</span><strong>${selected.client.birthDate ? formatDate(selected.client.birthDate) : 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Estado civil</span><strong>${selected.client.maritalStatus || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Profesión u oficio</span><strong>${selected.client.profession || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Nacionalidad</span><strong>${selected.client.nationality || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Domicilio</span><strong>${selected.client.address || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Comuna</span><strong>${selected.client.comuna || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Ciudad</span><strong>${selected.client.city || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Correo electrónico</span><strong>${selected.client.email || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Domicilio electrónico</span><strong>${selected.client.eAddress || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Teléfono principal</span><strong>${selected.client.phone || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Teléfono de contacto</span><strong>${selected.client.contactPhone || 'Pendiente'}</strong></li>
-              <li><span class="mini-label">Medio de contacto preferido</span><strong>${selected.client.preferredContact || 'Pendiente'}</strong></li>
-              <li style="grid-column:1/-1;"><span class="mini-label">Observaciones</span><strong>${selected.client.notes || 'Sin observaciones'}</strong></li>
-            </ul>
-          </article>
+              <h4>Datos del cliente</h4>
+              <ul class="field-list">
+                <li><span class="mini-label">Nombre completo</span><strong>${selected.client.name}</strong></li>
+                <li><span class="mini-label">RUT</span><strong>${selected.client.rut || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Domicilio</span><strong>${selected.client.address || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Estado civil</span><strong>${selected.client.maritalStatus || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Correo electrónico</span><strong>${selected.client.email || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Profesión u oficio</span><strong>${selected.client.profession || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Teléfono</span><strong>${selected.client.phone || 'Pendiente'}</strong></li>
+                <li><span class="mini-label">Teléfono de contacto</span><strong>${selected.client.contactPhone || 'Pendiente'}</strong></li>
+              </ul>
+            </article>
 
-          <article class="subsection">
-            <h4>Subbloque B · Datos del expediente</h4>
-            <ul class="field-list">
-              <li><span class="mini-label">N° de expediente</span><strong>${selected.code}</strong></li>
-              <li><span class="mini-label">Fecha de apertura</span><strong>${formatDate(selected.openedAt)}</strong></li>
-              <li><span class="mini-label">Materia principal</span><strong>${selected.matter}</strong></li>
-              <li><span class="mini-label">Estado del expediente</span><strong>${selected.status}</strong></li>
-              <li><span class="mini-label">Abogado responsable</span><strong>${selected.responsibleLawyer}</strong></li>
-              <li><span class="mini-label">Fuente de ingreso del cliente</span><strong>${selected.client.source}</strong></li>
-              <li style="grid-column:1/-1;"><span class="mini-label">Observaciones del asunto</span><strong>${selected.issueNotes}</strong></li>
-            </ul>
-            <div class="button-row">
-              <button class="btn-outline" data-workspace-action="edit">Editar datos</button>
-              <button class="btn-cta" data-workspace-action="save">Guardar cambios</button>
-              <button class="btn-lite" data-workspace-action="agenda">Ver eventos en agenda</button>
-              <button class="btn-lite" data-workspace-action="causas">Ver causas asociadas</button>
-              <button class="btn-lite" data-workspace-action="same-client">Crear nuevo expediente del mismo cliente</button>
-            </div>
-          </article>
-        </div>
+            <article class="subcard">
+              <h4>Datos del expediente</h4>
+              <ul class="field-list">
+                <li><span class="mini-label">N° expediente</span><strong>${selected.code}</strong></li>
+                <li><span class="mini-label">Fecha de apertura</span><strong>${formatDate(selected.openedAt)}</strong></li>
+                <li><span class="mini-label">Materia</span><strong>${selected.matter}</strong></li>
+                <li><span class="mini-label">Estado</span><strong>${selected.status}</strong></li>
+                <li><span class="mini-label">Abogado responsable</span><strong>${selected.responsibleLawyer}</strong></li>
+                <li style="grid-column: 1 / -1;"><span class="mini-label">Observaciones</span><strong>${selected.issueNotes || 'Sin observaciones'}</strong></li>
+              </ul>
+              <div class="section-actions">
+                <button class="btn-outline" data-workspace-action="edit">Editar</button>
+                <button class="btn-cta" data-workspace-action="save">Guardar</button>
+                <button class="btn-lite" data-workspace-action="agenda">Ver agenda</button>
+                <button class="btn-lite" data-workspace-action="causas">Ver causas</button>
+              </div>
+            </article>
+          </div>
+        </section>
       `;
     }
 
     function renderHistory(selected) {
       const timeline = selected.history.length ? selected.history.map(event => `
-        <article class="timeline-item">
+        <article class="event-card">
           <div class="event-head">
             <div>
               <span class="mini-label">N° correlativo ${event.correlative}</span>
@@ -1540,291 +1347,337 @@
             </div>
             <span class="type-pill">${event.type}</span>
           </div>
-          <div class="detail-grid" style="margin-top:10px;">
-            <div class="field-card"><span>Materia tratada</span><strong>${event.matter}</strong></div>
-            <div class="field-card"><span>Fecha y hora</span><strong>${formatDate(event.date)} · ${event.time}</strong></div>
-            <div class="field-card"><span>Profesional interviniente</span><strong>${event.professional}</strong></div>
-            <div class="field-card"><span>Vínculo con agenda</span><strong>${event.agendaLink}</strong></div>
+          <div class="data-grid">
+            <div class="data-item"><span class="mini-label">Tipo de evento</span><strong>${event.type}</strong></div>
+            <div class="data-item"><span class="mini-label">Materia tratada</span><strong>${event.matter}</strong></div>
+            <div class="data-item"><span class="mini-label">Fecha</span><strong>${formatDate(event.date)}</strong></div>
+            <div class="data-item"><span class="mini-label">Hora</span><strong>${event.time}</strong></div>
           </div>
-          <p class="module-copy" style="margin:10px 0 0;">${event.notes}</p>
-          <div class="timeline-meta">${event.execution.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
-          <div class="timeline-meta">${event.record.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
-          <div class="timeline-meta">${event.backup.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
+          <div class="pill-row">
+            ${event.execution.map(item => `<span class="inline-pill">${item}</span>`).join('')}
+            ${event.record.map(item => `<span class="inline-pill">${item}</span>`).join('')}
+            ${event.backup.map(item => `<span class="inline-pill">${item}</span>`).join('')}
+          </div>
+          <p class="muted-copy">${event.notes}</p>
         </article>
-      `).join('') : '<div class="empty-state">Aún no hay eventos asociados. Puedes vincularlos desde Agenda o crearlos manualmente.</div>';
+      `).join('') : '<div class="empty-state">Aún no hay eventos asociados. Puedes crear uno nuevo o vincularlo desde Agenda.</div>';
 
       return `
-        <article class="subsection">
-          <div class="panel-title-row">
-            <div>
-              <h3>Historia del expediente</h3>
-              <p class="small-note">Registro cronológico con tipo de evento, materia tratada, profesional, observaciones y vínculo a Agenda.</p>
+        <section class="tab-section">
+          <article class="subcard">
+            <div class="section-head">
+              <div>
+                <h3>Historia</h3>
+                <p class="small-note">Registro histórico por evento con fecha, hora, tipo, materia tratada y resultado de la actividad.</p>
+              </div>
             </div>
-            <span class="type-pill">Buscador interno</span>
-          </div>
-          <div class="field-list">
-            <li><span class="mini-label">Buscar por</span><strong>N° correlativo</strong></li>
-            <li><span class="mini-label">Buscar por</span><strong>Tipo de evento</strong></li>
-            <li><span class="mini-label">Buscar por</span><strong>Fecha</strong></li>
-            <li><span class="mini-label">Buscar por</span><strong>Palabra clave</strong></li>
-            <li><span class="mini-label">Buscar por</span><strong>Materia tratada</strong></li>
-          </div>
-          <div class="button-row">
-            <button class="btn-cta" data-workspace-action="new-event">Nuevo evento</button>
-            <button class="btn-outline" data-workspace-action="agenda">Vincular evento de agenda</button>
-            <button class="btn-lite">Redactar acta</button>
-            <button class="btn-lite">Convertir a PDF</button>
-            <button class="btn-lite">Guardar en contenedor</button>
-            <button class="btn-lite">Enviar al cliente</button>
-            <button class="btn-lite">Ver historial completo</button>
-          </div>
-          <div class="timeline-list">${timeline}</div>
-        </article>
+            <div class="section-actions">
+              <button class="btn-cta" data-workspace-action="new-event">Nuevo evento</button>
+              <button class="btn-outline" data-workspace-action="agenda">Vincular desde agenda</button>
+              <button class="btn-lite">Redactar acta</button>
+              <button class="btn-lite">Convertir a PDF</button>
+              <button class="btn-lite">Guardar</button>
+              <button class="btn-lite">Enviar</button>
+            </div>
+            <div class="history-grid">${timeline}</div>
+          </article>
+        </section>
       `;
     }
 
     function renderContainer(selected) {
-      return `
-        <div class="subgrid">
-          <article class="subsection">
-            <div class="panel-title-row">
-              <div>
-                <h3>Contenedor documental</h3>
-                <p class="small-note">Organización automática por subcarpetas, con asociación de archivos a evento, cliente, expediente o causa.</p>
-              </div>
+      const visibleSections = ['Actas', 'Grabaciones', 'Documentos del cliente', 'Documentos del caso', 'Jurisprudencia', 'Doctrina', 'Normas', 'Contratos', 'Boletas'];
+      const files = selected.container.files.length ? selected.container.files.map(file => `
+        <article class="file-card">
+          <div class="file-head">
+            <div>
+              <span class="mini-label">${file.folder}</span>
+              <strong>${file.name}</strong>
             </div>
-            <h4>Subcarpetas automáticas</h4>
-            <ul class="checkbox-list">
-              ${selected.container.folders.map(folder => `<li>${folder}</li>`).join('')}
-            </ul>
-            <div class="button-row">
-              <button class="btn-cta" data-workspace-action="upload">Subir documento</button>
-              <button class="btn-outline">Escanear</button>
-              <button class="btn-outline">Crear carpeta</button>
-              <button class="btn-lite">Descargar</button>
-              <button class="btn-lite">Asociar a evento</button>
-              <button class="btn-lite">Asociar a causa</button>
-              <button class="btn-danger-soft">Eliminar</button>
-              <button class="btn-lite">Ver documento</button>
-            </div>
-          </article>
+            <span class="type-pill">${file.kind}</span>
+          </div>
+          <div class="file-meta">
+            <span class="inline-pill">Asociado a ${file.linkedTo}</span>
+          </div>
+        </article>
+      `).join('') : '<div class="empty-state">No hay documentos cargados todavía en el contenedor visible del expediente.</div>';
 
-          <article class="subsection">
-            <h4>Archivos del expediente</h4>
-            <div class="files-grid">
-              ${selected.container.files.map(file => `
-                <article class="file-card">
-                  <div class="files-head">
-                    <div>
-                      <span>${file.folder}</span>
-                      <strong>${file.name}</strong>
-                    </div>
-                    <span class="type-pill">${file.kind}</span>
-                  </div>
-                  <div class="files-meta">
-                    <span class="inline-pill">Asociado a ${file.linkedTo}</span>
-                  </div>
-                </article>
-              `).join('')}
-            </div>
-          </article>
-        </div>
+      return `
+        <section class="tab-section">
+          <div class="container-grid">
+            <article class="subcard">
+              <h3>Contenedor</h3>
+              <p class="small-note">Secciones visibles del contenedor documental del expediente.</p>
+              <ul class="field-list">
+                ${visibleSections.map(section => `<li><span class="mini-label">Sección</span><strong>${section}</strong></li>`).join('')}
+              </ul>
+              <div class="section-actions">
+                <button class="btn-cta" data-workspace-action="upload">Subir documento</button>
+                <button class="btn-outline">Ver documento</button>
+                <button class="btn-lite">Descargar</button>
+                <button class="btn-danger-soft">Eliminar</button>
+                <button class="btn-lite">Asociar</button>
+              </div>
+            </article>
+            <article class="subcard">
+              <h4>Documentos asociados</h4>
+              <div class="container-grid" style="grid-template-columns: 1fr;">${files}</div>
+            </article>
+          </div>
+        </section>
       `;
     }
 
     function renderAnalysis(selected) {
+      const classifications = ['Juicio en curso', 'Juicio anterior terminado', 'Opinión jurídica', 'Asesoría', 'Iniciar juicio', 'Iniciar trámite administrativo'];
+      const proposals = ['Recomendar no tomar el caso', 'Recomendar tomar el caso', 'Recomendar acción judicial', 'Recomendar defensa', 'Recomendar gestión administrativa', 'Recomendar asesoría', 'Recomendar contrato'];
       return `
-        <div class="subgrid">
-          <article class="subsection">
-            <h3>Análisis jurídico del caso</h3>
-            <div class="analysis-grid">
-              <article class="analysis-card">
-                <span>Clasificación del asunto</span>
-                <strong>${selected.analysis.classification}</strong>
-                <div class="analysis-actions">${['Juicio en curso', 'Juicio anterior terminado', 'Opinión jurídica', 'Asesoría', 'Iniciar juicio', 'Iniciar trámite administrativo', 'Redacción de contrato', 'Estudio de antecedentes'].map(option => `<span class="inline-pill ${option === selected.analysis.classification ? 'active' : ''}">${option}</span>`).join('')}</div>
-              </article>
-              <article class="analysis-card">
-                <span>Análisis asistido por IA</span>
-                <strong>Funciones habilitadas</strong>
-                <div class="analysis-actions">${selected.analysis.ai.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
-              </article>
-              <article class="analysis-card">
-                <span>Fundamentos para el análisis</span>
-                <strong>Jurisprudencia, doctrina y normas</strong>
-                <ul class="bullet-list">${selected.analysis.foundations.map(item => `<li>${item}</li>`).join('')}</ul>
-              </article>
-              <article class="analysis-card">
-                <span>Propuesta de solución</span>
-                <strong>${selected.analysis.recommendation}</strong>
-                <p class="muted-copy">${selected.analysis.report}</p>
-              </article>
-            </div>
-            <div class="button-row">
-              <button class="btn-cta">Analizar con IA</button>
-              <button class="btn-outline">Buscar fundamentos</button>
-              <button class="btn-lite">Guardar jurisprudencia</button>
-              <button class="btn-lite">Guardar doctrina</button>
-              <button class="btn-lite">Guardar normas</button>
-              <button class="btn-lite">Redactar informe</button>
-              <button class="btn-lite">Convertir a PDF</button>
-              <button class="btn-lite">Enviar informe</button>
-            </div>
-          </article>
-        </div>
+        <section class="tab-section">
+          <div class="analysis-grid">
+            <article class="analysis-card">
+              <span class="mini-label">Clasificación del asunto</span>
+              <strong>${selected.analysis.classification}</strong>
+              <div class="pill-row">${classifications.map(item => `<span class="inline-pill ${item === selected.analysis.classification ? 'active' : ''}">${item}</span>`).join('')}</div>
+            </article>
+            <article class="analysis-card">
+              <span class="mini-label">Fundamentos</span>
+              <strong>Jurisprudencia · Doctrina · Normas jurídicas</strong>
+              <ul class="bullet-list">${selected.analysis.foundations.map(item => `<li>${item}</li>`).join('')}</ul>
+            </article>
+            <article class="analysis-card">
+              <span class="mini-label">Propuesta</span>
+              <strong>${selected.analysis.recommendation}</strong>
+              <div class="pill-row">${proposals.map(item => `<span class="inline-pill ${item === selected.analysis.recommendation ? 'active' : ''}">${item}</span>`).join('')}</div>
+            </article>
+            <article class="analysis-card">
+              <span class="mini-label">Informe</span>
+              <strong>Informe jurídico</strong>
+              <p class="muted-copy">${selected.analysis.report}</p>
+            </article>
+          </div>
+          <div class="section-actions">
+            <button class="btn-cta">Analizar</button>
+            <button class="btn-outline">Buscar fundamentos</button>
+            <button class="btn-lite">Guardar</button>
+            <button class="btn-lite">Redactar informe</button>
+            <button class="btn-lite">Ver informe</button>
+            <button class="btn-lite">Enviar informe</button>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderAssistant(selected) {
+      const assistantFunctions = [
+        'Consulta jurídica sobre el caso',
+        'Resumen del expediente',
+        'Redacción de informe',
+        'Propuesta de estrategia',
+        'Borrador de escrito',
+        'Revisión de antecedentes',
+        'Sugerencia de fundamentos',
+        'Preparación de reunión o audiencia'
+      ];
+      return `
+        <section class="tab-section">
+          <div class="assistant-grid">
+            <article class="assistant-card">
+              <h3>Asistente jurídico IA ChatGPT</h3>
+              <p class="small-note">Funciones visibles del asistente aplicadas al expediente seleccionado.</p>
+              <div class="pill-row">${assistantFunctions.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
+              <div class="textarea-stack">
+                <label for="assistantPrompt">Cuadro de consulta</label>
+                <textarea id="assistantPrompt" rows="6" placeholder="Escribe una consulta jurídica específica sobre el caso..."></textarea>
+              </div>
+              <div class="section-actions">
+                <button class="btn-cta" data-workspace-action="consult">Consultar</button>
+                <button class="btn-outline">Guardar respuesta</button>
+                <button class="btn-lite">Copiar al informe</button>
+                <button class="btn-lite">Enviar a contenedor</button>
+              </div>
+            </article>
+            <article class="assistant-card">
+              <span class="mini-label">Respuesta del asistente</span>
+              <strong>Resumen operativo del expediente</strong>
+              <div class="text-panel">${selected.summary}<br><br>Próxima actividad: ${selected.nextActivity}.<br>Observaciones base: ${selected.issueNotes}</div>
+              <span class="mini-label">Historial de consultas del expediente</span>
+              <ul class="bullet-list">${selected.analysis.ai.map(item => `<li>${item}</li>`).join('')}</ul>
+            </article>
+          </div>
+        </section>
       `;
     }
 
     function renderDerivation(selected) {
+      const options = ['Derivar a otro profesional', 'Desechar asunto', 'Derivar a Causas'];
       return `
-        <div class="subgrid">
-          <article class="subsection">
-            <h3>Derivación y destino del expediente</h3>
-            <div class="decision-grid">
-              <article class="decision-card">
-                <span>Destino actual</span>
-                <strong>${selected.derivation.destination}</strong>
-                <div class="decision-actions">${selected.derivation.reasons.map(item => `<span class="inline-pill">${item}</span>`).join('')}</div>
-              </article>
-              <article class="decision-card">
-                <span>Traspaso a Causas</span>
-                <strong>${selected.derivation.transferMatter} · ${selected.derivation.transferSubmatter}</strong>
-                <ul class="bullet-list">
-                  <li>Tribunal: ${selected.derivation.transferCourt}</li>
-                  <li>Procedimiento: ${selected.derivation.transferProcedure}</li>
-                  <li>Rol: ${selected.derivation.transferRol}</li>
-                  <li>Observaciones: ${selected.derivation.transferNotes}</li>
-                </ul>
-              </article>
-            </div>
-            <div class="button-row">
-              <button class="btn-outline">Derivar externamente</button>
-              <button class="btn-danger-soft" data-workspace-action="close">Cerrar expediente</button>
-              <button class="btn-cta" data-workspace-action="crear-causa">Crear causa desde expediente</button>
-              <button class="btn-lite">Traspasar antecedentes a causas</button>
-              <button class="btn-lite">Registrar motivo</button>
-            </div>
-          </article>
-        </div>
+        <section class="tab-section">
+          <div class="derivation-grid">
+            <article class="decision-card">
+              <h3>Derivación</h3>
+              <p class="small-note">Opciones visibles para cierre, derivación o creación de causa desde el expediente.</p>
+              <div class="pill-row">${options.map(item => `<span class="inline-pill ${item === selected.derivation.destination ? 'active' : ''}">${item}</span>`).join('')}</div>
+              <ul class="field-list">
+                <li><span class="mini-label">Motivo</span><strong>${selected.derivation.reasons.join(', ')}</strong></li>
+                <li><span class="mini-label">Materia</span><strong>${selected.derivation.transferMatter}</strong></li>
+                <li><span class="mini-label">Submateria</span><strong>${selected.derivation.transferSubmatter}</strong></li>
+                <li style="grid-column: 1 / -1;"><span class="mini-label">Observaciones</span><strong>${selected.derivation.transferNotes}</strong></li>
+              </ul>
+            </article>
+            <article class="decision-card">
+              <span class="mini-label">Derivación a Causas</span>
+              <strong>${selected.derivation.transferMatter} · ${selected.derivation.transferSubmatter}</strong>
+              <ul class="bullet-list">
+                <li>Tribunal: ${selected.derivation.transferCourt}</li>
+                <li>Procedimiento: ${selected.derivation.transferProcedure}</li>
+                <li>Rol: ${selected.derivation.transferRol}</li>
+              </ul>
+              <div class="section-actions">
+                <button class="btn-outline">Derivar</button>
+                <button class="btn-danger-soft" data-workspace-action="close">Cerrar expediente</button>
+                <button class="btn-cta" data-workspace-action="crear-causa">Crear causa</button>
+              </div>
+            </article>
+          </div>
+        </section>
       `;
     }
 
     function renderHonorarios(selected) {
-      if (!isAdminHonorarios) {
-        return `
-          <article class="subsection">
-            <div class="admin-banner"><strong>Acceso restringido.</strong> La pestaña Honorarios solo es visible y editable por el administrador del sistema Alpha Avocat: Mario Rodríguez Ardiles.</div>
-          </article>
-        `;
+      const fees = selected.fees;
+      const monthlyVisible = normalize(fees.modality).includes('mensual');
+      const taxMode = normalize(selected.client.notes).includes('juridica') ? 'juridica' : 'natural';
+      return `
+        <section class="tab-section">
+          ${!isAdminHonorarios ? '<div class="admin-banner"><strong>Acceso restringido.</strong> Se mantiene la lógica actual: Honorarios sigue protegido para el administrador, pero la pestaña permanece visible en la estructura del expediente.</div>' : ''}
+          <div class="fees-grid">
+            <article class="fee-card">
+              <div class="fee-head">
+                <div>
+                  <h3>Honorarios de trabajo</h3>
+                  <p class="small-note">Presupuesto, condición tributaria, respuesta del cliente, contrato, boleta y envío.</p>
+                </div>
+              </div>
+              <span class="mini-label">Presupuesto</span>
+              <div class="pill-row">
+                ${['Pago al contado', 'Pago con pie y saldo en cuotas', 'Pago contingente con porcentaje', 'Pago mixto', 'Asesoría mensual', 'Gratuidad'].map(item => `<span class="inline-pill ${item === fees.modality ? 'active' : ''}">${item}</span>`).join('')}
+              </div>
+              <ul class="field-list">
+                <li><span class="mini-label">Modalidad</span><strong>${fees.modality}</strong></li>
+                <li><span class="mini-label">Honorario base / bruto</span><strong>${fees.total}</strong></li>
+                <li><span class="mini-label">Monto impuesto</span><strong>${fees.tax}</strong></li>
+                <li><span class="mini-label">Monto líquido</span><strong>${fees.base}</strong></li>
+                ${monthlyVisible ? `
+                  <li><span class="mini-label">Honorario mensual</span><strong>${fees.total}</strong></li>
+                  <li><span class="mini-label">Fecha de cobro mensual</span><strong>${fees.dueDate}</strong></li>
+                  <li><span class="mini-label">Mes de inicio</span><strong>${formatDate(selected.openedAt)}</strong></li>
+                  <li><span class="mini-label">Observaciones</span><strong>${fees.installments}</strong></li>
+                ` : ''}
+              </ul>
+            </article>
+
+            <article class="fee-card">
+              <span class="mini-label">Condición tributaria de la boleta</span>
+              <strong>${taxMode === 'juridica' ? 'Receptor persona jurídica' : 'Receptor persona natural'}</strong>
+              <ul class="bullet-list">
+                ${taxMode === 'juridica'
+                  ? `<li>Honorario líquido: ${fees.base}</li><li>Monto impuesto: ${fees.tax}</li><li>Honorario bruto: ${fees.total}</li><li>El receptor retiene el impuesto</li>`
+                  : `<li>Honorario bruto: ${fees.total}</li><li>Monto líquido: ${fees.base}</li><li>Monto impuesto: ${fees.tax}</li><li>El Estudio Jurídico retiene el impuesto</li>`}
+              </ul>
+              <span class="mini-label">Respuesta del cliente</span>
+              <div class="fee-response-row">${['Acepta', 'Acepta con prevención', 'Rechaza'].map(item => `<span class="inline-pill ${item === fees.response ? 'active' : ''}">${item}</span>`).join('')}</div>
+            </article>
+
+            <article class="fee-card">
+              <span class="mini-label">Contrato</span>
+              <strong>Contrato de honorarios</strong>
+              <ul class="bullet-list">
+                <li>Estado actual: ${fees.response}</li>
+                <li>Cuotas / condición: ${fees.installments}</li>
+                <li>Vencimiento o cobro: ${fees.dueDate}</li>
+              </ul>
+            </article>
+
+            <article class="fee-card">
+              <span class="mini-label">Boleta</span>
+              <strong>${fees.invoice.number}</strong>
+              <ul class="bullet-list">
+                <li>Tipo de receptor: ${taxMode === 'juridica' ? 'Persona jurídica' : 'Persona natural'}</li>
+                <li>N° de boleta: ${fees.invoice.number}</li>
+                <li>Fecha: ${fees.invoice.date}</li>
+                <li>Monto: ${fees.invoice.amount}</li>
+                <li>Observación: ${fees.invoice.note}</li>
+              </ul>
+              <span class="mini-label">Envío</span>
+              <div class="pill-row"><span class="inline-pill">Correo</span><span class="inline-pill">WhatsApp</span></div>
+            </article>
+          </div>
+          <div class="section-actions">
+            <button class="btn-outline" onclick="window.open('https://www.sii.cl', '_blank', 'noopener')">Ir al SII</button>
+            <button class="btn-lite">Registrar boleta</button>
+            <button class="btn-lite">Guardar boleta</button>
+            <button class="btn-lite">Ver boleta</button>
+            <button class="btn-lite">Enviar boleta</button>
+            <button class="btn-cta">Generar contrato</button>
+            <button class="btn-outline">Marcar gratuidad</button>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderInstructions(selected) {
+      return `
+        <section class="module-card instruction-card">
+          <span class="module-eyebrow">Instrucciones</span>
+          <strong>Instrucciones internas</strong>
+          <div class="textarea-stack">
+            <label for="internalInstructions">Espacio para escribir tareas</label>
+            <textarea id="internalInstructions" rows="5" placeholder="Registrar tareas internas del expediente, pendientes, seguimiento y recordatorios...">${selected ? `Seguimiento interno de ${selected.code}: revisar antecedentes, coordinar próxima actividad y actualizar análisis.` : ''}</textarea>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderWorkspace() {
+      const selected = getSelectedExpediente();
+      const actions = el('workspaceActions');
+      if (!selected) {
+        el('workspaceTitle').textContent = 'Selecciona un expediente';
+        el('workspaceSubtitle').textContent = 'Abre un expediente para revisar identificación, historia, contenedor, análisis, asistente, derivación y honorarios.';
+        actions.innerHTML = '';
+        el('tabPanels').innerHTML = '<div class="empty-state">Selecciona un expediente desde el listado principal para ver su detalle.</div>';
+        el('workspaceInstructions').innerHTML = renderInstructions(null);
+        return;
       }
 
-      const fees = selected.fees;
-      return `
-        <div class="subgrid">
-          <article class="subsection">
-            <h3>Honorarios de trabajo</h3>
-            <div class="analysis-grid">
-              <article class="restricted-card">
-                <span>Subbloque A · Presupuesto</span>
-                <strong>${fees.modality}</strong>
-                <ul class="bullet-list">
-                  <li>Monto base: ${fees.base}</li>
-                  <li>Impuesto: ${fees.tax}</li>
-                  <li>Gastos externos: ${fees.externalCosts}</li>
-                  <li>Total: ${fees.total}</li>
-                  <li>Cuotas: ${fees.installments}</li>
-                  <li>Vencimiento: ${fees.dueDate}</li>
-                </ul>
-                <p class="muted-copy">El impuesto y los gastos externos aparecen como monto adicional a cargo del cliente.</p>
-              </article>
-              <article class="restricted-card">
-                <span>Subbloque B · Respuesta del cliente</span>
-                <strong>${fees.response}</strong>
-                <div class="analysis-actions">${['Acepta', 'Acepta con prevención', 'Rechaza'].map(item => `<span class="inline-pill ${item === fees.response ? 'active' : ''}">${item}</span>`).join('')}</div>
-              </article>
-              <article class="restricted-card">
-                <span>Subbloque C · Contrato</span>
-                <strong>Generación asistida</strong>
-                <ul class="bullet-list">
-                  <li>Redactar contrato con IA</li>
-                  <li>Completar datos del cliente</li>
-                  <li>Generar Word y PDF</li>
-                  <li>Guardar en contenedor</li>
-                </ul>
-              </article>
-              <article class="restricted-card">
-                <span>Subbloque D/E/F · Boleta</span>
-                <strong>${fees.invoice.number}</strong>
-                <ul class="bullet-list">
-                  <li>Fecha: ${fees.invoice.date}</li>
-                  <li>Monto: ${fees.invoice.amount}</li>
-                  <li>Observación: ${fees.invoice.note}</li>
-                  <li>Asociaciones posibles: expediente, evento, cliente y causa</li>
-                </ul>
-              </article>
-            </div>
-            <div class="button-row">
-              <button class="btn-outline" onclick="window.open('https://www.sii.cl', '_blank', 'noopener')">Ir al SII</button>
-              <button class="btn-lite">Registrar boleta</button>
-              <button class="btn-lite">Subir boleta PDF</button>
-              <button class="btn-lite">Guardar boleta</button>
-              <button class="btn-lite">Ver boleta</button>
-              <button class="btn-lite">Enviar boleta</button>
-              <button class="btn-cta">Generar contrato</button>
-              <button class="btn-outline">Marcar gratuidad</button>
-              <button class="btn-outline" id="btnReturnContenedor">Volver al contenedor</button>
-            </div>
-          </article>
-        </div>
+      el('workspaceTitle').textContent = `${selected.code} · ${selected.client.name}`;
+      el('workspaceSubtitle').textContent = `${selected.matter} · ${selected.status} · Próxima actividad: ${selected.nextActivity}`;
+      actions.innerHTML = `
+        <button class="btn-outline" data-workspace-action="agenda">Agenda</button>
+        <button class="btn-outline" data-workspace-action="causas">Causas</button>
+        <button class="btn-lite" data-workspace-action="upload">Documentos</button>
       `;
+
+      const panels = {
+        'Identificación': renderIdentification(selected),
+        'Historia': renderHistory(selected),
+        'Contenedor': renderContainer(selected),
+        'Análisis': renderAnalysis(selected),
+        'Asistente jurídico IA ChatGPT': renderAssistant(selected),
+        'Derivación': renderDerivation(selected),
+        'Honorarios': renderHonorarios(selected)
+      };
+
+      el('tabPanels').innerHTML = tabs.map(tab => `
+        <section class="tab-panel ${tab === activeTab ? 'active' : ''}" data-panel="${tab}">${panels[tab]}</section>
+      `).join('');
+      el('workspaceInstructions').innerHTML = renderInstructions(selected);
     }
 
     function openTab(tab) {
       activeTab = tab;
       renderTabs();
       renderWorkspace();
-    }
-
-    function syncFilterInputs() {
-      document.querySelectorAll('#filterPanel input[type="checkbox"]').forEach(input => {
-        input.checked = filters.has(input.value);
-      });
-    }
-
-    function openModule(page, selected = getSelectedExpediente()) {
-      if (!selected) {
-        window.location.href = `./${page}.html`;
-        return;
-      }
-      const query = new URLSearchParams({
-        origen: 'clientes',
-        client_name: selected.client.name,
-        client_rut: selected.client.rut || '',
-        client_email: selected.client.email || '',
-        client_phone: selected.client.phone || '',
-        expediente: selected.code,
-        subject: selected.matter,
-        notes: selected.issueNotes || '',
-        next_activity: selected.nextActivity || '',
-        lawyer: selected.responsibleLawyer || '',
-        court: selected.linkedCase?.court || '',
-        rol: selected.linkedCase?.rol || '',
-        procedure: selected.linkedCase?.procedure || ''
-      });
-      const suffix = page === 'agenda' ? `?nuevo=1&${query.toString()}` : `?${query.toString()}`;
-      window.location.href = `./${page}.html${suffix}`;
-    }
-
-    function setStatusQuickFilter(status) {
-      const all = ['activos', 'cerrados', 'pendientes de análisis', 'derivados a causa', 'con honorarios pendientes', 'con próxima actividad en agenda'];
-      filters = new Set(all);
-      if (status === 'activos') {
-        filters.delete('cerrados');
-      }
-      if (status === 'cerrados') {
-        filters = new Set(['cerrados', 'con honorarios pendientes', 'con próxima actividad en agenda']);
-      }
-      syncFilterInputs();
-      renderAll();
     }
 
     function createClientFromForm(formData) {
@@ -1995,14 +1848,37 @@
       modal.querySelector('form')?.reset();
     }
 
+    function openModule(page, selected = getSelectedExpediente()) {
+      if (!selected) {
+        window.location.href = `./${page}.html`;
+        return;
+      }
+      const query = new URLSearchParams({
+        origen: 'clientes',
+        client_name: selected.client.name,
+        client_rut: selected.client.rut || '',
+        client_email: selected.client.email || '',
+        client_phone: selected.client.phone || '',
+        expediente: selected.code,
+        subject: selected.matter,
+        notes: selected.issueNotes || '',
+        next_activity: selected.nextActivity || '',
+        lawyer: selected.responsibleLawyer || '',
+        court: selected.linkedCase?.court || '',
+        rol: selected.linkedCase?.rol || '',
+        procedure: selected.linkedCase?.procedure || ''
+      });
+      const suffix = page === 'agenda' ? `?nuevo=1&${query.toString()}` : `?${query.toString()}`;
+      window.location.href = `./${page}.html${suffix}`;
+    }
+
     function renderAll() {
+      renderMatterFilterOptions();
       renderStats();
-      renderQuickFilters();
       renderIntegrationBanner();
       renderTabs();
       renderExpedientes();
       renderWorkspace();
-      syncFilterInputs();
     }
 
     document.addEventListener('click', (event) => {
@@ -2015,17 +1891,6 @@
       const tabButton = event.target.closest('[data-tab]');
       if (tabButton) openTab(tabButton.dataset.tab);
 
-      const chip = event.target.closest('[data-filter-chip]');
-      if (chip) {
-        const value = chip.dataset.filterChip;
-        if (filters.has(value)) {
-          if (filters.size > 1) filters.delete(value);
-        } else {
-          filters.add(value);
-        }
-        renderAll();
-      }
-
       const actionButton = event.target.closest('[data-action], [data-workspace-action]');
       if (actionButton) {
         const action = actionButton.dataset.action || actionButton.dataset.workspaceAction;
@@ -2034,13 +1899,7 @@
         if (action === 'causas' || action === 'crear-causa') openModule('causas', selected);
         if (action === 'open') renderWorkspace();
         if (action === 'upload') openTab('Contenedor');
-        if (action === 'same-client' && selected) {
-          openModal('expediente');
-          setTimeout(() => {
-            const select = document.querySelector('#expedienteForm select[name="client"]');
-            if (select) select.value = selected.client.id;
-          }, 0);
-        }
+        if (action === 'consult') alert('Maqueta funcional: la consulta visible puede conectarse al asistente cuando se integre el servicio correspondiente.');
         if (action === 'close' && selected) {
           const ref = findExpedienteRef(selected.id);
           if (ref) {
@@ -2053,34 +1912,23 @@
           }
         }
         if (action === 'edit' || action === 'save') {
-          alert('Maqueta funcional: la edición puede conectarse al backend cuando se definan las tablas definitivas del módulo.');
+          alert('Maqueta funcional: la edición visible puede conectarse al backend cuando se definan las tablas definitivas del módulo.');
         }
       }
 
       const modalClose = event.target.closest('[data-close-modal]');
       if (modalClose) closeModal(modalClose.dataset.closeModal);
 
-      if (event.target.id === 'btnReturnContenedor' || event.target.id === 'btnFocusContenedor') openTab('Contenedor');
+      if (event.target.id === 'btnFocusContenedor') openTab('Contenedor');
       if (event.target.id === 'btnOpenAgendaGlobal') openModule('agenda');
       if (event.target.id === 'btnOpenCausasGlobal') openModule('causas');
     });
 
     el('searchInput').addEventListener('input', renderAll);
-    el('btnBuscar').addEventListener('click', () => el('searchInput').focus());
-    el('btnFiltrar').addEventListener('click', () => el('filterPanel').classList.toggle('open'));
-    el('btnSoloActivos').addEventListener('click', () => setStatusQuickFilter('activos'));
-    el('btnSoloCerrados').addEventListener('click', () => setStatusQuickFilter('cerrados'));
+    el('estadoFilter').addEventListener('change', renderAll);
+    el('materiaFilter').addEventListener('change', renderAll);
     el('btnNuevoCliente').addEventListener('click', () => openModal('cliente'));
     el('btnNuevoExpediente').addEventListener('click', () => openModal('expediente'));
-
-    document.querySelectorAll('#filterPanel input[type="checkbox"]').forEach(input => {
-      input.addEventListener('change', () => {
-        if (input.checked) filters.add(input.value);
-        else if (filters.size > 1) filters.delete(input.value);
-        else input.checked = true;
-        renderAll();
-      });
-    });
 
     el('clienteForm').addEventListener('submit', (event) => {
       event.preventDefault();
