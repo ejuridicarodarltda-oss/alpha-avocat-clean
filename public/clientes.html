@@ -6,14 +6,71 @@
   <title>Clientes / Expedientes — Alpha Avocat</title>
   <link rel="stylesheet" href="./style.css?v=43" />
   <style>
+    :root {
+      --clients-bg-screen: #EEF8FB;
+      --clients-bg-shell: #DDF1F6;
+      --clients-bg-block: #CBE8F0;
+      --clients-bg-subblock: #B9DDE8;
+      --clients-border: #8FC3D3;
+      --clients-border-strong: #6FAFC3;
+      --clients-title: #2D7085;
+      --clients-text: #111111;
+      --clients-text-soft: #2B2B2B;
+      --clients-text-on-dark: #FFFFFF;
+      --clients-text-on-dark-soft: #F4F4F4;
+      --clients-active: #163A5F;
+      --clients-critical: #7A1E2C;
+      --clients-button-bg: #FFFFFF;
+      --clients-button-text: #111111;
+      --clients-shadow-soft: 0 12px 30px rgba(45, 112, 133, 0.10);
+      --clients-shadow-block: 0 16px 32px rgba(45, 112, 133, 0.14);
+    }
+
     body.clients-module {
       overflow: auto;
-      background:
-        radial-gradient(circle at top left, rgba(196, 30, 58, 0.12), transparent 26%),
-        linear-gradient(180deg, #f8fafc 0%, #eef2ff 46%, #e2e8f0 100%);
-      color: #0f172a;
-      --clients-title-color: #000;
-      --clients-subtitle-color: #000;
+      background: var(--clients-bg-screen);
+      color: var(--clients-text);
+      min-height: 100dvh;
+    }
+
+    body.clients-module .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 10;
+      background: var(--clients-bg-shell);
+      color: var(--clients-text);
+      border-bottom: 1px solid var(--clients-border);
+      box-shadow: 0 8px 20px rgba(45, 112, 133, 0.10);
+    }
+
+    body.clients-module .brand-title,
+    body.clients-module .brand-subtitle,
+    body.clients-module .brand-mark,
+    body.clients-module .topbar-nav-link {
+      color: var(--clients-text);
+    }
+
+    body.clients-module .brand-mark {
+      background: var(--clients-bg-block);
+      border: 1px solid var(--clients-border);
+    }
+
+    body.clients-module .topbar-nav-link {
+      border-color: var(--clients-border);
+      background: var(--clients-button-bg);
+      box-shadow: none;
+    }
+
+    body.clients-module .topbar-nav-link:hover {
+      background: var(--clients-bg-block);
+      color: var(--clients-text);
+      transform: translateY(-1px);
+    }
+
+    body.clients-module .topbar-nav-link.active {
+      background: var(--clients-active);
+      border-color: var(--clients-active);
+      color: var(--clients-text-on-dark);
     }
 
     .clients-shell {
@@ -21,15 +78,25 @@
       gap: 20px;
       padding: 20px;
       min-height: calc(100dvh - 68px);
+      background: var(--clients-bg-screen);
+    }
+
+    .module-card,
+    .summary-panel,
+    .modal-box {
+      border-radius: 24px;
+      border: 1px solid var(--clients-border);
+      box-shadow: var(--clients-shadow-soft);
+    }
+
+    .module-card,
+    .summary-panel {
+      padding: 20px;
     }
 
     .module-card {
-      background: rgba(255, 255, 255, 0.94);
-      border: 1px solid rgba(15, 23, 42, 0.08);
-      border-radius: 24px;
-      box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
-      padding: 20px;
-      backdrop-filter: blur(10px);
+      background: var(--clients-bg-shell);
+      color: var(--clients-text);
     }
 
     .dashboard-grid,
@@ -58,14 +125,18 @@
       gap: 12px;
     }
 
+    .hero-card,
+    .primary-list-card,
+    .module-load-card,
+    .workspace-shell {
+      background: var(--clients-bg-shell);
+      border-color: var(--clients-border);
+      color: var(--clients-text);
+    }
+
     .hero-card {
       display: grid;
       gap: 18px;
-      background: linear-gradient(135deg, #14b8c5 0%, #06b6d4 42%, #0891b2 100%);
-      border-color: rgba(8, 145, 178, 0.42);
-      box-shadow: 0 24px 44px rgba(8, 145, 178, 0.28);
-      --clients-title-color: #fff;
-      --clients-subtitle-color: #fff;
     }
 
     .hero-head,
@@ -74,32 +145,36 @@
     .card-head,
     .event-head,
     .file-head,
-    .fee-head {
+    .fee-head,
+    .panel-title-row {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 14px;
     }
 
-    .module-eyebrow {
+    .module-eyebrow,
+    .results-badge,
+    .status-pill,
+    .type-pill,
+    .inline-pill,
+    .spotlight-pill {
       display: inline-flex;
       align-items: center;
-      gap: 8px;
-      padding: 6px 12px;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
       border-radius: 999px;
-      background: rgba(196, 30, 58, 0.08);
-      color: var(--clients-title-color);
       font-size: 12px;
       font-weight: 800;
-      letter-spacing: 0.08em;
-      text-transform: uppercase;
+      border: 1px solid var(--clients-border);
+      background: var(--clients-bg-screen);
+      color: var(--clients-text);
     }
 
-    .hero-card .module-eyebrow {
-      background: #fff;
-      color: #000;
-      border: 1px solid rgba(15, 23, 42, 0.12);
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    .module-eyebrow {
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
     }
 
     .hero-card h1,
@@ -108,9 +183,13 @@
     .tab-section h3,
     .subcard h4,
     .summary-panel h2,
-    .panel-title {
+    .panel-title,
+    .analysis-card h3,
+    .assistant-card h3,
+    .decision-card h3,
+    .fee-card h3 {
       margin: 0;
-      color: var(--clients-title-color);
+      color: var(--clients-title);
     }
 
     .hero-card h1 {
@@ -122,9 +201,14 @@
     .module-copy,
     .small-note,
     .muted-copy,
-    .helper-text {
+    .helper-text,
+    .summary-panel p,
+    .text-panel,
+    .empty-state,
+    .integration-banner,
+    .admin-banner {
       margin: 0;
-      color: var(--clients-subtitle-color);
+      color: var(--clients-text-soft);
       line-height: 1.55;
     }
 
@@ -140,10 +224,14 @@
     }
 
     .field-stack label,
-    .textarea-stack label {
+    .textarea-stack label,
+    .form-grid label,
+    .form-grid-full label {
       font-size: 13px;
       font-weight: 800;
-      color: #334155;
+      color: var(--clients-text-soft);
+      display: grid;
+      gap: 6px;
     }
 
     .field-stack input,
@@ -158,14 +246,34 @@
       width: 100%;
       padding: 12px 14px;
       border-radius: 14px;
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      background: #fff;
+      border: 1px solid var(--clients-border);
+      background: #FFFFFF;
       font: inherit;
-      color: #0f172a;
+      color: var(--clients-text);
+    }
+
+    .field-stack input:focus,
+    .field-stack select:focus,
+    .textarea-stack textarea:focus,
+    .form-grid input:focus,
+    .form-grid select:focus,
+    .form-grid textarea:focus,
+    .form-grid-full input:focus,
+    .form-grid-full select:focus,
+    .form-grid-full textarea:focus,
+    .btn-lite:focus-visible,
+    .btn-outline:focus-visible,
+    .btn-cta:focus-visible,
+    .btn-danger-soft:focus-visible,
+    .tab-btn:focus-visible,
+    .topbar-nav-link:focus-visible {
+      outline: 2px solid var(--clients-active);
+      outline-offset: 2px;
     }
 
     .hero-metrics,
-    .summary-grid {
+    .summary-grid,
+    .expedientes-grid {
       grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
     }
 
@@ -179,12 +287,31 @@
     .assistant-card,
     .decision-card,
     .fee-card,
-    .instruction-card {
+    .instruction-card,
+    .spotlight-card,
+    .identification-summary,
+    .identification-grid-shell,
+    .text-panel,
+    .field-list li,
+    .bullet-list li,
+    .data-item,
+    .empty-state,
+    .integration-banner {
       border-radius: 20px;
-      border: 1px solid rgba(148, 163, 184, 0.2);
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96));
+      border: 1px solid var(--clients-border);
+      background: var(--clients-bg-block);
+      color: var(--clients-text);
       padding: 16px;
-      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.05);
+      box-shadow: var(--clients-shadow-soft);
+    }
+
+    .summary-panel,
+    .modal-box,
+    .tabs-row,
+    .instruction-card,
+    .admin-banner {
+      background: var(--clients-bg-block);
+      color: var(--clients-text);
     }
 
     .metric-card strong,
@@ -197,115 +324,57 @@
     .assistant-card strong,
     .decision-card strong,
     .fee-card strong,
-    .instruction-card strong {
+    .instruction-card strong,
+    .spotlight-card strong,
+    .field-list strong,
+    .data-item strong,
+    .text-panel strong {
       display: block;
-      color: #0f172a;
+      color: var(--clients-text);
     }
 
-    .instruction-card {
-      background: linear-gradient(145deg, rgba(103, 223, 230, 0.96), rgba(72, 209, 204, 0.9));
-      border-color: rgba(8, 145, 178, 0.24);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 14px 28px rgba(8, 145, 178, 0.12);
-    }
-
-    .instruction-card .module-eyebrow {
-      background: rgba(236, 254, 255, 0.45);
-      color: #0f766e;
-    }
-
-    .instruction-card .textarea-stack label {
-      color: #0f4c5c;
-    }
-
-    .module-load-card {
-      background: linear-gradient(145deg, rgba(103, 223, 230, 0.95), rgba(64, 206, 214, 0.9));
-      border-color: rgba(14, 116, 144, 0.24);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34), 0 20px 36px rgba(14, 116, 144, 0.14);
-    }
-
-    .primary-list-card {
-      background: linear-gradient(180deg, rgba(236, 254, 255, 0.98), rgba(207, 250, 254, 0.94));
-      border-color: rgba(14, 116, 144, 0.2);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.4), 0 20px 36px rgba(14, 116, 144, 0.1);
-    }
-
-    .primary-list-card .section-title,
-    .primary-list-card .small-note {
-      color: #000;
-    }
-
-    .primary-list-card .data-item {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.99), rgba(248, 250, 252, 0.96));
-      border-color: rgba(148, 163, 184, 0.22);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 12px 24px rgba(15, 23, 42, 0.08);
-    }
-
-    .primary-list-card .data-item .mini-label,
-    .primary-list-card .data-item strong {
-      color: #062b33;
-    }
-
-    .module-load-card .section-title,
-    .module-load-card .small-note {
-      color: #000;
-    }
-
-    .module-load-card .summary-card {
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(236, 254, 255, 0.88));
-      border-color: rgba(14, 116, 144, 0.18);
-    }
-
-    .metric-number {
+    .metric-number,
+    .queue-card strong {
       margin-top: 8px;
       font-size: 30px;
       font-weight: 900;
-      color: #8a1538;
+      color: var(--clients-title);
     }
 
     .metric-label,
     .mini-label {
-      color: #64748b;
+      color: var(--clients-text-soft);
       font-size: 12px;
       font-weight: 700;
       text-transform: uppercase;
       letter-spacing: 0.04em;
     }
 
-    .results-badge,
-    .status-pill,
-    .type-pill,
-    .inline-pill {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      gap: 6px;
-      padding: 8px 12px;
-      border-radius: 999px;
-      font-size: 12px;
-      font-weight: 800;
-      border: 1px solid rgba(148, 163, 184, 0.24);
-      background: #fff;
-      color: #334155;
+    .status-pill.activo,
+    .status-pill.derivado,
+    .status-pill.analisis,
+    .status-pill.cerrado,
+    .inline-pill.active,
+    .tab-btn.active,
+    .btn-lite.active,
+    .btn-outline.active,
+    .btn-cta.active,
+    .btn-lite[aria-pressed="true"],
+    .btn-outline[aria-pressed="true"],
+    .btn-cta[aria-pressed="true"] {
+      background: var(--clients-active);
+      border-color: var(--clients-active);
+      color: var(--clients-text-on-dark);
+      box-shadow: 0 12px 22px rgba(22, 58, 95, 0.22);
     }
 
-    .results-badge {
-      background: #fff;
-      border-color: rgba(148, 163, 184, 0.3);
-      color: #0f172a;
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
+    .status-pill.activo,
+    .status-pill.derivado,
+    .status-pill.analisis,
+    .status-pill.cerrado,
+    .inline-pill.active {
+      color: var(--clients-text-on-dark);
     }
-
-    .hero-card .results-badge {
-      background: #fff;
-      border-color: rgba(15, 23, 42, 0.12);
-      color: #000;
-      box-shadow: 0 12px 24px rgba(15, 23, 42, 0.08);
-    }
-
-    .status-pill.activo { background: rgba(5, 150, 105, 0.14); color: #047857; border-color: transparent; }
-    .status-pill.cerrado { background: rgba(148, 163, 184, 0.18); color: #475569; border-color: transparent; }
-    .status-pill.analisis { background: rgba(245, 158, 11, 0.18); color: #b45309; border-color: transparent; }
-    .status-pill.derivado { background: rgba(14, 165, 233, 0.16); color: #0369a1; border-color: transparent; }
 
     .button-row,
     .tabs-row,
@@ -322,16 +391,17 @@
     .btn-lite,
     .btn-outline,
     .btn-cta,
-    .btn-danger-soft {
-      border: 1px solid rgba(148, 163, 184, 0.35);
+    .btn-danger-soft,
+    .tab-btn {
+      border: 1px solid var(--clients-border);
       border-radius: 14px;
       padding: 11px 14px;
       font-weight: 800;
       cursor: pointer;
       font: inherit;
-      background: #fff;
-      color: #0f172a;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+      background: var(--clients-button-bg);
+      color: var(--clients-button-text);
+      box-shadow: 0 8px 18px rgba(45, 112, 133, 0.10);
       transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
     }
 
@@ -340,27 +410,31 @@
     .btn-cta:hover,
     .btn-danger-soft:hover,
     .tab-btn:hover {
-      border-color: rgba(138, 21, 56, 0.28);
-      box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
+      background: var(--clients-bg-subblock);
+      border-color: var(--clients-border-strong);
+      color: var(--clients-text);
+      box-shadow: 0 12px 22px rgba(45, 112, 133, 0.16);
       transform: translateY(-1px);
     }
 
     .btn-lite:active,
     .btn-outline:active,
     .btn-cta:active,
+    .tab-btn:active {
+      background: var(--clients-active);
+      border-color: var(--clients-active);
+      color: var(--clients-text-on-dark);
+    }
+
+    .btn-danger-soft,
+    .btn-danger-soft:hover,
     .btn-danger-soft:active,
-    .btn-lite.active,
-    .btn-outline.active,
-    .btn-cta.active,
     .btn-danger-soft.active,
-    .btn-lite[aria-pressed="true"],
-    .btn-outline[aria-pressed="true"],
-    .btn-cta[aria-pressed="true"],
     .btn-danger-soft[aria-pressed="true"] {
-      background: linear-gradient(135deg, #c41e3a, #8a1538);
-      color: #fff;
-      border-color: transparent;
-      box-shadow: 0 12px 22px rgba(138, 21, 56, 0.2);
+      background: var(--clients-critical);
+      border-color: var(--clients-critical);
+      color: var(--clients-text-on-dark);
+      box-shadow: 0 12px 22px rgba(122, 30, 44, 0.24);
     }
 
     .dashboard-grid {
@@ -384,71 +458,72 @@
       height: 100%;
     }
 
-    .summary-panel {
-      border-radius: 24px;
-      padding: 20px;
-      background: linear-gradient(145deg, #7edce8, #58c9d6);
-      border: 1px solid rgba(14, 116, 144, 0.22);
-      color: #083344;
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.32), 0 18px 36px rgba(8, 51, 68, 0.12);
+    .summary-panel,
+    .spotlight-card,
+    .module-load-card .summary-card,
+    .workspace-shell .subcard,
+    .workspace-shell .event-card,
+    .workspace-shell .file-card,
+    .workspace-shell .analysis-card,
+    .workspace-shell .assistant-card,
+    .workspace-shell .decision-card,
+    .workspace-shell .fee-card,
+    .workspace-shell .field-list li,
+    .workspace-shell .bullet-list li,
+    .workspace-shell .text-panel,
+    .workspace-shell .empty-state,
+    .instruction-card,
+    .modal-box,
+    .data-item {
+      background: var(--clients-bg-block);
+      color: var(--clients-text);
     }
 
-    .summary-panel h2,
-    .summary-panel p,
-    .summary-panel strong,
-    .summary-panel .metric-label {
-      color: #000;
+    .workspace-shell .identification-card,
+    .workspace-shell .case-data-card,
+    .workspace-shell .identification-grid-shell,
+    .workspace-shell .identification-summary,
+    .primary-list-card .data-item,
+    .spotlight-card,
+    .metric-card,
+    .summary-card,
+    .field-stack input,
+    .field-stack select,
+    .textarea-stack textarea,
+    .form-grid input,
+    .form-grid select,
+    .form-grid textarea,
+    .form-grid-full input,
+    .form-grid-full select,
+    .form-grid-full textarea,
+    .modal-box {
+      background: var(--clients-bg-subblock);
+      color: var(--clients-text);
     }
 
-    .spotlight-list {
+    .workspace-shell .identification-card,
+    .workspace-shell .case-data-card,
+    .primary-list-card .data-item {
+      border-color: var(--clients-border-strong);
+    }
+
+    .spotlight-list,
+    .queue-card {
       display: grid;
       gap: 12px;
-      margin-top: 16px;
     }
 
-    .spotlight-card {
-      display: grid;
-      gap: 10px;
-      padding: 16px;
-      border-radius: 18px;
-      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(236, 254, 255, 0.88));
-      border: 1px solid rgba(13, 148, 136, 0.16);
-      box-shadow: inset 0 1px 0 rgba(255,255,255,.5), 0 12px 24px rgba(8, 51, 68, 0.08);
-    }
-
-    .spotlight-card .button-row {
+    .spotlight-card .button-row,
+    .quick-actions {
       margin-top: 4px;
     }
 
-    .spotlight-meta {
+    .spotlight-meta,
+    .event-meta,
+    .file-meta {
       display: flex;
       flex-wrap: wrap;
       gap: 8px;
-    }
-
-    .spotlight-pill {
-      display: inline-flex;
-      align-items: center;
-      border-radius: 999px;
-      padding: 6px 10px;
-      background: rgba(255, 255, 255, 0.12);
-      font-size: 12px;
-      font-weight: 700;
-      color: #f8fafc;
-    }
-
-    .queue-card {
-      display: grid;
-      gap: 6px;
-    }
-
-    .queue-card strong {
-      font-size: 28px;
-      color: #8a1538;
-    }
-
-    .quick-actions {
-      margin-top: 16px;
     }
 
     .expedientes-grid {
@@ -462,18 +537,40 @@
       grid-template-rows: auto 1fr auto;
       height: 100%;
       min-height: 100%;
-      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease;
+      transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
       cursor: pointer;
-      background: var(--expediente-card-bg, linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(248, 250, 252, 0.96)));
-      border-color: var(--expediente-card-border, rgba(148, 163, 184, 0.2));
-      box-shadow: 0 14px 28px rgba(8, 47, 73, 0.10);
+      background: var(--clients-bg-block);
     }
 
     .expediente-card:hover,
     .expediente-card.active {
       transform: translateY(-2px);
-      border-color: rgba(14, 165, 233, 0.38);
-      box-shadow: 0 20px 36px rgba(8, 47, 73, 0.16);
+      border-color: var(--clients-active);
+      background: var(--clients-active);
+      box-shadow: 0 20px 36px rgba(22, 58, 95, 0.20);
+    }
+
+    .expediente-card:hover .mini-label,
+    .expediente-card:hover strong,
+    .expediente-card:hover .status-pill,
+    .expediente-card.active .mini-label,
+    .expediente-card.active strong,
+    .expediente-card.active .status-pill,
+    .expediente-card:hover .data-item,
+    .expediente-card.active .data-item {
+      color: var(--clients-text-on-dark);
+    }
+
+    .expediente-card:hover .data-item,
+    .expediente-card.active .data-item {
+      background: rgba(255, 255, 255, 0.10);
+      border-color: rgba(255, 255, 255, 0.28);
+    }
+
+    .expediente-card:hover .status-pill,
+    .expediente-card.active .status-pill {
+      background: rgba(255, 255, 255, 0.12);
+      border-color: rgba(255, 255, 255, 0.28);
     }
 
     .data-grid {
@@ -481,13 +578,9 @@
       align-items: stretch;
     }
 
-    .data-item {
-      border-radius: 16px;
-      background: rgba(248, 250, 252, 0.98);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      padding: 12px 14px;
-      display: grid;
-      gap: 4px;
+    .data-item,
+    .field-list li,
+    .bullet-list li {
       height: 100%;
     }
 
@@ -498,140 +591,17 @@
     .workspace-shell {
       display: grid;
       gap: 18px;
-      background: linear-gradient(180deg, rgba(210, 244, 246, 0.98), rgba(172, 233, 236, 0.94));
-      border-color: rgba(45, 183, 180, 0.24);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 20px 36px rgba(45, 183, 180, 0.14);
-      --clients-title-color: #000;
-      --clients-subtitle-color: #000;
-    }
-
-    .workspace-shell .module-eyebrow {
-      background: #fff;
-      border: 1px solid rgba(148, 163, 184, 0.22);
-      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.06);
-    }
-
-    .workspace-shell .subcard,
-    .workspace-shell .event-card,
-    .workspace-shell .file-card,
-    .workspace-shell .analysis-card,
-    .workspace-shell .assistant-card,
-    .workspace-shell .decision-card,
-    .workspace-shell .fee-card,
-    .workspace-shell .field-list li,
-    .workspace-shell .bullet-list li,
-    .workspace-shell .text-panel,
-    .workspace-shell .empty-state {
-      background: linear-gradient(145deg, rgba(212, 248, 246, 0.98), rgba(178, 237, 233, 0.94));
-      border-color: rgba(45, 183, 180, 0.26);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.42), 0 14px 28px rgba(8, 145, 178, 0.1);
-    }
-
-    .workspace-shell .text-panel,
-    .workspace-shell .field-list li,
-    .workspace-shell .bullet-list li,
-    .workspace-shell .empty-state,
-    .workspace-shell .subcard,
-    .workspace-shell .event-card,
-    .workspace-shell .file-card,
-    .workspace-shell .analysis-card,
-    .workspace-shell .assistant-card,
-    .workspace-shell .decision-card,
-    .workspace-shell .fee-card {
-      color: #0f4c5c;
-    }
-
-    .workspace-shell .identification-card,
-    .workspace-shell .case-data-card {
-      background: #fff;
-      border-color: rgba(148, 163, 184, 0.24);
-      box-shadow: 0 16px 30px rgba(15, 23, 42, 0.08);
-      color: #000;
-    }
-
-    .workspace-shell .identification-card .field-list li,
-    .workspace-shell .case-data-card .field-list li {
-      background: #fff;
-      border-color: rgba(148, 163, 184, 0.22);
-      box-shadow: 0 10px 20px rgba(15, 23, 42, 0.08);
-      color: #000;
-    }
-
-    .workspace-shell .identification-grid-shell {
-      gap: 20px;
-      padding: 18px;
-      border-radius: 24px;
-      background: linear-gradient(145deg, rgba(234, 245, 255, 0.98), rgba(214, 235, 255, 0.96));
-      border: 1px solid rgba(125, 179, 232, 0.34);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.52), 0 18px 32px rgba(96, 165, 250, 0.14);
-      color: #000;
-    }
-
-    .workspace-shell .identification-summary {
-      display: grid;
-      gap: 8px;
-      margin-bottom: 18px;
-      padding: 18px 20px;
-      border-radius: 20px;
-      background: linear-gradient(145deg, rgba(219, 247, 247, 0.98), rgba(187, 239, 237, 0.95));
-      border: 1px solid rgba(45, 183, 180, 0.22);
-      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 14px 28px rgba(20, 184, 198, 0.12);
-    }
-
-    .workspace-shell .identification-summary h4 {
-      margin: 2px 0 0;
-    }
-
-    .workspace-shell .identification-grid-shell .mini-label,
-    .workspace-shell .identification-grid-shell strong,
-    .workspace-shell .identification-grid-shell h3,
-    .workspace-shell .identification-grid-shell h4,
-    .workspace-shell .identification-grid-shell p,
-    .workspace-shell .identification-grid-shell .type-pill {
-      color: #000;
-    }
-
-    .workspace-shell .identification-card h3,
-    .workspace-shell .case-data-card h3,
-    .workspace-shell .identification-card h4,
-    .workspace-shell .case-data-card h4,
-    .workspace-shell .identification-card p,
-    .workspace-shell .case-data-card p,
-    .workspace-shell .identification-card .mini-label,
-    .workspace-shell .case-data-card .mini-label,
-    .workspace-shell .identification-card strong,
-    .workspace-shell .case-data-card strong,
-    .workspace-shell .identification-card .type-pill,
-    .workspace-shell .case-data-card .type-pill {
-      color: #000;
+      background: var(--clients-bg-shell);
+      color: var(--clients-text);
     }
 
     .tabs-row {
       padding: 6px;
       border-radius: 18px;
-      background: rgba(241, 245, 249, 0.92);
-      border: 1px solid rgba(148, 163, 184, 0.18);
+      border: 1px solid var(--clients-border);
       position: sticky;
       top: 8px;
       z-index: 2;
-    }
-
-    .tab-btn {
-      border: 1px solid rgba(148, 163, 184, 0.35);
-      background: #fff;
-      border-radius: 14px;
-      padding: 11px 14px;
-      font-weight: 800;
-      color: #0f172a;
-      cursor: pointer;
-      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
-      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
-    }
-
-    .tab-btn.active {
-      background: linear-gradient(135deg, #c41e3a, #8a1538);
-      color: #fff;
-      box-shadow: 0 10px 18px rgba(138, 21, 56, 0.18);
     }
 
     .tab-panel { display: none; }
@@ -666,27 +636,6 @@
       grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
     }
 
-    .field-list li,
-    .bullet-list li {
-      border-radius: 16px;
-      background: rgba(248, 250, 252, 0.98);
-      border: 1px solid rgba(148, 163, 184, 0.14);
-      padding: 12px 14px;
-      color: #334155;
-    }
-
-    .identification-highlight-list li {
-      background: #fff;
-      border-color: rgba(148, 163, 184, 0.22);
-      box-shadow: 0 10px 24px rgba(15, 23, 42, 0.08);
-      color: #000;
-    }
-
-    .identification-highlight-list .mini-label,
-    .identification-highlight-list strong {
-      color: #000;
-    }
-
     .event-card,
     .assistant-card,
     .decision-card,
@@ -700,7 +649,7 @@
       content: "";
       width: 4px;
       border-radius: 999px;
-      background: linear-gradient(180deg, #c41e3a, #0ea5e9);
+      background: var(--clients-active);
       position: absolute;
       inset: 18px auto 18px 0;
     }
@@ -710,48 +659,35 @@
       padding-left: 20px;
     }
 
-    .event-meta,
-    .file-meta {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-    }
-
     .text-panel {
       min-height: 160px;
-      border-radius: 18px;
-      border: 1px dashed rgba(148, 163, 184, 0.4);
-      background: rgba(248, 250, 252, 0.75);
-      padding: 16px;
-      color: #334155;
-      line-height: 1.6;
+      border-style: solid;
     }
 
     .integration-banner,
     .admin-banner,
     .empty-state {
-      border-radius: 20px;
       padding: 16px 18px;
-      line-height: 1.55;
     }
 
     .integration-banner {
-      border: 1px solid rgba(14, 165, 233, 0.18);
-      background: linear-gradient(135deg, rgba(224, 242, 254, 0.88), rgba(240, 249, 255, 0.95));
-      color: #0f4c81;
+      background: var(--clients-bg-block);
+      border-color: var(--clients-border-strong);
+      color: var(--clients-text);
     }
 
     .admin-banner {
-      border: 1px solid rgba(245, 158, 11, 0.18);
-      background: linear-gradient(135deg, rgba(255, 247, 237, 0.92), rgba(255, 251, 235, 0.98));
-      color: #9a3412;
+      border-radius: 20px;
+      border: 1px solid color-mix(in srgb, var(--clients-critical) 70%, white);
+      background: color-mix(in srgb, var(--clients-critical) 18%, white);
+      color: var(--clients-text);
     }
 
     .empty-state {
-      border: 1px dashed rgba(148, 163, 184, 0.45);
-      background: rgba(255,255,255,.75);
+      border-style: dashed;
       text-align: center;
-      color: #64748b;
+      background: var(--clients-bg-screen);
+      color: var(--clients-text-soft);
     }
 
     .modal-shell {
@@ -768,7 +704,7 @@
     .modal-backdrop {
       position: absolute;
       inset: 0;
-      background: rgba(15, 23, 42, 0.45);
+      background: rgba(22, 58, 95, 0.28);
       backdrop-filter: blur(6px);
     }
 
@@ -777,12 +713,10 @@
       width: min(760px, calc(100vw - 32px));
       max-height: calc(100dvh - 40px);
       overflow: auto;
-      border-radius: 24px;
-      background: #fff;
-      box-shadow: 0 30px 60px rgba(15, 23, 42, 0.3);
       padding: 22px;
       display: grid;
       gap: 16px;
+      background: var(--clients-bg-shell);
     }
 
     .form-grid {
@@ -791,17 +725,13 @@
       gap: 12px;
     }
 
-    .form-grid label,
-    .form-grid-full label {
-      display: grid;
-      gap: 6px;
-      font-weight: 700;
-      color: #334155;
-    }
-
     .form-grid-full { display: grid; gap: 12px; }
 
     .button-row.end { justify-content: flex-end; }
+
+    .span-full { grid-column: 1 / -1; }
+
+    .stack-single { grid-template-columns: 1fr; }
 
     @media (max-width: 1180px) {
       .dashboard-grid,
@@ -827,7 +757,8 @@
       .card-head,
       .event-head,
       .file-head,
-      .fee-head {
+      .fee-head,
+      .panel-title-row {
         flex-direction: column;
         align-items: stretch;
       }
@@ -1556,20 +1487,6 @@
       select.value = options.some(option => option.includes(`value="${current}"`)) ? current : 'todas';
     }
 
-    const expedienteCardPalette = [
-      { background: 'linear-gradient(180deg, rgba(0, 224, 255, 0.82), rgba(0, 184, 212, 0.72))', border: 'rgba(0, 168, 198, 0.52)' },
-      { background: 'linear-gradient(180deg, rgba(34, 211, 238, 0.38), rgba(45, 212, 191, 0.30))', border: 'rgba(13, 148, 136, 0.24)' },
-      { background: 'linear-gradient(180deg, rgba(103, 232, 249, 0.34), rgba(94, 234, 212, 0.28))', border: 'rgba(14, 165, 233, 0.22)' },
-      { background: 'linear-gradient(180deg, rgba(125, 211, 252, 0.30), rgba(153, 246, 228, 0.24))', border: 'rgba(45, 212, 191, 0.20)' },
-      { background: 'linear-gradient(180deg, rgba(186, 230, 253, 0.28), rgba(204, 251, 241, 0.22))', border: 'rgba(103, 232, 249, 0.18)' },
-      { background: 'linear-gradient(180deg, rgba(224, 242, 254, 0.92), rgba(240, 253, 250, 0.88))', border: 'rgba(165, 243, 252, 0.22)' }
-    ];
-
-    function getExpedienteCardStyle(index) {
-      const palette = expedienteCardPalette[Math.min(index, expedienteCardPalette.length - 1)];
-      return `--expediente-card-bg: ${palette.background}; --expediente-card-border: ${palette.border};`;
-    }
-
     function renderExpedientes() {
       const items = filteredExpedientes();
       if (!items.some(item => item.id === selectedExpedienteId)) {
@@ -1581,8 +1498,8 @@
         container.innerHTML = '<div class="empty-state">No hay expedientes que coincidan con el buscador general o con los filtros seleccionados.</div>';
         return;
       }
-      container.innerHTML = items.map((item, index) => `
-        <article class="expediente-card ${item.id === selectedExpedienteId ? 'active' : ''}" data-expediente-id="${item.id}" style="${getExpedienteCardStyle(index)}">
+      container.innerHTML = items.map(item => `
+        <article class="expediente-card ${item.id === selectedExpedienteId ? 'active' : ''}" data-expediente-id="${item.id}">
           <div class="card-head">
             <div>
               <span class="mini-label">N° expediente</span>
@@ -1663,7 +1580,7 @@
                 <li><span class="mini-label">Materia</span><strong>${selected.matter}</strong></li>
                 <li><span class="mini-label">Estado</span><strong>${selected.status}</strong></li>
                 <li><span class="mini-label">Abogado responsable</span><strong>${selected.responsibleLawyer}</strong></li>
-                <li style="grid-column: 1 / -1;"><span class="mini-label">Observaciones</span><strong>${selected.issueNotes || 'Sin observaciones'}</strong></li>
+                <li class="span-full"><span class="mini-label">Observaciones</span><strong>${selected.issueNotes || 'Sin observaciones'}</strong></li>
               </ul>
               <div class="section-actions">
                 <button class="btn-outline" data-workspace-action="edit">Editar</button>
@@ -1761,7 +1678,7 @@
             </article>
             <article class="subcard">
               <h4>Documentos asociados</h4>
-              <div class="container-grid" style="grid-template-columns: 1fr;">${files}</div>
+              <div class="container-grid stack-single">${files}</div>
             </article>
           </div>
         </section>
@@ -1861,7 +1778,7 @@
                 <li><span class="mini-label">Motivo</span><strong>${selected.derivation.reasons.join(', ')}</strong></li>
                 <li><span class="mini-label">Materia</span><strong>${selected.derivation.transferMatter}</strong></li>
                 <li><span class="mini-label">Submateria</span><strong>${selected.derivation.transferSubmatter}</strong></li>
-                <li style="grid-column: 1 / -1;"><span class="mini-label">Observaciones</span><strong>${selected.derivation.transferNotes}</strong></li>
+                <li class="span-full"><span class="mini-label">Observaciones</span><strong>${selected.derivation.transferNotes}</strong></li>
               </ul>
             </article>
             <article class="decision-card">
