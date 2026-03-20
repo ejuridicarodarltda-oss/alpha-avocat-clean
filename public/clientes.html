@@ -311,18 +311,45 @@
     .btn-outline,
     .btn-cta,
     .btn-danger-soft {
-      border: none;
+      border: 1px solid rgba(148, 163, 184, 0.35);
       border-radius: 14px;
       padding: 11px 14px;
       font-weight: 800;
       cursor: pointer;
       font: inherit;
+      background: #fff;
+      color: #0f172a;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
     }
 
-    .btn-cta { background: linear-gradient(135deg, #c41e3a, #8a1538); color: #fff; }
-    .btn-outline { background: #fff; color: #0f172a; border: 1px solid rgba(148, 163, 184, 0.35); }
-    .btn-lite { background: rgba(15, 23, 42, 0.06); color: #0f172a; }
-    .btn-danger-soft { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
+    .btn-lite:hover,
+    .btn-outline:hover,
+    .btn-cta:hover,
+    .btn-danger-soft:hover,
+    .tab-btn:hover {
+      border-color: rgba(138, 21, 56, 0.28);
+      box-shadow: 0 12px 22px rgba(15, 23, 42, 0.12);
+      transform: translateY(-1px);
+    }
+
+    .btn-lite:active,
+    .btn-outline:active,
+    .btn-cta:active,
+    .btn-danger-soft:active,
+    .btn-lite.active,
+    .btn-outline.active,
+    .btn-cta.active,
+    .btn-danger-soft.active,
+    .btn-lite[aria-pressed="true"],
+    .btn-outline[aria-pressed="true"],
+    .btn-cta[aria-pressed="true"],
+    .btn-danger-soft[aria-pressed="true"] {
+      background: linear-gradient(135deg, #c41e3a, #8a1538);
+      color: #fff;
+      border-color: transparent;
+      box-shadow: 0 12px 22px rgba(138, 21, 56, 0.2);
+    }
 
     .dashboard-grid {
       grid-template-columns: minmax(0, 1fr);
@@ -518,13 +545,15 @@
     }
 
     .tab-btn {
-      border: none;
-      background: transparent;
+      border: 1px solid rgba(148, 163, 184, 0.35);
+      background: #fff;
       border-radius: 14px;
       padding: 11px 14px;
       font-weight: 800;
-      color: #475569;
+      color: #0f172a;
       cursor: pointer;
+      box-shadow: 0 8px 18px rgba(15, 23, 42, 0.08);
+      transition: background-color .18s ease, color .18s ease, border-color .18s ease, box-shadow .18s ease, transform .18s ease;
     }
 
     .tab-btn.active {
