@@ -6,59 +6,332 @@
 <title>Agenda — Alpha Avocat</title>
 <link rel="stylesheet" href="./style.css?v=42">
 <style>
-body.app-shell{overflow:auto;background:linear-gradient(180deg,#ede9fe 0%,#f5f3ff 45%,#faf5ff 100%);}
-main.agenda-main{max-width:1200px;margin:0 auto;padding:22px;display:grid;gap:18px;}
-.agenda-home,.agenda-screen{border-radius:14px;box-shadow:0 10px 28px rgba(91,33,182,.16);padding:20px;}
-.agenda-home{background:linear-gradient(135deg,#123b6d,#1e5aa8);color:#f8fafc;}
-.agenda-screen{display:none;color:#2f1d48;border:1px solid rgba(124,58,237,.16);}
-.agenda-screen.show{display:block;}
-#nuevo-evento{background:linear-gradient(180deg,#7c3aed 0%,#8b5cf6 22%,#c4b5fd 58%,#f3e8ff 100%);}
-#actividad{background:linear-gradient(180deg,#8b5cf6 0%,#a78bfa 24%,#d8b4fe 60%,#f5e8ff 100%);}
-#contenedor{background:linear-gradient(180deg,#a78bfa 0%,#c4b5fd 28%,#e9d5ff 64%,#faf5ff 100%);}
-#calendario{background:linear-gradient(180deg,#c4b5fd 0%,#d8b4fe 30%,#ede9fe 66%,#fdf4ff 100%);}
-#honorarios{background:linear-gradient(180deg,#ddd6fe 0%,#ede9fe 34%,#f5f3ff 70%,#fff7ff 100%);}
-.agenda-home h2,.agenda-screen h2{margin:0 0 4px;}
-.agenda-home .subtitle{color:rgba(248,250,252,.88);}
-.agenda-screen h2,.agenda-screen .subtitle{color:#2f1d48;}
-.subtitle{margin:0;color:#5b4b76;font-size:14px;}
-.nav-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin-top:18px;}
-.nav-btn{border:none;border-radius:12px;padding:20px 14px;font-size:18px;font-weight:700;color:#fff;cursor:pointer;box-shadow:0 8px 18px rgba(76,29,149,.22);}
-.nav-btn[data-target="nuevo-evento"]{background:linear-gradient(135deg,#7c3aed,#5b21b6);} 
-.nav-btn[data-target="actividad"]{background:linear-gradient(135deg,#8b5cf6,#6d28d9);} 
-.nav-btn[data-target="contenedor"]{background:linear-gradient(135deg,#a78bfa,#7c3aed);} 
-.nav-btn[data-target="calendario"]{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);} 
-.nav-btn[data-target="honorarios"]{background:linear-gradient(135deg,#ddd6fe,#a78bfa);color:#4c1d95;} 
-.block{border:1px solid rgba(124,58,237,.18);border-radius:10px;padding:14px;margin-top:12px;background:rgba(255,255,255,.72);backdrop-filter:blur(2px);box-shadow:0 8px 18px rgba(124,58,237,.08);}
-.block h3{margin:0 0 10px;font-size:16px;color:#111827;}
-.hidden{display:none;}
-.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:10px 12px;}
-.fields.is-disabled,.recording-muted{opacity:.45;}
-.fields.is-disabled label{color:#6b7280;}
-label{display:flex;flex-direction:column;gap:6px;font-weight:600;font-size:13px;color:#374151;}
-label.is-empty-field{opacity:.45;color:#6b7280;}
-input,select,textarea{padding:8px 10px;border:1px solid rgba(124,58,237,.18);border-radius:8px;font:inherit;background:rgba(255,255,255,.92);color:#2f1d48;}
+body.app-shell{
+  overflow:auto;
+  background:var(--agenda-bg, #F5F0FA);
+  color:var(--agenda-text, #111111);
+}
+
+main.agenda-main{
+  --agenda-bg:#F5F0FA;
+  --agenda-container:#E8DDF4;
+  --agenda-block:#D8C5EC;
+  --agenda-subblock:#C7AEDF;
+  --agenda-border:#A98DC7;
+  --agenda-title:#6F4C8B;
+  --agenda-text:#111111;
+  --agenda-text-secondary:#2B2B2B;
+  --agenda-accent:#163A5F;
+  --agenda-critical:#7A1E2C;
+  --agenda-white:#FFFFFF;
+  max-width:1240px;
+  margin:0 auto 28px;
+  padding:24px;
+  display:grid;
+  gap:20px;
+  background:var(--agenda-container);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 56%, white);
+  border-radius:28px;
+  box-shadow:0 18px 38px rgba(111,76,139,.14);
+}
+
+.agenda-home,
+.agenda-screen{
+  display:none;
+  border-radius:22px;
+  padding:24px;
+  background:var(--agenda-block);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 76%, white);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45), 0 10px 22px rgba(111,76,139,.10);
+  color:var(--agenda-text);
+}
+
+.agenda-home{
+  display:block;
+}
+
+.agenda-screen.show{
+  display:block;
+}
+
+.agenda-home h2,
+.agenda-screen h2{
+  margin:0 0 6px;
+  color:var(--agenda-title);
+  font-size:clamp(1.5rem, 2vw, 2rem);
+}
+
+.subtitle{
+  margin:0;
+  color:var(--agenda-text-secondary);
+  font-size:14px;
+  line-height:1.5;
+}
+
+.agenda-integration{
+  background:color-mix(in srgb, var(--agenda-block) 86%, white);
+}
+
+.agenda-integration:not([hidden]){
+  display:block;
+}
+
+.nav-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:14px;
+  margin-top:20px;
+}
+
+.nav-btn,
+.actions button,
+#eventsTable button{
+  appearance:none;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 70%, white);
+  border-radius:14px;
+  padding:12px 16px;
+  background:var(--agenda-white);
+  color:var(--agenda-text);
+  cursor:pointer;
+  font:inherit;
+  font-weight:700;
+  line-height:1.25;
+  box-shadow:0 6px 16px rgba(111,76,139,.10);
+  transition:background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+
+.nav-btn:hover,
+.actions button:hover,
+#eventsTable button:hover,
+.nav-btn:focus-visible,
+.actions button:focus-visible,
+#eventsTable button:focus-visible{
+  outline:none;
+  border-color:var(--agenda-accent);
+  transform:translateY(-1px);
+  box-shadow:0 10px 18px rgba(22,58,95,.18);
+}
+
+.nav-btn:active,
+.actions button:active,
+#eventsTable button:active,
+.nav-btn.is-active,
+.actions button.is-active,
+#eventsTable button.is-active{
+  background:var(--agenda-accent);
+  border-color:var(--agenda-accent);
+  color:var(--agenda-white);
+}
+
+.actions .btn-cancel,
+.actions .btn-danger,
+#eventsTable .btn-danger,
+#eventsTable .delete{
+  background:var(--agenda-critical);
+  border-color:var(--agenda-critical);
+  color:var(--agenda-white);
+}
+
+.actions .btn-cancel:hover,
+.actions .btn-danger:hover,
+#eventsTable .btn-danger:hover,
+#eventsTable .delete:hover,
+.actions .btn-cancel:focus-visible,
+.actions .btn-danger:focus-visible,
+#eventsTable .btn-danger:focus-visible,
+#eventsTable .delete:focus-visible{
+  border-color:var(--agenda-critical);
+  box-shadow:0 10px 18px rgba(122,30,44,.22);
+}
+
+.actions .btn-save,
+.actions .btn-nav[data-target],
+.actions .btn-nav[data-home="primary"]{
+  background:var(--agenda-white);
+  color:var(--agenda-text);
+}
+
+.block{
+  margin-top:16px;
+  padding:18px;
+  border-radius:18px;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 82%, white);
+  background:var(--agenda-subblock);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.38);
+  color:var(--agenda-text);
+}
+
+.block h3{
+  margin:0 0 14px;
+  color:var(--agenda-title);
+  font-size:16px;
+}
+
+.hidden{
+  display:none !important;
+}
+
+.fields,
+.check-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px 14px;
+}
+
+.fields.is-disabled,
+.recording-muted{
+  opacity:.68;
+}
+
+label{
+  display:flex;
+  flex-direction:column;
+  gap:6px;
+  color:var(--agenda-text);
+  font-size:13px;
+  font-weight:700;
+}
+
+.check-grid label{
+  flex-direction:row;
+  align-items:flex-start;
+  gap:10px;
+  padding:12px 14px;
+  border-radius:14px;
+  background:color-mix(in srgb, var(--agenda-subblock) 82%, white);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 68%, white);
+  font-weight:600;
+}
+
+label.is-empty-field{
+  opacity:.72;
+  color:var(--agenda-text-secondary);
+}
+
+input,
+select,
+textarea{
+  width:100%;
+  padding:10px 12px;
+  border-radius:12px;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 82%, white);
+  background:rgba(255,255,255,.92);
+  color:var(--agenda-text);
+  font:inherit;
+}
+
+input::placeholder,
+textarea::placeholder{
+  color:color-mix(in srgb, var(--agenda-text-secondary) 75%, white);
+}
+
+input:focus,
+select:focus,
+textarea:focus{
+  outline:none;
+  border-color:var(--agenda-accent);
+  box-shadow:0 0 0 3px rgba(22,58,95,.14);
+}
+
 label.is-empty-field input,
 label.is-empty-field select,
 label.is-empty-field textarea,
-.fields.is-disabled input,.fields.is-disabled select,.fields.is-disabled textarea,
-.recording-muted input,.recording-muted select,.recording-muted textarea,
-input:disabled,select:disabled,textarea:disabled{background:#f3f4f6;color:#6b7280;}
-input:disabled,select:disabled,textarea:disabled{cursor:not-allowed;}
-textarea{min-height:74px;resize:vertical;}
-.check-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:8px;}
-.check-grid label{flex-direction:row;align-items:center;font-weight:500;}
-.actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;}
-.actions button{border:none;border-radius:9px;padding:10px 14px;cursor:pointer;font-weight:700;color:#fff;}
-.btn-save{background:#059669;}
-.btn-clear{background:#2563eb;}
-.btn-cancel{background:#dc2626;}
-.btn-close{background:#6b7280;}
-.btn-nav{background:#7c3aed;}
-#eventsTable{width:100%;border-collapse:collapse;margin-top:12px;background:rgba(255,255,255,.76);border-radius:12px;overflow:hidden;}
-#eventsTable th,#eventsTable td{border-bottom:1px solid rgba(124,58,237,.14);padding:8px;text-align:left;font-size:14px;}
-#eventsTable th{background:rgba(124,58,237,.12);}
-#eventsTable tbody tr:nth-child(4){background:rgba(0, 206, 209, 0.72);}
-@media (max-width:720px){.topbar{padding:10px 12px;} main.agenda-main{padding:14px;} .nav-btn{font-size:16px;}}
+.fields.is-disabled input,
+.fields.is-disabled select,
+.fields.is-disabled textarea,
+.recording-muted input,
+.recording-muted select,
+.recording-muted textarea,
+input:disabled,
+select:disabled,
+textarea:disabled{
+  background:rgba(255,255,255,.55);
+  color:#4a4a4a;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled{
+  cursor:not-allowed;
+}
+
+textarea{
+  min-height:88px;
+  resize:vertical;
+}
+
+input[type="radio"],
+input[type="checkbox"]{
+  width:18px;
+  min-width:18px;
+  height:18px;
+  margin-top:1px;
+  accent-color:var(--agenda-accent);
+}
+
+.actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:18px;
+}
+
+#eventsTable{
+  width:100%;
+  border-collapse:separate;
+  border-spacing:0;
+  margin-top:18px;
+  background:rgba(255,255,255,.88);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 64%, white);
+  border-radius:18px;
+  overflow:hidden;
+}
+
+#eventsTable th,
+#eventsTable td{
+  padding:12px 10px;
+  text-align:left;
+  font-size:14px;
+  color:var(--agenda-text);
+  border-bottom:1px solid color-mix(in srgb, var(--agenda-border) 40%, white);
+  vertical-align:top;
+}
+
+#eventsTable th{
+  background:color-mix(in srgb, var(--agenda-block) 72%, white);
+  color:var(--agenda-title);
+}
+
+#eventsTable tbody tr{
+  background:rgba(255,255,255,.78);
+}
+
+#eventsTable tbody tr:nth-child(even){
+  background:color-mix(in srgb, var(--agenda-bg) 35%, white);
+}
+
+#eventsTable tbody tr.is-active-row{
+  background:var(--agenda-accent);
+}
+
+#eventsTable tbody tr.is-active-row td,
+#eventsTable tbody tr.is-active-row td button.edit{
+  color:var(--agenda-white);
+}
+
+#eventsTable tbody tr:last-child td{
+  border-bottom:none;
+}
+
+@media (max-width:720px){
+  .topbar{padding:10px 12px;}
+  main.agenda-main{padding:16px; border-radius:20px;}
+  .agenda-home,
+  .agenda-screen{padding:18px; border-radius:18px;}
+  .nav-btn,
+  .actions button,
+  #eventsTable button{width:100%;}
+}
 </style>
 </head>
 <body class="app-shell">
@@ -72,7 +345,7 @@ textarea{min-height:74px;resize:vertical;}
   </nav>
 </header>
 <main class="agenda-main">
-  <section id="agendaIntegration" class="agenda-screen show" style="display:none;background:linear-gradient(135deg,rgba(224,242,254,.96),rgba(255,255,255,.98));border:1px solid rgba(14,165,233,.18);">
+  <section id="agendaIntegration" class="agenda-screen agenda-integration" hidden>
     <h2>Integración desde Clientes / Expedientes</h2>
     <p class="subtitle" id="agendaIntegrationText">—</p>
   </section>
@@ -166,6 +439,7 @@ import { supabase } from './app.js'
 
 const screens = document.querySelectorAll('.agenda-screen')
 const home = document.getElementById('agendaHome')
+const navButtons = document.querySelectorAll('.nav-btn[data-target]')
 const tableBody = document.querySelector('#eventsTable tbody')
 const titleEl = document.getElementById('title')
 const typeEl = document.getElementById('event_type')
@@ -305,6 +579,7 @@ const activityFieldKeys = Object.keys(activityFields)
 const activitySnapshot = Object.fromEntries(activityFieldKeys.map(key => [key, '']))
 
 let editingEventId = null
+let activeEventRowId = null
 let eventsCache = []
 let pendingActivityEventNumber = ''
 const params = new URLSearchParams(window.location.search)
@@ -319,7 +594,7 @@ function applyClientsIntegrationPrefill() {
   const integrationBox = document.getElementById('agendaIntegration')
   const integrationText = document.getElementById('agendaIntegrationText')
   if (integrationBox && integrationText) {
-    integrationBox.style.display = 'block'
+    integrationBox.hidden = false
     integrationText.textContent = `Se recibió contexto del expediente ${params.get('expediente') || 'sin código'} de ${params.get('client_name') || 'cliente'}. El formulario de Nuevo evento fue precargado para alimentar Historia y Eventos.`
   }
 
@@ -354,14 +629,22 @@ function applyClientsIntegrationPrefill() {
     if (linkedCaseCourt) linkedCaseCourt.value = params.get('court') || ''
   }
 }
+function updateActiveAgendaNav(activeId = ''){
+  navButtons.forEach(button => {
+    button.classList.toggle('is-active', button.dataset.target === activeId)
+  })
+}
+
 function showHome(){
-  screens.forEach(s => s.classList.remove('show'))
+  screens.forEach(screen => screen.classList.remove('show'))
   home.style.display = 'block'
+  updateActiveAgendaNav('')
 }
 
 function openScreen(id){
   home.style.display = 'none'
-  screens.forEach(s => s.classList.toggle('show', s.id === id))
+  screens.forEach(screen => screen.classList.toggle('show', screen.id === id))
+  updateActiveAgendaNav(id)
   if (id === 'actividad') {
     copyEventToActivity()
   }
@@ -452,6 +735,7 @@ function updateActivityEventFieldAttenuation(){
 
 function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
   editingEventId = null
+  if (!preserveActivitySnapshot) activeEventRowId = null
   saveButton.textContent = 'Guardar evento'
   document.querySelectorAll('#nuevo-evento input, #nuevo-evento textarea, #nuevo-evento select').forEach(el=>{
     if (el.type === 'radio' || el.type === 'checkbox') {
@@ -468,6 +752,7 @@ function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
 
 function startEditingEvent(eventData){
   editingEventId = eventData.id
+  activeEventRowId = eventData.id
   saveButton.textContent = 'Actualizar evento'
   const eventIndex = eventsCache.findIndex(e => e.id === eventData.id)
   if (eventNumberEl) {
@@ -590,6 +875,7 @@ async function loadEvents(savedId = null){
   }
 
   eventsCache = data ?? []
+  if (savedId) activeEventRowId = savedId
   refreshNextEventNumber()
 
   if (!eventsCache.length){
@@ -597,7 +883,7 @@ async function loadEvents(savedId = null){
     return
   }
 
-  tableBody.innerHTML = eventsCache.map((e, index)=>`<tr><td data-label="N°">${getCorrelativeNumber(index)}</td><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-nav edit" data-id="${escapeHtml(e.id)}">Abrir</button> <button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
+  tableBody.innerHTML = eventsCache.map((e, index)=>`<tr class="${e.id === activeEventRowId ? 'is-active-row' : ''}"><td data-label="N°">${getCorrelativeNumber(index)}</td><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-nav edit" data-id="${escapeHtml(e.id)}">Abrir</button> <button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 
   if (savedId) {
     const savedIndex = eventsCache.findIndex(event => event.id === savedId)
@@ -617,6 +903,7 @@ tableBody.addEventListener('click', async (event) => {
       return
     }
     startEditingEvent(data)
+    await loadEvents(data.id)
     openScreen('nuevo-evento')
     return
   }
@@ -631,6 +918,7 @@ tableBody.addEventListener('click', async (event) => {
     return
   }
   pendingActivityEventNumber = ''
+  if (activeEventRowId === deleteButton.dataset.id) activeEventRowId = null
   await loadEvents()
   if (editingEventId === deleteButton.dataset.id) {
     resetNuevoEventoForm()
@@ -668,9 +956,11 @@ saveButton.addEventListener('click', async ()=>{
     if (error) return alert(error.message)
     alert('Evento actualizado correctamente')
     pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
+    activeEventRowId = editingEventId
     copyEventToActivity()
+    const updatedEventId = activeEventRowId
     resetNuevoEventoForm({ preserveActivitySnapshot: true })
-    loadEvents()
+    await loadEvents(updatedEventId)
     return
   }
 
@@ -678,6 +968,7 @@ saveButton.addEventListener('click', async ()=>{
   if (error) return alert(error.message)
 
   const savedId = insertedRows?.[0]?.id ?? null
+  activeEventRowId = savedId
   await loadEvents(savedId)
   copyEventToActivity()
   alert(`Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
