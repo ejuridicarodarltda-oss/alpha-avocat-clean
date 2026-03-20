@@ -74,7 +74,7 @@ Usuario conectado
 <header class="topbar">
 
 <div class="topbar-left">
-<input class="search" placeholder="Buscar causa o cliente...">
+<input id="panelSearch" class="search" placeholder="Buscar alerta, causa o cliente...">
 
 <nav class="topbar-nav" aria-label="Navegación principal">
 <a class="topbar-nav-link active" href="panel.html">Panel</a>
@@ -113,7 +113,7 @@ Cerrar sesión
 
 <h2>Bienvenido, Usuario</h2>
 
-<p><strong>Resumen del día</strong></p>
+<p><strong>Resumen consolidado de alertas del estudio</strong></p>
 
 </section>
 
@@ -122,25 +122,25 @@ Cerrar sesión
 <div class="card clientes">
 <div class="card-icon">👥</div>
 <h3>Clientes Activos</h3>
-<span class="numero">48</span>
+<span class="numero" id="cardClientesActivos">0</span>
 </div>
 
 <div class="card causas">
 <div class="card-icon">📂</div>
 <h3>Causas Abiertas</h3>
-<span class="numero">12</span>
+<span class="numero" id="cardCausasAbiertas">0</span>
 </div>
 
 <div class="card audiencias">
 <div class="card-icon">⚖</div>
 <h3>Audiencias Hoy</h3>
-<span class="numero">3</span>
+<span class="numero" id="cardAudienciasHoy">0</span>
 </div>
 
 <div class="card tareas">
 <div class="card-icon">✔</div>
-<h3>Tareas Pendientes</h3>
-<span class="numero">7</span>
+<h3>Alertas Pendientes</h3>
+<span class="numero" id="cardTareasPendientes">0</span>
 </div>
 
 </section>
@@ -168,56 +168,31 @@ Cerrar sesión
 <section class="paneles">
 
 <div class="panel actividad">
-<h3>Actividad Reciente</h3>
-<ul>
-<li>👤 Nuevo cliente registrado</li>
-<li>📄 Documento subido</li>
-<li><span style="color:#d4af37">⚖</span> Audiencia agregada</li>
+<h3>Actividad reciente consolidada</h3>
+<ul id="panelActividadReciente">
+<li class="panel-list-empty">Cargando actividad…</li>
 </ul>
 </div>
 
 <div class="panel causas-activas">
-<h3>Causas Activas</h3>
-<ul>
-<li>📂 Rodríguez vs Pérez</li>
-<li>📂 Empresa Norte Ltda</li>
-<li>📂 Contrato Comercial 245</li>
+<h3>Causas activas y judiciales</h3>
+<ul id="panelCausasActivas">
+<li class="panel-list-empty">Cargando causas…</li>
 </ul>
 </div>
 
 <div class="panel audiencias-semana">
-<h3>Audiencias de la Semana</h3>
-<ul>
-<li>
-<img src="avatars/abogado1.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini"
-alt="Abogado 1">
-Juzgado Civil — 10:00
-</li>
-<li>
-<img src="avatars/abogado2.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini"
-alt="Abogado 2">
-Tribunal Laboral — 12:30
-</li>
-<li>
-<img src="avatars/abogado1.jpg"
-onerror="this.src='avatars/default-avatar.png'"
-class="avatar-mini"
-alt="Abogado 1">
-Tribunal de Garantía — 15:00
-</li>
+<h3>Agenda y audiencias próximas</h3>
+<ul id="panelAgendaProxima">
+<li class="panel-list-empty">Cargando agenda…</li>
 </ul>
 </div>
 
 <div class="panel alertas">
-<h3>Alertas Jurídicas</h3>
-<ul>
-<li>🔴 Contestación demanda vence en 12 días</li>
-<li>🟠 Apelación vence en 3 días</li>
-</ul>
+<h3>Alertas consolidadas del panel principal</h3>
+<div id="panelAlertasConsolidadas" class="panel-alert-groups">
+<div class="panel-list-empty">Cargando alertas…</div>
+</div>
 </div>
 
 </section>
@@ -319,9 +294,153 @@ window.addEventListener("orientationchange",ajustarVistaMovil);
 </script>
 
 <script type="module">
-import { supabase } from "./app.js"
+import { supabase, requireAuth } from "./app.js"
+import { buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from "./alerts.js"
+
+const T_CASES = 'cases'
+const C = {
+  k_id: 'id',
+  k_client_id: 'client_id',
+  k_court: 'court',
+  k_rol: 'rol_rit',
+  k_subject: 'subject',
+  k_responsible: 'responsible',
+  k_notes: 'notes',
+  k_created: 'created_at'
+}
+
+await requireAuth()
 
 const cerrarSesionBtn = document.getElementById("cerrar-sesion-btn")
+const panelSearch = document.getElementById('panelSearch')
+let consolidatedState = null
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]))
+}
+
+function filterAlertsByQuery(alerts = [], query = '') {
+  const normalized = query.trim().toLowerCase()
+  if (!normalized) return alerts
+  return alerts.filter((alert) => [
+    alert.title,
+    alert.summary,
+    alert.module,
+    alert.category,
+    alert.person,
+    alert.association,
+    alert.responsible,
+    alert.modality,
+    alert.location,
+    alert.observation
+  ].join(' ').toLowerCase().includes(normalized))
+}
+
+function renderCards(summary) {
+  document.getElementById('cardClientesActivos').textContent = String(summary.cards.activeClients)
+  document.getElementById('cardCausasAbiertas').textContent = String(summary.cards.openCases)
+  document.getElementById('cardAudienciasHoy').textContent = String(summary.cards.hearingsToday)
+  document.getElementById('cardTareasPendientes').textContent = String(summary.cards.pendingTasks)
+}
+
+function renderCasePanel(cases = [], filteredAlerts = []) {
+  const list = document.getElementById('panelCausasActivas')
+  if (!cases.length) {
+    list.innerHTML = '<li class="panel-list-empty">Sin causas judiciales cargadas.</li>'
+    return
+  }
+
+  const items = cases.slice(0, 4).map((item) => {
+    const related = filteredAlerts.find((alert) => alert.module === 'Causas' && alert.id === `causa-${item.id}`)
+    const subtitle = related ? `${related.summary}` : `Seguimiento judicial pendiente para ${item.rol_rit || 'causa sin rol'}.`
+    return `
+      <li class="panel-case-item">
+        <strong>📂 ${escapeHtml(item.rol_rit || 'Sin rol/RIT')}</strong>
+        <p>${escapeHtml(item.subject || 'Materia por definir')}</p>
+        <div class="panel-alert-meta">
+          <span>${escapeHtml(item.court || 'Tribunal por definir')}</span>
+          <span>${escapeHtml(item.responsible || 'Por asignar')}</span>
+        </div>
+        <div class="panel-alert-note">${escapeHtml(subtitle)}</div>
+      </li>
+    `
+  })
+  list.innerHTML = items.join('')
+}
+
+function renderGroupedAlerts(summary, query = '') {
+  const groupsContainer = document.getElementById('panelAlertasConsolidadas')
+  const filtered = filterAlertsByQuery(summary.alerts, query)
+  const grouped = summary.groupedAlerts
+    .map((group) => ({ ...group, items: filterAlertsByQuery(group.items, query) }))
+    .filter((group) => group.items.length)
+
+  if (!grouped.length) {
+    groupsContainer.innerHTML = '<div class="panel-list-empty">No hay alertas que coincidan con la búsqueda.</div>'
+  } else {
+    groupsContainer.innerHTML = grouped.map((group) => `
+      <section class="panel-alert-group">
+        <h4>${escapeHtml(group.category)}</h4>
+        <ul>
+          ${renderAlertListItems(group.items, { showMeta: true })}
+        </ul>
+      </section>
+    `).join('')
+  }
+
+  document.getElementById('panelActividadReciente').innerHTML = renderAlertListItems(
+    filtered.slice().sort((a, b) => b.sortAt - a.sortAt).slice(0, 5),
+    { emptyMessage: 'Sin actividad reciente para mostrar.' }
+  )
+  document.getElementById('panelAgendaProxima').innerHTML = renderAlertListItems(
+    filtered.filter((alert) => ['Agenda', 'Clientes'].includes(alert.module) && ['Audiencias', 'Eventos de hoy', 'Próximas actividades', 'Reuniones y atenciones'].includes(alert.category)).slice(0, 5),
+    { emptyMessage: 'Sin eventos próximos cargados.' }
+  )
+  renderCasePanel(summary.activeCases, filtered)
+}
+
+async function loadPanelData() {
+  const [{ data: appointments, error: appointmentsError }, { data: casesData, error: casesError }] = await Promise.all([
+    supabase.from('appointments').select('*').order('starts_at', { ascending: true }),
+    supabase.from(T_CASES).select('*').order(C.k_created, { ascending: false })
+  ])
+
+  if (appointmentsError) {
+    document.getElementById('panelActividadReciente').innerHTML = `<li class="panel-list-empty">Error cargando Agenda: ${escapeHtml(appointmentsError.message)}</li>`
+  }
+  if (casesError) {
+    document.getElementById('panelCausasActivas').innerHTML = `<li class="panel-list-empty">Error cargando Causas: ${escapeHtml(casesError.message)}</li>`
+  }
+
+  const clientsData = loadClientDatasetFromStorage(window.localStorage)
+  const cases = (casesData || []).map((item) => ({
+    id: item[C.k_id],
+    client_id: item[C.k_client_id],
+    court: item[C.k_court],
+    rol_rit: item[C.k_rol],
+    subject: item[C.k_subject],
+    responsible: item[C.k_responsible],
+    notes: item[C.k_notes],
+    created_at: item[C.k_created]
+  }))
+
+  consolidatedState = buildConsolidatedAlerts({
+    appointments: appointments || [],
+    cases,
+    clientDataset: clientsData,
+    now: new Date()
+  })
+
+  renderCards(consolidatedState)
+  renderGroupedAlerts(consolidatedState, panelSearch?.value || '')
+}
+
+if (panelSearch) {
+  panelSearch.addEventListener('input', () => {
+    if (!consolidatedState) return
+    renderGroupedAlerts(consolidatedState, panelSearch.value)
+  })
+}
 
 if (cerrarSesionBtn) {
   cerrarSesionBtn.addEventListener("click", async () => {
@@ -340,6 +459,12 @@ if (cerrarSesionBtn) {
     window.location.href = "./login.html"
   })
 }
+
+await loadPanelData()
+window.addEventListener('storage', (event) => {
+  if (event.key && event.key !== 'alpha_avocat_clientes_expedientes_v1') return
+  loadPanelData()
+})
 </script>
 
 </body>
