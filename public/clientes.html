@@ -12,6 +12,8 @@
         radial-gradient(circle at top left, rgba(196, 30, 58, 0.12), transparent 26%),
         linear-gradient(180deg, #f8fafc 0%, #eef2ff 46%, #e2e8f0 100%);
       color: #0f172a;
+      --clients-title-color: #000;
+      --clients-subtitle-color: #000;
     }
 
     .clients-shell {
@@ -62,6 +64,8 @@
       background: linear-gradient(135deg, #14b8c5 0%, #06b6d4 42%, #0891b2 100%);
       border-color: rgba(8, 145, 178, 0.42);
       box-shadow: 0 24px 44px rgba(8, 145, 178, 0.28);
+      --clients-title-color: #fff;
+      --clients-subtitle-color: #fff;
     }
 
     .hero-head,
@@ -84,7 +88,7 @@
       padding: 6px 12px;
       border-radius: 999px;
       background: rgba(196, 30, 58, 0.08);
-      color: #8a1538;
+      color: var(--clients-title-color);
       font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -93,23 +97,18 @@
 
     .hero-card .module-eyebrow {
       background: rgba(236, 254, 255, 0.18);
-      color: #ecfeff;
+      color: #fff;
     }
 
     .hero-card h1,
     .workspace-head h2,
     .section-title,
     .tab-section h3,
-    .subcard h4 {
+    .subcard h4,
+    .summary-panel h2,
+    .panel-title {
       margin: 0;
-      color: #0f172a;
-    }
-
-    .hero-card h1,
-    .hero-card .small-note,
-    .hero-card .field-stack label,
-    .hero-card .module-copy {
-      color: #ecfeff;
+      color: var(--clients-title-color);
     }
 
     .hero-card h1 {
@@ -123,7 +122,7 @@
     .muted-copy,
     .helper-text {
       margin: 0;
-      color: #475569;
+      color: var(--clients-subtitle-color);
       line-height: 1.55;
     }
 
@@ -230,12 +229,12 @@
 
     .primary-list-card .section-title,
     .primary-list-card .small-note {
-      color: #0f4c5c;
+      color: #000;
     }
 
     .module-load-card .section-title,
     .module-load-card .small-note {
-      color: #0f4c5c;
+      color: #000;
     }
 
     .module-load-card .summary-card {
@@ -385,7 +384,7 @@
     .summary-panel p,
     .summary-panel strong,
     .summary-panel .metric-label {
-      color: #083344;
+      color: #000;
     }
 
     .spotlight-list {
@@ -489,19 +488,12 @@
       background: linear-gradient(135deg, #18d9d1 0%, #0fb9c6 52%, #0891b2 100%);
       border-color: rgba(8, 145, 178, 0.34);
       box-shadow: 0 24px 44px rgba(8, 145, 178, 0.22);
+      --clients-title-color: #fff;
+      --clients-subtitle-color: #fff;
     }
 
     .workspace-shell .module-eyebrow {
       background: rgba(236, 254, 255, 0.24);
-      color: #ecfeff;
-    }
-
-    .workspace-shell .module-copy {
-      color: rgba(236, 254, 255, 0.92);
-    }
-
-    .workspace-shell .workspace-head h2 {
-      color: #ecfeff;
     }
 
     .workspace-shell .subcard,
