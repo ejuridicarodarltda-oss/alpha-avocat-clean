@@ -368,7 +368,33 @@ input[type="checkbox"]{
       <label>Nombre<input id="nombre"></label><label>RUT<input id="rut"></label><label>Domicilio<input id="address"></label><label>Estado civil<input id="marital_status"></label><label>Domicilio electrónico<input id="email" type="email"></label><label>Profesión u oficio<input id="occupation"></label><label>Teléfono<input id="phone"></label>
     </div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields">
-      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label><label>Título<input id="title"></label><label>Asociado a causa<select id="linked_case"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Rol<input id="linked_case_role"></label><label>Tribunal<input id="linked_case_court"></label><label>Sin causa<input id="no_case"></label><label>Causa nueva<select id="new_case"><option>No</option><option>Sí</option></select></label><label>Rol<input id="new_case_role"></label><label>Tribunal<input id="new_case_court"></label><label>Asociada a cliente<select id="linked_client"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label><label>Nombre<input id="linked_client_name"></label><label>Rut<input id="linked_client_rut"></label><label>No cliente<input id="non_client"></label><label>Nombre<input id="non_client_name"></label><label>Rut<input id="non_client_rut"></label><label>Cliente nuevo<select id="new_client"><option>No</option><option>Sí</option></select></label><label>Nombre<input id="new_client_name"></label><label>Rut<input id="new_client_rut"></label><label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="subject"></label><label>Fecha y hora<input id="starts_at" type="datetime-local"></label><label>Nota<textarea id="notes"></textarea></label>
+      <label>N° Evento<input id="event_number" readonly placeholder="Se asigna al guardar"></label>
+      <label>Título<input id="title"></label>
+      <label>Asociado a causa<select id="linked_case"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label>
+      <label>Rol<input id="linked_case_role"></label>
+      <label>Tribunal<input id="linked_case_court"></label>
+      <label>Sin causa<input id="no_case"></label>
+      <label>Causa nueva<select id="new_case"><option>No</option><option>Sí</option></select></label>
+      <label>Rol<input id="new_case_role"></label>
+      <label>Tribunal<input id="new_case_court"></label>
+      <label>Asociada a cliente<select id="linked_client"><option>Seleccionar</option><option>Sí</option><option>No</option></select></label>
+      <label>Nombre<input id="linked_client_name"></label>
+      <label>Rut<input id="linked_client_rut"></label>
+      <label>No cliente<input id="non_client"></label>
+      <label>Nombre<input id="non_client_name"></label>
+      <label>Rut<input id="non_client_rut"></label>
+      <label>Cliente nuevo<select id="new_client"><option>No</option><option>Sí</option></select></label>
+      <label>Nombre<input id="new_client_name"></label>
+      <label>Rut<input id="new_client_rut"></label>
+      <label>Condición de la persona<select id="person_condition"><option>Cliente</option><option>Prospecto</option><option>Tercero</option><option>Actividad general</option></select></label>
+      <label>Responsable<input id="responsible" placeholder="Abogado o responsable"></label>
+      <label>Tipo<select id="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option><option>Videollamada</option><option>Llamada</option><option>Seguimiento</option></select></label>
+      <label>Modalidad detallada<select id="modality_detail"><option>Presencial</option><option>Zoom</option><option>Meet</option><option>Telefónica</option><option>Videollamada</option><option>Comparecencia remota</option><option>Otra</option></select></label>
+      <label>Link o ubicación<input id="location_or_link" placeholder="URL, oficina, tribunal o dirección"></label>
+      <label>Estado de confirmación<select id="confirmation_status"><option>Confirmado</option><option>Pendiente</option><option>Sin confirmar</option></select></label>
+      <label>Materia<input id="subject"></label>
+      <label>Fecha y hora<input id="starts_at" type="datetime-local"></label>
+      <label>Nota<textarea id="notes"></textarea></label>
     </div></div>
     <div class="block"><h3>Bloque C. Modalidad</h3><div class="check-grid"><label><input type="radio" name="modalidad" value="presencial" checked>Presencial</label><label><input type="radio" name="modalidad" value="remota">Remota</label></div></div>
     <div class="block"><h3>Bloque D. Grabación</h3><div class="check-grid"><label><input type="radio" name="grabacion" value="audio" checked>Autorizada - Audio</label><label><input type="radio" name="grabacion" value="audio-video">Autorizada - Audio y video</label><label><input type="radio" name="grabacion" value="no">No autorizada</label></div></div>
@@ -381,7 +407,7 @@ input[type="checkbox"]{
   <section class="agenda-screen" id="actividad">
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input id="act_address"></label><label>Estado civil<input id="act_civil_status"></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input id="act_profession"></label><label>Teléfono<input id="act_phone"></label></div></div>
-    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields" id="activityEventFields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option></select></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
+    <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields" id="activityEventFields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Condición de la persona<input id="act_person_condition"></label><label>Responsable<input id="act_responsible"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option><option>Videollamada</option><option>Llamada</option><option>Seguimiento</option></select></label><label>Modalidad detallada<input id="act_modality_detail"></label><label>Link o ubicación<input id="act_location_or_link"></label><label>Confirmación<input id="act_confirmation_status"></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
     <div class="block hidden" id="activityModalidadBlock"><h3>Bloque C. Modalidad del evento</h3>
       <div class="fields">
         <label>Modalidad seleccionada<input id="act_modalidad" readonly></label>
@@ -436,6 +462,7 @@ input[type="checkbox"]{
 
 <script type="module">
 import { supabase } from './app.js'
+import { AGENDA_FORM_METADATA_PREFIX } from './alerts.js'
 
 const screens = document.querySelectorAll('.agenda-screen')
 const home = document.getElementById('agendaHome')
@@ -452,7 +479,7 @@ const rutEl = document.getElementById('rut')
 const subjectEl = document.getElementById('subject')
 const eventNumberEl = document.getElementById('event_number')
 const saveButton = document.getElementById('btnSave')
-const FORM_METADATA_PREFIX = '__nuevo_evento__:'
+const FORM_METADATA_PREFIX = AGENDA_FORM_METADATA_PREFIX
 const nuevoEventoFieldIds = [
   'nombre',
   'rut',
@@ -478,7 +505,12 @@ const nuevoEventoFieldIds = [
   'new_client',
   'new_client_name',
   'new_client_rut',
+  'person_condition',
+  'responsible',
   'event_type',
+  'modality_detail',
+  'location_or_link',
+  'confirmation_status',
   'subject',
   'starts_at',
   'notes'
@@ -506,6 +538,11 @@ function getFirstDefinedValue(...values){
   return values.find(value => value !== undefined && value !== null && value !== '') || ''
 }
 
+function titleCase(value){
+  const text = String(value || '').trim()
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''
+}
+
 function getNuevoEventoStateValue(state, fieldId){
   return getFirstDefinedValue(state[fieldId], ...(nuevoEventoLegacyFieldAliases[fieldId] || []).map(alias => state[alias]))
 }
@@ -529,7 +566,12 @@ const nuevoEventoFields = {
   newClient: document.getElementById('new_client'),
   newClientName: document.getElementById('new_client_name'),
   newClientRut: document.getElementById('new_client_rut'),
+  personCondition: document.getElementById('person_condition'),
+  responsible: document.getElementById('responsible'),
   eventType: document.getElementById('event_type'),
+  modalityDetail: document.getElementById('modality_detail'),
+  locationOrLink: document.getElementById('location_or_link'),
+  confirmationStatus: document.getElementById('confirmation_status'),
   subject: document.getElementById('subject'),
   startsAt: document.getElementById('starts_at'),
   notes: document.getElementById('notes'),
@@ -562,7 +604,12 @@ const activityFields = {
   newClient: document.getElementById('act_new_client'),
   newClientName: document.getElementById('act_new_client_name'),
   newClientRut: document.getElementById('act_new_client_rut'),
+  personCondition: document.getElementById('act_person_condition'),
+  responsible: document.getElementById('act_responsible'),
   eventType: document.getElementById('act_event_type'),
+  modalityDetail: document.getElementById('act_modality_detail'),
+  locationOrLink: document.getElementById('act_location_or_link'),
+  confirmationStatus: document.getElementById('act_confirmation_status'),
   subject: document.getElementById('act_subject'),
   startsAt: document.getElementById('act_starts_at'),
   notes: document.getElementById('act_notes'),
@@ -770,7 +817,12 @@ function startEditingEvent(eventData){
     event_type: persistedState?.event_type || (eventData.event_type ? `${eventData.event_type}`.charAt(0).toUpperCase() + `${eventData.event_type}`.slice(1) : 'Consulta'),
     starts_at: persistedState?.starts_at || (eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''),
     notes: persistedState?.notes || eventData.notes || '',
-    modalidad: persistedState?.modalidad || (eventData.meeting_mode === 'videoconferencia' ? 'remota' : 'presencial'),
+    modalidad: persistedState?.modalidad || (['videoconferencia', 'zoom', 'meet', 'videollamada', 'comparecencia remota', 'telefonica'].includes(String(eventData.meeting_mode || '').toLowerCase()) ? 'remota' : 'presencial'),
+    modality_detail: persistedState?.modality_detail || persistedState?.modalityDetail || titleCase(eventData.meeting_mode || '') || 'Presencial',
+    location_or_link: persistedState?.location_or_link || persistedState?.locationOrLink || '',
+    confirmation_status: persistedState?.confirmation_status || persistedState?.confirmationStatus || 'Sin confirmar',
+    responsible: persistedState?.responsible || eventData.responsible || '',
+    person_condition: persistedState?.person_condition || persistedState?.personCondition || 'Cliente',
     grabacion: persistedState?.grabacion || (eventData.recording_authorized ? (eventData.record_mode || 'audio') : 'no')
   })
 }
@@ -933,17 +985,25 @@ saveButton.addEventListener('click', async ()=>{
   const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
   const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
 
+  const modalityDetail = document.getElementById('modality_detail')?.value || (modalidad === 'remota' ? 'Videollamada' : 'Presencial')
+  const bestPersonName = document.getElementById('linked_client_name')?.value
+    || document.getElementById('new_client_name')?.value
+    || document.getElementById('non_client_name')?.value
+    || nameEl.value
+    || null
+
   const payload = {
     title: titleEl.value,
     event_type: typeEl.value.toLowerCase(),
     kind: typeEl.value.toLowerCase(),
-    external_name: nameEl.value || null,
-    person_name: nameEl.value || null,
+    external_name: bestPersonName,
+    person_name: bestPersonName,
     email: emailEl.value || null,
     phone: phoneEl.value || null,
+    responsible: document.getElementById('responsible')?.value || null,
     rol: document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || null,
     event_date: startsEl.value ? startsEl.value.slice(0, 10) : null,
-    meeting_mode: modalidad === 'remota' ? 'videoconferencia' : 'presencial',
+    meeting_mode: modalityDetail.toLowerCase(),
     recording_authorized: grabacion !== 'no',
     record_mode: grabacion,
     starts_at: fecha.toISOString(),

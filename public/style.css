@@ -1240,3 +1240,120 @@ bottom:78px;
 padding:0 14px;
 }
 }
+
+.panel-list-empty{
+list-style:none;
+padding-left:0;
+opacity:.76;
+}
+
+.panel-alert-groups{
+display:grid;
+gap:10px;
+}
+
+.panel-alert-group{
+background:rgba(255,255,255,.28);
+border:1px solid rgba(255,255,255,.36);
+border-radius:14px;
+padding:10px;
+}
+
+.panel-alert-group h4{
+margin:0 0 8px 0;
+font-size:14px;
+}
+
+.panel-alert-group ul,
+.panel.alertas ul,
+.panel.audiencias-semana ul,
+.panel.actividad ul,
+.panel.causas-activas ul{
+list-style:none;
+padding:0;
+display:grid;
+gap:8px;
+}
+
+.panel-alert-item,
+.panel-case-item{
+background:rgba(255,255,255,.5);
+border-radius:12px;
+padding:10px;
+border:1px solid rgba(15,23,42,.08);
+}
+
+.panel-alert-item strong,
+.panel-case-item strong{
+display:block;
+margin-bottom:4px;
+}
+
+.panel-alert-item p,
+.panel-case-item p{
+margin:0 0 6px 0;
+line-height:1.35;
+}
+
+.panel-alert-head,
+.panel-alert-meta{
+display:flex;
+flex-wrap:wrap;
+gap:6px;
+margin-bottom:6px;
+font-size:12px;
+}
+
+.panel-alert-badge,
+.panel-alert-category,
+.panel-alert-tags li{
+display:inline-flex;
+align-items:center;
+border-radius:999px;
+padding:3px 8px;
+font-weight:700;
+}
+
+.panel-alert-badge{
+background:rgba(15,23,42,.14);
+}
+
+.panel-alert-badge.module-agenda{background:rgba(109,40,217,.16);color:#4c1d95;}
+.panel-alert-badge.module-clientes{background:rgba(14,165,233,.18);color:#0c4a6e;}
+.panel-alert-badge.module-causas{background:rgba(13,148,136,.18);color:#134e4a;}
+
+.panel-alert-category{
+background:rgba(255,255,255,.5);
+font-weight:600;
+}
+
+.panel-alert-meta span{
+background:rgba(255,255,255,.4);
+padding:3px 8px;
+border-radius:999px;
+}
+
+.panel-alert-tags{
+list-style:none;
+padding:0;
+margin:0;
+display:flex;
+flex-wrap:wrap;
+gap:6px;
+}
+
+.panel-alert-tags li{
+background:rgba(255,255,255,.52);
+font-size:11px;
+font-weight:600;
+}
+
+.panel-alert-note{
+margin-top:6px;
+font-size:12px;
+opacity:.9;
+}
+
+.urgency-alta{box-shadow:inset 0 0 0 1px rgba(185,28,28,.2);}
+.urgency-media{box-shadow:inset 0 0 0 1px rgba(194,65,12,.18);}
+.urgency-baja{box-shadow:inset 0 0 0 1px rgba(161,98,7,.18);}
