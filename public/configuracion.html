@@ -8,10 +8,12 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./img/alpha_icon_192.png">
   <style>
     :root {
-      --settings-bg: #F6F8FA;
-      --settings-shell: #E9EEF2;
-      --settings-block: #D8E0E7;
-      --settings-subblock: #C7D2DB;
+      --settings-bg: #F7F9FB;
+      --settings-shell: #E7EDF3;
+      --settings-block: #D5DFE8;
+      --settings-subblock: #C1CFDB;
+      --settings-card-bg: #FFFFFF;
+      --settings-card-soft: #F3F6F9;
       --settings-border: #A8B7C4;
       --settings-title: #3C536B;
       --settings-active: #163A5F;
@@ -23,6 +25,8 @@
       --settings-text-on-dark-soft: #F4F4F4;
       --settings-shadow-soft: 0 16px 38px rgba(60, 83, 107, 0.12);
       --settings-shadow-block: 0 18px 32px rgba(60, 83, 107, 0.14);
+      --topbar-burgundy: #C41E3A;
+      --topbar-burgundy-dark: #8F1228;
     }
 
     body.settings-page {
@@ -36,16 +40,28 @@
       position: sticky;
       top: 0;
       z-index: 30;
-      background: var(--settings-shell);
-      color: var(--settings-text);
-      border-bottom: 1px solid var(--settings-border);
-      box-shadow: 0 10px 24px rgba(60, 83, 107, 0.10);
+      background: linear-gradient(180deg, var(--topbar-burgundy), var(--topbar-burgundy-dark));
+      color: var(--settings-text-on-dark);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 10px 24px rgba(122, 30, 44, 0.28);
+    }
+
+    body.settings-page .brand-title,
+    body.settings-page .brand-subtitle,
+    body.settings-page .brand-mark,
+    body.settings-page .topbar-nav-link {
+      color: var(--settings-text-on-dark);
+    }
+
+    body.settings-page .brand-mark {
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
     }
 
     body.settings-page .topbar-nav-link {
-      background: var(--settings-white);
-      color: var(--settings-text);
-      border-color: var(--settings-border);
+      background: rgba(255, 255, 255, 0.10);
+      color: var(--settings-text-on-dark);
+      border-color: rgba(255, 255, 255, 0.34);
     }
 
     body.settings-page .topbar-nav-link.active,
@@ -59,17 +75,17 @@
 
     body.settings-page .search,
     body.settings-page .cerrar-sesion-btn {
-      border: 1px solid var(--settings-border);
+      border: 1px solid rgba(255, 255, 255, 0.24);
     }
 
     body.settings-page .search {
-      background: var(--settings-white);
+      background: rgba(255, 255, 255, 0.96);
       color: var(--settings-text);
     }
 
     body.settings-page .cerrar-sesion-btn {
-      background: var(--settings-white);
-      color: var(--settings-text);
+      background: rgba(255, 255, 255, 0.10);
+      color: var(--settings-text-on-dark);
       box-shadow: none;
     }
 
@@ -79,6 +95,7 @@
       padding: 22px;
       max-width: 1500px;
       margin: 0 auto 32px;
+      background: var(--settings-bg);
     }
 
     .settings-hero,
@@ -298,6 +315,8 @@
     .settings-sidebar,
     .settings-content {
       min-width: 0;
+      background: var(--settings-block);
+      box-shadow: var(--settings-shadow-block);
     }
 
     .settings-sidebar {
@@ -372,7 +391,7 @@
       display: grid;
       gap: 16px;
       padding: 20px;
-      background: color-mix(in srgb, var(--settings-shell) 70%, white);
+      background: var(--settings-block);
     }
 
     .config-panel-head,
@@ -406,14 +425,17 @@
       gap: 16px;
     }
 
-    .config-subtle-block,
+    .config-subtle-block {
+      background: var(--settings-subblock);
+    }
+
     .permission-card,
     .template-card,
     .catalog-card,
     .integration-card,
     .session-card,
     .profile-preview-card {
-      background: var(--settings-subblock);
+      background: var(--settings-card-bg);
     }
 
     .config-form-grid {
@@ -499,7 +521,7 @@
     .profile-preview-list div {
       padding: 12px 14px;
       border-radius: 16px;
-      background: color-mix(in srgb, var(--settings-subblock) 76%, white);
+      background: var(--settings-card-soft);
       border: 1px solid var(--settings-border);
     }
 
@@ -574,7 +596,7 @@
 
     .toggle-card {
       padding: 14px;
-      background: var(--settings-white);
+      background: var(--settings-card-bg);
       border-radius: 16px;
       border: 1px solid var(--settings-border);
     }
@@ -600,7 +622,7 @@
     .catalog-head {
       padding: 12px 14px;
       border-radius: 16px;
-      background: color-mix(in srgb, var(--settings-subblock) 82%, white);
+      background: var(--settings-card-soft);
       border: 1px solid var(--settings-border);
     }
 
@@ -616,7 +638,7 @@
 
     .theme-preview-shell {
       border-radius: 20px;
-      background: color-mix(in srgb, var(--settings-shell) 60%, white);
+      background: var(--settings-card-soft);
       border: 1px solid var(--settings-border);
     }
 

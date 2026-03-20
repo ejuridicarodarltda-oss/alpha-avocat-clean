@@ -7,10 +7,12 @@
   <link rel="stylesheet" href="./style.css?v=43" />
   <style>
     :root {
-      --clients-bg-screen: #EEF8FB;
-      --clients-bg-shell: #DDF1F6;
-      --clients-bg-block: #CBE8F0;
-      --clients-bg-subblock: #B9DDE8;
+      --clients-bg-screen: #F1FAFC;
+      --clients-bg-shell: #DCEFF5;
+      --clients-bg-block: #C3E4EE;
+      --clients-bg-subblock: #A8D5E3;
+      --clients-card-bg: #FFFFFF;
+      --clients-card-muted: #F6FBFD;
       --clients-border: #8FC3D3;
       --clients-border-strong: #6FAFC3;
       --clients-title: #2D7085;
@@ -24,6 +26,8 @@
       --clients-button-text: #111111;
       --clients-shadow-soft: 0 12px 30px rgba(45, 112, 133, 0.10);
       --clients-shadow-block: 0 16px 32px rgba(45, 112, 133, 0.14);
+      --topbar-burgundy: #C41E3A;
+      --topbar-burgundy-dark: #8F1228;
     }
 
     body.clients-module {
@@ -37,33 +41,33 @@
       position: sticky;
       top: 0;
       z-index: 10;
-      background: var(--clients-bg-shell);
-      color: var(--clients-text);
-      border-bottom: 1px solid var(--clients-border);
-      box-shadow: 0 8px 20px rgba(45, 112, 133, 0.10);
+      background: linear-gradient(180deg, var(--topbar-burgundy), var(--topbar-burgundy-dark));
+      color: var(--clients-text-on-dark);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.14);
+      box-shadow: 0 10px 24px rgba(122, 30, 44, 0.28);
     }
 
     body.clients-module .brand-title,
     body.clients-module .brand-subtitle,
     body.clients-module .brand-mark,
     body.clients-module .topbar-nav-link {
-      color: var(--clients-text);
+      color: var(--clients-text-on-dark);
     }
 
     body.clients-module .brand-mark {
-      background: var(--clients-bg-block);
-      border: 1px solid var(--clients-border);
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
     }
 
     body.clients-module .topbar-nav-link {
-      border-color: var(--clients-border);
-      background: var(--clients-button-bg);
+      border-color: rgba(255, 255, 255, 0.34);
+      background: rgba(255, 255, 255, 0.10);
       box-shadow: none;
     }
 
     body.clients-module .topbar-nav-link:hover {
-      background: var(--clients-bg-block);
-      color: var(--clients-text);
+      background: rgba(255, 255, 255, 0.18);
+      color: var(--clients-text-on-dark);
       transform: translateY(-1px);
     }
 
@@ -132,6 +136,17 @@
       background: var(--clients-bg-shell);
       border-color: var(--clients-border);
       color: var(--clients-text);
+    }
+
+    .primary-list-card,
+    .module-load-card,
+    .workspace-shell {
+      background: var(--clients-bg-block);
+      box-shadow: var(--clients-shadow-block);
+    }
+
+    .hero-card {
+      background: linear-gradient(180deg, color-mix(in srgb, var(--clients-bg-shell) 86%, white), var(--clients-bg-block));
     }
 
     .hero-card {
@@ -299,7 +314,7 @@
     .integration-banner {
       border-radius: 20px;
       border: 1px solid var(--clients-border);
-      background: var(--clients-bg-block);
+      background: var(--clients-card-bg);
       color: var(--clients-text);
       padding: 16px;
       box-shadow: var(--clients-shadow-soft);
@@ -310,7 +325,7 @@
     .tabs-row,
     .instruction-card,
     .admin-banner {
-      background: var(--clients-bg-block);
+      background: var(--clients-bg-subblock);
       color: var(--clients-text);
     }
 
@@ -459,6 +474,12 @@
     }
 
     .summary-panel,
+    .instruction-card,
+    .modal-box {
+      background: var(--clients-bg-subblock);
+      color: var(--clients-text);
+    }
+
     .spotlight-card,
     .module-load-card .summary-card,
     .workspace-shell .subcard,
@@ -472,10 +493,8 @@
     .workspace-shell .bullet-list li,
     .workspace-shell .text-panel,
     .workspace-shell .empty-state,
-    .instruction-card,
-    .modal-box,
     .data-item {
-      background: var(--clients-bg-block);
+      background: var(--clients-card-bg);
       color: var(--clients-text);
     }
 
@@ -484,7 +503,6 @@
     .workspace-shell .identification-grid-shell,
     .workspace-shell .identification-summary,
     .primary-list-card .data-item,
-    .spotlight-card,
     .metric-card,
     .summary-card,
     .field-stack input,
@@ -497,8 +515,13 @@
     .form-grid-full select,
     .form-grid-full textarea,
     .modal-box {
-      background: var(--clients-bg-subblock);
+      background: var(--clients-card-bg);
       color: var(--clients-text);
+    }
+
+    .workspace-shell .identification-grid-shell,
+    .workspace-shell .identification-summary {
+      background: var(--clients-card-muted);
     }
 
     .workspace-shell .identification-card,
@@ -539,7 +562,7 @@
       min-height: 100%;
       transition: transform .2s ease, box-shadow .2s ease, border-color .2s ease, background-color .2s ease;
       cursor: pointer;
-      background: var(--clients-bg-block);
+      background: var(--clients-card-bg);
     }
 
     .expediente-card:hover,
@@ -591,7 +614,7 @@
     .workspace-shell {
       display: grid;
       gap: 18px;
-      background: var(--clients-bg-shell);
+      background: var(--clients-bg-block);
       color: var(--clients-text);
     }
 
@@ -671,7 +694,7 @@
     }
 
     .integration-banner {
-      background: var(--clients-bg-block);
+      background: var(--clients-card-muted);
       border-color: var(--clients-border-strong);
       color: var(--clients-text);
     }
@@ -686,7 +709,7 @@
     .empty-state {
       border-style: dashed;
       text-align: center;
-      background: var(--clients-bg-screen);
+      background: var(--clients-card-muted);
       color: var(--clients-text-soft);
     }
 
@@ -716,7 +739,7 @@
       padding: 22px;
       display: grid;
       gap: 16px;
-      background: var(--clients-bg-shell);
+      background: var(--clients-bg-subblock);
     }
 
     .form-grid {
