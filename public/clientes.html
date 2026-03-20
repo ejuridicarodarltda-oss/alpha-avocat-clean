@@ -541,6 +541,31 @@
       color: #0f4c5c;
     }
 
+    .workspace-shell .identification-card,
+    .workspace-shell .case-data-card,
+    .workspace-shell .identification-card .field-list li,
+    .workspace-shell .case-data-card .field-list li {
+      background: #fff;
+      border-color: rgba(148, 163, 184, 0.22);
+      box-shadow: 0 14px 28px rgba(15, 23, 42, 0.08);
+      color: #000;
+    }
+
+    .workspace-shell .identification-card h3,
+    .workspace-shell .case-data-card h3,
+    .workspace-shell .identification-card h4,
+    .workspace-shell .case-data-card h4,
+    .workspace-shell .identification-card p,
+    .workspace-shell .case-data-card p,
+    .workspace-shell .identification-card .mini-label,
+    .workspace-shell .case-data-card .mini-label,
+    .workspace-shell .identification-card strong,
+    .workspace-shell .case-data-card strong,
+    .workspace-shell .identification-card .type-pill,
+    .workspace-shell .case-data-card .type-pill {
+      color: #000;
+    }
+
     .tabs-row {
       padding: 6px;
       border-radius: 18px;
@@ -1567,7 +1592,7 @@
       return `
         <section class="tab-section">
           <div class="tab-grid">
-            <article class="subcard">
+            <article class="subcard identification-card">
               <div class="section-head">
                 <div>
                   <h3>Identificación</h3>
@@ -1588,7 +1613,7 @@
               </ul>
             </article>
 
-            <article class="subcard">
+            <article class="subcard case-data-card">
               <h4>Datos del expediente</h4>
               <ul class="field-list">
                 <li><span class="mini-label">N° expediente</span><strong>${selected.code}</strong></li>
