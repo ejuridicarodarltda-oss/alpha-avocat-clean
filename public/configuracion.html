@@ -1,0 +1,837 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Configuración — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css?v=44">
+  <link rel="icon" type="image/png" sizes="192x192" href="./img/alpha_icon_192.png">
+  <style>
+    :root {
+      --settings-bg: #F6F8FA;
+      --settings-shell: #E9EEF2;
+      --settings-block: #D8E0E7;
+      --settings-subblock: #C7D2DB;
+      --settings-border: #A8B7C4;
+      --settings-title: #3C536B;
+      --settings-active: #163A5F;
+      --settings-critical: #7A1E2C;
+      --settings-white: #FFFFFF;
+      --settings-text: #111111;
+      --settings-text-soft: #2B2B2B;
+      --settings-text-on-dark: #FFFFFF;
+      --settings-text-on-dark-soft: #F4F4F4;
+      --settings-shadow-soft: 0 16px 38px rgba(60, 83, 107, 0.12);
+      --settings-shadow-block: 0 18px 32px rgba(60, 83, 107, 0.14);
+    }
+
+    body.settings-page {
+      overflow: auto;
+      min-height: 100dvh;
+      background: var(--settings-bg);
+      color: var(--settings-text);
+    }
+
+    body.settings-page .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: var(--settings-shell);
+      color: var(--settings-text);
+      border-bottom: 1px solid var(--settings-border);
+      box-shadow: 0 10px 24px rgba(60, 83, 107, 0.10);
+    }
+
+    body.settings-page .topbar-nav-link {
+      background: var(--settings-white);
+      color: var(--settings-text);
+      border-color: var(--settings-border);
+    }
+
+    body.settings-page .topbar-nav-link.active,
+    body.settings-page .topbar-nav-link:hover,
+    body.settings-page .topbar-nav-link:focus-visible {
+      background: var(--settings-active);
+      border-color: var(--settings-active);
+      color: var(--settings-text-on-dark);
+      transform: translateY(-1px);
+    }
+
+    body.settings-page .search,
+    body.settings-page .cerrar-sesion-btn {
+      border: 1px solid var(--settings-border);
+    }
+
+    body.settings-page .search {
+      background: var(--settings-white);
+      color: var(--settings-text);
+    }
+
+    body.settings-page .cerrar-sesion-btn {
+      background: var(--settings-white);
+      color: var(--settings-text);
+      box-shadow: none;
+    }
+
+    .settings-shell {
+      display: grid;
+      gap: 22px;
+      padding: 22px;
+      max-width: 1500px;
+      margin: 0 auto 32px;
+    }
+
+    .settings-hero,
+    .settings-layout,
+    .config-block,
+    .config-panel-shell,
+    .config-modal-card {
+      border-radius: 26px;
+      border: 1px solid var(--settings-border);
+      box-shadow: var(--settings-shadow-soft);
+    }
+
+    .settings-hero,
+    .settings-layout {
+      background: var(--settings-shell);
+    }
+
+    .settings-hero {
+      display: grid;
+      gap: 18px;
+      padding: 24px;
+    }
+
+    .settings-hero-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+
+    .settings-hero h1,
+    .config-panel-head h2,
+    .config-block h3,
+    .config-block h4 {
+      margin: 0;
+      color: var(--settings-title);
+    }
+
+    .settings-hero h1 {
+      font-size: clamp(2rem, 4vw, 3.25rem);
+      line-height: 1.02;
+      margin-top: 10px;
+    }
+
+    .settings-hero p,
+    .config-panel-head p,
+    .config-helper,
+    .profile-preview-card p,
+    .empty-illustration p,
+    .template-card p,
+    .integration-card p,
+    .session-card p,
+    .identity-row p,
+    .config-category small,
+    .config-table td span {
+      margin: 0;
+      color: var(--settings-text-soft);
+      line-height: 1.55;
+    }
+
+    .config-chip,
+    .config-badge,
+    .table-pill,
+    .inline-check {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--settings-border);
+      background: var(--settings-white);
+      color: var(--settings-text);
+      font-size: 12px;
+      font-weight: 800;
+      line-height: 1;
+    }
+
+    .config-badge,
+    .table-pill.is-soft,
+    .config-metric-soft {
+      background: color-mix(in srgb, var(--settings-shell) 80%, white);
+    }
+
+    .table-pill.is-active,
+    .config-btn-active,
+    .config-category.is-active,
+    .config-metric-active {
+      background: var(--settings-active);
+      border-color: var(--settings-active);
+      color: var(--settings-text-on-dark);
+    }
+
+    .table-pill.is-critical,
+    .config-btn-critical,
+    .config-chip.is-critical {
+      background: var(--settings-critical);
+      border-color: var(--settings-critical);
+      color: var(--settings-text-on-dark);
+    }
+
+    .settings-hero-actions,
+    .config-panel-actions,
+    .table-actions,
+    .maintenance-actions,
+    .automation-switcher {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+    }
+
+    .config-btn,
+    .config-category,
+    .toggle-card,
+    .config-modal-card button,
+    .config-modal-card select,
+    .config-modal-card input,
+    .config-field input,
+    .config-field textarea,
+    .config-field select {
+      font: inherit;
+    }
+
+    .config-btn,
+    .config-category {
+      appearance: none;
+      border-radius: 16px;
+      border: 1px solid var(--settings-border);
+      background: var(--settings-white);
+      color: var(--settings-text);
+      cursor: pointer;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease;
+    }
+
+    .config-btn {
+      padding: 12px 16px;
+      font-weight: 800;
+      box-shadow: 0 8px 18px rgba(60, 83, 107, 0.10);
+    }
+
+    .config-btn:hover,
+    .config-category:hover,
+    .config-btn:focus-visible,
+    .config-category:focus-visible {
+      outline: none;
+      transform: translateY(-1px);
+      border-color: var(--settings-active);
+      box-shadow: 0 12px 24px rgba(22, 58, 95, 0.14);
+    }
+
+    .config-metric-default,
+    .config-btn-active:hover,
+    .config-btn-critical:hover {
+      color: inherit;
+    }
+
+    .config-btn-active:hover,
+    .config-btn-critical:hover {
+      filter: brightness(1.04);
+    }
+
+    .settings-summary-grid,
+    .config-grid-2,
+    .config-inline-grid,
+    .permission-grid,
+    .integration-grid,
+    .catalog-grid,
+    .template-grid {
+      display: grid;
+      gap: 14px;
+    }
+
+    .settings-summary-grid {
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+
+    .config-metric {
+      padding: 18px;
+      border-radius: 22px;
+      border: 1px solid var(--settings-border);
+      background: var(--settings-block);
+      display: grid;
+      gap: 8px;
+      color: var(--settings-text);
+    }
+
+    .config-metric strong {
+      font-size: clamp(1.8rem, 3vw, 2.4rem);
+      line-height: 1;
+    }
+
+    .settings-layout {
+      display: grid;
+      grid-template-columns: minmax(280px, 320px) minmax(0, 1fr);
+      gap: 20px;
+      padding: 20px;
+      align-items: start;
+    }
+
+    .settings-sidebar,
+    .settings-content,
+    .config-block,
+    .config-subtle-block,
+    .permission-card,
+    .template-card,
+    .catalog-card,
+    .integration-card,
+    .session-card,
+    .profile-preview-card {
+      background: var(--settings-block);
+      color: var(--settings-text);
+      border-radius: 22px;
+      border: 1px solid var(--settings-border);
+    }
+
+    .settings-sidebar,
+    .settings-content {
+      min-width: 0;
+    }
+
+    .settings-sidebar {
+      position: sticky;
+      top: 92px;
+      padding: 18px;
+      display: grid;
+      gap: 14px;
+    }
+
+    .settings-sidebar-search {
+      display: grid;
+      gap: 8px;
+    }
+
+    .settings-sidebar-search input,
+    .config-field input,
+    .config-field textarea,
+    .config-field select,
+    .config-modal-card input,
+    .config-modal-card select {
+      width: 100%;
+      border-radius: 14px;
+      border: 1px solid var(--settings-border);
+      background: var(--settings-white);
+      color: var(--settings-text);
+      padding: 12px 14px;
+    }
+
+    .settings-sidebar-search input:focus,
+    .config-field input:focus,
+    .config-field textarea:focus,
+    .config-field select:focus,
+    .config-modal-card input:focus,
+    .config-modal-card select:focus {
+      outline: none;
+      border-color: var(--settings-active);
+      box-shadow: 0 0 0 3px rgba(22, 58, 95, 0.14);
+    }
+
+    .config-category-list {
+      display: grid;
+      gap: 10px;
+      max-height: calc(100dvh - 220px);
+      overflow: auto;
+      padding-right: 4px;
+    }
+
+    .config-category {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      align-items: start;
+      gap: 12px;
+      text-align: left;
+      padding: 14px;
+    }
+
+    .config-category-icon {
+      width: 38px;
+      height: 38px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--settings-subblock) 82%, white);
+      color: var(--settings-text);
+      font-size: 18px;
+    }
+
+    .config-panel-shell,
+    .settings-content {
+      display: grid;
+      gap: 16px;
+      padding: 20px;
+      background: color-mix(in srgb, var(--settings-shell) 70%, white);
+    }
+
+    .config-panel-head,
+    .config-block-head,
+    .catalog-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .config-stack {
+      display: grid;
+      gap: 16px;
+    }
+
+    .config-grid-2 {
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .config-inline-grid {
+      grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+    }
+
+    .config-block,
+    .config-subtle-block {
+      padding: 18px;
+      box-shadow: var(--settings-shadow-block);
+      display: grid;
+      gap: 16px;
+    }
+
+    .config-subtle-block,
+    .permission-card,
+    .template-card,
+    .catalog-card,
+    .integration-card,
+    .session-card,
+    .profile-preview-card {
+      background: var(--settings-subblock);
+    }
+
+    .config-form-grid {
+      display: grid;
+      gap: 14px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .config-form-grid.compact-gap {
+      gap: 10px;
+    }
+
+    .config-field {
+      display: grid;
+      gap: 8px;
+      color: var(--settings-text);
+      font-size: 13px;
+      font-weight: 800;
+    }
+
+    .config-field.wide,
+    .config-form-grid .wide {
+      grid-column: 1 / -1;
+    }
+
+    .config-field textarea {
+      min-height: 108px;
+      resize: vertical;
+    }
+
+    .color-input-row {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 10px;
+    }
+
+    .color-input-row input[type="color"] {
+      padding: 4px;
+      min-height: 48px;
+      background: var(--settings-white);
+    }
+
+    .profile-preview-card,
+    .theme-preview-shell,
+    .empty-illustration {
+      display: grid;
+      gap: 14px;
+      padding: 18px;
+    }
+
+    .profile-preview-brand,
+    .identity-row,
+    .rank-row,
+    .session-card {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .profile-preview-logo {
+      width: 54px;
+      height: 54px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 18px;
+      background: var(--settings-active);
+      color: var(--settings-text-on-dark);
+      font-size: 24px;
+    }
+
+    .profile-preview-list,
+    .session-list,
+    .identity-list,
+    .source-list,
+    .chip-list,
+    .permission-options {
+      display: grid;
+      gap: 10px;
+    }
+
+    .profile-preview-list div {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--settings-subblock) 76%, white);
+      border: 1px solid var(--settings-border);
+    }
+
+    .profile-preview-list dt {
+      margin-bottom: 4px;
+      font-size: 12px;
+      font-weight: 800;
+      text-transform: uppercase;
+      color: var(--settings-title);
+    }
+
+    .profile-preview-list dd {
+      margin: 0;
+      color: var(--settings-text);
+    }
+
+    .config-table-wrap {
+      overflow: auto;
+    }
+
+    .config-table {
+      width: 100%;
+      min-width: 880px;
+      border-collapse: collapse;
+      color: var(--settings-text);
+    }
+
+    .config-table th,
+    .config-table td {
+      padding: 14px 12px;
+      border-bottom: 1px solid color-mix(in srgb, var(--settings-border) 78%, white);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    .config-table th {
+      color: var(--settings-title);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .permission-grid,
+    .catalog-grid,
+    .template-grid,
+    .integration-grid {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    }
+
+    .permission-card,
+    .template-card,
+    .catalog-card,
+    .integration-card,
+    .session-card {
+      padding: 16px;
+    }
+
+    .template-card,
+    .integration-card,
+    .catalog-card {
+      display: grid;
+      gap: 14px;
+    }
+
+    .toggle-row {
+      display: inline-flex;
+      align-items: center;
+      gap: 10px;
+      color: var(--settings-text);
+      font-weight: 700;
+    }
+
+    .toggle-card {
+      padding: 14px;
+      background: var(--settings-white);
+      border-radius: 16px;
+      border: 1px solid var(--settings-border);
+    }
+
+    .toggle-row input[type="checkbox"] {
+      width: 18px;
+      height: 18px;
+      accent-color: var(--settings-active);
+    }
+
+    .inline-check,
+    .chip-list {
+      flex-wrap: wrap;
+    }
+
+    .chip-list {
+      display: flex;
+    }
+
+    .identity-row,
+    .rank-row,
+    .session-card,
+    .catalog-head {
+      padding: 12px 14px;
+      border-radius: 16px;
+      background: color-mix(in srgb, var(--settings-subblock) 82%, white);
+      border: 1px solid var(--settings-border);
+    }
+
+    .identity-swatch {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 96px;
+      padding: 8px 12px;
+      border-radius: 999px;
+      font-weight: 800;
+    }
+
+    .theme-preview-shell {
+      border-radius: 20px;
+      background: color-mix(in srgb, var(--settings-shell) 60%, white);
+      border: 1px solid var(--settings-border);
+    }
+
+    .theme-preview-block,
+    .theme-preview-subblock {
+      padding: 16px;
+      border-radius: 18px;
+      border: 1px solid var(--settings-border);
+    }
+
+    .theme-preview-block {
+      background: var(--settings-block);
+      color: var(--settings-text);
+    }
+
+    .theme-preview-subblock {
+      background: var(--settings-subblock);
+      color: var(--settings-text);
+    }
+
+    .config-statusbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      padding: 12px 16px;
+      border-radius: 18px;
+      background: color-mix(in srgb, var(--settings-shell) 82%, white);
+      border: 1px solid var(--settings-border);
+      color: var(--settings-text);
+    }
+
+    .config-statusbar p {
+      margin: 0;
+      font-weight: 700;
+    }
+
+    .config-statusbar p.is-error {
+      color: var(--settings-critical);
+    }
+
+    .config-modal {
+      position: fixed;
+      inset: 0;
+      z-index: 80;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background: rgba(17, 17, 17, 0.42);
+      backdrop-filter: blur(8px);
+    }
+
+    .config-modal[hidden] {
+      display: none;
+    }
+
+    .config-modal-card {
+      width: min(100%, 560px);
+      padding: 22px;
+      display: grid;
+      gap: 16px;
+      background: var(--settings-shell);
+    }
+
+    .config-modal-grid {
+      display: grid;
+      gap: 12px;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+    }
+
+    .config-modal-grid label:last-child,
+    .config-modal-grid label:first-child {
+      grid-column: 1 / -1;
+    }
+
+    .empty-illustration ul {
+      margin: 0;
+      padding-left: 18px;
+      color: var(--settings-text);
+      line-height: 1.55;
+    }
+
+    @media (max-width: 1180px) {
+      .settings-layout,
+      .config-grid-2,
+      .config-form-grid {
+        grid-template-columns: 1fr;
+      }
+
+      .settings-sidebar {
+        position: static;
+      }
+    }
+
+    @media (max-width: 760px) {
+      .settings-shell {
+        padding: 16px;
+      }
+
+      .settings-layout,
+      .settings-hero,
+      .settings-content,
+      .config-panel-shell,
+      .config-block,
+      .config-subtle-block {
+        padding: 16px;
+      }
+
+      .config-modal-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body class="panel-page settings-page">
+  <div class="mobile-stage">
+    <header class="topbar">
+      <div class="topbar-left">
+        <input class="search" type="search" placeholder="Buscar dentro de Configuración..." aria-label="Buscar en configuración">
+        <nav class="topbar-nav" aria-label="Navegación principal">
+          <a class="topbar-nav-link" href="./panel.html">Panel</a>
+          <a class="topbar-nav-link" href="./clientes.html">Clientes</a>
+          <a class="topbar-nav-link" href="./causas.html">Causas</a>
+          <a class="topbar-nav-link" href="./agenda.html">Agenda</a>
+          <a class="topbar-nav-link active" href="./configuracion.html">Configuración</a>
+        </nav>
+      </div>
+      <div class="top-info">
+        <span id="fecha"></span>
+        <button id="cerrar-sesion-btn" class="cerrar-sesion-btn">Cerrar sesión</button>
+      </div>
+    </header>
+
+    <main class="settings-shell">
+      <section class="settings-hero">
+        <div class="settings-hero-head">
+          <div>
+            <span class="config-chip">⚙️ Centro administrativo del sistema</span>
+            <h1>Configuración</h1>
+            <p>Administra reglas transversales, identidad visual, alertas, permisos, plantillas e integraciones desde un módulo único, sobrio y escalable.</p>
+          </div>
+          <div class="settings-hero-actions">
+            <button type="button" class="config-btn" id="exportAllBtn">Exportar JSON</button>
+            <button type="button" class="config-btn" id="restoreAllBtn">Restaurar base</button>
+            <button type="button" class="config-btn config-btn-active" id="saveAllBtn">Guardar configuración</button>
+          </div>
+        </div>
+        <div class="settings-summary-grid" id="configSummaryGrid"></div>
+      </section>
+
+      <section class="settings-layout">
+        <aside class="settings-sidebar" aria-label="Categorías internas de Configuración">
+          <div class="settings-sidebar-search">
+            <label for="configSearch"><strong>Buscador interno</strong></label>
+            <input id="configSearch" type="search" placeholder="Buscar categoría o descripción">
+            <span class="config-helper" id="configCategoryCount">0 secciones</span>
+          </div>
+          <div class="config-category-list" id="configCategoryList"></div>
+        </aside>
+
+        <div class="settings-content">
+          <div class="config-statusbar">
+            <p id="configStatusText">Cargando configuración…</p>
+            <span class="config-badge">Persistencia local preparada para backend</span>
+          </div>
+          <div id="configContent"></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <div class="config-modal" id="userModal" hidden>
+    <div class="config-modal-card" role="dialog" aria-modal="true" aria-labelledby="userModalTitle">
+      <div class="config-block-head">
+        <h3 id="userModalTitle">Nuevo usuario</h3>
+        <button type="button" class="config-btn" id="closeUserModal">Cerrar</button>
+      </div>
+      <form id="userForm">
+        <div class="config-modal-grid">
+          <label class="config-field">
+            <span>Nombre</span>
+            <input type="text" name="nombre" required>
+          </label>
+          <label class="config-field">
+            <span>Correo</span>
+            <input type="email" name="correo" required>
+          </label>
+          <label class="config-field">
+            <span>Rol</span>
+            <select name="rol">
+              <option>Administrador</option>
+              <option>Abogado</option>
+              <option>Procurador</option>
+              <option>Secretaria</option>
+              <option>Asistente</option>
+              <option>Solo lectura</option>
+            </select>
+          </label>
+          <label class="config-field">
+            <span>Estado</span>
+            <select name="estado">
+              <option>Activo</option>
+              <option>Inactivo</option>
+            </select>
+          </label>
+        </div>
+        <div class="settings-hero-actions">
+          <button type="button" class="config-btn" id="cancelUserModal">Cancelar</button>
+          <button type="submit" class="config-btn config-btn-active">Guardar usuario</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <script type="module" src="./configuracion.js"></script>
+</body>
+</html>
