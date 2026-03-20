@@ -574,6 +574,12 @@
       color: #334155;
     }
 
+    .identification-highlight-list li {
+      background: linear-gradient(135deg, rgba(204, 251, 241, 0.98), rgba(186, 230, 253, 0.94));
+      border-color: rgba(45, 212, 191, 0.28);
+      box-shadow: 0 10px 24px rgba(45, 212, 191, 0.12);
+    }
+
     .event-card,
     .assistant-card,
     .decision-card,
@@ -1528,7 +1534,7 @@
                 <span class="type-pill">Origen: ${selected.source}</span>
               </div>
               <h4>Datos del cliente</h4>
-              <ul class="field-list">
+              <ul class="field-list identification-highlight-list">
                 <li><span class="mini-label">Nombre completo</span><strong>${selected.client.name}</strong></li>
                 <li><span class="mini-label">RUT</span><strong>${selected.client.rut || 'Pendiente'}</strong></li>
                 <li><span class="mini-label">Domicilio</span><strong>${selected.client.address || 'Pendiente'}</strong></li>
