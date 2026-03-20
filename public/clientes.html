@@ -283,13 +283,24 @@
     .btn-danger-soft { background: rgba(239, 68, 68, 0.12); color: #b91c1c; }
 
     .dashboard-grid {
-      grid-template-columns: minmax(0, 1fr) minmax(340px, 420px);
+      grid-template-columns: minmax(0, 1fr);
       align-items: start;
     }
 
+    .dashboard-grid > .module-card:first-child {
+      order: 2;
+    }
+
     .hero-side {
+      order: 1;
       display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
       gap: 16px;
+      align-items: stretch;
+    }
+
+    .hero-side > * {
+      height: 100%;
     }
 
     .summary-panel {
@@ -593,6 +604,7 @@
 
     @media (max-width: 1180px) {
       .dashboard-grid,
+      .hero-side,
       .main-filters,
       .tab-grid,
       .history-grid,
