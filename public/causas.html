@@ -6,248 +6,589 @@
   <title>Causas — Alpha Avocat</title>
   <link rel="stylesheet" href="./style.css" />
   <style>
+    :root{
+      --causas-bg:#EAF7F5;
+      --causas-surface:#D9F0EC;
+      --causas-block:#C7E8E2;
+      --causas-subblock:#B4DDD6;
+      --causas-border:#8CC7BD;
+      --causas-title:#2D7C74;
+      --causas-text:#111111;
+      --causas-text-secondary:#2B2B2B;
+      --causas-active:#163A5F;
+      --causas-critical:#7A1E2C;
+      --causas-white:#FFFFFF;
+      --causas-ok:#1F6B62;
+      --causas-shadow:0 20px 48px rgba(22,58,95,.10);
+      --causas-shadow-soft:0 12px 28px rgba(45,124,116,.10);
+    }
+
+    *{ box-sizing:border-box; }
+
+    html,body{
+      margin:0;
+      min-height:100%;
+      font-family:Arial,sans-serif;
+      background:var(--causas-bg);
+      color:var(--causas-text);
+    }
+
     body{
       overflow:auto;
     }
 
-    .content{
-      flex:1;
+    .causas-page{
+      min-height:100dvh;
+      background:linear-gradient(180deg,#f3fbfa 0%,var(--causas-bg) 22%,#e3f4f1 100%);
+      color:var(--causas-text);
+    }
+
+    .causas-topbar{
+      position:sticky;
+      top:0;
+      z-index:20;
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:16px;
+      padding:18px 24px;
+      background:rgba(234,247,245,.94);
+      border-bottom:1px solid rgba(140,199,189,.7);
+      backdrop-filter:blur(14px);
+    }
+
+    .causas-brand{
+      display:flex;
+      align-items:center;
+      gap:14px;
       min-width:0;
-      padding:24px;
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-      overflow:auto;
-      background:linear-gradient(180deg,#eef2f7 0%,#e5ebf3 100%);
     }
 
-    .card{
-      background:rgba(255,255,255,.94);
-      border:1px solid rgba(148,163,184,.18);
-      border-radius:24px;
-      box-shadow:0 24px 50px rgba(15,23,42,.10);
-      color:#0f172a;
-      padding:20px;
+    .causas-brand-mark{
+      width:48px;
+      height:48px;
+      border-radius:16px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(135deg,var(--causas-title),#49a79b);
+      color:#fff;
+      font-weight:800;
+      font-size:22px;
+      box-shadow:var(--causas-shadow-soft);
     }
 
-    .card-header{
-      display:flex;
-      align-items:flex-start;
-      justify-content:space-between;
-      gap:12px;
-      margin-bottom:16px;
-    }
-
-    .card-header h1{
+    .causas-brand h1{
       margin:0;
-      font-size:28px;
-      line-height:1.05;
-      color:#0f172a;
+      font-size:30px;
+      line-height:1;
+      color:var(--causas-title);
     }
 
-    .muted{
-      color:#64748b;
+    .causas-brand p{
+      margin:4px 0 0;
+      color:var(--causas-text-secondary);
+      font-size:13px;
     }
 
-    .cases-card{
+    .causas-topbar-actions,
+    .causas-nav{
       display:flex;
-      flex-direction:column;
-      min-height:0;
-      overflow:hidden;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
     }
 
-    .cases-scroll{
-      overflow-x:auto;
-      overflow-y:hidden;
-      padding-bottom:8px;
-      scrollbar-width:thin;
-      scrollbar-color:rgba(15,118,110,.55) rgba(226,232,240,.9);
+    .causas-nav a,
+    .causas-nav button,
+    .btn,
+    .chip-btn,
+    .quick-btn,
+    .tab-btn,
+    .icon-btn{
+      appearance:none;
+      border:1px solid rgba(140,199,189,.9);
+      background:var(--causas-white);
+      color:var(--causas-text);
+      border-radius:14px;
+      padding:11px 15px;
+      font-size:14px;
+      font-weight:700;
+      line-height:1.1;
+      text-decoration:none;
+      cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
+      box-shadow:0 8px 18px rgba(45,124,116,.10);
     }
 
-    .cases-rail{
+    .causas-nav a:hover,
+    .causas-nav button:hover,
+    .btn:hover,
+    .chip-btn:hover,
+    .quick-btn:hover,
+    .tab-btn:hover,
+    .icon-btn:hover{
+      transform:translateY(-1px);
+      box-shadow:0 12px 20px rgba(22,58,95,.12);
+    }
+
+    .causas-nav .active,
+    .btn.active,
+    .chip-btn.active,
+    .quick-btn.active,
+    .tab-btn.active,
+    .btn-primary,
+    .quick-btn-primary{
+      background:var(--causas-active);
+      color:var(--causas-white);
+      border-color:var(--causas-active);
+    }
+
+    .btn-danger,
+    .quick-btn-danger,
+    .critical,
+    .badge-critical,
+    .alert-vencido,
+    .alert-urgente{
+      background:var(--causas-critical);
+      color:var(--causas-white);
+      border-color:var(--causas-critical);
+    }
+
+    .btn-secondary{
+      background:var(--causas-surface);
+      color:var(--causas-text);
+      border-color:var(--causas-border);
+    }
+
+    .btn-ghost{
+      background:rgba(255,255,255,.74);
+      color:var(--causas-text);
+    }
+
+    .causas-shell{
+      padding:24px;
+      display:grid;
+      gap:20px;
+    }
+
+    .screen-card,
+    .panel-card,
+    .block-card,
+    .subblock-card,
+    .modal-panel{
+      border-radius:24px;
+      border:1px solid rgba(140,199,189,.9);
+      box-shadow:var(--causas-shadow);
+    }
+
+    .screen-card{
+      background:var(--causas-surface);
+      padding:22px;
+    }
+
+    .screen-header{
       display:flex;
-      gap:16px;
-      align-items:stretch;
-      min-width:max-content;
-    }
-
-    .case-tile{
-      width:min(340px,78vw);
-      min-width:280px;
-      display:flex;
-      flex-direction:column;
-      gap:16px;
-      padding:18px;
-      border-radius:22px;
-      background:linear-gradient(180deg,#ffffff 0%,#f8fafc 100%);
-      border:1px solid rgba(148,163,184,.24);
-      box-shadow:0 18px 36px rgba(15,23,42,.08);
-      flex:0 0 auto;
-    }
-
-    .case-tile.empty{
-      justify-content:center;
-      min-height:180px;
-      color:#64748b;
-    }
-
-    .case-tile-top{
-      display:flex;
-      align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
+      gap:18px;
+      align-items:flex-start;
+      flex-wrap:wrap;
     }
 
-    .case-chip{
+    .eyebrow{
+      margin:0 0 8px;
+      color:var(--causas-title);
+      text-transform:uppercase;
+      letter-spacing:.08em;
+      font-size:12px;
+      font-weight:800;
+    }
+
+    .screen-title{
+      margin:0;
+      color:var(--causas-title);
+      font-size:34px;
+      line-height:1;
+    }
+
+    .screen-subtitle,
+    .muted{
+      margin:8px 0 0;
+      color:var(--causas-text-secondary);
+    }
+
+    .screen-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      justify-content:flex-end;
+    }
+
+    .screen-grid{
+      display:grid;
+      grid-template-columns:minmax(340px,440px) minmax(0,1fr);
+      gap:20px;
+      align-items:start;
+    }
+
+    .panel-card{
+      background:var(--causas-block);
+      padding:18px;
+      display:grid;
+      gap:16px;
+    }
+
+    .panel-title{
+      margin:0;
+      color:var(--causas-title);
+      font-size:22px;
+    }
+
+    .panel-subtitle{
+      margin:4px 0 0;
+      color:var(--causas-text-secondary);
+      font-size:14px;
+      line-height:1.45;
+    }
+
+    .filter-grid,
+    .summary-metrics,
+    .detail-grid,
+    .grid-2,
+    .grid-3,
+    .grid-4,
+    .micro-grid,
+    .production-grid,
+    .diagnostic-grid,
+    .source-grid{
+      display:grid;
+      gap:14px;
+    }
+
+    .filter-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .summary-metrics{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .detail-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .grid-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .grid-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .grid-4{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .micro-grid{ grid-template-columns:repeat(5,minmax(0,1fr)); }
+    .production-grid{ grid-template-columns:1.2fr .8fr; }
+    .diagnostic-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .source-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+
+    .field,
+    .metric,
+    .info-card,
+    .timeline-item,
+    .resolution-item,
+    .deadline-item,
+    .source-item,
+    .document-bucket,
+    .instruction-item,
+    .assistant-action,
+    .container-segment,
+    .list-card{
+      background:var(--causas-subblock);
+      border:1px solid rgba(45,124,116,.18);
+      border-radius:18px;
+      padding:14px;
+      color:var(--causas-text);
+    }
+
+    .field{
+      display:grid;
+      gap:8px;
+      padding:12px 14px;
+    }
+
+    .field label,
+    .section-label,
+    .mini-label,
+    .case-kicker,
+    .badge,
+    .status-pill,
+    .tag{
+      font-size:12px;
+      font-weight:800;
+      text-transform:uppercase;
+      letter-spacing:.06em;
+    }
+
+    .field label,
+    .section-label,
+    .mini-label,
+    .case-kicker{
+      color:var(--causas-title);
+    }
+
+    .input,
+    .textarea,
+    select,
+    input,
+    textarea{
+      width:100%;
+      border:1px solid rgba(140,199,189,.95);
+      background:#f8fdfc;
+      color:var(--causas-text);
+      border-radius:14px;
+      padding:12px 13px;
+      font:inherit;
+    }
+
+    .input:focus,
+    .textarea:focus,
+    select:focus,
+    input:focus,
+    textarea:focus{
+      outline:2px solid rgba(22,58,95,.18);
+      border-color:var(--causas-active);
+      background:#fff;
+    }
+
+    .textarea{ min-height:100px; resize:vertical; }
+
+    .filter-actions,
+    .toolbar,
+    .case-actions,
+    .tab-bar,
+    .helper-actions,
+    .segment-actions,
+    .modal-actions,
+    .detail-actions{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .summary-metrics .metric{
+      min-height:112px;
+      display:grid;
+      align-content:start;
+      gap:8px;
+    }
+
+    .metric strong,
+    .big-number,
+    .metric-value{
+      font-size:22px;
+      line-height:1.1;
+      color:var(--causas-text);
+    }
+
+    .metric small,
+    .helper-text,
+    .hint{
+      color:var(--causas-text-secondary);
+      line-height:1.45;
+    }
+
+    .list-wrap{
+      display:grid;
+      gap:14px;
+      max-height:calc(100dvh - 320px);
+      overflow:auto;
+      padding-right:4px;
+    }
+
+    .list-card{
+      display:grid;
+      gap:12px;
+      cursor:pointer;
+      transition:transform .18s ease, border-color .18s ease, background .18s ease;
+    }
+
+    .list-card:hover{
+      transform:translateY(-2px);
+      border-color:var(--causas-active);
+    }
+
+    .list-card.selected{
+      background:#a9d7cf;
+      border-color:var(--causas-active);
+      box-shadow:0 0 0 2px rgba(22,58,95,.12);
+    }
+
+    .case-top,
+    .case-meta,
+    .case-footer,
+    .detail-header{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .case-name,
+    .section-title,
+    .segment-title,
+    .modal-title,
+    .detail-title{
+      margin:0;
+      color:var(--causas-text);
+    }
+
+    .case-name{ font-size:20px; }
+    .detail-title{ font-size:28px; color:var(--causas-title); }
+    .section-title{ font-size:20px; color:var(--causas-title); }
+    .segment-title{ font-size:18px; color:var(--causas-title); }
+    .modal-title{ font-size:24px; color:var(--causas-title); }
+
+    .case-meta,
+    .detail-meta,
+    .stack,
+    .timeline-meta,
+    .deadline-meta,
+    .resolution-meta{
+      color:var(--causas-text-secondary);
+      font-size:13px;
+      line-height:1.45;
+    }
+
+    .badge,
+    .status-pill,
+    .tag{
       display:inline-flex;
       align-items:center;
-      padding:7px 12px;
+      gap:6px;
       border-radius:999px;
-      background:rgba(20,184,166,.12);
-      color:#0f766e;
-      font-size:12px;
-      font-weight:800;
-      letter-spacing:.05em;
-      text-transform:uppercase;
+      padding:7px 10px;
+      border:1px solid rgba(45,124,116,.25);
+      background:rgba(255,255,255,.82);
+      color:var(--causas-text);
     }
 
-    .case-title{
-      margin:0;
-      font-size:20px;
-      line-height:1.15;
-      color:#0f172a;
+    .badge-info{ background:rgba(255,255,255,.84); }
+    .badge-active{ background:var(--causas-active); color:#fff; border-color:var(--causas-active); }
+    .badge-warning{ background:#fff5ee; color:#7a5312; border-color:#d9b36d; }
+    .badge-critical{ color:#fff; }
+    .badge-ok{ background:#e8faf6; color:#165046; border-color:#7abeb0; }
+
+    .tab-bar{
+      padding:6px;
+      background:var(--causas-block);
+      border-radius:20px;
+      border:1px solid rgba(140,199,189,.8);
+      overflow:auto;
+      flex-wrap:nowrap;
     }
 
-    .case-grid{
+    .tab-btn{
+      white-space:nowrap;
+      box-shadow:none;
+      padding:10px 13px;
+      border-radius:12px;
+    }
+
+    .detail-panel{
+      background:var(--causas-surface);
+      padding:18px;
       display:grid;
-      gap:12px;
+      gap:16px;
+      min-height:calc(100dvh - 240px);
     }
 
-    .case-data{
-      padding:12px 14px;
-      border-radius:16px;
-      background:#eef6f6;
-      border:1px solid rgba(45,212,191,.18);
+    .section-card{
+      background:var(--causas-block);
+      border:1px solid rgba(140,199,189,.95);
+      border-radius:22px;
+      padding:18px;
+      display:grid;
+      gap:14px;
     }
 
-    .case-label{
-      display:block;
-      margin-bottom:6px;
-      color:#0f766e;
-      font-size:12px;
-      font-weight:800;
-      letter-spacing:.04em;
-      text-transform:uppercase;
-    }
-
-    .case-value{
-      margin:0;
-      color:#0f172a;
-      font-size:15px;
-      line-height:1.35;
-      word-break:break-word;
-    }
-
-    .case-actions{
+    .section-head{
       display:flex;
-      justify-content:flex-end;
-      margin-top:auto;
+      justify-content:space-between;
+      gap:12px;
+      align-items:flex-start;
+      flex-wrap:wrap;
     }
 
-    .sidebar-card{
-      margin-top:16px;
-      padding:16px;
-      border-radius:18px;
-      background:rgba(255,255,255,.08);
-      border:1px solid rgba(212,175,55,.18);
+    .section-copy{
+      color:var(--causas-text-secondary);
+      line-height:1.55;
+      margin:6px 0 0;
+    }
+
+    .timeline,
+    .resolution-list,
+    .deadline-list,
+    .instruction-list,
+    .assistant-grid,
+    .document-grid,
+    .sources-list{
       display:grid;
       gap:12px;
     }
 
-    .sidebar-card-title{
-      color:#ffffff;
-      font-weight:800;
-      font-size:14px;
-      letter-spacing:.04em;
-      text-transform:uppercase;
+    .timeline-item,
+    .resolution-item,
+    .deadline-item,
+    .instruction-item,
+    .assistant-action,
+    .source-item{
+      display:grid;
+      gap:8px;
     }
 
-    .nav{
+    .timeline-item strong,
+    .resolution-item strong,
+    .deadline-item strong,
+    .source-item strong,
+    .instruction-item strong,
+    .assistant-action strong{
+      color:var(--causas-text);
+      font-size:16px;
+    }
+
+    .container-layout,
+    .documents-layout{
+      display:grid;
+      gap:14px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+
+    .container-segment{
+      display:grid;
+      gap:12px;
+      min-height:100%;
+    }
+
+    .segment-header{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .segment-copy,
+    .list-copy{
+      margin:0;
+      color:var(--causas-text-secondary);
+      line-height:1.5;
+      font-size:14px;
+    }
+
+    .bullet-list,
+    .ordered-list{
+      margin:0;
+      padding-left:18px;
+      color:var(--causas-text);
+      line-height:1.55;
+    }
+
+    .document-bucket{
       display:grid;
       gap:10px;
     }
 
-    .nav-link{
-      display:flex;
-      align-items:center;
-      min-height:46px;
-      padding:0 16px;
-      border-radius:14px;
-      color:#e2e8f0;
-      text-decoration:none;
-      font-weight:700;
-      background:rgba(255,255,255,.06);
-      border:1px solid transparent;
-      transition:transform .2s ease, background .2s ease, border-color .2s ease;
-    }
+    .assistant-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 
-    .nav-link:hover{
-      transform:translateX(4px);
-      background:rgba(255,255,255,.12);
-    }
-
-    .nav-link.active{
-      color:#ffffff;
-      background:linear-gradient(135deg,rgba(45,212,191,.28),rgba(15,118,110,.42));
-      border-color:rgba(45,212,191,.35);
-    }
-
-    .btn{
-      border:none;
-      border-radius:14px;
-      padding:11px 16px;
-      font-size:14px;
-      font-weight:800;
-      cursor:pointer;
-      text-decoration:none;
-      display:inline-flex;
-      align-items:center;
-      justify-content:center;
-      transition:transform .2s ease, filter .2s ease, box-shadow .2s ease;
-    }
-
-    .btn:hover{
-      transform:translateY(-1px);
-      filter:brightness(1.02);
-    }
-
-    .btn-3d{
-      box-shadow:0 14px 26px rgba(15,23,42,.16);
-    }
-
-    .btn-primary{
-      background:linear-gradient(135deg,#14b8a6,#0f766e);
-      color:#ffffff;
-    }
-
-    .btn-ghost{
-      background:rgba(255,255,255,.14);
-      color:#ffffff;
-      border:1px solid rgba(255,255,255,.28);
-    }
-
-    .btn-danger{
-      background:linear-gradient(135deg,#ef4444,#b91c1c);
-      color:#ffffff;
-    }
-
-    .btn-sm{
-      padding:9px 14px;
-      font-size:13px;
-    }
-
-    .w-full{
-      width:100%;
+    .assistant-action{
+      min-height:124px;
+      align-content:start;
     }
 
     .modal{
@@ -257,284 +598,320 @@
       align-items:center;
       justify-content:center;
       padding:24px;
-      z-index:50;
+      background:rgba(17,17,17,.26);
+      z-index:40;
     }
 
-    .modal.open{
-      display:flex;
-    }
-
-    .modal-backdrop{
-      position:absolute;
-      inset:0;
-      background:rgba(15,23,42,.58);
-      backdrop-filter:blur(4px);
-    }
+    .modal.open{ display:flex; }
 
     .modal-panel{
-      position:relative;
-      width:min(760px,100%);
-      max-height:min(88dvh,920px);
+      width:min(1100px,100%);
+      max-height:90dvh;
       overflow:auto;
-      border-radius:24px;
-      background:#ffffff;
-      box-shadow:0 28px 70px rgba(15,23,42,.35);
-      padding:24px;
-    }
-
-    .modal-panel-lg{
-      max-width:920px;
+      background:var(--causas-surface);
+      padding:22px;
     }
 
     .modal-header{
       display:flex;
-      align-items:flex-start;
       justify-content:space-between;
-      gap:12px;
+      gap:16px;
+      align-items:flex-start;
       margin-bottom:18px;
     }
 
-    .modal-title{
-      font-size:24px;
-      font-weight:800;
-      color:#0f172a;
-    }
-
-    .modal-subtitle{
-      margin-top:4px;
-      color:#64748b;
-    }
-
     .icon-btn{
-      width:40px;
-      height:40px;
-      border:none;
-      border-radius:12px;
-      background:#f1f5f9;
-      color:#0f172a;
+      width:42px;
+      height:42px;
+      display:grid;
+      place-items:center;
+      padding:0;
       font-size:18px;
-      cursor:pointer;
     }
 
     .form{
       display:grid;
-      gap:16px;
-    }
-
-    .grid-2,
-    .grid-3{
-      display:grid;
       gap:14px;
     }
 
-    .grid-2{
-      grid-template-columns:repeat(2,minmax(0,1fr));
+    .msg{ min-height:20px; font-weight:700; }
+    .msg-ok{ color:var(--causas-ok); }
+    .msg-error{ color:var(--causas-critical); }
+
+    .empty-state{
+      padding:28px;
+      text-align:center;
+      background:var(--causas-subblock);
+      border-radius:20px;
+      border:1px dashed rgba(45,124,116,.45);
+      color:var(--causas-text-secondary);
     }
 
-    .grid-3{
-      grid-template-columns:repeat(3,minmax(0,1fr));
-    }
-
-    .field{
-      display:grid;
-      gap:8px;
-    }
-
-    .field label{
-      font-size:13px;
-      font-weight:800;
-      color:#0f172a;
-    }
-
-    .input{
-      width:100%;
-      border:1px solid #cbd5e1;
-      border-radius:14px;
-      padding:12px 14px;
-      font-size:14px;
-      color:#0f172a;
-      background:#ffffff;
-    }
-
-    .input:focus{
-      outline:2px solid rgba(20,184,166,.34);
-      border-color:#14b8a6;
-    }
-
-    .hint{
-      color:#64748b;
-      font-size:12px;
-      line-height:1.4;
-    }
-
-    .form-actions{
-      display:flex;
-      justify-content:flex-end;
-      gap:12px;
-      flex-wrap:wrap;
-    }
-
-    .msg{
-      min-height:20px;
-      font-size:14px;
-      font-weight:700;
-    }
-
-    .msg-ok{
-      color:#047857;
-    }
-
-    .msg-error{
-      color:#b91c1c;
+    @media (max-width: 1280px){
+      .screen-grid{ grid-template-columns:1fr; }
+      .list-wrap{ max-height:none; }
+      .detail-panel{ min-height:auto; }
+      .container-layout,
+      .documents-layout,
+      .source-grid,
+      .diagnostic-grid,
+      .production-grid,
+      .summary-metrics,
+      .micro-grid,
+      .grid-4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
     @media (max-width: 900px){
-      .content{
-        padding:16px;
-      }
-
-      .card-header{
-        flex-direction:column;
-      }
-
+      .causas-topbar,
+      .screen-header,
+      .screen-actions,
+      .causas-topbar-actions{ align-items:stretch; }
+      .causas-topbar{ padding:16px; }
+      .causas-shell{ padding:16px; }
+      .filter-grid,
+      .detail-grid,
       .grid-2,
-      .grid-3{
-        grid-template-columns:1fr;
-      }
-    }
-
-    @media (max-width: 768px){
-      .content{
-        padding:12px;
-      }
-
-      .case-tile{
-        width:min(88vw,320px);
-      }
-
-      .modal{
-        padding:12px;
-      }
+      .grid-3,
+      .assistant-grid,
+      .container-layout,
+      .documents-layout,
+      .source-grid,
+      .diagnostic-grid,
+      .production-grid,
+      .summary-metrics,
+      .micro-grid,
+      .grid-4{ grid-template-columns:1fr; }
+      .screen-title{ font-size:28px; }
+      .detail-title{ font-size:24px; }
     }
   </style>
 </head>
-
-<body>
-  <header class="topbar">
-    <div class="brand">
-      <div class="brand-mark">A</div>
-      <div class="brand-text">
-        <div class="brand-title">ALPHA AVOCAT</div>
-        <div class="brand-subtitle">Sistema de Gestión Jurídica Inteligente</div>
+<body class="causas-page">
+  <header class="causas-topbar">
+    <div class="causas-brand">
+      <div class="causas-brand-mark">C</div>
+      <div>
+        <h1>Causas</h1>
+        <p>Módulo jurídico-operativo integral del estudio.</p>
       </div>
     </div>
 
-    <nav class="topbar-nav" aria-label="Navegación principal">
-      <a class="topbar-nav-link" href="./panel.html">Panel</a>
-      <a class="topbar-nav-link" href="./clientes.html">Clientes</a>
-      <a class="topbar-nav-link active" href="./causas.html">Causas</a>
-      <a class="topbar-nav-link" href="./agenda.html">Agenda</a>
+    <nav class="causas-nav" aria-label="Navegación principal">
+      <a href="./panel.html">Panel</a>
+      <a href="./clientes.html">Clientes</a>
+      <a class="active" href="./causas.html">Causas</a>
+      <a href="./agenda.html">Agenda</a>
     </nav>
 
-    <div class="topbar-actions">
-      <button id="btnNuevaCausa" class="btn btn-primary btn-3d">Nueva causa</button>
-      <a class="btn btn-ghost btn-3d" href="./panel.html">Panel</a>
+    <div class="causas-topbar-actions">
+      <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
+      <button id="btnImportar" class="btn">Importar causa</button>
+      <button id="btnCalendario" class="btn">Ver calendario judicial</button>
+      <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
+      <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
     </div>
   </header>
 
-  <div class="layout">
-    <aside class="sidebar">
-      <nav class="nav">
-        <a class="nav-link" href="./panel.html">Panel</a>
-        <a class="nav-link" href="./clientes.html">Clientes</a>
-        <a class="nav-link active" href="./causas.html">Causas</a>
-        <a class="nav-link" href="./agenda.html">Agenda</a>
-      </nav>
-
-      <div class="sidebar-card">
-        <div class="sidebar-card-title">Acciones</div>
-        <button id="btnLogout" class="btn btn-danger btn-3d w-full">Cerrar sesión</button>
+  <main class="causas-shell causas-app">
+    <section class="screen-card">
+      <div class="screen-header">
+        <div>
+          <p class="eyebrow">Núcleo CAUSAS</p>
+          <h2 class="screen-title">Pantalla principal de control procesal</h2>
+          <p class="screen-subtitle">Listado, filtros, historia procesal, resoluciones, plazos, producción y contenedor documental en una sola lógica profesional y coherente.</p>
+        </div>
+        <div class="screen-actions">
+          <button class="btn" id="btnQuickHistory">Ver historia activa</button>
+          <button class="btn" id="btnQuickProduction">Ir a producción</button>
+          <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
+        </div>
       </div>
-    </aside>
+    </section>
 
-    <main class="content">
-      <section id="integrationContext" class="card" style="display:none;margin-bottom:16px;background:linear-gradient(135deg,rgba(224,242,254,.9),rgba(255,255,255,.96));border:1px solid rgba(14,165,233,.18);">
-        <div class="card-header">
-          <h1>Integración desde Clientes / Expedientes</h1>
-          <div class="muted" id="integrationLabel">—</div>
-        </div>
-        <p id="integrationText" class="muted" style="margin:0;line-height:1.5;">—</p>
-      </section>
+    <section class="screen-card">
+      <div class="summary-metrics" id="summaryMetrics"></div>
+    </section>
 
-      <section class="card cases-card">
-        <div class="card-header">
-          <h1>Causas registradas</h1>
-          <div class="muted" id="countLabel">—</div>
+    <section class="screen-grid">
+      <aside class="panel-card">
+        <div>
+          <h3 class="panel-title">Listado general de causas</h3>
+          <p class="panel-subtitle">Filtra por estado procesal, tribunal, materia, procedimiento, abogado responsable, urgencia, audiencia próxima y plazo próximo.</p>
         </div>
 
-        <div class="cases-scroll" id="casesScroll" aria-label="Listado horizontal de causas">
-          <div class="cases-rail" id="tbodyCausas">
-            <article class="case-tile empty">
-              <p class="case-value muted">Cargando…</p>
-            </article>
+        <div class="filter-grid">
+          <div class="field">
+            <label for="searchCausas">Buscador general</label>
+            <input id="searchCausas" class="input" type="search" placeholder="Buscar por carátula, rol, RIT, RUC o cliente" />
+          </div>
+          <div class="field">
+            <label for="filterEstado">Estado procesal</label>
+            <select id="filterEstado" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterTribunal">Tribunal</label>
+            <select id="filterTribunal" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterMateria">Materia</label>
+            <select id="filterMateria" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterProcedimiento">Procedimiento</label>
+            <select id="filterProcedimiento" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterResponsable">Abogado responsable</label>
+            <select id="filterResponsable" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterUrgencia">Urgencia</label>
+            <select id="filterUrgencia" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterAudiencia">Audiencia próxima</label>
+            <select id="filterAudiencia" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterPlazo">Plazo próximo</label>
+            <select id="filterPlazo" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="sortBy">Orden</label>
+            <select id="sortBy" class="input">
+              <option value="updated">Última gestión</option>
+              <option value="deadline">Próximo plazo</option>
+              <option value="hearing">Próxima audiencia</option>
+              <option value="alert">Mayor alerta</option>
+              <option value="name">Carátula</option>
+            </select>
           </div>
         </div>
-      </section>
-    </main>
-  </div>
 
-  <!-- MODAL: NUEVA CAUSA -->
+        <div class="filter-actions">
+          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
+          <span class="muted" id="countLabel">0 causas</span>
+        </div>
+
+        <div class="list-wrap" id="casesList"></div>
+      </aside>
+
+      <section class="detail-panel">
+        <div class="detail-header">
+          <div>
+            <p class="eyebrow">Ficha interna de la causa</p>
+            <h3 class="detail-title" id="detailTitle">Selecciona una causa</h3>
+            <div class="detail-meta" id="detailMeta">La ficha mostrará el resumen, contenedor, producción y control procesal completo.</div>
+          </div>
+          <div class="detail-actions" id="detailActions"></div>
+        </div>
+
+        <div class="tab-bar" id="tabBar"></div>
+        <div id="detailContent"></div>
+      </section>
+    </section>
+  </main>
+
   <div id="modalCausa" class="modal" aria-hidden="true">
-    <div class="modal-backdrop" data-close="1"></div>
-    <div class="modal-panel modal-panel-lg">
+    <div class="modal-panel">
       <div class="modal-header">
         <div>
           <div class="modal-title">Nueva causa</div>
-          <div class="modal-subtitle">Completa los datos y guarda.</div>
+          <p class="panel-subtitle">Crea una causa con estructura jurídica base. Los campos mínimos se sincronizan con Supabase; la ficha extendida queda organizada dentro del módulo CAUSAS.</p>
         </div>
-        <button class="icon-btn" data-close="1" title="Cerrar">✕</button>
+        <button class="icon-btn" type="button" data-close="1" aria-label="Cerrar">✕</button>
       </div>
 
       <form id="formCausa" class="form">
-        <div class="grid-2">
+        <div class="grid-3">
           <div class="field">
-            <label>Cliente</label>
+            <label for="k_client">Cliente relacionado</label>
             <select id="k_client" class="input" required>
-              <option value="">(selecciona)</option>
+              <option value="">Selecciona</option>
             </select>
           </div>
           <div class="field">
-            <label>Abogado responsable</label>
-            <input id="k_resp" class="input" placeholder="Mario Javier Rodríguez Ardiles" />
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field">
-            <label>Tribunal</label>
-            <input id="k_court" class="input" placeholder="3° JL de Ovalle" />
+            <label for="k_resp">Abogado responsable</label>
+            <input id="k_resp" class="input" placeholder="Abogado/a responsable" />
           </div>
           <div class="field">
-            <label>Rol / RIT</label>
-            <input id="k_rol" class="input" placeholder="C-19-2026" />
-          </div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field">
-            <label>Materia</label>
-            <input id="k_subject" class="input" placeholder="Civil, Reivindicatoria" />
-          </div>
-          <div class="field">
-            <label>Honorarios totales (CLP)</label>
-            <input id="k_fee" class="input" inputmode="numeric" placeholder="8.000.000" />
-            <div class="hint">Puedes escribir con puntos o sin puntos. Se guardará como número.</div>
+            <label for="k_procurador">Procurador asignado</label>
+            <input id="k_procurador" class="input" placeholder="Procurador" />
           </div>
         </div>
 
         <div class="grid-3">
           <div class="field">
-            <label>Tipo de honorario</label>
+            <label for="k_caratula">Carátula</label>
+            <input id="k_caratula" class="input" placeholder="Pérez con González" required />
+          </div>
+          <div class="field">
+            <label for="k_rol">Rol</label>
+            <input id="k_rol" class="input" placeholder="C-19-2026" />
+          </div>
+          <div class="field">
+            <label for="k_rit">RIT</label>
+            <input id="k_rit" class="input" placeholder="O-145-2026" />
+          </div>
+        </div>
+
+        <div class="grid-4">
+          <div class="field">
+            <label for="k_ruc">RUC</label>
+            <input id="k_ruc" class="input" placeholder="1234567890-1" />
+          </div>
+          <div class="field">
+            <label for="k_court">Tribunal</label>
+            <input id="k_court" class="input" placeholder="Tribunal competente" />
+          </div>
+          <div class="field">
+            <label for="k_procedure">Procedimiento</label>
+            <input id="k_procedure" class="input" placeholder="Ordinario" />
+          </div>
+          <div class="field">
+            <label for="k_subject">Materia</label>
+            <input id="k_subject" class="input" placeholder="Civil / Laboral / Familia" />
+          </div>
+        </div>
+
+        <div class="grid-4">
+          <div class="field">
+            <label for="k_submatter">Submateria</label>
+            <input id="k_submatter" class="input" placeholder="Submateria" />
+          </div>
+          <div class="field">
+            <label for="k_state">Estado procesal</label>
+            <select id="k_state" class="input">
+              <option>En preparación</option>
+              <option>En tramitación</option>
+              <option>En prueba</option>
+              <option>En alegatos</option>
+              <option>En ejecución</option>
+              <option>Cerrada</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="k_stage">Etapa procesal</label>
+            <input id="k_stage" class="input" placeholder="Etapa inicial" />
+          </div>
+          <div class="field">
+            <label for="k_urgency">Urgencia</label>
+            <select id="k_urgency" class="input">
+              <option>Normal</option>
+              <option>Próximo a vencer</option>
+              <option>Urgente</option>
+              <option>Crítica</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="grid-4">
+          <div class="field">
+            <label for="k_fee">Cuantía / honorarios (CLP)</label>
+            <input id="k_fee" class="input" inputmode="numeric" placeholder="8000000" />
+          </div>
+          <div class="field">
+            <label for="k_fee_type">Tipo de honorario</label>
             <select id="k_fee_type" class="input">
               <option>Fijo</option>
               <option>Variable</option>
@@ -542,36 +919,46 @@
             </select>
           </div>
           <div class="field">
-            <label>Forma de pago</label>
+            <label for="k_pay">Forma de pago</label>
             <select id="k_pay" class="input">
               <option>Único pago</option>
               <option>Cuotas</option>
             </select>
           </div>
           <div class="field">
-            <label>% PPM</label>
+            <label for="k_ppm">% PPM</label>
             <input id="k_ppm" class="input" inputmode="numeric" placeholder="15" />
           </div>
         </div>
 
         <div class="grid-2">
           <div class="field">
-            <label>Retención PPM</label>
+            <label for="k_withhold">Retención PPM</label>
             <select id="k_withhold" class="input">
               <option>Retiene receptor</option>
               <option>Retiene abogado</option>
             </select>
-            <div class="hint">En Chile: si es persona jurídica, normalmente retiene el receptor.</div>
           </div>
           <div class="field">
-            <label>Notas</label>
-            <input id="k_notes" class="input" placeholder="Opcional" />
+            <label for="k_expediente">Expediente relacionado</label>
+            <input id="k_expediente" class="input" placeholder="Expediente / carpeta / referencia" />
           </div>
         </div>
 
-        <div class="form-actions">
-          <button type="button" class="btn btn-ghost btn-3d" data-close="1">Cancelar</button>
-          <button type="submit" class="btn btn-primary btn-3d">Guardar causa</button>
+        <div class="grid-2">
+          <div class="field">
+            <label for="k_last_resolution">Última resolución resumida</label>
+            <textarea id="k_last_resolution" class="textarea" placeholder="Resumen ejecutivo de la última resolución"></textarea>
+          </div>
+          <div class="field">
+            <label for="k_notes">Observaciones generales</label>
+            <textarea id="k_notes" class="textarea" placeholder="Antecedentes, instrucciones o notas internas"></textarea>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar causa</button>
         </div>
 
         <div id="caseMsg" class="msg" aria-live="polite"></div>
@@ -582,16 +969,14 @@
   <script type="module">
     import { supabase } from './app.js';
 
-    // ===== Ajusta aquí SOLO si tus tablas/columnas se llaman distinto =====
     const T_CLIENTS = 'clients';
     const T_CASES = 'cases';
+    const WORKSPACE_KEY = 'alpha-causas-workspace-v3';
+    const TODAY = new Date('2026-03-20T00:00:00Z');
 
     const C = {
-      // clients
       c_id: 'id',
       c_name: 'name',
-
-      // cases
       k_id: 'id',
       k_client_id: 'client_id',
       k_court: 'court',
@@ -607,253 +992,1326 @@
       k_created: 'created_at',
     };
 
-    const el = (id) => document.getElementById(id);
+    const TAB_CONFIG = [
+      ['resumen', 'Resumen'],
+      ['identificacion', 'Identificación'],
+      ['partes', 'Partes'],
+      ['tribunal', 'Tribunal'],
+      ['historia', 'Historia procesal'],
+      ['resoluciones', 'Resoluciones'],
+      ['plazos', 'Plazos, alertas y escritos'],
+      ['contenedor', 'Contenedor'],
+      ['produccion', 'Producción'],
+      ['escritos', 'Escritos'],
+      ['audiencias', 'Audiencias'],
+      ['prueba', 'Prueba / documentos'],
+      ['analisis', 'Análisis jurídico'],
+      ['asistente', 'Asistente jurídico IA ChatGPT'],
+      ['cumplimiento', 'Cumplimiento / ejecución'],
+      ['instrucciones', 'Instrucciones'],
+    ];
 
-    const modal = el('modalCausa');
-    const tbody = el('tbodyCausas');
-    const msg = el('caseMsg');
-    const countLabel = el('countLabel');
-    const casesScroll = el('casesScroll');
-    const params = new URLSearchParams(window.location.search);
-
-    let clientsMap = new Map();
-
-    casesScroll.addEventListener('wheel', (event) => {
-      if (Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
-      event.preventDefault();
-      casesScroll.scrollBy({ left: event.deltaY, behavior: 'auto' });
-    }, { passive: false });
-
-    // ---- Auth guard
-    const { data: sess } = await supabase.auth.getSession();
-    if (!sess?.session) window.location.href = './login.html';
-
-    // ---- Logout
-    el('btnLogout').addEventListener('click', async () => {
-      await supabase.auth.signOut();
-      window.location.href = './login.html';
-    });
-
-    // ---- Modal open/close
-    const openModal = () => { modal.classList.add('open'); modal.setAttribute('aria-hidden','false'); msg.textContent=''; applyIntegrationPrefill(); };
-    const closeModal = () => { modal.classList.remove('open'); modal.setAttribute('aria-hidden','true'); el('formCausa').reset(); msg.textContent=''; };
-
-    el('btnNuevaCausa').addEventListener('click', openModal);
-    modal.addEventListener('click', (e) => {
-      const t = e.target;
-      if (t?.dataset?.close) closeModal();
-    });
-
-
-    function applyIntegrationContext() {
-      if (params.get('origen') !== 'clientes') return;
-
-      const box = el('integrationContext');
-      const cliente = params.get('client_name') || 'Cliente sin nombre';
-      const expediente = params.get('expediente') || 'Sin expediente';
-      const materia = params.get('subject') || 'Materia no especificada';
-
-      box.style.display = 'block';
-      el('integrationLabel').textContent = expediente;
-      el('integrationText').textContent = `Se recibió contexto desde Clientes para ${cliente}. Al abrir “Nueva causa”, el formulario se completará con materia, tribunal, rol y observaciones del expediente.`;
-    }
-
-    function applyIntegrationPrefill() {
-      if (params.get('origen') !== 'clientes') return;
-
-      const clientName = params.get('client_name');
-      const clientEntry = [...clientsMap.entries()].find(([, name]) => name === clientName);
-      if (clientEntry) el('k_client').value = clientEntry[0];
-
-      el('k_resp').value = params.get('lawyer') || el('k_resp').value;
-      el('k_court').value = params.get('court') || '';
-      el('k_rol').value = params.get('rol') || '';
-      el('k_subject').value = params.get('subject') || '';
-      const noteParts = [
-        params.get('expediente') ? `Expediente origen: ${params.get('expediente')}` : '',
-        params.get('notes') || ''
-      ].filter(Boolean);
-      el('k_notes').value = noteParts.join(' · ');
-    }
-    // ---- Helpers
+    const $ = (id) => document.getElementById(id);
     const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
+    const shortDate = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeZone: 'UTC' });
 
-    function escapeHtml(s) {
-      return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[m]));
+    const state = {
+      clients: [],
+      clientMap: new Map(),
+      supabaseCases: [],
+      caseMap: new Map(),
+      selectedId: null,
+      activeTab: 'resumen',
+      filters: {
+        search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
+      }
+    };
+
+    const detailActions = [
+      { id:'editar', label:'Editar', action:() => openModal() },
+      { id:'actualizar', label:'Actualizar estado', action:() => setActiveTab('resumen') },
+      { id:'gestion', label:'Agregar gestión', action:() => setActiveTab('historia') },
+      { id:'escritos', label:'Ir a escritos', action:() => setActiveTab('escritos') },
+      { id:'audiencias', label:'Ir a audiencias', action:() => setActiveTab('audiencias') },
+    ];
+
+    function escapeHtml(value=''){
+      return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[char]));
     }
 
-    function parseCLP(input) {
-      // admite: 8000000, 8.000.000, 8,000,000
+    function formatDate(value){
+      if (!value) return '—';
+      const date = new Date(value + (value.length <= 10 ? 'T00:00:00Z' : ''));
+      if (Number.isNaN(date.getTime())) return value;
+      return shortDate.format(date);
+    }
+
+    function isoDate(value){
+      if (!value) return null;
+      return value.length > 10 ? value.slice(0,10) : value;
+    }
+
+    function parseCLP(input){
       const cleaned = String(input || '').replace(/[^\d]/g, '');
-      if (!cleaned) return null;
-      return Number(cleaned);
+      return cleaned ? Number(cleaned) : null;
     }
 
-    // ---- Load clients for dropdown
-    async function loadClients() {
-      const { data, error } = await supabase
-        .from(T_CLIENTS)
-        .select(`${C.c_id}, ${C.c_name}`)
-        .order(C.c_name, { ascending: true });
+    function daysBetween(target){
+      if (!target) return null;
+      const date = new Date(target + 'T00:00:00Z');
+      return Math.ceil((date.getTime() - TODAY.getTime()) / 86400000);
+    }
 
-      if (error) {
-        alert('Error cargando clientes para selector: ' + error.message);
-        return;
+    function normalizeAlert(alert){
+      const value = (alert || '').toLowerCase();
+      if (value.includes('venc')) return 'Vencido';
+      if (value.includes('urg')) return 'Urgente';
+      if (value.includes('próx') || value.includes('prox')) return 'Próximo a vencer';
+      return 'Normal';
+    }
+
+    function computeBadgeClass(kind, value){
+      const v = String(value || '').toLowerCase();
+      if (kind === 'alert') {
+        if (v.includes('venc')) return 'badge-critical';
+        if (v.includes('urg')) return 'badge-critical';
+        if (v.includes('próx') || v.includes('prox')) return 'badge-warning';
+        return 'badge-ok';
       }
-
-      clientsMap = new Map((data ?? []).map(c => [c[C.c_id], c[C.c_name]]));
-
-      const sel = el('k_client');
-      sel.innerHTML = `<option value="">(selecciona)</option>` + (data ?? []).map(c =>
-        `<option value="${c[C.c_id]}">${escapeHtml(c[C.c_name] ?? '')}</option>`
-      ).join('');
+      if (kind === 'active') return 'badge-active';
+      if (kind === 'warning') return 'badge-warning';
+      if (kind === 'critical') return 'badge-critical';
+      return 'badge-info';
     }
 
-    // ---- Load cases
-    async function loadCases() {
-      tbody.innerHTML = `
-        <article class="case-tile empty">
-          <p class="case-value muted">Cargando…</p>
-        </article>
+    function loadWorkspace(){
+      try {
+        return JSON.parse(localStorage.getItem(WORKSPACE_KEY) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveWorkspace(workspace){
+      localStorage.setItem(WORKSPACE_KEY, JSON.stringify(workspace));
+    }
+
+    function slugId(value){
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '') || `causa-${Date.now()}`;
+    }
+
+    function createSeedDetail(base){
+      const rol = base.rol || 'Rol pendiente';
+      const caratula = base.caratula || rol;
+      const materia = base.materia || 'Materia por clasificar';
+      const procedimiento = base.procedimiento || 'Procedimiento por definir';
+      const responsable = base.responsable || 'Por asignar';
+      const cliente = base.cliente || 'Cliente relacionado';
+      const expediente = base.expediente || `EXP-${slugId(rol).toUpperCase()}`;
+      const urgency = base.urgencia || 'Normal';
+      const state = base.estadoProcesal || 'En tramitación';
+      const stage = base.etapaProcesal || 'Etapa inicial';
+      const deadlineDate = base.proximoPlazo || '2026-03-27';
+      const hearingDate = base.proximaAudiencia || '2026-03-29';
+      const alertLevel = base.alerta || (daysBetween(deadlineDate) <= 3 ? 'Urgente' : 'Normal');
+
+      return {
+        caratula,
+        rol,
+        rit: base.rit || 'RIT pendiente',
+        ruc: base.ruc || 'RUC pendiente',
+        tribunal: base.tribunal || 'Tribunal pendiente',
+        procedimiento,
+        materia,
+        submateria: base.submateria || 'Submateria estratégica',
+        cuantia: base.cuantia || (base.fee_total ? money.format(base.fee_total) : 'No definida'),
+        estadoProcesal: state,
+        etapaProcesal: stage,
+        fechaInicio: base.fechaInicio || '2026-03-01',
+        fechaNotificacion: base.fechaNotificacion || '2026-03-08',
+        tipoCausa: base.tipoCausa || 'Contenciosa',
+        observaciones: base.notes || 'Sin observaciones adicionales.',
+        causaRelacionada: base.causaRelacionada || 'Sin causa principal relacionada',
+        cliente,
+        procurador: base.procurador || 'Coordinación procesal interna',
+        responsable,
+        expediente,
+        ultimaResolucion: base.ultimaResolucion || 'Resolución pendiente de clasificación jurídica.',
+        proximaAudiencia: hearingDate,
+        proximoPlazo: deadlineDate,
+        ultimaGestion: base.ultimaGestion || base.updatedAt || '2026-03-18',
+        alerta: alertLevel,
+        indicadores: {
+          historiaProcesal: 4,
+          resoluciones: 3,
+          plazosVigentes: 2,
+          escritosPendientes: 1,
+        },
+        partes: [
+          { rol:'Demandante / solicitante', nombre: cliente, detalle:'Cliente principal vinculado a la causa.' },
+          { rol:'Demandado / contraparte', nombre:'Contraparte por validar', detalle:'Individualización pendiente de corroboración documental.' },
+          { rol:'Abogado', nombre: responsable, detalle:'Dirección jurídica principal del estudio.' },
+          { rol:'Apoderado', nombre:'Apoderado procesal por confirmar', detalle:'Mandato vigente y facultades en revisión.' },
+          { rol:'Terceros / peritos / testigos', nombre:'Mapa probatorio inicial', detalle:'Espacio disponible para receptores, ministros de fe y testigos.' },
+        ],
+        tribunalData: {
+          tribunal: base.tribunal || 'Tribunal pendiente',
+          competencia:'Competencia por validar',
+          ciudad:'Ciudad por definir',
+          sala:'Sala o unidad jurisdiccional',
+          juez:'Juez / ministro sin asignar',
+          secretaria:'Secretaría pendiente',
+          sistema:'Portal Poder Judicial / OJV',
+          conexion:'Conexión operativa monitoreada',
+          poderJudicial:'https://www.pjud.cl/',
+          ojv:'https://oficinajudicialvirtual.pjud.cl/',
+          otros:'Repositorio interno del estudio y enlaces estratégicos.',
+        },
+        historia:[
+          { fecha:'2026-03-08', tipo:'Ingreso', descripcion:'Apertura de causa y consolidación de antecedentes iniciales.', origen:'Oficina', autor:responsable, documento:'Ficha interna', cumplimiento:'Cumplido', observacion:'Se definió línea de acción preliminar.' },
+          { fecha:'2026-03-12', tipo:'Actuación', descripcion:'Carga de antecedentes y clasificación de documentos relevantes.', origen:'Cliente', autor:'Equipo de apoyo', documento:'Acta de recepción', cumplimiento:'Cumplido', observacion:'Pendiente depuración final.' },
+          { fecha:'2026-03-16', tipo:'Gestión interna', descripcion:'Revisión del expediente y detección de plazo activo.', origen:'Estudio', autor:responsable, documento:'Minuta estratégica', cumplimiento:'En curso', observacion:'Preparar escrito asociado.' },
+        ],
+        resoluciones:[
+          { fecha:'2026-03-15', tipo:'Resolución simple', resumen:'Se confiere traslado y se ordena evacuar dentro de plazo legal.', impacto:'Activa respuesta procesal inmediata.', plazo:'Traslado 3 días', audiencia:'No fija', documento:'Resolución 15-03.pdf', revision:'En revisión' },
+          { fecha:'2026-03-18', tipo:'Proveído', resumen:'Se tiene presente presentación y se solicita acompañar documento faltante.', impacto:'Requiere complemento documental.', plazo:'Acompañar antecedente', audiencia:'No fija', documento:'Proveído 18-03.pdf', revision:'Clasificada' },
+        ],
+        plazos:[
+          { origen:'2026-03-15', generador:'Resolución que confiere traslado', tipo:'Traslado', vencimiento:deadlineDate, alerta:normalizeAlert(alertLevel), escrito:'Contestación / evacuación de traslado', estado:'En redacción', responsable, prioridad:'Alta', observaciones:'Vinculado a resolución principal.' },
+          { origen:'2026-03-18', generador:'Requerimiento de acompañamiento', tipo:'Acompañamiento', vencimiento:'2026-04-02', alerta:'Normal', escrito:'Acompañamiento de documentos', estado:'No iniciado', responsable:'Paralegal documental', prioridad:'Media', observaciones:'Depende de recepción del cliente.' },
+        ],
+        contenedor:{
+          expediente:[
+            'Escritos presentados y comprobantes.',
+            'Resoluciones y notificaciones descargadas.',
+            'Actuaciones procesales y piezas oficiales incorporadas.',
+            'Documentos oficialmente agregados al expediente.',
+          ],
+          externos:[
+            'Actas de reuniones con cliente y terceros.',
+            'Fotografías, audios, videos e instrumentos privados.',
+            'Resoluciones de otros procedimientos y juicios relacionados.',
+            'Minutas internas y antecedentes estratégicos del estudio.',
+          ],
+          produccion:[
+            'Mesa de trabajo para conectar antecedentes, estrategia y borradores.',
+            'Vínculo directo con plazos, escritos, revisión y presentación.',
+            'Trazabilidad de versiones, observaciones y cierre.',
+          ],
+        },
+        produccion:{
+          diagnostico:{
+            estadoActual:state,
+            etapaProcesal:stage,
+            ultimaResolucion:base.ultimaResolucion || 'Pendiente de análisis detallado.',
+            actuacionesRecientes:'Se detectó traslado activo y requerimiento documental complementario.',
+            plazosVigentes:'Dos plazos vigentes con distinta prioridad.',
+            audienciasProximas:`Audiencia proyectada para ${formatDate(hearingDate)}.`,
+            riesgos:'Riesgo de vencimiento si no se cierra redacción antes de 48 horas.',
+            oportunidades:'Oportunidad de robustecer postura con nuevos antecedentes externos.'
+          },
+          estrategia:{
+            objetivoJuridico:'Asegurar una respuesta procesal sólida y congruente con el interés del cliente.',
+            objetivoProcesal:'Evacuar traslado y ordenar la teoría del caso con respaldo documental.',
+            subsidiario:'Preservar alternativas recursivas y negociación procesal.',
+            accion:'Preparar escrito principal con otrosí documental y reserva estratégica.',
+            fundamento:'La última resolución abre ventana breve para consolidar posición y prevenir preclusión.',
+            urgencia:urgency,
+            riesgo:'Pérdida de oportunidad procesal y debilitamiento probatorio.',
+            alternativas:'Reposición subsidiaria, solicitud de plazo adicional fundada o acuerdo procesal si conviene.'
+          },
+          sugerida:[
+            'Demanda / contestación según rol procesal del cliente.',
+            'Reposición con apelación subsidiaria si la resolución afecta derechos relevantes.',
+            'Acompañamiento de documentos y observaciones probatorias.',
+            'Solicitud incidental o medida prejudicial según la etapa y urgencia.'
+          ],
+          redaccion:['Plantilla simple','Borrador guiado','Borrador completo'],
+          revision:{
+            revisor:'Socio revisor asignado',
+            observaciones:'Enfatizar hechos asentados y depurar peticiones subsidiarias.',
+            correcciones:'Uniformar citas normativas y reforzar cronología.',
+            aprobacion:'Pendiente',
+            versionFinal:'Versión 0.3 interna',
+            firma:'Firma electrónica del abogado responsable',
+            presentacion:'Aún no presentada'
+          },
+          cierre:{
+            fechaPresentacion:'Pendiente',
+            folio:'Sin folio',
+            estado:'Abierta',
+            expediente:'Vinculación pendiente',
+            resolucion:'Asociada a resolución de 15-03-2026',
+            cierre:'Esperando validación final del abogado.'
+          }
+        },
+        escritos:[
+          { fecha:'2026-03-16', tipo:'Borrador', titulo:'Respuesta estratégica al traslado', folio:'—', responsable, word:'Borrador_v03.docx', pdf:'—', estado:'En revisión', vinculo:'Plazo de traslado / Resolución 15-03-2026' },
+          { fecha:'2026-03-12', tipo:'Minuta', titulo:'Minuta de antecedentes y plan de trabajo', folio:'Interno', responsable:'Equipo de litigación', word:'Minuta_causa.docx', pdf:'Minuta_causa.pdf', estado:'Aprobado', vinculo:'Historia procesal' },
+        ],
+        audiencias:[
+          { fecha:hearingDate, hora:'09:00', tipo:'Audiencia de seguimiento', modalidad:'Remota', sala:'Sala por confirmar', link:'https://oficinajudicialvirtual.pjud.cl/', resultado:'Pendiente', observaciones:'Preparar minuta y test de conexión.', acta:'Pendiente', tareas:'Confirmar comparecencia y carpeta de apoyo.' }
+        ],
+        prueba:{
+          documentosBase:['Contrato, anexos y comunicaciones relevantes.'],
+          documental:['Documentos oficiales para acompañamiento.'],
+          testimonial:['Testigos preliminarmente identificados.'],
+          pericial:['Pericia técnica en evaluación.'],
+          oficios:['Oficios posibles a entidades relacionadas.'],
+          informes:['Informes internos y externos útiles.'],
+          actas:['Acta cliente-abogado y minutas internas.'],
+          exhortos:['Espacio para exhortos y diligencias fuera de asiento.'],
+          externos:['Antecedentes externos alineados con estrategia.'],
+          estrategia:['Documentos ordenados por utilidad argumental.'],
+        },
+        analisis:{
+          teoria:'Teoría del caso en construcción, priorizando coherencia fáctica y utilidad práctica para el cliente.',
+          hechosAsentados:'Existen hechos documentados y reconocidos preliminarmente por las partes.',
+          hechosControvertidos:'Persisten controversias sobre alcance de obligaciones y oportunidad procesal.',
+          normas:'Aplicar normativa vigente y artículos pertinentes según materia y procedimiento.',
+          jurisprudencia:'Se requieren precedentes de altos tribunales y fallos comparables favorables/desfavorables.',
+          doctrina:'Se prioriza doctrina mayoritaria, distinguiendo tesis minoritarias útiles.',
+          fortalezas:'Buena base documental y trazabilidad interna ordenada.',
+          debilidades:'Plazo estrecho y necesidad de cerrar revisión jurídica.',
+          riesgos:'Preclusión, contradicciones argumentales o debilidad probatoria si no se integra todo el contenedor.',
+          objetivo:'Resultado útil al interés real del cliente con control de riesgos.',
+          estrategia:'Responder, ordenar prueba y dejar abierta alternativa recursiva o conciliatoria.'
+        },
+        asistente:[
+          'Resumir causa',
+          'Analizar resolución',
+          'Proponer estrategia',
+          'Redactar escrito',
+          'Extraer plazos',
+          'Preparar interrogatorio',
+          'Preparar absolución de posiciones',
+          'Preparar minuta de audiencia',
+          'Comparar demanda y contestación',
+          'Detectar contradicciones'
+        ],
+        cumplimiento:{
+          obligacion:'Obligación o prestación sujeta al resultado procesal.',
+          monto:base.cuantia || (base.fee_total ? money.format(base.fee_total) : 'Monto pendiente'),
+          estado:'Seguimiento preventivo',
+          exigibilidad:'Por determinar en función de resolución definitiva.',
+          apremio:'Medidas disponibles según etapa y título.',
+          liquidacion:'Liquidación pendiente',
+          cumplimiento:'Sin ejecución aún',
+          observaciones:'Módulo preparado para transición a etapa de cumplimiento.'
+        },
+        instrucciones:[
+          { fecha:'2026-03-16', autor:responsable, destinatario:'Equipo litigación', prioridad:'Alta', contenido:'Cerrar borrador del escrito principal y revisar coherencia documental.', estado:'En curso', cumplimiento:'2026-03-21', cierre:'Pendiente de revisión del socio.' },
+          { fecha:'2026-03-18', autor:'Socio director', destinatario:'Procurador', prioridad:'Media', contenido:'Verificar notificación y descargar constancias del portal.', estado:'Pendiente', cumplimiento:'2026-03-22', cierre:'Sin cierre aún.' },
+        ],
+        fuentes:[
+          { titulo:'Interés del cliente', detalle:'El objetivo real del cliente orienta la conveniencia práctica, urgencia y costo-beneficio.' },
+          { titulo:'Criterio del abogado', detalle:'Se ponderan preferencias, decisiones previas y dirección profesional del abogado responsable.' },
+          { titulo:'Estilo del estudio', detalle:'La redacción propuesta respeta estructura habitual, fórmulas de petición y cierres del estudio.' },
+          { titulo:'Estado real de la causa', detalle:'Expediente, resoluciones, actuaciones, audiencias y plazos vigentes gobiernan la propuesta.' },
+          { titulo:'Normativa vigente', detalle:'Solo se consideran normas vigentes y aplicables; no se inventan fundamentos.' },
+          { titulo:'Jurisprudencia', detalle:'Se prevé integrar precedentes relevantes, favorables y desfavorables, con trazabilidad.' },
+          { titulo:'Doctrina', detalle:'Se prioriza doctrina mayoritaria, distinguiendo tesis minoritarias útiles.' },
+          { titulo:'Causas similares', detalle:'Se abre espacio para reutilizar estrategias exitosas y escritos comparables del estudio.' },
+          { titulo:'Apoyo analítico ChatGPT', detalle:'El asistente IA resume, detecta conflictos y estructura borradores, sin sustituir validación final del abogado.' },
+        ],
+        tiposProduccion:[
+          'Medida prejudicial probatoria','Medida prejudicial precautoria','Demanda','Contestación de demanda','Objeción de documentos','Evacuación de traslado de objeción de documentos','Excepción dilatoria','Contestación de excepción dilatoria','Incidente de nulidad por falta de emplazamiento','Evacuación de traslado de incidente de nulidad','Tercería de posesión','Tercería de prelación','Tercería de pago','Tercería de dominio','Contestación de tercería','Comparecencia como tercero excluyente, coadyuvante o independiente','Solicitud de traslado para replicar','Solicitud de traslado para duplicar','Allanamiento parcial o total','Solicitud de conciliación','Incidente de abandono del procedimiento','Incidente de desistimiento','Incidente de acumulación de autos','Declinatoria','Inhibitoria','Solicitud de recibir la causa a prueba','Reposición con apelación subsidiaria','Acompañamiento de documentos','Absolución de posiciones','Informe pericial','Inspección personal del tribunal','Lista de testigos y citación','Observaciones a la prueba','Notificación expresa','Citación para oír sentencia','Aclaración, rectificación o enmienda','Apelación','Falso recurso de hecho','Verdadero recurso de hecho','Casación en la forma','Casación en el fondo','Solicitud de alegatos'
+        ]
+      };
+    }
+
+    function mergeCase(baseCase, workspaceEntry){
+      const clientName = state.clientMap.get(baseCase[C.k_client_id]) || workspaceEntry?.cliente || 'Cliente sin asociar';
+      const record = {
+        id: String(baseCase[C.k_id]),
+        clientId: baseCase[C.k_client_id],
+        cliente: clientName,
+        responsable: baseCase[C.k_responsible] || workspaceEntry?.responsable || 'Sin responsable',
+        tribunal: baseCase[C.k_court] || workspaceEntry?.tribunal || 'Sin tribunal',
+        rol: baseCase[C.k_rol] || workspaceEntry?.rol || 'Sin rol',
+        materia: baseCase[C.k_subject] || workspaceEntry?.materia || 'Sin materia',
+        fee_total: baseCase[C.k_fee_total] ?? null,
+        notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
+        updatedAt: isoDate(baseCase[C.k_created]) || '2026-03-20',
+      };
+      const detail = Object.assign(createSeedDetail({ ...record, ...workspaceEntry }), workspaceEntry || {});
+      detail.cliente = clientName;
+      if (baseCase[C.k_responsible]) detail.responsable = baseCase[C.k_responsible];
+      if (baseCase[C.k_court]) detail.tribunal = baseCase[C.k_court];
+      if (baseCase[C.k_rol]) detail.rol = baseCase[C.k_rol];
+      if (baseCase[C.k_subject]) detail.materia = baseCase[C.k_subject];
+      if (baseCase[C.k_fee_total] != null && (!detail.cuantia || detail.cuantia === 'No definida')) detail.cuantia = money.format(Number(baseCase[C.k_fee_total]));
+
+      const nextDeadline = [...(detail.plazos || [])].sort((a,b) => (a.vencimiento || '').localeCompare(b.vencimiento || ''))[0];
+      const nextHearing = [...(detail.audiencias || [])].sort((a,b) => (a.fecha || '').localeCompare(b.fecha || ''))[0];
+      return {
+        ...record,
+        ...detail,
+        proximoPlazo: nextDeadline?.vencimiento || detail.proximoPlazo,
+        proximaAudiencia: nextHearing?.fecha || detail.proximaAudiencia,
+        alerta: nextDeadline?.alerta || detail.alerta,
+        ultimaGestion: detail.ultimaGestion || record.updatedAt,
+      };
+    }
+
+    async function ensureAuth(){
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session) window.location.href = './login.html';
+    }
+
+    async function loadClients(){
+      const { data, error } = await supabase.from(T_CLIENTS).select(`${C.c_id}, ${C.c_name}`).order(C.c_name, { ascending:true });
+      if (error) throw error;
+      state.clients = data || [];
+      state.clientMap = new Map(state.clients.map(client => [client[C.c_id], client[C.c_name]]));
+      $('k_client').innerHTML = '<option value="">Selecciona</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client[C.c_name])}</option>`).join('');
+    }
+
+    async function loadCases(){
+      const { data, error } = await supabase.from(T_CASES).select('*').order(C.k_created, { ascending:false });
+      if (error) throw error;
+      const workspace = loadWorkspace();
+      state.supabaseCases = data || [];
+      state.caseMap = new Map(state.supabaseCases.map(base => {
+        const merged = mergeCase(base, workspace[String(base[C.k_id])]);
+        return [String(base[C.k_id]), merged];
+      }));
+      if (!state.selectedId || !state.caseMap.has(state.selectedId)) {
+        state.selectedId = state.supabaseCases[0] ? String(state.supabaseCases[0][C.k_id]) : null;
+      }
+    }
+
+    function getAllCases(){
+      return [...state.caseMap.values()];
+    }
+
+    function uniqueValues(key){
+      const values = [...new Set(getAllCases().map(item => item[key]).filter(Boolean))].sort((a,b) => String(a).localeCompare(String(b), 'es'));
+      return values;
+    }
+
+    function populateFilters(){
+      const configs = [
+        ['filterEstado', 'estadoProcesal'],
+        ['filterTribunal', 'tribunal'],
+        ['filterMateria', 'materia'],
+        ['filterProcedimiento', 'procedimiento'],
+        ['filterResponsable', 'responsable'],
+        ['filterUrgencia', 'alerta'],
+      ];
+
+      configs.forEach(([id, key]) => {
+        const select = $(id);
+        const current = state.filters[id.replace('filter','').toLowerCase()] || '';
+        select.innerHTML = '<option value="">Todos</option>' + uniqueValues(key).map(value => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+        select.value = current;
+      });
+
+      $('filterAudiencia').innerHTML = `
+        <option value="">Todas</option>
+        <option value="7">Próximos 7 días</option>
+        <option value="15">Próximos 15 días</option>
+        <option value="30">Próximos 30 días</option>
       `;
+      $('filterPlazo').innerHTML = `
+        <option value="">Todos</option>
+        <option value="3">Próximos 3 días</option>
+        <option value="7">Próximos 7 días</option>
+        <option value="15">Próximos 15 días</option>
+      `;
+      $('filterAudiencia').value = state.filters.audiencia;
+      $('filterPlazo').value = state.filters.plazo;
+    }
 
-      const { data, error } = await supabase
-        .from(T_CASES)
-        .select('*')
-        .order(C.k_created, { ascending: false });
-
-      if (error) {
-        tbody.innerHTML = `
-          <article class="case-tile empty">
-            <p class="case-value muted">Error al cargar: ${escapeHtml(error.message)}</p>
-          </article>
-        `;
-        return;
+    function caseMatches(caseItem){
+      const search = state.filters.search.trim().toLowerCase();
+      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.materia, caseItem.procedimiento].join(' ').toLowerCase();
+      if (search && !haystack.includes(search)) return false;
+      if (state.filters.estado && caseItem.estadoProcesal !== state.filters.estado) return false;
+      if (state.filters.tribunal && caseItem.tribunal !== state.filters.tribunal) return false;
+      if (state.filters.materia && caseItem.materia !== state.filters.materia) return false;
+      if (state.filters.procedimiento && caseItem.procedimiento !== state.filters.procedimiento) return false;
+      if (state.filters.responsable && caseItem.responsable !== state.filters.responsable) return false;
+      if (state.filters.urgencia && caseItem.alerta !== state.filters.urgencia) return false;
+      if (state.filters.audiencia) {
+        const days = daysBetween(caseItem.proximaAudiencia);
+        if (days == null || days > Number(state.filters.audiencia)) return false;
       }
+      if (state.filters.plazo) {
+        const days = daysBetween(caseItem.proximoPlazo);
+        if (days == null || days > Number(state.filters.plazo)) return false;
+      }
+      return true;
+    }
 
-      const list = data ?? [];
-      countLabel.textContent = `${list.length} causa(s)`;
+    function sortCases(cases){
+      const list = [...cases];
+      const sorter = state.filters.sortBy;
+      const alertRank = { 'Vencido':4, 'Urgente':3, 'Próximo a vencer':2, 'Normal':1 };
+      list.sort((a,b) => {
+        if (sorter === 'name') return String(a.caratula).localeCompare(String(b.caratula), 'es');
+        if (sorter === 'deadline') return String(a.proximoPlazo || '9999-12-31').localeCompare(String(b.proximoPlazo || '9999-12-31'));
+        if (sorter === 'hearing') return String(a.proximaAudiencia || '9999-12-31').localeCompare(String(b.proximaAudiencia || '9999-12-31'));
+        if (sorter === 'alert') return (alertRank[b.alerta] || 0) - (alertRank[a.alerta] || 0);
+        return String(b.ultimaGestion || '').localeCompare(String(a.ultimaGestion || ''));
+      });
+      return list;
+    }
 
+    function getVisibleCases(){
+      return sortCases(getAllCases().filter(caseMatches));
+    }
+
+    function renderSummaryMetrics(){
+      const cases = getAllCases();
+      const urgent = cases.filter(item => ['Urgente','Vencido'].includes(item.alerta)).length;
+      const hearings = cases.filter(item => {
+        const days = daysBetween(item.proximaAudiencia);
+        return days != null && days <= 15;
+      }).length;
+      const deadlines = cases.filter(item => {
+        const days = daysBetween(item.proximoPlazo);
+        return days != null && days <= 7;
+      }).length;
+      const inProduction = cases.reduce((acc, item) => acc + (item.escritos || []).filter(w => String(w.estado).toLowerCase().includes('revisión') || String(w.estado).toLowerCase().includes('borrador') || String(w.estado).toLowerCase().includes('redacción')).length, 0);
+      $('summaryMetrics').innerHTML = [
+        { label:'Causas activas', value:cases.length, helper:'Base general administrada por el módulo.' },
+        { label:'Alertas críticas', value:urgent, helper:'Urgentes, vencidas o sensibles.' },
+        { label:'Audiencias próximas', value:hearings, helper:'Dentro de los próximos 15 días.' },
+        { label:'Producción en curso', value:inProduction, helper:'Escritos o borradores bajo revisión.' },
+      ].map(item => `
+        <article class="metric">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+          <small>${escapeHtml(item.helper)}</small>
+        </article>
+      `).join('');
+    }
+
+    function renderList(){
+      const list = getVisibleCases();
+      $('countLabel').textContent = `${list.length} causa(s)`;
       if (!list.length) {
-        tbody.innerHTML = `
-          <article class="case-tile empty">
-            <p class="case-value muted">Sin causas aún</p>
-          </article>
-        `;
+        $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
+        $('detailTitle').textContent = 'Sin causas visibles';
+        $('detailMeta').textContent = 'Ajusta los filtros o crea una nueva causa para abrir la ficha interna.';
+        $('detailActions').innerHTML = '';
+        $('tabBar').innerHTML = '';
+        $('detailContent').innerHTML = '<div class="empty-state">No hay ficha para mostrar.</div>';
         return;
       }
+      if (!state.selectedId || !list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
 
-      tbody.innerHTML = list.map(k => {
-        const cliente = clientsMap.get(k[C.k_client_id]) || '(sin cliente)';
-        const fee = (k[C.k_fee_total] != null) ? money.format(Number(k[C.k_fee_total])) : '—';
+      $('casesList').innerHTML = list.map(item => {
+        const days = daysBetween(item.proximoPlazo);
+        const selected = item.id === state.selectedId ? 'selected' : '';
         return `
-          <article class="case-tile">
-            <div class="case-tile-top">
+          <article class="list-card ${selected}" data-select="${item.id}">
+            <div class="case-top">
               <div>
-                <span class="case-chip">Causa</span>
-                <h2 class="case-title">${escapeHtml(k[C.k_rol] ?? 'Sin rol/RIT')}</h2>
+                <div class="case-kicker">${escapeHtml(item.rol)} · ${escapeHtml(item.rit || 'Sin RIT')} · ${escapeHtml(item.ruc || 'Sin RUC')}</div>
+                <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
               </div>
+              <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
             </div>
-
-            <div class="case-grid">
-              <div class="case-data">
-                <span class="case-label">Tribunal</span>
-                <p class="case-value">${escapeHtml(k[C.k_court] ?? 'Sin tribunal')}</p>
-              </div>
-
-              <div class="case-data">
-                <span class="case-label">Cliente</span>
-                <p class="case-value">${escapeHtml(cliente)}</p>
-              </div>
-
-              <div class="case-data">
-                <span class="case-label">Materia</span>
-                <p class="case-value">${escapeHtml(k[C.k_subject] ?? 'Sin materia')}</p>
-              </div>
-
-              <div class="case-data">
-                <span class="case-label">Honorarios</span>
-                <p class="case-value">${escapeHtml(fee)}</p>
-              </div>
+            <div class="detail-grid">
+              <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
+              <div><span class="mini-label">Procedimiento</span><div class="case-meta">${escapeHtml(item.procedimiento)}</div></div>
+              <div><span class="mini-label">Materia</span><div class="case-meta">${escapeHtml(item.materia)}</div></div>
+              <div><span class="mini-label">Estado procesal</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
+              <div><span class="mini-label">Última resolución</span><div class="case-meta">${escapeHtml(item.ultimaResolucion)}</div></div>
+              <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
+              <div><span class="mini-label">Última gestión</span><div class="case-meta">${escapeHtml(formatDate(item.ultimaGestion))}</div></div>
+              <div><span class="mini-label">Abogado responsable</span><div class="case-meta">${escapeHtml(item.responsable)}</div></div>
             </div>
-
-            <div class="case-actions">
-              <button class="btn btn-danger btn-3d btn-sm" data-del="${k[C.k_id]}">Eliminar</button>
+            <div class="case-footer">
+              <div class="case-meta">Cliente: ${escapeHtml(item.cliente)}</div>
+              <div class="case-actions">
+                <button class="quick-btn quick-btn-primary" data-jump="resumen" data-case="${item.id}">Abrir</button>
+                <button class="quick-btn" data-jump="historia" data-case="${item.id}">Historia</button>
+                <button class="quick-btn" data-jump="escritos" data-case="${item.id}">Escritos</button>
+                <button class="quick-btn" data-jump="resoluciones" data-case="${item.id}">Resoluciones</button>
+                <button class="quick-btn" data-jump="audiencias" data-case="${item.id}">Audiencias</button>
+                <button class="quick-btn" data-jump="plazos" data-case="${item.id}">Plazos</button>
+                <button class="quick-btn" data-jump="prueba" data-case="${item.id}">Documentos</button>
+              </div>
             </div>
           </article>
         `;
       }).join('');
     }
 
-    // ---- Create case
-    el('formCausa').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      msg.className = 'msg';
+    function renderTabs(){
+      const selected = state.caseMap.get(state.selectedId);
+      if (!selected) {
+        $('tabBar').innerHTML = '';
+        return;
+      }
+      $('tabBar').innerHTML = TAB_CONFIG.map(([id, label]) => `<button class="tab-btn ${state.activeTab === id ? 'active' : ''}" data-tab="${id}">${escapeHtml(label)}</button>`).join('');
+    }
 
-      const clientId = el('k_client').value;
+    function renderDetailActions(){
+      $('detailActions').innerHTML = detailActions.map(item => `<button class="btn ${item.id === 'escritos' ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+    }
+
+    function buildKeyValueGrid(entries){
+      return `<div class="grid-4">${entries.map(([label, value]) => `
+        <div class="info-card">
+          <div class="mini-label">${escapeHtml(label)}</div>
+          <div class="case-meta">${escapeHtml(value || '—')}</div>
+        </div>
+      `).join('')}</div>`;
+    }
+
+    function renderResumen(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Resumen ejecutivo de la causa</h4>
+              <p class="section-copy">Vista sintética para identificar, administrar y controlar la causa con foco jurídico-operativo.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge ${computeBadgeClass('active', cause.estadoProcesal)}">${escapeHtml(cause.estadoProcesal)}</span>
+              <span class="badge ${computeBadgeClass('alert', cause.alerta)}">${escapeHtml(cause.alerta)}</span>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Carátula', cause.caratula],
+            ['Rol / RIT / RUC', `${cause.rol} · ${cause.rit} · ${cause.ruc}`],
+            ['Tribunal', cause.tribunal],
+            ['Procedimiento', cause.procedimiento],
+            ['Materia', cause.materia],
+            ['Cuantía', cause.cuantia],
+            ['Estado actual', cause.estadoProcesal],
+            ['Etapa procesal', cause.etapaProcesal],
+            ['Última resolución', cause.ultimaResolucion],
+            ['Próxima audiencia', formatDate(cause.proximaAudiencia)],
+            ['Próximo plazo fatal', formatDate(cause.proximoPlazo)],
+            ['Abogado responsable', cause.responsable],
+            ['Procurador asignado', cause.procurador],
+            ['Cliente relacionado', cause.cliente],
+            ['Expediente relacionado', cause.expediente],
+          ])}
+        </section>
+      `;
+    }
+
+    function renderIdentificacion(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Identificación</h4>
+              <p class="section-copy">Registro estructurado de la causa, con clasificación jurídica, fechas y observaciones generales.</p>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Número interno', cause.id],
+            ['Carátula', cause.caratula],
+            ['Rol', cause.rol],
+            ['RIT', cause.rit],
+            ['RUC', cause.ruc],
+            ['Tipo de causa', cause.tipoCausa],
+            ['Procedimiento', cause.procedimiento],
+            ['Materia', cause.materia],
+            ['Submateria', cause.submateria],
+            ['Cuantía', cause.cuantia],
+            ['Fecha de inicio', formatDate(cause.fechaInicio)],
+            ['Fecha de notificación', formatDate(cause.fechaNotificacion)],
+            ['Estado procesal', cause.estadoProcesal],
+            ['Etapa procesal', cause.etapaProcesal],
+            ['Causa principal / relacionada', cause.causaRelacionada],
+            ['Observaciones generales', cause.observaciones],
+          ])}
+        </section>
+      `;
+    }
+
+    function renderPartes(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Partes e intervinientes</h4>
+              <p class="section-copy">Identificación de demandante, contraparte, representantes, abogados, apoderados, terceros, peritos, testigos y demás actores relevantes.</p>
+            </div>
+          </div>
+          <div class="timeline">${cause.partes.map(item => `
+            <article class="timeline-item">
+              <strong>${escapeHtml(item.rol)}</strong>
+              <div class="case-meta">${escapeHtml(item.nombre)}</div>
+              <div class="timeline-meta">${escapeHtml(item.detalle)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderTribunal(cause){
+      const t = cause.tribunalData;
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Tribunal</h4>
+              <p class="section-copy">Competencia, ciudad, sala, juez, secretaría, sistema de tramitación y enlaces externos útiles para el seguimiento del expediente.</p>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Tribunal', t.tribunal],
+            ['Competencia', t.competencia],
+            ['Ciudad', t.ciudad],
+            ['Sala', t.sala],
+            ['Juez / ministro', t.juez],
+            ['Secretaría', t.secretaria],
+            ['Sistema de tramitación', t.sistema],
+            ['Estado de conexión con portal', t.conexion],
+            ['Link Poder Judicial', t.poderJudicial],
+            ['Link Oficina Judicial Virtual', t.ojv],
+            ['Otros links útiles', t.otros],
+          ])}
+        </section>
+      `;
+    }
+
+    function renderHistoria(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Historia procesal</h4>
+              <p class="section-copy">Registro cronológico de actuaciones con origen, autor, documento vinculado, estado de cumplimiento y observación interna.</p>
+            </div>
+          </div>
+          <div class="timeline">${cause.historia.map(item => `
+            <article class="timeline-item">
+              <div class="case-top">
+                <strong>${escapeHtml(formatDate(item.fecha))}</strong>
+                <span class="badge ${computeBadgeClass(item.cumplimiento === 'Cumplido' ? 'active' : 'warning', item.cumplimiento)}">${escapeHtml(item.cumplimiento)}</span>
+              </div>
+              <div class="timeline-meta">${escapeHtml(item.tipo)} · ${escapeHtml(item.origen)} · ${escapeHtml(item.autor)}</div>
+              <div class="case-meta">${escapeHtml(item.descripcion)}</div>
+              <div class="timeline-meta">Documento vinculado: ${escapeHtml(item.documento)}.</div>
+              <div class="timeline-meta">Observación interna: ${escapeHtml(item.observacion)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderResoluciones(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Resoluciones</h4>
+              <p class="section-copy">Listado de resoluciones con impacto procesal, plazo que genera, audiencia que fija y estado de revisión interna.</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn">Agregar resolución</button>
+              <button class="btn">Clasificar</button>
+              <button class="btn">Generar tarea desde resolución</button>
+              <button class="btn">Vincular plazo</button>
+            </div>
+          </div>
+          <div class="resolution-list">${cause.resoluciones.map(item => `
+            <article class="resolution-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.tipo)}</strong>
+                <span class="badge ${computeBadgeClass(item.revision === 'Clasificada' ? 'active' : 'warning', item.revision)}">${escapeHtml(item.revision)}</span>
+              </div>
+              <div class="resolution-meta">${escapeHtml(formatDate(item.fecha))}</div>
+              <div class="case-meta">${escapeHtml(item.resumen)}</div>
+              <div class="resolution-meta">Impacto procesal: ${escapeHtml(item.impacto)}</div>
+              <div class="resolution-meta">Plazo que genera: ${escapeHtml(item.plazo)} · Audiencia: ${escapeHtml(item.audiencia)}</div>
+              <div class="resolution-meta">Documento adjunto: ${escapeHtml(item.documento)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderPlazos(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Plazos, alertas y escritos vinculados</h4>
+              <p class="section-copy">Lógica central del módulo: resolución o actuación → plazo → alerta → escrito asociado → presentación.</p>
+            </div>
+          </div>
+          <div class="deadline-list">${cause.plazos.map(item => `
+            <article class="deadline-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.tipo)}</strong>
+                <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
+              </div>
+              <div class="deadline-meta">Fecha de origen: ${escapeHtml(formatDate(item.origen))} · Generador: ${escapeHtml(item.generador)}</div>
+              <div class="deadline-meta">Vencimiento: ${escapeHtml(formatDate(item.vencimiento))} · Días restantes: ${escapeHtml(daysBetween(item.vencimiento))}</div>
+              <div class="deadline-meta">Escrito requerido: ${escapeHtml(item.escrito)} · Estado: ${escapeHtml(item.estado)}</div>
+              <div class="deadline-meta">Responsable: ${escapeHtml(item.responsable)} · Prioridad: ${escapeHtml(item.prioridad)}</div>
+              <div class="case-meta">${escapeHtml(item.observaciones)}</div>
+            </article>
+          `).join('')}</div>
+          <div class="source-grid">
+            <div class="source-item"><strong>Automatización</strong><div class="case-meta">Toda actuación generadora de plazo puede crear plazo, alerta, escrito vinculado, responsable y visualización global de vencimientos.</div></div>
+            <div class="source-item"><strong>Estados del escrito</strong><div class="case-meta">No iniciado, en redacción, en revisión, listo para presentar, presentado o vencido sin presentación.</div></div>
+            <div class="source-item"><strong>Niveles de alerta</strong><div class="case-meta">Normal, próximo a vencer, urgente y vencido, con jerarquía visual diferenciada.</div></div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderContenedor(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Contenedor</h4>
+              <p class="section-copy">Área documental principal, ordenada en tres segmentos: expediente, antecedentes externos y producción jurídica.</p>
+            </div>
+          </div>
+          <div class="container-layout">
+            <article class="container-segment">
+              <div class="segment-header">
+                <div>
+                  <h5 class="segment-title">1. Expediente, si existe</h5>
+                  <p class="segment-copy">Piezas oficiales de la causa y sus documentos incorporados judicialmente.</p>
+                </div>
+                <span class="badge badge-info">Oficial</span>
+              </div>
+              <ul class="bullet-list">${cause.contenedor.expediente.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+            <article class="container-segment">
+              <div class="segment-header">
+                <div>
+                  <h5 class="segment-title">2. Antecedentes externos al expediente</h5>
+                  <p class="segment-copy">Documentos, actas, fotografías, pruebas, testimonios, instrumentos, informes y antecedentes estratégicos administrados por la oficina.</p>
+                </div>
+                <span class="badge badge-ok">Oficina</span>
+              </div>
+              <ul class="bullet-list">${cause.contenedor.externos.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+            <article class="container-segment">
+              <div class="segment-header">
+                <div>
+                  <h5 class="segment-title">3. Área de producción</h5>
+                  <p class="segment-copy">Subespacio del contenedor que conecta antecedentes, estrategia y redacción del escrito.</p>
+                </div>
+                <span class="badge badge-active">Producción</span>
+              </div>
+              <ul class="bullet-list">${cause.contenedor.produccion.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderProduccion(cause){
+      const p = cause.produccion;
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Producción</h4>
+              <p class="section-copy">Espacio propio donde nacen la estrategia, el diagnóstico, la propuesta de escritos, la redacción, la revisión, la presentación y la trazabilidad.</p>
+            </div>
+          </div>
+          <div class="production-grid">
+            <div class="section-card">
+              <h5 class="segment-title">Diagnóstico procesal</h5>
+              ${buildKeyValueGrid([
+                ['Estado actual', p.diagnostico.estadoActual],
+                ['Etapa procesal', p.diagnostico.etapaProcesal],
+                ['Última resolución', p.diagnostico.ultimaResolucion],
+                ['Actuaciones recientes', p.diagnostico.actuacionesRecientes],
+                ['Plazos vigentes', p.diagnostico.plazosVigentes],
+                ['Audiencias próximas', p.diagnostico.audienciasProximas],
+                ['Riesgos detectados', p.diagnostico.riesgos],
+                ['Oportunidades detectadas', p.diagnostico.oportunidades],
+              ])}
+            </div>
+            <div class="section-card">
+              <h5 class="segment-title">Estrategia</h5>
+              ${buildKeyValueGrid([
+                ['Objetivo jurídico inmediato', p.estrategia.objetivoJuridico],
+                ['Objetivo procesal principal', p.estrategia.objetivoProcesal],
+                ['Objetivo subsidiario', p.estrategia.subsidiario],
+                ['Acción recomendada', p.estrategia.accion],
+                ['Fundamento estratégico', p.estrategia.fundamento],
+                ['Urgencia', p.estrategia.urgencia],
+                ['Riesgo de no actuar', p.estrategia.riesgo],
+                ['Alternativas posibles', p.estrategia.alternativas],
+              ])}
+            </div>
+          </div>
+          <div class="source-grid">
+            <article class="source-item">
+              <strong>Producción sugerida</strong>
+              <ul class="bullet-list">${p.sugerida.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+            <article class="source-item">
+              <strong>Redacción del escrito</strong>
+              <ul class="bullet-list">${p.redaccion.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+            <article class="source-item">
+              <strong>Tipos de producción contemplados</strong>
+              <div class="case-meta">${cause.tiposProduccion.slice(0,12).map(escapeHtml).join(', ')} y otros equivalentes según materia y procedimiento.</div>
+            </article>
+          </div>
+          <div class="production-grid">
+            <div class="section-card">
+              <h5 class="segment-title">Revisión y control</h5>
+              ${buildKeyValueGrid([
+                ['Revisor', p.revision.revisor],
+                ['Observaciones', p.revision.observaciones],
+                ['Correcciones', p.revision.correcciones],
+                ['Aprobación', p.revision.aprobacion],
+                ['Versión final', p.revision.versionFinal],
+                ['Firma', p.revision.firma],
+                ['Presentación', p.revision.presentacion],
+              ])}
+            </div>
+            <div class="section-card">
+              <h5 class="segment-title">Presentación y cierre</h5>
+              ${buildKeyValueGrid([
+                ['Fecha de presentación', p.cierre.fechaPresentacion],
+                ['Folio / comprobante', p.cierre.folio],
+                ['Estado', p.cierre.estado],
+                ['Vínculo con expediente', p.cierre.expediente],
+                ['Vínculo con resolución o plazo', p.cierre.resolucion],
+                ['Cierre de producción', p.cierre.cierre],
+              ])}
+            </div>
+          </div>
+          <div class="section-card">
+            <div class="section-head">
+              <div>
+                <h5 class="segment-title">Fuentes de apoyo para estrategia y redacción</h5>
+                <p class="section-copy">Jerarquía aplicada: interés del cliente, criterio del abogado, estilo del estudio, estado real de la causa, normativa vigente, jurisprudencia, doctrina, causas similares y apoyo analítico de ChatGPT.</p>
+              </div>
+            </div>
+            <div class="source-grid">${cause.fuentes.map(item => `
+              <article class="source-item">
+                <strong>${escapeHtml(item.titulo)}</strong>
+                <div class="case-meta">${escapeHtml(item.detalle)}</div>
+              </article>
+            `).join('')}</div>
+          </div>
+        </section>
+      `;
+    }
+
+    function renderEscritos(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Escritos</h4>
+              <p class="section-copy">Archivo separado de producción: borradores, aprobados, firmados y presentados, con versiones y vínculos a plazo/resolución.</p>
+            </div>
+          </div>
+          <div class="resolution-list">${cause.escritos.map(item => `
+            <article class="resolution-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.titulo)}</strong>
+                <span class="badge ${computeBadgeClass(item.estado.includes('Aprob') ? 'active' : 'warning', item.estado)}">${escapeHtml(item.estado)}</span>
+              </div>
+              <div class="resolution-meta">${escapeHtml(formatDate(item.fecha))} · ${escapeHtml(item.tipo)} · Responsable: ${escapeHtml(item.responsable)}</div>
+              <div class="resolution-meta">Word: ${escapeHtml(item.word)} · PDF: ${escapeHtml(item.pdf)} · Folio: ${escapeHtml(item.folio)}</div>
+              <div class="case-meta">${escapeHtml(item.vinculo)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderAudiencias(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Audiencias</h4>
+              <p class="section-copy">Agenda de audiencias con modalidad, sala, link, resultado, acta y tareas derivadas.</p>
+            </div>
+          </div>
+          <div class="timeline">${cause.audiencias.map(item => `
+            <article class="timeline-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.tipo)}</strong>
+                <span class="badge ${computeBadgeClass(item.resultado === 'Pendiente' ? 'warning' : 'active', item.resultado)}">${escapeHtml(item.resultado)}</span>
+              </div>
+              <div class="timeline-meta">${escapeHtml(formatDate(item.fecha))} · ${escapeHtml(item.hora)} · ${escapeHtml(item.modalidad)}</div>
+              <div class="case-meta">Sala / tribunal: ${escapeHtml(item.sala)}</div>
+              <div class="timeline-meta">Link: ${escapeHtml(item.link)}</div>
+              <div class="timeline-meta">Acta: ${escapeHtml(item.acta)}</div>
+              <div class="timeline-meta">Observaciones: ${escapeHtml(item.observaciones)}</div>
+              <div class="timeline-meta">Tareas derivadas: ${escapeHtml(item.tareas)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderPrueba(cause){
+      const sections = [
+        ['Documentos base', cause.prueba.documentosBase],
+        ['Prueba documental', cause.prueba.documental],
+        ['Prueba testimonial', cause.prueba.testimonial],
+        ['Prueba pericial', cause.prueba.pericial],
+        ['Oficios', cause.prueba.oficios],
+        ['Informes', cause.prueba.informes],
+        ['Actas', cause.prueba.actas],
+        ['Exhortos', cause.prueba.exhortos],
+        ['Antecedentes externos', cause.prueba.externos],
+        ['Documentos relacionados con estrategia', cause.prueba.estrategia],
+      ];
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Prueba / documentos</h4>
+              <p class="section-copy">Separación explícita entre documentos base, prueba, oficios, informes, actas, exhortos, antecedentes externos y material estratégico.</p>
+            </div>
+          </div>
+          <div class="documents-layout">${sections.map(([title, list]) => `
+            <article class="document-bucket">
+              <strong>${escapeHtml(title)}</strong>
+              <ul class="bullet-list">${list.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderAnalisis(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Análisis jurídico</h4>
+              <p class="section-copy">Espacio reservado para teoría del caso, hechos, normas, jurisprudencia, doctrina, fortalezas, debilidades, riesgos y estrategia.</p>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Teoría del caso', cause.analisis.teoria],
+            ['Hechos asentados', cause.analisis.hechosAsentados],
+            ['Hechos controvertidos', cause.analisis.hechosControvertidos],
+            ['Normas aplicables', cause.analisis.normas],
+            ['Jurisprudencia útil', cause.analisis.jurisprudencia],
+            ['Doctrina útil', cause.analisis.doctrina],
+            ['Fortalezas', cause.analisis.fortalezas],
+            ['Debilidades', cause.analisis.debilidades],
+            ['Riesgos', cause.analisis.riesgos],
+            ['Objetivo procesal', cause.analisis.objetivo],
+            ['Estrategia', cause.analisis.estrategia],
+          ])}
+        </section>
+      `;
+    }
+
+    function renderAsistente(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Asistente jurídico IA ChatGPT</h4>
+              <p class="section-copy">Herramientas para resumir, analizar, detectar contradicciones, preparar minuta, extraer plazos y estructurar borradores sin reemplazar la validación final del abogado.</p>
+            </div>
+          </div>
+          <div class="assistant-grid">${cause.asistente.map(item => `
+            <article class="assistant-action">
+              <strong>${escapeHtml(item)}</strong>
+              <div class="case-meta">Disponible como acción analítica conectada con el expediente, antecedentes, estrategia y producción de la causa.</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderCumplimiento(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Cumplimiento / ejecución</h4>
+              <p class="section-copy">Seguimiento de obligación, monto, exigibilidad, apremios, liquidación y cumplimiento total o parcial para etapas posteriores.</p>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Obligación', cause.cumplimiento.obligacion],
+            ['Monto', cause.cumplimiento.monto],
+            ['Estado de cumplimiento', cause.cumplimiento.estado],
+            ['Exigibilidad', cause.cumplimiento.exigibilidad],
+            ['Medidas de apremio', cause.cumplimiento.apremio],
+            ['Liquidación', cause.cumplimiento.liquidacion],
+            ['Cumplimiento parcial o total', cause.cumplimiento.cumplimiento],
+            ['Observaciones', cause.cumplimiento.observaciones],
+          ])}
+        </section>
+      `;
+    }
+
+    function renderInstrucciones(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Instrucciones</h4>
+              <p class="section-copy">Área de instrucciones internas con fecha, autor, destinatario, prioridad, estado y observación de cierre.</p>
+            </div>
+          </div>
+          <div class="instruction-list">${cause.instrucciones.map(item => `
+            <article class="instruction-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.contenido)}</strong>
+                <span class="badge ${computeBadgeClass(item.prioridad === 'Alta' ? 'critical' : 'warning', item.prioridad)}">${escapeHtml(item.prioridad)}</span>
+              </div>
+              <div class="timeline-meta">${escapeHtml(formatDate(item.fecha))} · Autor: ${escapeHtml(item.autor)} · Destinatario: ${escapeHtml(item.destinatario)}</div>
+              <div class="timeline-meta">Estado: ${escapeHtml(item.estado)} · Fecha de cumplimiento: ${escapeHtml(formatDate(item.cumplimiento))}</div>
+              <div class="case-meta">Observación de cierre: ${escapeHtml(item.cierre)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderCurrentTab(){
+      const cause = state.caseMap.get(state.selectedId);
+      if (!cause) {
+        $('detailContent').innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
+        return;
+      }
+      $('detailTitle').textContent = cause.caratula;
+      $('detailMeta').textContent = `${cause.rol} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable}`;
+      renderDetailActions();
+
+      const renderers = {
+        resumen: renderResumen,
+        identificacion: renderIdentificacion,
+        partes: renderPartes,
+        tribunal: renderTribunal,
+        historia: renderHistoria,
+        resoluciones: renderResoluciones,
+        plazos: renderPlazos,
+        contenedor: renderContenedor,
+        produccion: renderProduccion,
+        escritos: renderEscritos,
+        audiencias: renderAudiencias,
+        prueba: renderPrueba,
+        analisis: renderAnalisis,
+        asistente: renderAsistente,
+        cumplimiento: renderCumplimiento,
+        instrucciones: renderInstrucciones,
+      };
+      $('detailContent').innerHTML = renderers[state.activeTab](cause);
+    }
+
+    function renderAll(){
+      renderSummaryMetrics();
+      renderList();
+      renderTabs();
+      renderCurrentTab();
+    }
+
+    function setActiveTab(tab){
+      state.activeTab = tab;
+      renderTabs();
+      renderCurrentTab();
+    }
+
+    function updateFiltersFromInputs(){
+      state.filters.search = $('searchCausas').value;
+      state.filters.estado = $('filterEstado').value;
+      state.filters.tribunal = $('filterTribunal').value;
+      state.filters.materia = $('filterMateria').value;
+      state.filters.procedimiento = $('filterProcedimiento').value;
+      state.filters.responsable = $('filterResponsable').value;
+      state.filters.urgencia = $('filterUrgencia').value;
+      state.filters.audiencia = $('filterAudiencia').value;
+      state.filters.plazo = $('filterPlazo').value;
+      state.filters.sortBy = $('sortBy').value;
+      renderAll();
+    }
+
+    function resetFilters(){
+      state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', sortBy:'updated' };
+      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo'].forEach(id => { $(id).value = ''; });
+      $('sortBy').value = 'updated';
+      renderAll();
+    }
+
+    const modal = $('modalCausa');
+    const msg = $('caseMsg');
+
+    function openModal(){
+      modal.classList.add('open');
+      modal.setAttribute('aria-hidden', 'false');
+      msg.className = 'msg';
+      msg.textContent = '';
+    }
+
+    function closeModal(){
+      modal.classList.remove('open');
+      modal.setAttribute('aria-hidden', 'true');
+      $('formCausa').reset();
+      msg.className = 'msg';
+      msg.textContent = '';
+    }
+
+    function buildWorkspacePayload(id){
+      const clientId = $('k_client').value;
+      return {
+        id,
+        cliente: state.clientMap.get(clientId) || 'Cliente sin asociar',
+        caratula: $('k_caratula').value.trim() || 'Sin carátula',
+        rol: $('k_rol').value.trim() || 'Sin rol',
+        rit: $('k_rit').value.trim() || 'RIT pendiente',
+        ruc: $('k_ruc').value.trim() || 'RUC pendiente',
+        tribunal: $('k_court').value.trim() || 'Tribunal pendiente',
+        procedimiento: $('k_procedure').value.trim() || 'Procedimiento por definir',
+        materia: $('k_subject').value.trim() || 'Materia por definir',
+        submateria: $('k_submatter').value.trim() || 'Submateria pendiente',
+        cuantia: parseCLP($('k_fee').value) != null ? money.format(parseCLP($('k_fee').value)) : 'No definida',
+        estadoProcesal: $('k_state').value,
+        etapaProcesal: $('k_stage').value.trim() || 'Etapa inicial',
+        procurador: $('k_procurador').value.trim() || 'Procurador por asignar',
+        responsable: $('k_resp').value.trim() || 'Sin responsable',
+        expediente: $('k_expediente').value.trim() || `EXP-${slugId($('k_caratula').value || id).toUpperCase()}`,
+        ultimaResolucion: $('k_last_resolution').value.trim() || 'Resolución inicial pendiente de clasificación.',
+        observaciones: $('k_notes').value.trim() || 'Sin observaciones registradas.',
+        notes: $('k_notes').value.trim() || null,
+        alerta: $('k_urgency').value === 'Crítica' ? 'Urgente' : $('k_urgency').value,
+        proximaAudiencia: '2026-03-29',
+        proximoPlazo: '2026-03-27',
+        fee_total: parseCLP($('k_fee').value),
+        fechaInicio: '2026-03-20',
+        fechaNotificacion: '2026-03-20',
+        tipoCausa: 'Contenciosa',
+      };
+    }
+
+    async function createCase(event){
+      event.preventDefault();
+      msg.className = 'msg';
+      const clientId = $('k_client').value;
       if (!clientId) {
         msg.className = 'msg msg-error';
-        msg.textContent = 'Debes seleccionar un cliente.';
+        msg.textContent = 'Debes seleccionar un cliente relacionado.';
         return;
       }
 
-      const fee = parseCLP(el('k_fee').value);
-
+      const fee = parseCLP($('k_fee').value);
+      const rolComposite = [$('k_rol').value.trim(), $('k_rit').value.trim()].filter(Boolean).join(' / ') || $('k_caratula').value.trim();
       const payload = {
         [C.k_client_id]: clientId,
-        [C.k_responsible]: el('k_resp').value.trim() || null,
-        [C.k_court]: el('k_court').value.trim() || null,
-        [C.k_rol]: el('k_rol').value.trim() || null,
-        [C.k_subject]: el('k_subject').value.trim() || null,
+        [C.k_responsible]: $('k_resp').value.trim() || null,
+        [C.k_court]: $('k_court').value.trim() || null,
+        [C.k_rol]: rolComposite || null,
+        [C.k_subject]: $('k_subject').value.trim() || null,
         [C.k_fee_total]: fee,
-        [C.k_fee_type]: el('k_fee_type').value,
-        [C.k_payment]: el('k_pay').value,
-        [C.k_ppm]: parseCLP(el('k_ppm').value) ?? null,
-        [C.k_withheld_by]: el('k_withhold').value,
-        [C.k_notes]: el('k_notes').value.trim() || null,
+        [C.k_fee_type]: $('k_fee_type').value,
+        [C.k_payment]: $('k_pay').value,
+        [C.k_ppm]: parseCLP($('k_ppm').value),
+        [C.k_withheld_by]: $('k_withhold').value,
+        [C.k_notes]: $('k_notes').value.trim() || null,
       };
 
-      const { error } = await supabase.from(T_CASES).insert(payload);
-
+      const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
       if (error) {
         msg.className = 'msg msg-error';
-        msg.textContent = `Error: ${error.message}`;
+        msg.textContent = `Error al guardar la causa: ${error.message}`;
         return;
       }
+
+      const workspace = loadWorkspace();
+      workspace[String(data[C.k_id])] = createSeedDetail(buildWorkspacePayload(String(data[C.k_id])));
+      saveWorkspace(workspace);
 
       msg.className = 'msg msg-ok';
-      msg.textContent = 'Causa guardada ✅';
-
+      msg.textContent = 'Causa creada y estructurada dentro del módulo CAUSAS.';
       await loadCases();
+      populateFilters();
+      state.selectedId = String(data[C.k_id]);
+      state.activeTab = 'resumen';
+      renderAll();
       setTimeout(closeModal, 450);
-    });
+    }
 
-    // ---- Delete case
-    tbody.addEventListener('click', async (e) => {
-      const id = e.target?.dataset?.del;
-      if (!id) return;
+    function wireEvents(){
+      $('btnLogout').addEventListener('click', async () => {
+        await supabase.auth.signOut();
+        window.location.href = './login.html';
+      });
 
-      const ok = confirm('¿Eliminar esta causa? (No se puede deshacer)');
-      if (!ok) return;
+      $('btnNuevaCausa').addEventListener('click', openModal);
+      $('btnImportar').addEventListener('click', () => alert('Importación preparada como acción del módulo CAUSAS; integrar origen cuando exista conector documental.'));
+      $('btnCalendario').addEventListener('click', () => setActiveTab('audiencias'));
+      $('btnActualizarEstado').addEventListener('click', () => setActiveTab('resumen'));
+      $('btnQuickHistory').addEventListener('click', () => setActiveTab('historia'));
+      $('btnQuickProduction').addEventListener('click', () => setActiveTab('produccion'));
+      $('btnQuickAlerts').addEventListener('click', () => setActiveTab('plazos'));
+      $('btnLimpiarFiltros').addEventListener('click', resetFilters);
+      $('formCausa').addEventListener('submit', createCase);
+      modal.addEventListener('click', event => {
+        const closeTarget = event.target.closest('[data-close]');
+        if (closeTarget || event.target === modal) closeModal();
+      });
 
-      const { error } = await supabase.from(T_CASES).delete().eq(C.k_id, id);
-      if (error) {
-        alert('Error al eliminar: ' + error.message);
-        return;
+      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','sortBy'].forEach(id => {
+        $(id).addEventListener(id === 'searchCausas' ? 'input' : 'change', updateFiltersFromInputs);
+      });
+
+      $('casesList').addEventListener('click', event => {
+        const jump = event.target.closest('[data-jump]');
+        if (jump) {
+          state.selectedId = jump.dataset.case;
+          setActiveTab(jump.dataset.jump);
+          renderAll();
+          return;
+        }
+        const card = event.target.closest('[data-select]');
+        if (card) {
+          state.selectedId = card.dataset.select;
+          renderAll();
+        }
+      });
+
+      $('tabBar').addEventListener('click', event => {
+        const tab = event.target.closest('[data-tab]');
+        if (!tab) return;
+        setActiveTab(tab.dataset.tab);
+      });
+
+      $('detailActions').addEventListener('click', event => {
+        const button = event.target.closest('[data-detail-action]');
+        if (!button) return;
+        const found = detailActions.find(item => item.id === button.dataset.detailAction);
+        if (found) found.action();
+      });
+
+      $('k_fee').addEventListener('blur', () => {
+        const amount = parseCLP($('k_fee').value);
+        if (amount != null) $('k_fee').value = new Intl.NumberFormat('es-CL').format(amount);
+      });
+    }
+
+    async function init(){
+      try {
+        await ensureAuth();
+        await loadClients();
+        await loadCases();
+        populateFilters();
+        wireEvents();
+        renderAll();
+      } catch (error) {
+        console.error(error);
+        document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS: ${escapeHtml(error.message || error)}</div></section>`;
       }
-      await loadCases();
-    });
+    }
 
-    // Pretty formatting while typing fee
-    el('k_fee').addEventListener('blur', () => {
-      const n = parseCLP(el('k_fee').value);
-      if (n != null) el('k_fee').value = new Intl.NumberFormat('es-CL').format(n);
-    });
-
-    await loadClients();
-    applyIntegrationContext();
-    if (params.get('origen') === 'clientes') openModal();
-    await loadCases();
+    init();
   </script>
 </body>
 </html>
