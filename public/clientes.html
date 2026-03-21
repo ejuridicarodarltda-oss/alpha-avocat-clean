@@ -17,6 +17,11 @@
       --clients-expediente-header-bg: #84D2DB;
       --clients-tabs-band-bg: #D9F5F7;
       --clients-inner-panel-bg: #8FD8E0;
+      --clients-tab-active-bg: #79CBD5;
+      --clients-tab-active-border: #3C9DA8;
+      --clients-panel-active-bg: #7FCFD8;
+      --clients-panel-active-border: #3C9DA8;
+      --clients-active-text: #08363D;
       --clients-hero-bg: #1FC8D6;
       --clients-hero-bg-strong: #0EA5B7;
       --clients-card-bg: #FFFFFF;
@@ -783,9 +788,13 @@
     }
 
     .tabs-row .tab-btn.active,
-    .tabs-row .tab-btn[aria-pressed="true"] {
-      border-color: var(--clients-border-strong);
-      box-shadow: 0 12px 22px rgba(45, 112, 133, 0.12);
+    .tabs-row .tab-btn[aria-pressed="true"],
+    .tabs-row .tab-btn[aria-selected="true"],
+    .tabs-row .tab-btn[data-state="active"] {
+      background: var(--clients-tab-active-bg);
+      color: var(--clients-active-text);
+      border-color: var(--clients-tab-active-border);
+      box-shadow: 0 14px 24px rgba(60, 157, 168, 0.22);
     }
 
     .tab-panel { display: none; }
@@ -799,6 +808,28 @@
       border: 1px solid var(--clients-border-strong);
       background: var(--clients-inner-panel-bg);
       box-shadow: var(--clients-shadow-block);
+      color: var(--clients-text);
+      transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .tab-panel.active .tab-section,
+    .tab-panel[data-state="active"] .tab-section {
+      background: var(--clients-panel-active-bg);
+      border-color: var(--clients-panel-active-border);
+      box-shadow: 0 18px 32px rgba(60, 157, 168, 0.20);
+    }
+
+    .tab-panel.active .tab-section > .section-head h3,
+    .tab-panel.active .tab-section > h3,
+    .tab-panel.active .tab-section > .small-note,
+    .tab-panel.active .tab-section .section-head > div > h3,
+    .tab-panel.active .tab-section .section-head > div > .small-note,
+    .tab-panel[data-state="active"] .tab-section > .section-head h3,
+    .tab-panel[data-state="active"] .tab-section > h3,
+    .tab-panel[data-state="active"] .tab-section > .small-note,
+    .tab-panel[data-state="active"] .tab-section .section-head > div > h3,
+    .tab-panel[data-state="active"] .tab-section .section-head > div > .small-note {
+      color: var(--clients-active-text);
     }
 
     .tab-grid,
@@ -1080,7 +1111,7 @@
         <div id="workspaceActions" class="workspace-actions"></div>
       </div>
 
-      <div id="tabsRow" class="tabs-row"></div>
+      <div id="tabsRow" class="tabs-row" role="tablist" aria-label="Detalle del expediente"></div>
       <div id="tabPanels"></div>
       <div id="workspaceInstructions"></div>
     </section>
@@ -1739,9 +1770,19 @@
     }
 
     function renderTabs() {
-      el('tabsRow').innerHTML = tabs.map(tab => `
-        <button class="tab-btn ${tab === activeTab ? 'active' : ''}" data-tab="${tab}">${tab}</button>
-      `).join('');
+      el('tabsRow').innerHTML = tabs.map(tab => {
+        const isActive = tab === activeTab;
+        return `
+        <button
+          class="tab-btn ${isActive ? 'active' : ''}"
+          data-tab="${tab}"
+          role="tab"
+          aria-selected="${isActive ? 'true' : 'false'}"
+          aria-pressed="${isActive ? 'true' : 'false'}"
+          data-state="${isActive ? 'active' : 'inactive'}"
+        >${tab}</button>
+      `;
+      }).join('');
     }
 
     function renderIdentification(selected) {
@@ -2124,9 +2165,16 @@
         'Honorarios': renderHonorarios(selected)
       };
 
-      el('tabPanels').innerHTML = tabs.map(tab => `
-        <section class="tab-panel ${tab === activeTab ? 'active' : ''}" data-panel="${tab}">${panels[tab]}</section>
-      `).join('');
+      el('tabPanels').innerHTML = tabs.map(tab => {
+        const isActive = tab === activeTab;
+        return `
+        <section
+          class="tab-panel ${isActive ? 'active' : ''}"
+          data-panel="${tab}"
+          data-state="${isActive ? 'active' : 'inactive'}"
+        >${panels[tab]}</section>
+      `;
+      }).join('');
       el('workspaceInstructions').innerHTML = renderInstructions(selected);
     }
 
