@@ -162,6 +162,15 @@
       gap: 18px;
     }
 
+    .hero-card .hero-head {
+      background: var(--clients-card-bg);
+      border: 1px solid color-mix(in srgb, var(--clients-border) 82%, white);
+      border-radius: 20px;
+      box-shadow: 0 12px 24px rgba(15, 85, 96, 0.12);
+      padding: 18px 20px;
+      color: var(--clients-text);
+    }
+
     .hero-head,
     .section-head,
     .workspace-head,
@@ -203,8 +212,8 @@
     .hero-card .module-eyebrow,
     .hero-card .results-badge {
       color: var(--clients-text);
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.28);
+      background: var(--clients-card-muted);
+      border-color: var(--clients-border);
     }
 
     .hero-card h1,
@@ -226,7 +235,7 @@
       font-size: clamp(30px, 4vw, 42px);
       line-height: 1.05;
       margin-top: 10px;
-      color: var(--clients-text-on-dark);
+      color: var(--clients-title);
     }
 
     .module-copy,
