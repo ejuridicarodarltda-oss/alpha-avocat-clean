@@ -81,7 +81,7 @@ Usuario conectado
 <a class="topbar-nav-link" href="clientes.html">Clientes</a>
 <a class="topbar-nav-link" href="causas.html">Causas</a>
 <a class="topbar-nav-link" href="agenda.html">Agenda</a>
-<a class="topbar-nav-link" href="configuracion.html">Configuración</a>
+<a class="topbar-nav-link" href="configuracion.html">Config.</a>
 </nav>
 </div>
 
@@ -215,8 +215,8 @@ const fecha = new Date();
 
 document.getElementById("fecha").innerText =
 fecha.toLocaleDateString("es-CL", {
-day: "numeric",
-month: "long",
+day: "2-digit",
+month: "2-digit",
 year: "numeric"
 });
 

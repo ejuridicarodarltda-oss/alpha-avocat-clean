@@ -228,7 +228,7 @@ display:none;
 display:inline-flex;
 align-items:center;
 justify-content:center;
-padding:8px 14px;
+padding:8px 12px;
 border-radius:999px;
 border:1px solid rgba(255,255,255,.42);
 background:rgba(255,255,255,.10);
@@ -257,8 +257,8 @@ border-radius:8px;
 border:none;
 font-weight:600;
 font-size:13px;
-min-width:220px;
-flex:1 1 220px;
+min-width:160px;
+flex:1 1 160px;
 }
 
 .top-info{
@@ -302,9 +302,16 @@ cursor:not-allowed;
 }
 
 .modo-btn{
-background:none;
-border:none;
-font-size:20px;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+width:38px;
+height:38px;
+padding:0;
+border-radius:12px;
+border:1px solid rgba(255,255,255,.26);
+background:rgba(255,255,255,.10);
+font-size:18px;
 cursor:pointer;
 color:white;
 }
@@ -777,9 +784,9 @@ display:none;
 }
 
 body.panel-page .search{
-width:120px;
-min-width:120px;
-flex:0 0 120px;
+width:108px;
+min-width:108px;
+flex:0 0 108px;
 }
 
 body.panel-page .topbar-left{

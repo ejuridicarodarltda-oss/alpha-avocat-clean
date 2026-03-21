@@ -94,6 +94,63 @@
       color: var(--clients-text-on-dark);
     }
 
+    body.clients-module .top-info {
+      gap: 10px;
+    }
+
+    body.clients-module .modo-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.12);
+      box-shadow: none;
+    }
+
+    body.clients-module #fecha {
+      font-weight: 700;
+      font-size: 13px;
+      color: var(--clients-text-on-dark);
+    }
+
+    body.clients-module.dark-mode {
+      --clients-bg-screen: #07181B;
+      --clients-bg-shell: #0D2529;
+      --clients-bg-block: #12333A;
+      --clients-primary-list-bg: #123840;
+      --clients-bg-subblock: #18424A;
+      --clients-expediente-shell-bg: #0F2B31;
+      --clients-expediente-shell-bg-active: #163942;
+      --clients-expediente-header-bg: #17444D;
+      --clients-tabs-band-bg: #14353C;
+      --clients-inner-panel-bg: #17414A;
+      --clients-tab-active-bg: #205360;
+      --clients-tab-active-border: #55C7D3;
+      --clients-panel-active-bg: #10282D;
+      --clients-section-frame-bg: #11272C;
+      --clients-section-frame-border: #2B5F69;
+      --clients-section-main-bg: #12333A;
+      --clients-section-main-border: #2FAFBC;
+      --clients-panel-active-border: #2B7F8B;
+      --clients-active-text: #E8FDFF;
+      --clients-hero-bg: #0E5B66;
+      --clients-hero-bg-strong: #0A454D;
+      --clients-card-bg: #102429;
+      --clients-card-muted: #143238;
+      --clients-border: #2F6E78;
+      --clients-border-strong: #3C8D99;
+      --clients-title: #8DE7F0;
+      --clients-text: #EAFBFC;
+      --clients-text-soft: #B4D5D9;
+      --clients-button-bg: #133037;
+      --clients-button-text: #F4FEFF;
+      --topbar-burgundy: #19263A;
+      --topbar-burgundy-dark: #111827;
+    }
+
     .clients-shell {
       display: grid;
       gap: 20px;
@@ -1069,7 +1126,13 @@
       <a class="topbar-nav-link active" href="./clientes.html">Clientes</a>
       <a class="topbar-nav-link" href="./causas.html">Causas</a>
       <a class="topbar-nav-link" href="./agenda.html">Agenda</a>
+      <a class="topbar-nav-link" href="./configuracion.html">Config.</a>
     </nav>
+
+    <div class="top-info">
+      <button id="modo-toggle" class="modo-btn" type="button" aria-label="Cambiar a modo nocturno">🌙</button>
+      <span id="fecha"></span>
+    </div>
 
   </header>
 
@@ -2510,6 +2573,10 @@
     });
 
     renderAll();
+  </script>
+  <script type="module">
+    import { initTopbarChrome } from './topbar-chrome.js';
+    initTopbarChrome();
   </script>
 </body>
 </html>

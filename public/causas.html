@@ -105,7 +105,7 @@
     .causas-brand p{
       margin:4px 0 0;
       color:rgba(247,255,253,.88);
-      font-size:12px;
+      font-size:11px;
       line-height:1.25;
       max-width:34ch;
       white-space:nowrap;
@@ -154,7 +154,7 @@
       background:var(--causas-card);
       color:var(--causas-text);
       border-radius:14px;
-      padding:9px 12px;
+      padding:8px 10px;
       min-height:40px;
       min-width:0;
       font-size:12px;
@@ -210,6 +210,44 @@
     .btn-ghost{
       background:rgba(255,255,255,.74);
       color:var(--causas-text);
+    }
+
+
+    .causas-mode-btn{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:38px;
+      height:38px;
+      padding:0;
+      font-size:18px;
+    }
+
+    .causas-date{
+      color:var(--causas-text-on-dark);
+      font-size:13px;
+      font-weight:700;
+      white-space:nowrap;
+      padding:0 4px;
+    }
+
+    body.dark-mode{
+      --causas-bg:#0E2421;
+      --causas-bg-deep:#091714;
+      --causas-surface:#183C38;
+      --causas-block:#204B45;
+      --causas-subblock:#2A5B54;
+      --causas-card:#102321;
+      --causas-border:#39756D;
+      --causas-border-soft:#4D8A81;
+      --causas-title:#EBFFFB;
+      --causas-title-dark:#A4F1E4;
+      --causas-text:#E7FBF7;
+      --causas-text-secondary:#B9D9D3;
+      --causas-text-on-dark:#F5FFFD;
+      --causas-active:#5E9EFF;
+      --causas-shadow:0 20px 48px rgba(0,0,0,.34);
+      --causas-shadow-soft:0 12px 28px rgba(0,0,0,.28);
     }
 
     .causas-shell{
@@ -779,14 +817,17 @@
         <a href="./clientes.html">Clientes</a>
         <a class="active" href="./causas.html">Causas</a>
         <a href="./agenda.html">Agenda</a>
+        <a href="./configuracion.html">Config.</a>
       </nav>
 
       <div class="causas-topbar-actions">
-        <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
-        <button id="btnImportar" class="btn">Importar causa</button>
-        <button id="btnCalendario" class="btn">Ver calendario judicial</button>
-        <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
-        <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
+        <button id="modo-toggle" class="btn causas-mode-btn" type="button" aria-label="Cambiar a modo nocturno">🌙</button>
+        <span id="fecha" class="causas-date"></span>
+        <button id="btnNuevaCausa" class="btn btn-primary">Nueva</button>
+        <button id="btnImportar" class="btn">Importar</button>
+        <button id="btnCalendario" class="btn">Calendario</button>
+        <button id="btnActualizarEstado" class="btn">Actualizar</button>
+        <button id="btnLogout" class="btn btn-danger">Salir</button>
       </div>
     </div>
   </header>
@@ -2408,6 +2449,10 @@
     }
 
     init();
+  </script>
+  <script type="module">
+    import { initTopbarChrome } from './topbar-chrome.js';
+    initTopbarChrome();
   </script>
 </body>
 </html>

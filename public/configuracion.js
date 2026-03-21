@@ -1,4 +1,5 @@
 import { requireAuth, logout } from './app.js'
+import { formatNumericDate, initTopbarChrome } from './topbar-chrome.js'
 import {
   categoryDefinitions,
   defaultSettings,
@@ -125,11 +126,8 @@ function bindGlobalEvents() {
 }
 
 function hydrateChrome() {
-  els.fecha.textContent = new Intl.DateTimeFormat('es-CL', {
-    weekday: 'long',
-    day: '2-digit',
-    month: 'long',
-  }).format(new Date())
+  initTopbarChrome()
+  els.fecha.textContent = formatNumericDate(new Date())
   applyThemePreview()
 }
 

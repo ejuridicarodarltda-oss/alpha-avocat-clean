@@ -36,6 +36,28 @@ body.app-shell .topbar-nav-link.active{
   color:#FFFFFF;
 }
 
+body.app-shell .top-info{
+  gap:10px;
+}
+
+body.app-shell .modo-btn{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:38px;
+  height:38px;
+  border-radius:12px;
+  border:1px solid rgba(255,255,255,.28);
+  background:rgba(255,255,255,.12);
+  box-shadow:none;
+}
+
+body.app-shell #fecha{
+  color:#FFFFFF;
+  font-size:13px;
+  font-weight:700;
+}
+
 main.agenda-main{
   --agenda-bg:#F8F2FC;
   --agenda-container:#EADFF4;
@@ -152,6 +174,22 @@ main.agenda-main{
   background:var(--agenda-accent);
   border-color:var(--agenda-accent);
   color:var(--agenda-white);
+}
+
+body.app-shell.dark-mode{
+  --agenda-bg:#0F1320;
+  --agenda-container:#171D30;
+  --agenda-block:#202844;
+  --agenda-subblock:#293456;
+  --agenda-card:#11182A;
+  --agenda-card-soft:#1A2238;
+  --agenda-border:#4B5A8A;
+  --agenda-title:#D9B8FF;
+  --agenda-text:#F4F0FF;
+  --agenda-text-secondary:#CEC6E6;
+  --agenda-accent:#6EA8FF;
+  --agenda-critical:#C75A72;
+  --agenda-white:#FFFFFF;
 }
 
 .actions .btn-cancel,
@@ -387,7 +425,12 @@ input[type="checkbox"]{
     <a class="topbar-nav-link" href="clientes.html">Clientes</a>
     <a class="topbar-nav-link" href="causas.html">Causas</a>
     <a class="topbar-nav-link active" href="agenda.html">Agenda</a>
+    <a class="topbar-nav-link" href="configuracion.html">Config.</a>
   </nav>
+  <div class="top-info">
+    <button id="modo-toggle" class="modo-btn" type="button" aria-label="Cambiar a modo nocturno">🌙</button>
+    <span id="fecha"></span>
+  </div>
 </header>
 <main class="agenda-main">
   <section id="agendaIntegration" class="agenda-screen agenda-integration" hidden>
@@ -1105,6 +1148,10 @@ if (params.get('nuevo') === '1') {
 } else {
   showHome()
 }
+</script>
+<script type="module">
+import { initTopbarChrome } from './topbar-chrome.js'
+initTopbarChrome()
 </script>
 </body>
 </html>

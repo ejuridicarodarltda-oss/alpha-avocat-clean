@@ -90,6 +90,26 @@
     body.settings-page .search {
       background: rgba(255, 255, 255, 0.96);
       color: var(--settings-text);
+      min-width: 132px;
+      flex-basis: 132px;
+    }
+
+    body.settings-page .modo-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 38px;
+      height: 38px;
+      border-radius: 12px;
+      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(255, 255, 255, 0.10);
+      box-shadow: none;
+    }
+
+    body.settings-page #fecha {
+      color: var(--settings-text-on-dark);
+      font-size: 13px;
+      font-weight: 700;
     }
 
     body.settings-page .cerrar-sesion-btn {
@@ -121,6 +141,25 @@
       border: 1px solid rgba(255, 255, 255, 0.18);
       pointer-events: none;
       opacity: 0.85;
+    }
+
+    body.settings-page.dark-mode {
+      --settings-bg: #2B211B;
+      --settings-shell: #3B2E27;
+      --settings-block: #4A3A31;
+      --settings-subblock: #5D4A3F;
+      --settings-card-bg: #231A15;
+      --settings-card-soft: #2D221C;
+      --settings-border: #7E6554;
+      --settings-title: #F2D2B2;
+      --settings-active: #6EA8FF;
+      --settings-critical: #C75A72;
+      --settings-text: #F8F2ED;
+      --settings-text-soft: #E4CFC0;
+      --settings-text-on-dark: #FFF7F2;
+      --settings-text-on-dark-soft: #EEDFD5;
+      --topbar-burgundy: #19263A;
+      --topbar-burgundy-dark: #111827;
     }
 
     .settings-hero,
@@ -815,16 +854,17 @@
   <div class="mobile-stage">
     <header class="topbar">
       <div class="topbar-left">
-        <input class="search" type="search" placeholder="Buscar dentro de Configuración..." aria-label="Buscar en configuración">
+        <input class="search" type="search" placeholder="Buscar" aria-label="Buscar en configuración">
         <nav class="topbar-nav" aria-label="Navegación principal">
           <a class="topbar-nav-link" href="./panel.html">Panel</a>
           <a class="topbar-nav-link" href="./clientes.html">Clientes</a>
           <a class="topbar-nav-link" href="./causas.html">Causas</a>
           <a class="topbar-nav-link" href="./agenda.html">Agenda</a>
-          <a class="topbar-nav-link active" href="./configuracion.html">Configuración</a>
+          <a class="topbar-nav-link active" href="./configuracion.html">Config.</a>
         </nav>
       </div>
       <div class="top-info">
+        <button id="modo-toggle" class="modo-btn" type="button" aria-label="Cambiar a modo nocturno">🌙</button>
         <span id="fecha"></span>
         <button id="cerrar-sesion-btn" class="cerrar-sesion-btn">Cerrar sesión</button>
       </div>
