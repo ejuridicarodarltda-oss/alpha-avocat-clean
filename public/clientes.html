@@ -11,6 +11,8 @@
       --clients-bg-shell: #DCEFF5;
       --clients-bg-block: #C3E4EE;
       --clients-bg-subblock: #A8D5E3;
+      --clients-hero-top: #74E7F2;
+      --clients-hero-bottom: #0FB9C8;
       --clients-card-bg: #FFFFFF;
       --clients-card-muted: #F6FBFD;
       --clients-border: #8FC3D3;
@@ -146,7 +148,9 @@
     }
 
     .hero-card {
-      background: linear-gradient(180deg, color-mix(in srgb, var(--clients-bg-shell) 86%, white), var(--clients-bg-block));
+      background: linear-gradient(180deg, var(--clients-hero-top), var(--clients-hero-bottom));
+      border-color: color-mix(in srgb, var(--clients-hero-bottom) 74%, #067481);
+      box-shadow: 0 18px 38px rgba(15, 185, 200, 0.26);
     }
 
     .hero-card {
