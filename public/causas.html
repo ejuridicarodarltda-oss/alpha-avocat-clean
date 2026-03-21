@@ -53,15 +53,16 @@
       top:0;
       z-index:20;
       width:100%;
-      display:flex;
+      display:grid;
+      grid-template-columns:minmax(260px,auto) minmax(0,1fr);
       align-items:center;
-      gap:14px;
-      padding:14px 20px;
-      background:linear-gradient(135deg,var(--causas-bg-deep),var(--causas-bg));
+      column-gap:24px;
+      row-gap:14px;
+      padding:16px 24px;
+      background:linear-gradient(135deg,#6f1728 0%,var(--causas-critical) 52%,#8b2a3b 100%);
       border-bottom:1px solid rgba(255,255,255,.16);
-      box-shadow:0 14px 30px rgba(10,32,29,.22);
-      overflow:hidden;
-      flex-wrap:nowrap;
+      box-shadow:0 14px 30px rgba(52,11,19,.28);
+      overflow:visible;
     }
 
     .causas-brand{
@@ -69,7 +70,7 @@
       align-items:center;
       gap:14px;
       min-width:0;
-      flex:0 0 auto;
+      max-width:100%;
     }
 
     .causas-brand-mark{
@@ -78,59 +79,51 @@
       border-radius:16px;
       display:grid;
       place-items:center;
-      background:linear-gradient(135deg,var(--causas-title),#49a79b);
+      background:linear-gradient(135deg,rgba(255,255,255,.24),rgba(255,255,255,.08));
       color:#fff;
       font-weight:800;
       font-size:22px;
-      box-shadow:var(--causas-shadow-soft);
+      border:1px solid rgba(255,255,255,.2);
+      box-shadow:0 12px 24px rgba(52,11,19,.24);
+      flex:0 0 auto;
+    }
+
+    .causas-brand-copy{
+      min-width:0;
     }
 
     .causas-brand h1{
       margin:0;
       font-size:28px;
-      line-height:1;
+      line-height:1.05;
       color:var(--causas-title);
       white-space:nowrap;
     }
 
     .causas-brand p{
       margin:4px 0 0;
-      color:rgba(247,255,253,.82);
+      color:rgba(247,255,253,.88);
       font-size:13px;
-      white-space:nowrap;
+      line-height:1.35;
+      max-width:42ch;
+    }
+
+    .causas-topbar-right{
+      min-width:0;
+      display:grid;
+      gap:10px;
+      justify-items:end;
     }
 
     .causas-topbar-actions,
     .causas-nav{
       display:flex;
       align-items:center;
-      gap:8px;
-      flex-wrap:nowrap;
-      min-width:0;
-    }
-
-    .causas-nav{
-      justify-content:center;
-      overflow-x:auto;
-      overflow-y:hidden;
-      white-space:nowrap;
-      scrollbar-width:none;
-      flex:1 1 auto;
-    }
-
-    .causas-topbar-actions{
       justify-content:flex-end;
-      overflow-x:auto;
-      overflow-y:hidden;
-      white-space:nowrap;
-      scrollbar-width:none;
-      flex:0 1 auto;
-      max-width:52%;
-    }
-
-    .causas-nav::-webkit-scrollbar,
-    .causas-topbar-actions::-webkit-scrollbar{
-      display:none;
+      gap:10px;
+      flex-wrap:wrap;
+      min-width:0;
+      width:100%;
     }
 
     .causas-nav a,
@@ -145,11 +138,13 @@
       background:var(--causas-card);
       color:var(--causas-text);
       border-radius:14px;
-      padding:10px 13px;
+      padding:10px 14px;
+      min-height:42px;
       font-size:13px;
       font-weight:700;
-      line-height:1.1;
+      line-height:1.2;
       text-decoration:none;
+      white-space:nowrap;
       cursor:pointer;
       transition:transform .18s ease, box-shadow .18s ease, background .18s ease, color .18s ease, border-color .18s ease;
       box-shadow:0 8px 18px rgba(45,124,116,.10);
@@ -714,12 +709,11 @@
       .screen-header,
       .screen-actions{ align-items:stretch; }
       .causas-topbar{
-        flex-direction:column;
-        align-items:stretch;
-        row-gap:10px;
+        grid-template-columns:1fr;
         padding:16px;
       }
-      .causas-brand p{ white-space:normal; }
+      .causas-topbar-right{ justify-items:stretch; }
+      .causas-brand p{ white-space:normal; max-width:none; }
       .causas-nav,
       .causas-topbar-actions{ justify-content:flex-start; }
       .causas-shell{ padding:16px; }
@@ -745,25 +739,27 @@
   <header class="causas-topbar">
     <div class="causas-brand">
       <div class="causas-brand-mark">C</div>
-      <div>
+      <div class="causas-brand-copy">
         <h1>Causas</h1>
         <p>Módulo jurídico-operativo integral del estudio.</p>
       </div>
     </div>
 
-    <nav class="causas-nav" aria-label="Navegación principal">
-      <a href="./panel.html">Panel</a>
-      <a href="./clientes.html">Clientes</a>
-      <a class="active" href="./causas.html">Causas</a>
-      <a href="./agenda.html">Agenda</a>
-    </nav>
+    <div class="causas-topbar-right">
+      <nav class="causas-nav" aria-label="Navegación principal">
+        <a href="./panel.html">Panel</a>
+        <a href="./clientes.html">Clientes</a>
+        <a class="active" href="./causas.html">Causas</a>
+        <a href="./agenda.html">Agenda</a>
+      </nav>
 
-    <div class="causas-topbar-actions">
-      <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
-      <button id="btnImportar" class="btn">Importar causa</button>
-      <button id="btnCalendario" class="btn">Ver calendario judicial</button>
-      <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
-      <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
+      <div class="causas-topbar-actions">
+        <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
+        <button id="btnImportar" class="btn">Importar causa</button>
+        <button id="btnCalendario" class="btn">Ver calendario judicial</button>
+        <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
+        <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
+      </div>
     </div>
   </header>
 
