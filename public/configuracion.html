@@ -8,23 +8,23 @@
   <link rel="icon" type="image/png" sizes="192x192" href="./img/alpha_icon_192.png">
   <style>
     :root {
-      --settings-bg: #F7F9FB;
-      --settings-shell: #E7EDF3;
-      --settings-block: #D5DFE8;
-      --settings-subblock: #C1CFDB;
+      --settings-bg: #8A614C;
+      --settings-shell: #B08968;
+      --settings-block: #D9B99B;
+      --settings-subblock: #ECD8C8;
       --settings-card-bg: #FFFFFF;
-      --settings-card-soft: #F3F6F9;
-      --settings-border: #A8B7C4;
-      --settings-title: #3C536B;
+      --settings-card-soft: #F7EEE7;
+      --settings-border: #A77D61;
+      --settings-title: #4B311F;
       --settings-active: #163A5F;
       --settings-critical: #7A1E2C;
       --settings-white: #FFFFFF;
       --settings-text: #111111;
-      --settings-text-soft: #2B2B2B;
+      --settings-text-soft: #3E2B1F;
       --settings-text-on-dark: #FFFFFF;
-      --settings-text-on-dark-soft: #F4F4F4;
-      --settings-shadow-soft: 0 16px 38px rgba(60, 83, 107, 0.12);
-      --settings-shadow-block: 0 18px 32px rgba(60, 83, 107, 0.14);
+      --settings-text-on-dark-soft: #F8F5F2;
+      --settings-shadow-soft: 0 16px 38px rgba(75, 49, 31, 0.18);
+      --settings-shadow-block: 0 18px 32px rgba(75, 49, 31, 0.18);
       --topbar-burgundy: #C41E3A;
       --topbar-burgundy-dark: #8F1228;
     }
@@ -32,8 +32,8 @@
     body.settings-page {
       overflow: auto;
       min-height: 100dvh;
-      background: var(--settings-bg);
-      color: var(--settings-text);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--settings-bg) 94%, black), var(--settings-bg));
+      color: var(--settings-text-on-dark);
     }
 
     body.settings-page .topbar {
@@ -94,8 +94,12 @@
       gap: 22px;
       padding: 22px;
       max-width: 1500px;
-      margin: 0 auto 32px;
-      background: var(--settings-bg);
+      margin: 20px auto 32px;
+      background: var(--settings-shell);
+      border: 1px solid color-mix(in srgb, var(--settings-border) 82%, white);
+      border-radius: 30px;
+      box-shadow: 0 24px 48px rgba(75, 49, 31, 0.22);
+      color: var(--settings-text);
     }
 
     .settings-hero,
@@ -110,7 +114,7 @@
 
     .settings-hero,
     .settings-layout {
-      background: var(--settings-shell);
+      background: var(--settings-block);
     }
 
     .settings-hero {
@@ -178,7 +182,7 @@
     .config-badge,
     .table-pill.is-soft,
     .config-metric-soft {
-      background: color-mix(in srgb, var(--settings-shell) 80%, white);
+      background: var(--settings-subblock);
     }
 
     .table-pill.is-active,
@@ -247,14 +251,13 @@
       box-shadow: 0 12px 24px rgba(22, 58, 95, 0.14);
     }
 
-    .config-metric-default,
-    .config-btn-active:hover,
-    .config-btn-critical:hover {
+    .config-metric-default {
       color: inherit;
     }
 
     .config-btn-active:hover,
     .config-btn-critical:hover {
+      color: var(--settings-text-on-dark);
       filter: brightness(1.04);
     }
 
@@ -277,10 +280,11 @@
       padding: 18px;
       border-radius: 22px;
       border: 1px solid var(--settings-border);
-      background: var(--settings-block);
+      background: var(--settings-subblock);
       display: grid;
       gap: 8px;
       color: var(--settings-text);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.34);
     }
 
     .config-metric strong {
@@ -306,7 +310,6 @@
     .integration-card,
     .session-card,
     .profile-preview-card {
-      background: var(--settings-block);
       color: var(--settings-text);
       border-radius: 22px;
       border: 1px solid var(--settings-border);
@@ -391,7 +394,14 @@
       display: grid;
       gap: 16px;
       padding: 20px;
+    }
+
+    .settings-content {
       background: var(--settings-block);
+    }
+
+    .config-panel-shell {
+      background: var(--settings-subblock);
     }
 
     .config-panel-head,
@@ -426,7 +436,7 @@
     }
 
     .config-subtle-block {
-      background: var(--settings-subblock);
+      background: color-mix(in srgb, var(--settings-subblock) 88%, white);
     }
 
     .permission-card,
@@ -434,7 +444,10 @@
     .catalog-card,
     .integration-card,
     .session-card,
-    .profile-preview-card {
+    .profile-preview-card,
+    .config-table-wrap,
+    .theme-preview-shell,
+    .toggle-card {
       background: var(--settings-card-bg);
     }
 
@@ -521,7 +534,7 @@
     .profile-preview-list div {
       padding: 12px 14px;
       border-radius: 16px;
-      background: var(--settings-card-soft);
+      background: var(--settings-card-bg);
       border: 1px solid var(--settings-border);
     }
 
@@ -540,6 +553,9 @@
 
     .config-table-wrap {
       overflow: auto;
+      border-radius: 18px;
+      border: 1px solid color-mix(in srgb, var(--settings-border) 82%, white);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.42);
     }
 
     .config-table {
@@ -562,6 +578,18 @@
       font-size: 12px;
       text-transform: uppercase;
       letter-spacing: 0.05em;
+    }
+
+    .config-table thead {
+      background: color-mix(in srgb, var(--settings-subblock) 82%, white);
+    }
+
+    .config-table tbody tr {
+      background: var(--settings-card-bg);
+    }
+
+    .config-table tbody tr:nth-child(even) {
+      background: var(--settings-card-soft);
     }
 
     .permission-grid,
@@ -596,7 +624,6 @@
 
     .toggle-card {
       padding: 14px;
-      background: var(--settings-card-bg);
       border-radius: 16px;
       border: 1px solid var(--settings-border);
     }
@@ -622,7 +649,7 @@
     .catalog-head {
       padding: 12px 14px;
       border-radius: 16px;
-      background: var(--settings-card-soft);
+      background: var(--settings-card-bg);
       border: 1px solid var(--settings-border);
     }
 
@@ -638,7 +665,6 @@
 
     .theme-preview-shell {
       border-radius: 20px;
-      background: var(--settings-card-soft);
       border: 1px solid var(--settings-border);
     }
 
@@ -667,7 +693,7 @@
       flex-wrap: wrap;
       padding: 12px 16px;
       border-radius: 18px;
-      background: color-mix(in srgb, var(--settings-shell) 82%, white);
+      background: var(--settings-subblock);
       border: 1px solid var(--settings-border);
       color: var(--settings-text);
     }
@@ -702,6 +728,7 @@
       display: grid;
       gap: 16px;
       background: var(--settings-shell);
+      color: var(--settings-text);
     }
 
     .config-modal-grid {
