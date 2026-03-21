@@ -11,10 +11,18 @@
 
 <link rel="stylesheet" href="./style.css">
 
+<script>
+document.documentElement.classList.add("session-check-pending")
+</script>
+
 </head>
 
-
 <body class="app-shell">
+
+<div id="startup-loader" class="startup-loader" role="status" aria-live="polite">
+<div class="startup-loader__spinner" aria-hidden="true"></div>
+<p class="startup-loader__label">Cargando Alpha Avocat…</p>
+</div>
 
 
 <header class="topbar">
@@ -88,13 +96,33 @@ import { supabase } from "./app.js"
 
 async function verificarSesion(){
 
+const shell = document.body
+
+const loader = document.getElementById("startup-loader")
+
+try{
+
 const { data } = await supabase.auth.getSession()
 
-if(data.session){
+if(data?.session){
 
-window.location.href = "./panel.html"
+window.location.replace("./panel.html")
+
+return
 
 }
+
+}catch(error){
+
+console.error("No fue posible validar la sesión al iniciar.", error)
+
+}
+
+document.documentElement.classList.remove("session-check-pending")
+
+shell.classList.add("session-check-ready")
+
+loader?.setAttribute("hidden","hidden")
 
 }
 
