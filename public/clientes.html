@@ -11,6 +11,8 @@
       --clients-bg-shell: #C9F2F4;
       --clients-bg-block: #B2EBEF;
       --clients-bg-subblock: #9FE3E8;
+      --clients-expediente-shell-bg: #BFECEF;
+      --clients-expediente-shell-bg-active: #B9E6EA;
       --clients-hero-bg: #1FC8D6;
       --clients-hero-bg-strong: #0EA5B7;
       --clients-card-bg: #FFFFFF;
@@ -639,6 +641,39 @@
     .expediente-card:focus-visible .status-pill,
     .expediente-card.active .status-pill {
       border-color: currentColor;
+    }
+
+    .primary-list-card .expediente-card {
+      background: var(--clients-expediente-shell-bg);
+      border-color: color-mix(in srgb, var(--clients-border-strong) 78%, white);
+      box-shadow: 0 16px 30px rgba(73, 151, 160, 0.18);
+    }
+
+    .primary-list-card .expediente-card:hover,
+    .primary-list-card .expediente-card:active,
+    .primary-list-card .expediente-card:focus,
+    .primary-list-card .expediente-card:focus-visible,
+    .primary-list-card .expediente-card.active {
+      background: var(--clients-expediente-shell-bg-active);
+      border-color: var(--clients-active);
+    }
+
+    .primary-list-card .expediente-card .card-head,
+    .primary-list-card .expediente-card .mini-label,
+    .primary-list-card .expediente-card strong {
+      color: var(--clients-text);
+    }
+
+    .primary-list-card .expediente-card .data-item {
+      background: #FFFFFF;
+      border-color: var(--clients-border-strong);
+      color: var(--clients-text);
+      box-shadow: 0 10px 22px rgba(73, 151, 160, 0.08);
+    }
+
+    .primary-list-card .expediente-card .data-item .mini-label,
+    .primary-list-card .expediente-card .data-item strong {
+      color: var(--clients-text);
     }
 
     .data-grid {
