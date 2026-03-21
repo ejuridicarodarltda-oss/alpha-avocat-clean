@@ -2,6 +2,22 @@ const STORAGE_KEY = 'alpha-avocat:settings:v1'
 
 const deepClone = (value) => JSON.parse(JSON.stringify(value))
 
+const legacyNeutralPalette = {
+  fondoGeneral: '#F6F8FA',
+  contenedorPrincipal: '#E9EEF2',
+  bloquePrincipal: '#D8E0E7',
+  subbloque: '#C7D2DB',
+  borde: '#A8B7C4',
+  titulo: '#3C536B',
+  activo: '#163A5F',
+  critico: '#7A1E2C',
+  botonBase: '#FFFFFF',
+  textoOscuro: '#111111',
+  textoSecundario: '#2B2B2B',
+  textoClaro: '#FFFFFF',
+  textoClaroSecundario: '#F4F4F4',
+}
+
 export const categoryDefinitions = [
   { id: 'perfil', label: 'Perfil del estudio', icon: '🏛️', description: 'Identidad institucional y datos base para documentos.' },
   { id: 'usuarios', label: 'Usuarios y permisos', icon: '👥', description: 'Roles, accesos por módulo y administración del equipo.' },
@@ -90,25 +106,25 @@ export const defaultSettings = {
   },
   apariencia: {
     coloresGenerales: {
-      fondoGeneral: '#F6F8FA',
-      contenedorPrincipal: '#E9EEF2',
-      bloquePrincipal: '#D8E0E7',
-      subbloque: '#C7D2DB',
-      borde: '#A8B7C4',
-      titulo: '#3C536B',
+      fondoGeneral: '#8A614C',
+      contenedorPrincipal: '#B08968',
+      bloquePrincipal: '#D9B99B',
+      subbloque: '#ECD8C8',
+      borde: '#A77D61',
+      titulo: '#4B311F',
       activo: '#163A5F',
       critico: '#7A1E2C',
       botonBase: '#FFFFFF',
       textoOscuro: '#111111',
-      textoSecundario: '#2B2B2B',
+      textoSecundario: '#3E2B1F',
       textoClaro: '#FFFFFF',
-      textoClaroSecundario: '#F4F4F4',
+      textoClaroSecundario: '#F8F5F2',
     },
     identidadModulos: [
       { modulo: 'Clientes', familia: 'Celeste turquesa', color: '#61C3D0' },
       { modulo: 'Agenda', familia: 'Lila', color: '#9A77C8' },
       { modulo: 'Causas', familia: 'Verde turquesa', color: '#4EB6A9' },
-      { modulo: 'Configuración', familia: 'Neutro jurídico', color: '#163A5F' },
+      { modulo: 'Configuración', familia: 'Café administrativo', color: '#8A614C' },
     ],
     tipografia: 'Inter, Arial, sans-serif',
     tamanoBase: '14px',
@@ -237,7 +253,7 @@ export function loadSettings() {
     const raw = window.localStorage.getItem(STORAGE_KEY)
     if (!raw) return deepClone(defaultSettings)
     const parsed = JSON.parse(raw)
-    return mergeSettings(defaultSettings, parsed)
+    return normalizeSettingsTheme(mergeSettings(defaultSettings, parsed))
   } catch (error) {
     console.warn('No fue posible cargar configuración persistida.', error)
     return deepClone(defaultSettings)
@@ -279,6 +295,25 @@ export function searchCategories(query) {
     const haystack = `${category.label} ${category.description}`.toLowerCase()
     return haystack.includes(normalized)
   })
+}
+
+
+function normalizeSettingsTheme(settings) {
+  const palette = settings?.apariencia?.coloresGenerales
+  if (!palette) return settings
+
+  const usesLegacyNeutralPalette = Object.entries(legacyNeutralPalette)
+    .every(([key, value]) => palette[key] === value)
+
+  if (!usesLegacyNeutralPalette) return settings
+
+  settings.apariencia.coloresGenerales = deepClone(defaultSettings.apariencia.coloresGenerales)
+  settings.apariencia.identidadModulos = settings.apariencia.identidadModulos.map((item) => (
+    item.modulo === 'Configuración'
+      ? { ...item, familia: 'Café administrativo', color: '#8A614C' }
+      : item
+  ))
+  return settings
 }
 
 function mergeSettings(base, incoming) {

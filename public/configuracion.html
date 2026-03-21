@@ -32,8 +32,17 @@
     body.settings-page {
       overflow: auto;
       min-height: 100dvh;
-      background: linear-gradient(180deg, color-mix(in srgb, var(--settings-bg) 94%, black), var(--settings-bg));
+      background: linear-gradient(180deg, color-mix(in srgb, var(--settings-bg) 90%, black), var(--settings-bg) 58%, color-mix(in srgb, var(--settings-bg) 92%, white));
       color: var(--settings-text-on-dark);
+    }
+
+    body.settings-page .mobile-stage {
+      width: 100%;
+      min-height: 100dvh;
+      padding: 0 0 24px;
+      background:
+        radial-gradient(circle at top, rgba(255, 255, 255, 0.12), transparent 42%),
+        linear-gradient(180deg, color-mix(in srgb, var(--settings-bg) 88%, black), var(--settings-bg) 60%, color-mix(in srgb, var(--settings-bg) 90%, white));
     }
 
     body.settings-page .topbar {
@@ -95,11 +104,23 @@
       padding: 22px;
       max-width: 1500px;
       margin: 20px auto 32px;
-      background: var(--settings-shell);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--settings-shell) 94%, white), var(--settings-shell));
       border: 1px solid color-mix(in srgb, var(--settings-border) 82%, white);
       border-radius: 30px;
       box-shadow: 0 24px 48px rgba(75, 49, 31, 0.22);
       color: var(--settings-text);
+      position: relative;
+      isolation: isolate;
+    }
+
+    .settings-shell::before {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      border-radius: 24px;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      pointer-events: none;
+      opacity: 0.85;
     }
 
     .settings-hero,
@@ -113,7 +134,10 @@
     }
 
     .settings-hero,
-    .settings-layout {
+    .settings-layout,
+    .settings-sidebar,
+    .settings-content,
+    .config-block {
       background: var(--settings-block);
     }
 
@@ -318,7 +342,6 @@
     .settings-sidebar,
     .settings-content {
       min-width: 0;
-      background: var(--settings-block);
       box-shadow: var(--settings-shadow-block);
     }
 
@@ -397,10 +420,18 @@
     }
 
     .settings-content {
-      background: var(--settings-block);
+      position: relative;
     }
 
-    .config-panel-shell {
+    .settings-content > #configContent {
+      display: grid;
+      gap: 16px;
+    }
+
+    .config-panel-shell,
+    .config-statusbar,
+    .config-metric,
+    .config-subtle-block {
       background: var(--settings-subblock);
     }
 
@@ -436,7 +467,7 @@
     }
 
     .config-subtle-block {
-      background: color-mix(in srgb, var(--settings-subblock) 88%, white);
+      background: color-mix(in srgb, var(--settings-subblock) 92%, white);
     }
 
     .permission-card,
@@ -693,7 +724,6 @@
       flex-wrap: wrap;
       padding: 12px 16px;
       border-radius: 18px;
-      background: var(--settings-subblock);
       border: 1px solid var(--settings-border);
       color: var(--settings-text);
     }
