@@ -313,7 +313,12 @@
     .micro-grid,
     .production-grid,
     .diagnostic-grid,
-    .source-grid{
+    .source-grid,
+    .pillar-grid,
+    .folder-grid,
+    .branch-grid,
+    .archive-grid,
+    .action-grid{
       display:grid;
       gap:14px;
     }
@@ -328,6 +333,11 @@
     .production-grid{ grid-template-columns:1.2fr .8fr; }
     .diagnostic-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     .source-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .pillar-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .branch-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+    .folder-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .archive-grid{ grid-template-columns:1.3fr .7fr; }
+    .action-grid{ grid-template-columns:repeat(5,minmax(0,1fr)); }
 
     .field,
     .metric,
@@ -340,7 +350,10 @@
     .instruction-item,
     .assistant-action,
     .container-segment,
-    .list-card{
+    .list-card,
+    .pillar-card,
+    .folder-card,
+    .action-card{
       background:var(--causas-card);
       border:1px solid rgba(95,159,151,.28);
       border-radius:18px;
@@ -651,6 +664,117 @@
       align-content:start;
     }
 
+    .pillar-card,
+    .folder-card,
+    .action-card{
+      display:grid;
+      gap:10px;
+      align-content:start;
+    }
+
+    .pillar-card{
+      min-height:100%;
+      cursor:pointer;
+      transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .pillar-card:hover,
+    .folder-card:hover{
+      transform:translateY(-2px);
+      border-color:var(--causas-active);
+      box-shadow:0 12px 24px rgba(22,58,95,.10);
+    }
+
+    .pillar-card.active{
+      border-color:var(--causas-active);
+      box-shadow:0 0 0 2px rgba(22,58,95,.12);
+      background:#e7f5f2;
+    }
+
+    .pillar-icon,
+    .folder-icon{
+      width:40px;
+      height:40px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#d8f0eb 0%,#f8fffe 100%);
+      border:1px solid rgba(95,159,151,.28);
+      font-size:20px;
+    }
+
+    .folder-card{
+      background:#f7fffd;
+    }
+
+    .tree-card{
+      background:rgba(255,255,255,.52);
+      border:1px solid rgba(95,159,151,.22);
+      border-radius:18px;
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .tree-list,
+    .action-list{
+      margin:0;
+      padding-left:18px;
+      color:var(--causas-text);
+      line-height:1.55;
+      display:grid;
+      gap:6px;
+    }
+
+    .branch-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .branch-panel{
+      background:var(--causas-subblock);
+      border:1px solid rgba(95,159,151,.26);
+      border-radius:20px;
+      padding:16px;
+      display:grid;
+      gap:14px;
+    }
+
+    .stack-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .file-chip-wrap{
+      display:flex;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .file-chip{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:#f7fffd;
+      border:1px solid rgba(95,159,151,.28);
+      font-weight:700;
+      font-size:13px;
+    }
+
+    .linked-note{
+      padding:12px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.58);
+      border:1px dashed rgba(36,95,89,.22);
+      color:var(--causas-text-secondary);
+      line-height:1.5;
+    }
+
     .modal{
       position:fixed;
       inset:0;
@@ -718,7 +842,12 @@
       .production-grid,
       .summary-metrics,
       .micro-grid,
-      .grid-4{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .grid-4,
+      .pillar-grid,
+      .folder-grid,
+      .branch-grid,
+      .archive-grid,
+      .action-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
     @media (max-width: 900px){
@@ -757,7 +886,12 @@
       .production-grid,
       .summary-metrics,
       .micro-grid,
-      .grid-4{ grid-template-columns:1fr; }
+      .grid-4,
+      .pillar-grid,
+      .folder-grid,
+      .branch-grid,
+      .archive-grid,
+      .action-grid{ grid-template-columns:1fr; }
       .screen-title{ font-size:28px; }
       .detail-title{ font-size:24px; }
     }
@@ -796,11 +930,12 @@
       <div class="screen-header">
         <div>
           <p class="eyebrow">Núcleo CAUSAS</p>
-          <h2 class="screen-title">Pantalla principal de control procesal</h2>
-          <p class="screen-subtitle">Listado, filtros, historia procesal, resoluciones, plazos, producción y contenedor documental en una sola lógica profesional y coherente.</p>
+          <h2 class="screen-title">CAUSAS estructurado en 3 pilares</h2>
+          <p class="screen-subtitle">La navegación principal del módulo se reorganiza en Información de clientes, asesorías y causas; Expedientes digitales; y Producción, manteniendo la lógica visual y operativa ya usada por el sistema.</p>
         </div>
         <div class="screen-actions">
-          <button class="btn" id="btnQuickHistory">Ver historia activa</button>
+          <button class="btn" id="btnQuickInfo">Ir a información base</button>
+          <button class="btn" id="btnQuickExpedientes">Ir a expedientes digitales</button>
           <button class="btn" id="btnQuickProduction">Ir a producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
@@ -809,6 +944,10 @@
 
     <section class="screen-card">
       <div class="summary-metrics" id="summaryMetrics"></div>
+    </section>
+
+    <section class="screen-card">
+      <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
     <section class="screen-grid">
@@ -1074,22 +1213,9 @@
     const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
 
     const TAB_CONFIG = [
-      ['resumen', 'Resumen'],
-      ['identificacion', 'Identificación'],
-      ['partes', 'Partes'],
-      ['tribunal', 'Tribunal'],
-      ['historia', 'Historia procesal'],
-      ['resoluciones', 'Resoluciones'],
-      ['plazos', 'Plazos, alertas y escritos'],
-      ['contenedor', 'Contenedor'],
+      ['informacion', 'Información de clientes, asesorías y causas'],
+      ['expedientes', 'Expedientes digitales'],
       ['produccion', 'Producción'],
-      ['escritos', 'Escritos'],
-      ['audiencias', 'Audiencias'],
-      ['prueba', 'Prueba / documentos'],
-      ['analisis', 'Análisis jurídico'],
-      ['asistente', 'Asistente jurídico IA ChatGPT'],
-      ['cumplimiento', 'Cumplimiento / ejecución'],
-      ['instrucciones', 'Instrucciones'],
     ];
 
     const $ = (id) => document.getElementById(id);
@@ -1102,7 +1228,7 @@
       supabaseCases: [],
       caseMap: new Map(),
       selectedId: null,
-      activeTab: 'resumen',
+      activeTab: 'informacion',
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       }
@@ -1110,10 +1236,9 @@
 
     const detailActions = [
       { id:'editar', label:'Editar', action:() => openModal() },
-      { id:'actualizar', label:'Actualizar estado', action:() => setActiveTab('resumen') },
-      { id:'gestion', label:'Agregar gestión', action:() => setActiveTab('historia') },
-      { id:'escritos', label:'Ir a escritos', action:() => setActiveTab('escritos') },
-      { id:'audiencias', label:'Ir a audiencias', action:() => setActiveTab('audiencias') },
+      { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
+      { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
+      { id:'produccion', label:'Producción', action:() => setActiveTab('produccion') },
     ];
 
     function escapeHtml(value=''){
@@ -1239,6 +1364,15 @@
           plazosVigentes: 2,
           escritosPendientes: 1,
         },
+        asesorias:[
+          { nombre:`Asesoría estratégica de ${materia}`, estado:'Activa', objetivo:'Definir estrategia, reuniones, documentos y producción previa o paralela a la judicialización.', reunion:'Acta agenda 18-03-2026', produccion:'Minuta estratégica y borradores iniciales', documentos:'Antecedentes del cliente y carpeta consultiva vinculada.' },
+          { nombre:'Asesoría preventiva complementaria', estado:'Monitoreo', objetivo:'Preparar escenarios alternativos, negociación y trazabilidad documental.', reunion:'Seguimiento interno semanal', produccion:'Checklist de próximos escritos y reportes internos', documentos:'Soportes y observaciones internas del estudio.' },
+        ],
+        responsables:[
+          { rol:'Abogado responsable', nombre:responsable, detalle:'Conduce estrategia, revisión final y decisiones procesales.' },
+          { rol:'Procurador', nombre:base.procurador || 'Coordinación procesal interna', detalle:'Control de resoluciones, notificaciones y comparendos.' },
+          { rol:'Secretaría / apoyo', nombre:'Secretaría jurídica', detalle:'Carga documental, coordinación con cliente y soporte de agenda.' },
+        ],
         partes: [
           { rol:'Demandante / solicitante', nombre: cliente, detalle:'Cliente principal vinculado a la causa.' },
           { rol:'Demandado / contraparte', nombre:'Contraparte por validar', detalle:'Individualización pendiente de corroboración documental.' },
@@ -1291,6 +1425,46 @@
             'Trazabilidad de versiones, observaciones y cierre.',
           ],
         },
+        expedienteDigital:{
+          cliente:{
+            nombre:cliente,
+            acciones:['Cargar archivos','Descargar archivos','Visualizar archivos','Renombrar','Crear carpetas','Mover','Ordenar','Vincular con producción','Entregar información a alertas de plazos','Vincularse a reuniones y actas','Vincularse a cliente, asesoría y causa'],
+            tribunal:{
+              editable:true,
+              nuevo:true,
+              carpetas:[
+                {
+                  tribunal:base.tribunal || 'Tribunal pendiente',
+                  editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
+                  causas:[
+                    {
+                      nombre:`${caratula}, Rol ${rol}`,
+                      subcarpetas:[
+                        'Ebook','Carpeta digital','Documentos','Borradores de escritos','Absolución de posiciones','Informe de perito','Testifical','Estrategia jurídica para el caso','Reuniones'
+                      ]
+                    }
+                  ]
+                }
+              ]
+            },
+            asesoria:{
+              carpetas:[
+                { nombre:`Asesoría ${materia}`, contenidos:['Documentos','Borradores de escritos','Informes','Estrategia jurídica para el caso','Reuniones','Otros antecedentes relacionados con la asesoría'] },
+                { nombre:'Asunto preventivo del cliente', contenidos:['Documentos','Reuniones','Informes','Otros antecedentes relacionados con la asesoría'] },
+              ],
+              vinculos:['Información de clientes, asesorías y causas','Producción','Reuniones derivadas desde Agenda','Alertas, si corresponde','Documentos cargados o generados desde el sistema']
+            }
+          },
+          biblioteca:{
+            nombre:'Biblioteca',
+            colecciones:['Diccionario jurídico','Jurisprudencia y casos anteriores similares del sistema','Biblioteca de Normas Jurídicas','Doctrina']
+          },
+          tiposArchivo:['PDF','Word','Excel','Imagen','Video','Otros']
+        },
+        reuniones:[
+          { fecha:'2026-03-18', titulo:'Reunión estratégica con cliente', origen:'Agenda', acta:'Acta agenda 18-03-2026', vinculo:'Se archiva en Reuniones de Tribunal y Asesoría según corresponda.' },
+          { fecha:'2026-03-21', titulo:'Coordinación interna de producción', origen:'Agenda', acta:'Minuta interna de redacción', vinculo:'Vinculada a producción, plazos y carpeta de borradores.' },
+        ],
         produccion:{
           diagnostico:{
             estadoActual:state,
@@ -1335,7 +1509,12 @@
             expediente:'Vinculación pendiente',
             resolucion:'Asociada a resolución de 15-03-2026',
             cierre:'Esperando validación final del abogado.'
-          }
+          },
+          historial:[
+            { fecha:'2026-03-12', hito:'Apertura de producción', detalle:'Se creó mesa de trabajo, plantilla base y estructura de redacción vinculada a la causa.' },
+            { fecha:'2026-03-16', hito:'Borrador en revisión', detalle:'El documento quedó almacenado en Borradores de escritos y vinculado al plazo principal.' },
+            { fecha:'2026-03-20', hito:'Preparado para migrar a carpeta digital', detalle:'La producción final podrá pasar a Carpeta digital y quedar conectada con cliente, causa y asesoría.' },
+          ]
         },
         escritos:[
           { fecha:'2026-03-16', tipo:'Borrador', titulo:'Respuesta estratégica al traslado', folio:'—', responsable, word:'Borrador_v03.docx', pdf:'—', estado:'En revisión', vinculo:'Plazo de traslado / Resolución 15-03-2026' },
@@ -1560,25 +1739,41 @@
     function renderSummaryMetrics(){
       const cases = getAllCases();
       const urgent = cases.filter(item => ['Urgente','Vencido'].includes(item.alerta)).length;
-      const hearings = cases.filter(item => {
-        const days = daysBetween(item.proximaAudiencia);
-        return days != null && days <= 15;
-      }).length;
-      const deadlines = cases.filter(item => {
-        const days = daysBetween(item.proximoPlazo);
-        return days != null && days <= 7;
-      }).length;
+      const asesorias = cases.reduce((acc, item) => acc + ((item.asesorias || []).length), 0);
+      const tribunalFolders = cases.reduce((acc, item) => acc + ((item.expedienteDigital?.cliente?.tribunal?.carpetas || []).length), 0);
       const inProduction = cases.reduce((acc, item) => acc + (item.escritos || []).filter(w => String(w.estado).toLowerCase().includes('revisión') || String(w.estado).toLowerCase().includes('borrador') || String(w.estado).toLowerCase().includes('redacción')).length, 0);
       $('summaryMetrics').innerHTML = [
-        { label:'Causas activas', value:cases.length, helper:'Base general administrada por el módulo.' },
-        { label:'Alertas críticas', value:urgent, helper:'Urgentes, vencidas o sensibles.' },
-        { label:'Audiencias próximas', value:hearings, helper:'Dentro de los próximos 15 días.' },
-        { label:'Producción en curso', value:inProduction, helper:'Escritos o borradores bajo revisión.' },
+        { label:'Información base', value:cases.length, helper:'Clientes, asesorías y causas activas dentro del módulo.' },
+        { label:'Alertas y plazos', value:urgent, helper:'Alertas críticas o próximas vinculadas a resoluciones.' },
+        { label:'Expedientes digitales', value:tribunalFolders, helper:'Archivadores tribunal activos dentro de Cliente.' },
+        { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.' },
       ].map(item => `
         <article class="metric">
           <span class="mini-label">${escapeHtml(item.label)}</span>
           <strong>${escapeHtml(item.value)}</strong>
           <small>${escapeHtml(item.helper)}</small>
+        </article>
+      `).join('');
+    }
+
+    function renderPillarCards(){
+      const selected = state.caseMap.get(state.selectedId);
+      const cards = [
+        { id:'informacion', icon:'📘', title:'Información de clientes, asesorías y causas', copy:'Concentra cliente, asesorías, causa, cronología, instrucciones, alertas y responsables.', badge:selected ? `${selected.cliente}` : 'Base general' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes digitales', copy:'Organiza Archivador Cliente con ramas Tribunal y Asesoría, más Biblioteca documental.', badge:'Cliente + Biblioteca' },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Reúne redacción, plantillas, borradores, documentos finales, prueba y asistente jurídico IA.', badge:'Producción jurídica' },
+      ];
+      $('pillarGrid').innerHTML = cards.map(card => `
+        <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''}" data-tab="${card.id}">
+          <div class="case-top">
+            <div class="pillar-icon" aria-hidden="true">${card.icon}</div>
+            <span class="badge ${state.activeTab === card.id ? 'badge-active' : 'badge-info'}">${escapeHtml(card.badge)}</span>
+          </div>
+          <div>
+            <h3 class="segment-title">${escapeHtml(card.title)}</h3>
+            <p class="segment-copy">${escapeHtml(card.copy)}</p>
+          </div>
+          <div class="linked-note">Abrir este pilar mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
       `).join('');
     }
@@ -1611,10 +1806,10 @@
             </div>
             <div class="detail-grid">
               <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
-              <div><span class="mini-label">Procedimiento</span><div class="case-meta">${escapeHtml(item.procedimiento)}</div></div>
+              <div><span class="mini-label">Asesorías</span><div class="case-meta">${escapeHtml((item.asesorias || []).length)} vinculada(s)</div></div>
               <div><span class="mini-label">Materia</span><div class="case-meta">${escapeHtml(item.materia)}</div></div>
               <div><span class="mini-label">Estado procesal</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
-              <div><span class="mini-label">Última resolución</span><div class="case-meta">${escapeHtml(item.ultimaResolucion)}</div></div>
+              <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
               <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
               <div><span class="mini-label">Última gestión</span><div class="case-meta">${escapeHtml(formatDate(item.ultimaGestion))}</div></div>
               <div><span class="mini-label">Abogado responsable</span><div class="case-meta">${escapeHtml(item.responsable)}</div></div>
@@ -1622,13 +1817,9 @@
             <div class="case-footer">
               <div class="case-meta">Cliente: ${escapeHtml(item.cliente)}</div>
               <div class="case-actions">
-                <button class="quick-btn quick-btn-primary" data-jump="resumen" data-case="${item.id}">Abrir</button>
-                <button class="quick-btn" data-jump="historia" data-case="${item.id}">Historia</button>
-                <button class="quick-btn" data-jump="escritos" data-case="${item.id}">Escritos</button>
-                <button class="quick-btn" data-jump="resoluciones" data-case="${item.id}">Resoluciones</button>
-                <button class="quick-btn" data-jump="audiencias" data-case="${item.id}">Audiencias</button>
-                <button class="quick-btn" data-jump="plazos" data-case="${item.id}">Plazos</button>
-                <button class="quick-btn" data-jump="prueba" data-case="${item.id}">Documentos</button>
+                <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
+                <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
+                <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
               </div>
             </div>
           </article>
@@ -1646,7 +1837,7 @@
     }
 
     function renderDetailActions(){
-      $('detailActions').innerHTML = detailActions.map(item => `<button class="btn ${item.id === 'escritos' ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+      $('detailActions').innerHTML = detailActions.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
     }
 
     function buildKeyValueGrid(entries){
@@ -1656,6 +1847,256 @@
           <div class="case-meta">${escapeHtml(value || '—')}</div>
         </div>
       `).join('')}</div>`;
+    }
+
+    function renderAdvisories(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Asesorías vinculadas</h4>
+              <p class="section-copy">Registra asesorías judicializadas o no judicializadas y las conecta con documentos, reuniones, estrategia y producción.</p>
+            </div>
+          </div>
+          <div class="source-grid">${(cause.asesorias || []).map(item => `
+            <article class="source-item">
+              <div class="case-top">
+                <strong>${escapeHtml(item.nombre)}</strong>
+                <span class="badge ${computeBadgeClass(item.estado === 'Activa' ? 'active' : 'info', item.estado)}">${escapeHtml(item.estado)}</span>
+              </div>
+              <div class="case-meta">${escapeHtml(item.objetivo)}</div>
+              <div class="timeline-meta">Reunión / acta: ${escapeHtml(item.reunion)}</div>
+              <div class="timeline-meta">Producción relacionada: ${escapeHtml(item.produccion)}</div>
+              <div class="timeline-meta">Documentos: ${escapeHtml(item.documentos)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderResponsables(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Responsables</h4>
+              <p class="section-copy">Visibilidad operativa del abogado, procurador, secretaría y demás responsables del asunto.</p>
+            </div>
+          </div>
+          <div class="timeline">${(cause.responsables || []).map(item => `
+            <article class="timeline-item">
+              <strong>${escapeHtml(item.rol)}</strong>
+              <div class="case-meta">${escapeHtml(item.nombre)}</div>
+              <div class="timeline-meta">${escapeHtml(item.detalle)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderInformationPillar(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Información de clientes, asesorías y causas</h4>
+              <p class="section-copy">Este pilar concentra toda la información base del asunto: cliente, asesorías, causa, historia, instrucciones, alertas, plazos y responsables.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge badge-active">Cliente vinculado</span>
+              <span class="badge ${computeBadgeClass('alert', cause.alerta)}">${escapeHtml(cause.alerta)}</span>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Cliente', cause.cliente],
+            ['Carátula', cause.caratula],
+            ['Rol', cause.rol],
+            ['Tribunal', cause.tribunal],
+            ['Materia', cause.materia],
+            ['Procedimiento', cause.procedimiento],
+            ['Estado procesal', cause.estadoProcesal],
+            ['Demandante', cause.partes?.[0]?.nombre || cause.cliente],
+            ['Demandado', cause.partes?.[1]?.nombre || 'Por definir'],
+            ['Abogado responsable', cause.responsable],
+            ['Hitos relevantes', `${(cause.historia || []).length} registro(s)`],
+            ['Plazos vinculados', `${(cause.plazos || []).length} activo(s)`],
+            ['Expediente digital', cause.expediente],
+            ['Producción relacionada', `${(cause.escritos || []).length} documento(s)`],
+          ])}
+        </section>
+        ${renderResumen(cause)}
+        ${renderPartes(cause)}
+        ${renderTribunal(cause)}
+        ${renderAdvisories(cause)}
+        ${renderHistoria(cause)}
+        ${renderResoluciones(cause)}
+        ${renderPlazos(cause)}
+        ${renderResponsables(cause)}
+        ${renderInstrucciones(cause)}
+      `;
+    }
+
+    function renderExpedientesPillar(cause){
+      const archive = cause.expedienteDigital || {};
+      const tribunalFolders = archive.cliente?.tribunal?.carpetas || [];
+      const advisoryFolders = archive.cliente?.asesoria?.carpetas || [];
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Expedientes digitales</h4>
+              <p class="section-copy">Pantalla documental del módulo CAUSAS con dos archivadores principales: Cliente y Biblioteca.</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn">Cargar archivo</button>
+              <button class="btn">Crear carpeta</button>
+              <button class="btn">Ordenar</button>
+            </div>
+          </div>
+          <div class="archive-grid">
+            <article class="branch-panel">
+              <div class="branch-head">
+                <div>
+                  <h5 class="segment-title">Archivador Cliente</h5>
+                  <p class="segment-copy">Vinculado al módulo CLIENTE y separado en dos ramas principales: Tribunal y Asesoría.</p>
+                </div>
+                <span class="badge badge-active">Cliente</span>
+              </div>
+              <div class="branch-grid">
+                <div class="tree-card">
+                  <div class="branch-head">
+                    <div>
+                      <h5 class="segment-title">Rama Tribunal</h5>
+                      <p class="segment-copy">Todo lo judicializado o asociado a tribunal queda en esta rama.</p>
+                    </div>
+                    <span class="badge badge-info">📁 Tribunal</span>
+                  </div>
+                  <div class="stack-list">${tribunalFolders.map(folder => `
+                    <article class="folder-card">
+                      <div class="case-top">
+                        <div class="folder-icon" aria-hidden="true">📁</div>
+                        <span class="badge badge-ok">Editable</span>
+                      </div>
+                      <strong>${escapeHtml(folder.tribunal)}</strong>
+                      <div class="timeline-meta">${escapeHtml(folder.editable)}</div>
+                      <div class="folder-grid">${(folder.causas || []).map(caseFolder => `
+                        <article class="folder-card">
+                          <strong>${escapeHtml(caseFolder.nombre)}</strong>
+                          <ul class="tree-list">${(caseFolder.subcarpetas || []).map(sub => `<li>${escapeHtml(sub)}</li>`).join('')}</ul>
+                        </article>
+                      `).join('')}</div>
+                    </article>
+                  `).join('')}</div>
+                </div>
+                <div class="tree-card">
+                  <div class="branch-head">
+                    <div>
+                      <h5 class="segment-title">Rama Asesoría</h5>
+                      <p class="segment-copy">Organiza antecedentes consultivos, preparatorios o no judicializados al mismo nivel de Tribunal.</p>
+                    </div>
+                    <span class="badge badge-info">📁 Asesoría</span>
+                  </div>
+                  <div class="folder-grid">${advisoryFolders.map(folder => `
+                    <article class="folder-card">
+                      <div class="case-top">
+                        <div class="folder-icon" aria-hidden="true">📁</div>
+                        <span class="badge badge-ok">Asesoría</span>
+                      </div>
+                      <strong>${escapeHtml(folder.nombre)}</strong>
+                      <ul class="tree-list">${(folder.contenidos || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+                    </article>
+                  `).join('')}</div>
+                  <div class="linked-note">Vinculaciones activas: ${(archive.cliente?.asesoria?.vinculos || []).map(escapeHtml).join(' · ')}.</div>
+                </div>
+              </div>
+            </article>
+            <article class="branch-panel">
+              <div class="branch-head">
+                <div>
+                  <h5 class="segment-title">Biblioteca</h5>
+                  <p class="segment-copy">Archivador documental transversal del sistema. Incluye Doctrina como una colección interna más.</p>
+                </div>
+                <span class="badge badge-active">Biblioteca</span>
+              </div>
+              <div class="stack-list">${(archive.biblioteca?.colecciones || []).map(item => `
+                <article class="folder-card">
+                  <div class="case-top">
+                    <div class="folder-icon" aria-hidden="true">📚</div>
+                    <span class="badge badge-info">Colección</span>
+                  </div>
+                  <strong>${escapeHtml(item)}</strong>
+                </article>
+              `).join('')}</div>
+              <div class="file-chip-wrap">${(archive.tiposArchivo || []).map(item => `<span class="file-chip">📄 ${escapeHtml(item)}</span>`).join('')}</div>
+              <div class="linked-note">Acciones mínimas disponibles: ${(archive.cliente?.acciones || []).map(escapeHtml).join(' · ')}.</div>
+            </article>
+          </div>
+        </section>
+        ${renderContenedor(cause)}
+        ${renderPrueba(cause)}
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Reuniones y actas vinculadas</h4>
+              <p class="section-copy">Las reuniones derivadas desde Agenda alimentan Reuniones de Tribunal y Asesoría dentro del Archivador Cliente.</p>
+            </div>
+          </div>
+          <div class="timeline">${(cause.reuniones || []).map(item => `
+            <article class="timeline-item">
+              <strong>${escapeHtml(item.titulo)}</strong>
+              <div class="timeline-meta">${escapeHtml(formatDate(item.fecha))} · ${escapeHtml(item.origen)}</div>
+              <div class="case-meta">Acta: ${escapeHtml(item.acta)}</div>
+              <div class="timeline-meta">${escapeHtml(item.vinculo)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+      `;
+    }
+
+    function renderProduccionPillar(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Producción</h4>
+              <p class="section-copy">Pilar de creación jurídica con redacción de escritos, plantillas, borradores, finales, prueba, asistente IA e historial.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge badge-active">Borradores de escritos</span>
+              <span class="badge badge-ok">Carpeta digital</span>
+            </div>
+          </div>
+          <div class="action-grid">
+            <article class="action-card"><strong>Redacción de escritos</strong><div class="case-meta">Conectada con cliente, asesoría, causa y alertas.</div></article>
+            <article class="action-card"><strong>Plantillas</strong><div class="case-meta">Reutiliza estructura del estudio sin alterar el diseño del sistema.</div></article>
+            <article class="action-card"><strong>Borradores</strong><div class="case-meta">Se guardan en Borradores de escritos hasta su validación.</div></article>
+            <article class="action-card"><strong>Documentos finales</strong><div class="case-meta">Pueden pasar a Carpeta digital cuando corresponda.</div></article>
+            <article class="action-card"><strong>Producción probatoria</strong><div class="case-meta">Integra testimonios, pericias y documentos con trazabilidad.</div></article>
+          </div>
+          <div class="linked-note">Todo documento generado desde PRODUCCIÓN puede quedar vinculado a la causa, al cliente, a una asesoría y al expediente digital del asunto.</div>
+        </section>
+        ${renderProduccion(cause)}
+        ${renderEscritos(cause)}
+        ${renderAnalisis(cause)}
+        ${renderAsistente(cause)}
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Historial de producción</h4>
+              <p class="section-copy">Seguimiento cronológico de cada documento generado y su tránsito entre borrador, revisión y carpeta digital.</p>
+            </div>
+          </div>
+          <div class="timeline">${(cause.produccion?.historial || []).map(item => `
+            <article class="timeline-item">
+              <strong>${escapeHtml(item.hito)}</strong>
+              <div class="timeline-meta">${escapeHtml(formatDate(item.fecha))}</div>
+              <div class="case-meta">${escapeHtml(item.detalle)}</div>
+            </article>
+          `).join('')}</div>
+        </section>
+        ${renderAudiencias(cause)}
+        ${renderCumplimiento(cause)}
+      `;
     }
 
     function renderResumen(cause){
@@ -2183,35 +2624,25 @@
       renderDetailActions();
 
       const renderers = {
-        resumen: renderResumen,
-        identificacion: renderIdentificacion,
-        partes: renderPartes,
-        tribunal: renderTribunal,
-        historia: renderHistoria,
-        resoluciones: renderResoluciones,
-        plazos: renderPlazos,
-        contenedor: renderContenedor,
-        produccion: renderProduccion,
-        escritos: renderEscritos,
-        audiencias: renderAudiencias,
-        prueba: renderPrueba,
-        analisis: renderAnalisis,
-        asistente: renderAsistente,
-        cumplimiento: renderCumplimiento,
-        instrucciones: renderInstrucciones,
+        informacion: renderInformationPillar,
+        expedientes: renderExpedientesPillar,
+        produccion: renderProduccionPillar,
       };
-      $('detailContent').innerHTML = renderers[state.activeTab](cause);
+      const activeRenderer = renderers[state.activeTab] || renderInformationPillar;
+      $('detailContent').innerHTML = activeRenderer(cause);
     }
 
     function renderAll(){
       renderSummaryMetrics();
       renderList();
+      renderPillarCards();
       renderTabs();
       renderCurrentTab();
     }
 
     function setActiveTab(tab){
-      state.activeTab = tab;
+      state.activeTab = TAB_CONFIG.some(([id]) => id === tab) ? tab : 'informacion';
+      renderPillarCards();
       renderTabs();
       renderCurrentTab();
     }
@@ -2329,7 +2760,7 @@
       await loadCases();
       populateFilters();
       state.selectedId = String(data[C.k_id]);
-      state.activeTab = 'resumen';
+      state.activeTab = 'informacion';
       renderAll();
       setTimeout(closeModal, 450);
     }
@@ -2342,11 +2773,12 @@
 
       $('btnNuevaCausa').addEventListener('click', openModal);
       $('btnImportar').addEventListener('click', () => alert('Importación preparada como acción del módulo CAUSAS; integrar origen cuando exista conector documental.'));
-      $('btnCalendario').addEventListener('click', () => setActiveTab('audiencias'));
-      $('btnActualizarEstado').addEventListener('click', () => setActiveTab('resumen'));
-      $('btnQuickHistory').addEventListener('click', () => setActiveTab('historia'));
+      $('btnCalendario').addEventListener('click', () => setActiveTab('informacion'));
+      $('btnActualizarEstado').addEventListener('click', () => setActiveTab('informacion'));
+      $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));
+      $('btnQuickExpedientes').addEventListener('click', () => setActiveTab('expedientes'));
       $('btnQuickProduction').addEventListener('click', () => setActiveTab('produccion'));
-      $('btnQuickAlerts').addEventListener('click', () => setActiveTab('plazos'));
+      $('btnQuickAlerts').addEventListener('click', () => setActiveTab('informacion'));
       $('btnLimpiarFiltros').addEventListener('click', resetFilters);
       $('formCausa').addEventListener('submit', createCase);
       modal.addEventListener('click', event => {
@@ -2374,6 +2806,12 @@
       });
 
       $('tabBar').addEventListener('click', event => {
+        const tab = event.target.closest('[data-tab]');
+        if (!tab) return;
+        setActiveTab(tab.dataset.tab);
+      });
+
+      $('pillarGrid').addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         setActiveTab(tab.dataset.tab);
