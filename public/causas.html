@@ -53,12 +53,13 @@
       top:0;
       z-index:20;
       width:100%;
-      display:grid;
-      grid-template-columns:minmax(260px,auto) minmax(0,1fr);
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      justify-content:space-between;
       align-items:center;
-      column-gap:24px;
-      row-gap:14px;
-      padding:16px 24px;
+      gap:18px;
+      padding:14px 20px;
       background:linear-gradient(135deg,#6f1728 0%,var(--causas-critical) 52%,#8b2a3b 100%);
       border-bottom:1px solid rgba(255,255,255,.16);
       box-shadow:0 14px 30px rgba(52,11,19,.28);
@@ -68,9 +69,10 @@
     .causas-brand{
       display:flex;
       align-items:center;
-      gap:14px;
+      gap:12px;
       min-width:0;
-      max-width:100%;
+      max-width:320px;
+      flex:0 1 320px;
     }
 
     .causas-brand-mark{
@@ -103,16 +105,22 @@
     .causas-brand p{
       margin:4px 0 0;
       color:rgba(247,255,253,.88);
-      font-size:13px;
-      line-height:1.35;
-      max-width:42ch;
+      font-size:12px;
+      line-height:1.25;
+      max-width:34ch;
+      white-space:nowrap;
     }
 
     .causas-topbar-right{
       min-width:0;
-      display:grid;
-      gap:10px;
-      justify-items:end;
+      flex:1 1 auto;
+      display:flex;
+      flex-direction:row;
+      flex-wrap:nowrap;
+      align-items:center;
+      justify-content:flex-end;
+      gap:8px;
+      overflow:visible;
     }
 
     .causas-topbar-actions,
@@ -120,10 +128,18 @@
       display:flex;
       align-items:center;
       justify-content:flex-end;
-      gap:10px;
-      flex-wrap:wrap;
+      gap:8px;
+      flex-wrap:nowrap;
       min-width:0;
-      width:100%;
+      width:auto;
+    }
+
+    .causas-nav{
+      flex:0 1 auto;
+    }
+
+    .causas-topbar-actions{
+      flex:1 1 auto;
     }
 
     .causas-nav a,
@@ -138,9 +154,10 @@
       background:var(--causas-card);
       color:var(--causas-text);
       border-radius:14px;
-      padding:10px 14px;
-      min-height:42px;
-      font-size:13px;
+      padding:9px 12px;
+      min-height:40px;
+      min-width:0;
+      font-size:12px;
       font-weight:700;
       line-height:1.2;
       text-decoration:none;
@@ -709,13 +726,24 @@
       .screen-header,
       .screen-actions{ align-items:stretch; }
       .causas-topbar{
+        display:grid;
         grid-template-columns:1fr;
+        gap:14px;
         padding:16px;
       }
-      .causas-topbar-right{ justify-items:stretch; }
+      .causas-topbar-right{
+        display:grid;
+        gap:10px;
+        justify-items:stretch;
+        overflow:visible;
+      }
       .causas-brand p{ white-space:normal; max-width:none; }
       .causas-nav,
-      .causas-topbar-actions{ justify-content:flex-start; }
+      .causas-topbar-actions{
+        width:100%;
+        flex-wrap:wrap;
+        justify-content:flex-start;
+      }
       .causas-shell{ padding:16px; }
       .filter-grid,
       .detail-grid,
