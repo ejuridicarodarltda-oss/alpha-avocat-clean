@@ -14,6 +14,9 @@
       --clients-bg-subblock: #9FE3E8;
       --clients-expediente-shell-bg: #BFECEF;
       --clients-expediente-shell-bg-active: #B9E6EA;
+      --clients-expediente-header-bg: #84D2DB;
+      --clients-tabs-band-bg: #D9F5F7;
+      --clients-inner-panel-bg: #8FD8E0;
       --clients-hero-bg: #1FC8D6;
       --clients-hero-bg-strong: #0EA5B7;
       --clients-card-bg: #FFFFFF;
@@ -180,7 +183,6 @@
 
     .hero-head,
     .section-head,
-    .workspace-head,
     .card-head,
     .event-head,
     .file-head,
@@ -553,7 +555,7 @@
 
     .workspace-shell .identification-grid-shell,
     .workspace-shell .identification-summary {
-      background: var(--clients-card-muted);
+      background: var(--clients-card-bg);
     }
 
     .workspace-shell .identification-card,
@@ -703,13 +705,87 @@
       color: var(--clients-text);
     }
 
+    .workspace-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      padding: 20px;
+      border-radius: 24px;
+      border: 1px solid var(--clients-border-strong);
+      background: var(--clients-expediente-header-bg);
+      box-shadow: var(--clients-shadow-block);
+    }
+
+    .workspace-head #workspaceTitle,
+    .workspace-head #workspaceSubtitle,
+    .workspace-head .module-copy {
+      color: var(--clients-text);
+    }
+
+    .workspace-head .module-eyebrow {
+      background: var(--clients-card-bg);
+      border-color: color-mix(in srgb, var(--clients-border-strong) 78%, white);
+      color: var(--clients-title);
+      box-shadow: 0 10px 20px rgba(15, 85, 96, 0.12);
+    }
+
+    .workspace-head .workspace-actions {
+      align-self: stretch;
+      justify-content: flex-start;
+      align-content: flex-start;
+    }
+
+    .workspace-head .workspace-actions .btn-outline,
+    .workspace-head .workspace-actions .btn-lite,
+    .workspace-head .workspace-actions .btn-cta {
+      background: var(--clients-card-bg);
+      color: var(--clients-button-text);
+      border-color: color-mix(in srgb, var(--clients-border-strong) 72%, white);
+    }
+
+    .workspace-head .workspace-actions .btn-outline:hover,
+    .workspace-head .workspace-actions .btn-lite:hover,
+    .workspace-head .workspace-actions .btn-cta:hover,
+    .workspace-head .workspace-actions .btn-outline:active,
+    .workspace-head .workspace-actions .btn-lite:active,
+    .workspace-head .workspace-actions .btn-cta:active,
+    .workspace-head .workspace-actions .btn-outline.active,
+    .workspace-head .workspace-actions .btn-lite.active,
+    .workspace-head .workspace-actions .btn-cta.active,
+    .workspace-head .workspace-actions .btn-outline[aria-pressed="true"],
+    .workspace-head .workspace-actions .btn-lite[aria-pressed="true"],
+    .workspace-head .workspace-actions .btn-cta[aria-pressed="true"] {
+      background: var(--clients-card-bg);
+      color: var(--clients-button-text);
+      border-color: var(--clients-border-strong);
+    }
+
     .tabs-row {
-      padding: 6px;
-      border-radius: 18px;
+      padding: 8px;
+      border-radius: 20px;
       border: 1px solid var(--clients-border);
       position: sticky;
       top: 8px;
       z-index: 2;
+      background: var(--clients-tabs-band-bg);
+      box-shadow: var(--clients-shadow-soft);
+    }
+
+    .tabs-row .tab-btn,
+    .tabs-row .tab-btn:hover,
+    .tabs-row .tab-btn:active,
+    .tabs-row .tab-btn.active,
+    .tabs-row .tab-btn[aria-pressed="true"] {
+      background: var(--clients-card-bg);
+      color: var(--clients-button-text);
+      border-color: color-mix(in srgb, var(--clients-border) 82%, white);
+    }
+
+    .tabs-row .tab-btn.active,
+    .tabs-row .tab-btn[aria-pressed="true"] {
+      border-color: var(--clients-border-strong);
+      box-shadow: 0 12px 22px rgba(45, 112, 133, 0.12);
     }
 
     .tab-panel { display: none; }
@@ -718,6 +794,11 @@
     .tab-section {
       display: grid;
       gap: 16px;
+      padding: 18px;
+      border-radius: 24px;
+      border: 1px solid var(--clients-border-strong);
+      background: var(--clients-inner-panel-bg);
+      box-shadow: var(--clients-shadow-block);
     }
 
     .tab-grid,
@@ -782,6 +863,16 @@
       background: var(--clients-card-muted);
       border-color: var(--clients-border-strong);
       color: var(--clients-text);
+    }
+
+    #workspaceInstructions .instruction-card {
+      background: var(--clients-inner-panel-bg);
+      border-color: var(--clients-border-strong);
+      box-shadow: var(--clients-shadow-block);
+    }
+
+    #workspaceInstructions .instruction-card .textarea-stack textarea {
+      background: var(--clients-card-bg);
     }
 
     .admin-banner {
