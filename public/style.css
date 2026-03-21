@@ -16,6 +16,61 @@ overflow:hidden;
 --brand-logo-filter:brightness(0) saturate(100%) invert(80%) sepia(56%) saturate(1040%) hue-rotate(356deg) brightness(95%) contrast(97%);
 }
 
+body.app-shell{
+transition:opacity .18s ease;
+}
+
+html.session-check-pending body.app-shell > :not(#startup-loader){
+visibility:hidden;
+}
+
+html.session-check-pending body.app-shell{
+opacity:1;
+}
+
+body.app-shell.session-check-ready{
+opacity:1;
+}
+
+.startup-loader{
+position:fixed;
+inset:0;
+display:flex;
+flex-direction:column;
+align-items:center;
+justify-content:center;
+gap:14px;
+background:#eef1f5;
+color:#0c1f34;
+z-index:9999;
+}
+
+.startup-loader[hidden]{
+display:none;
+}
+
+.startup-loader__spinner{
+width:42px;
+height:42px;
+border-radius:50%;
+border:3px solid rgba(12,31,52,.12);
+border-top-color:#c41e3a;
+animation:startLoaderSpin .85s linear infinite;
+}
+
+.startup-loader__label{
+margin:0;
+font-size:14px;
+font-weight:700;
+letter-spacing:.02em;
+}
+
+@keyframes startLoaderSpin{
+to{
+transform:rotate(360deg);
+}
+}
+
 .layout{
 display:flex;
 height:100dvh;
