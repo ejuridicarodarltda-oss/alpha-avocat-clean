@@ -976,21 +976,23 @@
 
     const C = {
       c_id: 'id',
-      c_name: 'name',
+      c_name: 'full_name',
       k_id: 'id',
       k_client_id: 'client_id',
       k_court: 'court',
-      k_rol: 'rol_rit',
-      k_subject: 'subject',
-      k_responsible: 'responsible',
+      k_rol: 'rol',
+      k_subject: 'matter',
+      k_responsible: 'assigned_lawyer',
       k_fee_total: 'fee_total',
       k_fee_type: 'fee_type',
-      k_payment: 'payment_method',
+      k_payment: 'payment_mode',
       k_ppm: 'ppm_percent',
       k_withheld_by: 'ppm_withheld_by',
       k_notes: 'notes',
       k_created: 'created_at',
     };
+
+    const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
 
     const TAB_CONFIG = [
       ['resumen', 'Resumen'],
@@ -1084,6 +1086,17 @@
       return 'badge-info';
     }
 
+    function getClientDisplayName(client){
+      if (!client || typeof client !== 'object') return SAFE_CLIENT_LABEL;
+      const fullName = client[C.c_name];
+      return typeof fullName === 'string' && fullName.trim() ? fullName.trim() : SAFE_CLIENT_LABEL;
+    }
+
+    function buildLoadError(scope, error){
+      const detail = error?.message ? String(error.message) : String(error || 'Error desconocido');
+      return new Error(`No fue posible cargar ${scope}. ${detail}`);
+    }
+
     function loadWorkspace(){
       try {
         return JSON.parse(localStorage.getItem(WORKSPACE_KEY) || '{}');
@@ -1106,7 +1119,7 @@
       const materia = base.materia || 'Materia por clasificar';
       const procedimiento = base.procedimiento || 'Procedimiento por definir';
       const responsable = base.responsable || 'Por asignar';
-      const cliente = base.cliente || 'Cliente relacionado';
+      const cliente = base.cliente || SAFE_CLIENT_LABEL;
       const expediente = base.expediente || `EXP-${slugId(rol).toUpperCase()}`;
       const urgency = base.urgencia || 'Normal';
       const state = base.estadoProcesal || 'En tramitación';
@@ -1321,7 +1334,7 @@
     }
 
     function mergeCase(baseCase, workspaceEntry){
-      const clientName = state.clientMap.get(baseCase[C.k_client_id]) || workspaceEntry?.cliente || 'Cliente sin asociar';
+      const clientName = state.clientMap.get(baseCase[C.k_client_id]) || workspaceEntry?.cliente || SAFE_CLIENT_LABEL;
       const record = {
         id: String(baseCase[C.k_id]),
         clientId: baseCase[C.k_client_id],
@@ -1360,16 +1373,19 @@
     }
 
     async function loadClients(){
-      const { data, error } = await supabase.from(T_CLIENTS).select(`${C.c_id}, ${C.c_name}`).order(C.c_name, { ascending:true });
-      if (error) throw error;
-      state.clients = data || [];
-      state.clientMap = new Map(state.clients.map(client => [client[C.c_id], client[C.c_name]]));
-      $('k_client').innerHTML = '<option value="">Selecciona</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client[C.c_name])}</option>`).join('');
+      const { data, error } = await supabase
+        .from(T_CLIENTS)
+        .select(`${C.c_id}, ${C.c_name}`)
+        .order(C.c_name, { ascending:true });
+      if (error) throw buildLoadError('los clientes asociados a CAUSAS', error);
+      state.clients = (data || []).map(client => ({ ...client, display_name: getClientDisplayName(client) }));
+      state.clientMap = new Map(state.clients.map(client => [client[C.c_id], client.display_name]));
+      $('k_client').innerHTML = '<option value="">Selecciona</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client.display_name)}</option>`).join('');
     }
 
     async function loadCases(){
       const { data, error } = await supabase.from(T_CASES).select('*').order(C.k_created, { ascending:false });
-      if (error) throw error;
+      if (error) throw buildLoadError('las causas registradas', error);
       const workspace = loadWorkspace();
       state.supabaseCases = data || [];
       state.caseMap = new Map(state.supabaseCases.map(base => {
@@ -2164,7 +2180,7 @@
       const clientId = $('k_client').value;
       return {
         id,
-        cliente: state.clientMap.get(clientId) || 'Cliente sin asociar',
+        cliente: state.clientMap.get(clientId) || SAFE_CLIENT_LABEL,
         caratula: $('k_caratula').value.trim() || 'Sin carátula',
         rol: $('k_rol').value.trim() || 'Sin rol',
         rit: $('k_rit').value.trim() || 'RIT pendiente',
@@ -2221,7 +2237,7 @@
       const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
       if (error) {
         msg.className = 'msg msg-error';
-        msg.textContent = `Error al guardar la causa: ${error.message}`;
+        msg.textContent = `Error al guardar la causa: ${buildLoadError('la causa', error).message}`;
         return;
       }
 
@@ -2307,7 +2323,8 @@
         renderAll();
       } catch (error) {
         console.error(error);
-        document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS: ${escapeHtml(error.message || error)}</div></section>`;
+        const detail = error?.message ? error.message : String(error || 'Error desconocido');
+        document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
       }
     }
 
