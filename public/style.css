@@ -391,7 +391,7 @@ background:linear-gradient(135deg,#8b5cf6,#6d28d9);
 }
 
 .tareas{
-background:linear-gradient(135deg,#5b3423,#3b1f17);
+background:linear-gradient(135deg,#c9966b,#9b6844);
 }
 
 .card.audiencias .card-icon{
@@ -429,7 +429,7 @@ min-height:54px;
 .b1{background:linear-gradient(135deg,#67e8f9,#22c3e6);}
 .b2{background:linear-gradient(135deg,#2dd4bf,#14b8a6);}
 .b3{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);}
-.b4{background:linear-gradient(135deg,#c68a5b,#a9683b);}
+.b4{background:linear-gradient(135deg,#d8b08c,#bc8d67);}
 
 /* PANELES */
 
@@ -483,7 +483,7 @@ color:#4c1d95;
 }
 
 .panel.alertas{
-background:#d8b08c;
+background:#efd9c6;
 color:#5c3416;
 }
 
