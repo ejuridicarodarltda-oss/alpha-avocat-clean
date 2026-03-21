@@ -252,13 +252,14 @@ color:#c41e3a;
 }
 
 .search{
-padding:7px 12px;
+padding:7px 10px;
 border-radius:8px;
 border:none;
 font-weight:600;
 font-size:13px;
-min-width:220px;
-flex:1 1 220px;
+width:96px;
+min-width:96px;
+flex:0 0 96px;
 }
 
 .top-info{
@@ -777,9 +778,11 @@ display:none;
 }
 
 body.panel-page .search{
-width:120px;
-min-width:120px;
-flex:0 0 120px;
+width:84px;
+min-width:84px;
+flex:0 0 84px;
+padding-left:8px;
+padding-right:8px;
 }
 
 body.panel-page .topbar-left{
@@ -797,7 +800,7 @@ flex:1 1 auto;
 }
 
 body.panel-page .topbar-nav-link{
-padding:8px 11px;
+padding:8px 10px;
 font-size:13px;
 }
 
@@ -807,7 +810,8 @@ flex:0 0 auto;
 justify-content:flex-start;
 flex-wrap:nowrap;
 white-space:nowrap;
-gap:10px;
+gap:8px;
+font-size:13px;
 }
 
 body.panel-page .cards,
