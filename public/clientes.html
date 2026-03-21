@@ -582,34 +582,54 @@
     }
 
     .expediente-card:hover,
+    .expediente-card:active,
+    .expediente-card:focus,
+    .expediente-card:focus-visible,
     .expediente-card.active {
       transform: translateY(-2px);
       border-color: var(--clients-active);
-      background: var(--clients-active);
+      background: var(--clients-card-bg);
       box-shadow: 0 20px 36px rgba(22, 58, 95, 0.20);
     }
 
     .expediente-card:hover .mini-label,
     .expediente-card:hover strong,
     .expediente-card:hover .status-pill,
+    .expediente-card:hover .data-item,
+    .expediente-card:active .mini-label,
+    .expediente-card:active strong,
+    .expediente-card:active .status-pill,
+    .expediente-card:active .data-item,
+    .expediente-card:focus .mini-label,
+    .expediente-card:focus strong,
+    .expediente-card:focus .status-pill,
+    .expediente-card:focus .data-item,
+    .expediente-card:focus-visible .mini-label,
+    .expediente-card:focus-visible strong,
+    .expediente-card:focus-visible .status-pill,
+    .expediente-card:focus-visible .data-item,
     .expediente-card.active .mini-label,
     .expediente-card.active strong,
     .expediente-card.active .status-pill,
-    .expediente-card:hover .data-item,
     .expediente-card.active .data-item {
-      color: var(--clients-text-on-dark);
+      color: inherit;
     }
 
     .expediente-card:hover .data-item,
+    .expediente-card:active .data-item,
+    .expediente-card:focus .data-item,
+    .expediente-card:focus-visible .data-item,
     .expediente-card.active .data-item {
-      background: rgba(255, 255, 255, 0.10);
-      border-color: rgba(255, 255, 255, 0.28);
+      background: #fff;
+      border-color: var(--clients-border-strong);
     }
 
     .expediente-card:hover .status-pill,
+    .expediente-card:active .status-pill,
+    .expediente-card:focus .status-pill,
+    .expediente-card:focus-visible .status-pill,
     .expediente-card.active .status-pill {
-      background: rgba(255, 255, 255, 0.12);
-      border-color: rgba(255, 255, 255, 0.28);
+      border-color: currentColor;
     }
 
     .data-grid {
@@ -1538,7 +1558,7 @@
         return;
       }
       container.innerHTML = items.map(item => `
-        <article class="expediente-card ${item.id === selectedExpedienteId ? 'active' : ''}" data-expediente-id="${item.id}">
+        <article class="expediente-card" data-expediente-id="${item.id}">
           <div class="card-head">
             <div>
               <span class="mini-label">N° expediente</span>
