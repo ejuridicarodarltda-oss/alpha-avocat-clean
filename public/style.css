@@ -257,9 +257,9 @@ border-radius:8px;
 border:none;
 font-weight:600;
 font-size:13px;
-width:96px;
-min-width:96px;
-flex:0 0 96px;
+min-width:160px;
+flex:1 1 160px;
+max-width:240px;
 }
 
 .top-info{
@@ -778,9 +778,9 @@ display:none;
 }
 
 body.panel-page .search{
-width:84px;
-min-width:84px;
-flex:0 0 84px;
+width:108px;
+min-width:108px;
+flex:0 0 108px;
 padding-left:8px;
 padding-right:8px;
 }
