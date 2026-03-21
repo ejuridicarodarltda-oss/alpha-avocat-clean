@@ -79,6 +79,20 @@ main.agenda-main{
 
 .agenda-home{
   display:block;
+  background:linear-gradient(180deg, #B05AE8 0%, #933ED1 100%);
+  border-color:color-mix(in srgb, #7C2DB8 72%, white);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.26), 0 14px 30px rgba(124,45,184,.24);
+}
+
+.agenda-home h2,
+.agenda-home .subtitle{
+  color:var(--agenda-white);
+}
+
+.agenda-home .nav-btn{
+  background:var(--agenda-white);
+  color:var(--agenda-text);
+  border-color:color-mix(in srgb, var(--agenda-border) 70%, white);
 }
 
 .agenda-screen.show{
