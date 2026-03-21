@@ -19,7 +19,11 @@
       --clients-inner-panel-bg: #8FD8E0;
       --clients-tab-active-bg: #79CBD5;
       --clients-tab-active-border: #3C9DA8;
-      --clients-panel-active-bg: #7FCFD8;
+      --clients-panel-active-bg: #FFFFFF;
+      --clients-section-frame-bg: #FFFFFF;
+      --clients-section-frame-border: #CFEAEC;
+      --clients-section-main-bg: #66D4DE;
+      --clients-section-main-border: #2FAFBC;
       --clients-panel-active-border: #3C9DA8;
       --clients-active-text: #08363D;
       --clients-hero-bg: #1FC8D6;
@@ -521,13 +525,6 @@
 
     .spotlight-card,
     .module-load-card .summary-card,
-    .workspace-shell .subcard,
-    .workspace-shell .event-card,
-    .workspace-shell .file-card,
-    .workspace-shell .analysis-card,
-    .workspace-shell .assistant-card,
-    .workspace-shell .decision-card,
-    .workspace-shell .fee-card,
     .workspace-shell .field-list li,
     .workspace-shell .bullet-list li,
     .workspace-shell .text-panel,
@@ -537,10 +534,20 @@
       color: var(--clients-text);
     }
 
-    .workspace-shell .identification-card,
-    .workspace-shell .case-data-card,
+    .workspace-shell .subcard,
+    .workspace-shell .event-card,
+    .workspace-shell .file-card,
+    .workspace-shell .analysis-card,
+    .workspace-shell .assistant-card,
+    .workspace-shell .decision-card,
+    .workspace-shell .fee-card {
+      background: var(--clients-section-main-bg);
+      border-color: var(--clients-section-main-border);
+      color: var(--clients-text);
+      box-shadow: 0 18px 30px rgba(47, 175, 188, 0.18);
+    }
+
     .workspace-shell .identification-grid-shell,
-    .workspace-shell .identification-summary,
     .primary-list-card .data-item,
     .metric-card,
     .summary-card,
@@ -558,15 +565,25 @@
       color: var(--clients-text);
     }
 
-    .workspace-shell .identification-grid-shell,
+    .workspace-shell .identification-grid-shell {
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      padding: 0;
+    }
+
     .workspace-shell .identification-summary {
-      background: var(--clients-card-bg);
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      color: inherit;
+      padding: 0;
     }
 
     .workspace-shell .identification-card,
     .workspace-shell .case-data-card,
     .primary-list-card .data-item {
-      border-color: var(--clients-border-strong);
+      border-color: var(--clients-section-main-border);
     }
 
     .spotlight-list,
@@ -805,8 +822,8 @@
       gap: 16px;
       padding: 18px;
       border-radius: 24px;
-      border: 1px solid var(--clients-border-strong);
-      background: var(--clients-inner-panel-bg);
+      border: 1px solid var(--clients-section-frame-border);
+      background: var(--clients-section-frame-bg);
       box-shadow: var(--clients-shadow-block);
       color: var(--clients-text);
       transition: background-color .18s ease, border-color .18s ease, box-shadow .18s ease;
@@ -814,9 +831,9 @@
 
     .tab-panel.active .tab-section,
     .tab-panel[data-state="active"] .tab-section {
-      background: var(--clients-panel-active-bg);
-      border-color: var(--clients-panel-active-border);
-      box-shadow: 0 18px 32px rgba(60, 157, 168, 0.20);
+      background: var(--clients-section-frame-bg);
+      border-color: var(--clients-section-frame-border);
+      box-shadow: 0 18px 32px rgba(60, 157, 168, 0.12);
     }
 
     .tab-panel.active .tab-section > .section-head h3,
@@ -830,6 +847,38 @@
     .tab-panel[data-state="active"] .tab-section .section-head > div > h3,
     .tab-panel[data-state="active"] .tab-section .section-head > div > .small-note {
       color: var(--clients-active-text);
+    }
+
+    .workspace-shell .subcard strong,
+    .workspace-shell .event-card strong,
+    .workspace-shell .file-card strong,
+    .workspace-shell .analysis-card strong,
+    .workspace-shell .assistant-card strong,
+    .workspace-shell .decision-card strong,
+    .workspace-shell .fee-card strong,
+    .workspace-shell .subcard h3,
+    .workspace-shell .subcard h4,
+    .workspace-shell .event-card h3,
+    .workspace-shell .file-card h3,
+    .workspace-shell .analysis-card h3,
+    .workspace-shell .assistant-card h3,
+    .workspace-shell .decision-card h3,
+    .workspace-shell .fee-card h3,
+    .workspace-shell .subcard .small-note,
+    .workspace-shell .event-card .small-note,
+    .workspace-shell .file-card .small-note,
+    .workspace-shell .analysis-card .small-note,
+    .workspace-shell .assistant-card .small-note,
+    .workspace-shell .decision-card .small-note,
+    .workspace-shell .fee-card .small-note,
+    .workspace-shell .subcard .mini-label,
+    .workspace-shell .event-card .mini-label,
+    .workspace-shell .file-card .mini-label,
+    .workspace-shell .analysis-card .mini-label,
+    .workspace-shell .assistant-card .mini-label,
+    .workspace-shell .decision-card .mini-label,
+    .workspace-shell .fee-card .mini-label {
+      color: var(--clients-text);
     }
 
     .tab-grid,
