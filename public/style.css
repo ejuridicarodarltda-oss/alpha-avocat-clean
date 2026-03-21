@@ -155,7 +155,7 @@ transform:translateX(6px);
 }
 
 .menu .inicio{background:linear-gradient(145deg,#ff2647,#c41e3a);}
-.menu .clientes{background:linear-gradient(145deg,#38bdf8,#0ea5e9);}
+.menu .clientes{background:linear-gradient(145deg,#8fe6ef,#5fcfd8);}
 .menu .causas{background:linear-gradient(145deg,#2dd4bf,#0f766e);}
 .menu .agenda{background:linear-gradient(145deg,#a855f7,#6d28d9);}
 .menu .config{background:linear-gradient(145deg,#fb923c,#ea580c);}
@@ -379,7 +379,7 @@ margin-top:2px;
 }
 
 .clientes{
-background:linear-gradient(135deg,#22c3e6,#06b6d4);
+background:linear-gradient(135deg,#8fe6ef,#5fcfd8);
 }
 
 .causas{
