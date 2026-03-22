@@ -969,6 +969,64 @@
       color: var(--clients-text-soft);
     }
 
+    .rectification-shell {
+      margin: 18px 0 0;
+      padding: 18px;
+      border-radius: 20px;
+      border: 1px solid color-mix(in srgb, var(--clients-border-strong) 72%, white);
+      background: color-mix(in srgb, var(--clients-card-bg) 88%, var(--clients-bg-block));
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+    }
+
+    .rectification-shell[hidden] {
+      display: none;
+    }
+
+    .rectification-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      gap: 14px;
+      flex-wrap: wrap;
+      margin-bottom: 14px;
+    }
+
+    .rectification-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .rectification-grid label,
+    .rectification-history-item {
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 1px solid color-mix(in srgb, var(--clients-border) 72%, white);
+      background: var(--clients-card-bg);
+      box-shadow: 0 8px 18px rgba(60, 157, 168, 0.08);
+    }
+
+    .rectification-history-list {
+      display: grid;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .rectification-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 16px;
+    }
+
+    .rectification-message {
+      margin-top: 12px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--clients-title);
+    }
+
     .modal-shell {
       position: fixed;
       inset: 0;
@@ -1154,6 +1212,40 @@
         <div id="workspaceActions" class="workspace-actions"></div>
       </div>
 
+      <div id="clientRectificationShell" class="rectification-shell" hidden>
+        <div class="rectification-head">
+          <div>
+            <span class="module-eyebrow">Rectificación controlada</span>
+            <h3 class="panel-title">Rectificar datos del expediente y del cliente</h3>
+            <p class="small-note">Corrige clasificación, RUT, contacto, estado, relación con causa y demás datos estructurados sin rehacer el registro.</p>
+          </div>
+          <button type="button" class="btn-lite" id="btnCancelarRectificacionCliente">Cancelar</button>
+        </div>
+        <form id="clientRectificationForm">
+          <div class="rectification-grid">
+            <label>Nombre<input name="name" required /></label>
+            <label>Apellidos<input name="lastName" /></label>
+            <label>RUT<input name="rut" required /></label>
+            <label>Calidad o tipo<select name="source"><option>Clientes</option><option>Agenda</option><option>Causas</option><option>Cliente directo</option><option>Prospecto</option></select></label>
+            <label>Correo electrónico<input name="email" type="email" /></label>
+            <label>Teléfono<input name="phone" /></label>
+            <label>Materia / expediente<input name="matter" required /></label>
+            <label>Estado<select name="status"><option>Activo</option><option>Pendiente de análisis</option><option>Derivado a causa</option><option>Cerrado</option></select></label>
+            <label>Abogado responsable<input name="responsibleLawyer" required /></label>
+            <label>Próxima actividad<input name="nextActivity" /></label>
+            <label>Rol de causa vinculada<input name="linkedCaseRol" /></label>
+            <label>Tribunal vinculado<input name="linkedCaseCourt" /></label>
+            <label>Estado del cliente<select name="classification"><option>Juicio en curso</option><option>Juicio anterior terminado</option><option>Opinión jurídica</option><option>Asesoría</option><option>Iniciar juicio</option><option>Iniciar trámite administrativo</option><option>Estudio de antecedentes</option><option>Redacción de contrato</option></select></label>
+            <label class="span-full">Observaciones<textarea name="notes" rows="4"></textarea></label>
+          </div>
+          <div class="rectification-actions">
+            <button type="button" class="btn-outline" id="btnDescartarRectificacionCliente">Descartar</button>
+            <button type="submit" class="btn-cta">Guardar rectificación</button>
+          </div>
+          <div id="clientRectificationMessage" class="rectification-message" aria-live="polite"></div>
+        </form>
+      </div>
+
       <div id="tabsRow" class="tabs-row" role="tablist" aria-label="Detalle del expediente"></div>
       <div id="tabPanels"></div>
       <div id="workspaceInstructions"></div>
@@ -1224,13 +1316,16 @@
 
   <script type="module">
     import { supabase } from './app.js';
+    import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js';
 
     const { data: sess } = await supabase.auth.getSession();
     if (!sess?.session) window.location.href = './login.html';
 
     const sessionUser = sess.session.user;
-    const operatorName = sessionUser?.user_metadata?.full_name || localStorage.getItem('alpha_user_name') || 'Usuario Activo';
-    const isAdminHonorarios = operatorName.trim().toLowerCase() === 'mario rodríguez ardiles';
+    const rectificationAccess = getRectificationAccessState(sessionUser);
+    const operatorName = rectificationAccess.operatorName;
+    const isRectificationAdmin = rectificationAccess.canRectify;
+    const isAdminHonorarios = operatorName.trim().toLowerCase() === 'mario rodríguez ardiles' || isRectificationAdmin;
     const storageKey = 'alpha_avocat_clientes_expedientes_v1';
     const params = new URLSearchParams(window.location.search);
 
@@ -1631,7 +1726,164 @@
     let data = loadData();
     let selectedExpedienteId = getAllExpedientes()[0]?.id || null;
     let activeTab = 'Identificación';
+    let rectificationActiveExpedienteId = null;
     const tabs = ['Identificación', 'Historia', 'Contenedor', 'Análisis', 'Asistente jurídico IA ChatGPT', 'Derivación', 'Honorarios'];
+
+    function splitClientName(name = '') {
+      const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
+      if (!parts.length) return { firstName: '', lastName: '' };
+      if (parts.length === 1) return { firstName: parts[0], lastName: '' };
+      return { firstName: parts.slice(0, -2).join(' ') || parts[0], lastName: parts.slice(-2).join(' ') };
+    }
+
+    function setClientRectificationMessage(message = '') {
+      const node = el('clientRectificationMessage');
+      if (node) node.textContent = message;
+    }
+
+    function buildClientRectificationSnapshot(ref) {
+      if (!ref) return null;
+      const linkedCase = ref.expediente.linkedCase || {};
+      const parsedName = splitClientName(ref.client.name);
+      return {
+        name: parsedName.firstName || ref.client.name || '',
+        lastName: parsedName.lastName || '',
+        rut: ref.client.rut || '',
+        source: ref.client.source || 'Clientes',
+        email: ref.client.email || '',
+        phone: ref.client.phone || '',
+        matter: ref.expediente.matter || '',
+        status: ref.expediente.status || 'Activo',
+        responsibleLawyer: ref.expediente.responsibleLawyer || '',
+        nextActivity: ref.expediente.nextActivity || '',
+        linkedCaseRol: linkedCase.rol || '',
+        linkedCaseCourt: linkedCase.court || '',
+        classification: ref.expediente.analysis?.classification || 'Estudio de antecedentes',
+        notes: ref.client.notes || ref.expediente.issueNotes || '',
+      };
+    }
+
+    function renderClientRectificationShell(selected) {
+      const shell = el('clientRectificationShell');
+      if (!shell) return;
+      const shouldOpen = isRectificationAdmin && selected && rectificationActiveExpedienteId === selected.id;
+      shell.hidden = !shouldOpen;
+      if (!shouldOpen) return;
+      const ref = findExpedienteRef(selected.id);
+      const snapshot = buildClientRectificationSnapshot(ref);
+      const form = el('clientRectificationForm');
+      if (!form || !snapshot) return;
+      Object.entries(snapshot).forEach(([key, value]) => {
+        const input = form.elements.namedItem(key);
+        if (input) input.value = value || '';
+      });
+      setClientRectificationMessage('');
+    }
+
+    function closeClientRectification() {
+      rectificationActiveExpedienteId = null;
+      setClientRectificationMessage('');
+      el('clientRectificationShell').hidden = true;
+    }
+
+    function renderClientRectificationHistory(selected) {
+      const log = selected?.client?.rectificationLog || [];
+      return `
+        <section class="module-card">
+          <span class="module-eyebrow">Trazabilidad</span>
+          <strong>Rectificaciones recientes</strong>
+          <div class="small-note">Cada rectificación conserva fecha, hora, campo modificado, valor anterior y valor nuevo.</div>
+          ${buildRectificationHistoryHtml(log)}
+        </section>
+      `;
+    }
+
+    function validateClientRectification(formData) {
+      const required = ['name', 'rut', 'matter', 'responsibleLawyer'];
+      for (const field of required) {
+        if (!String(formData.get(field) || '').trim()) return 'Debes completar todos los campos obligatorios antes de guardar la rectificación.';
+      }
+      const normalizedRut = normalizeRutInput(formData.get('rut'));
+      if (!isValidRut(normalizedRut)) return 'El RUT ingresado no es válido.';
+      return '';
+    }
+
+    function applyClientRectification(formData) {
+      const selected = getSelectedExpediente();
+      const ref = selected ? findExpedienteRef(selected.id) : null;
+      if (!selected || !ref) return;
+      const validationError = validateClientRectification(formData);
+      if (validationError) {
+        setClientRectificationMessage(validationError);
+        return;
+      }
+      const confirmed = window.confirm('Está por rectificar información del registro. ¿Desea guardar los cambios?');
+      if (!confirmed) return;
+
+      const previous = buildClientRectificationSnapshot(ref);
+      const names = {
+        firstName: String(formData.get('name') || '').trim(),
+        lastName: String(formData.get('lastName') || '').trim(),
+      };
+      ref.client.name = [names.firstName, names.lastName].filter(Boolean).join(' ').trim();
+      ref.client.rut = normalizeRutInput(formData.get('rut'));
+      ref.client.source = String(formData.get('source') || '').trim() || ref.client.source;
+      ref.client.email = String(formData.get('email') || '').trim();
+      ref.client.eAddress = ref.client.email;
+      ref.client.phone = String(formData.get('phone') || '').trim();
+      ref.client.contactPhone = ref.client.phone;
+      ref.client.notes = String(formData.get('notes') || '').trim();
+
+      ref.expediente.matter = String(formData.get('matter') || '').trim();
+      ref.expediente.status = String(formData.get('status') || '').trim();
+      ref.expediente.responsibleLawyer = String(formData.get('responsibleLawyer') || '').trim();
+      ref.expediente.nextActivity = String(formData.get('nextActivity') || '').trim() || 'Sin actividad pendiente';
+      ref.expediente.issueNotes = ref.client.notes || ref.expediente.issueNotes;
+      ref.expediente.analysis = ref.expediente.analysis || {};
+      ref.expediente.analysis.classification = String(formData.get('classification') || '').trim() || ref.expediente.analysis.classification;
+      const nextRol = String(formData.get('linkedCaseRol') || '').trim();
+      const nextCourt = String(formData.get('linkedCaseCourt') || '').trim();
+      if (nextRol || nextCourt || ref.expediente.linkedCase) {
+        ref.expediente.linkedCase = {
+          rol: nextRol || ref.expediente.linkedCase?.rol || 'Por asignar',
+          court: nextCourt || ref.expediente.linkedCase?.court || 'Por asignar',
+          procedure: ref.expediente.linkedCase?.procedure || 'Por definir',
+          subject: ref.expediente.matter || ref.expediente.linkedCase?.subject || 'Por definir',
+        };
+      }
+      ref.expediente.derivedToCase = normalize(ref.expediente.status) === 'derivado a causa' || Boolean(ref.expediente.linkedCase?.rol);
+      ref.expediente.analysisPending = normalize(ref.expediente.status) === 'pendiente de analisis';
+      ref.expediente.agendaActivity = !normalize(ref.expediente.nextActivity).includes('sin actividad pendiente');
+      ref.client.cases = ref.client.expedientes.filter((item) => item.derivedToCase).length;
+
+      const nextSnapshot = buildClientRectificationSnapshot(ref);
+      const logEntries = createRectificationEntries({
+        previous,
+        next: nextSnapshot,
+        moduleName: 'Clientes',
+        actor: operatorName,
+        labels: {
+          name: 'Nombre',
+          lastName: 'Apellidos',
+          rut: 'RUT',
+          source: 'Calidad o tipo de cliente',
+          email: 'Correo electrónico',
+          phone: 'Teléfono',
+          matter: 'Materia / expediente',
+          status: 'Estado del expediente',
+          responsibleLawyer: 'Abogado responsable',
+          nextActivity: 'Próxima actividad',
+          linkedCaseRol: 'Rol de causa vinculada',
+          linkedCaseCourt: 'Tribunal vinculado',
+          classification: 'Estado del cliente',
+          notes: 'Observaciones',
+        },
+      });
+      ref.client.rectificationLog = appendRectificationLog({ rectificationLog: ref.client.rectificationLog }, logEntries).rectificationLog;
+      saveData(data);
+      closeClientRectification();
+      renderAll();
+    }
 
     function getAllExpedientes() {
       return data.clients.flatMap(client => client.expedientes.map(exp => ({ ...exp, client })));
@@ -2186,6 +2438,7 @@
         el('workspaceSubtitle').textContent = 'Abre un expediente para revisar identificación, historia, contenedor, análisis, asistente, derivación y honorarios.';
         actions.innerHTML = '';
         el('tabPanels').innerHTML = '<div class="empty-state">Selecciona un expediente desde el listado principal para ver su detalle.</div>';
+        renderClientRectificationShell(null);
         el('workspaceInstructions').innerHTML = renderInstructions(null);
         return;
       }
@@ -2193,6 +2446,7 @@
       el('workspaceTitle').textContent = `${selected.code} · ${selected.client.name}`;
       el('workspaceSubtitle').textContent = `${selected.matter} · ${selected.status} · Próxima actividad: ${selected.nextActivity}`;
       actions.innerHTML = `
+        ${isRectificationAdmin ? '<button class="btn-cta" data-workspace-action="rectify">Rectificar datos</button>' : ''}
         <button class="btn-outline" data-workspace-action="agenda">Agenda</button>
         <button class="btn-outline" data-workspace-action="causas">Causas</button>
         <button class="btn-lite" data-workspace-action="upload">Documentos</button>
@@ -2218,7 +2472,8 @@
         >${panels[tab]}</section>
       `;
       }).join('');
-      el('workspaceInstructions').innerHTML = renderInstructions(selected);
+      renderClientRectificationShell(selected);
+      el('workspaceInstructions').innerHTML = renderInstructions(selected) + renderClientRectificationHistory(selected);
     }
 
     function openTab(tab) {
@@ -2451,6 +2706,11 @@
         const selected = getSelectedExpediente();
         if (action === 'agenda' || action === 'new-event') openModule('agenda', selected);
         if (action === 'causas' || action === 'crear-causa') openModule('causas', selected);
+        if (action === 'rectify' && selected && isRectificationAdmin) {
+          rectificationActiveExpedienteId = selected.id;
+          renderAll();
+          el('clientRectificationShell')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
         if (action === 'open') renderWorkspace();
         if (action === 'upload') openTab('Contenedor');
         if (action === 'consult') alert('Maqueta funcional: la consulta visible puede conectarse al asistente cuando se integre el servicio correspondiente.');
@@ -2490,6 +2750,15 @@
     el('materiaFilter').addEventListener('change', renderAll);
     el('btnNuevoCliente').addEventListener('click', () => openModal('cliente'));
     el('btnNuevoExpediente').addEventListener('click', () => openModal('expediente'));
+    el('btnCancelarRectificacionCliente')?.addEventListener('click', closeClientRectification);
+    el('btnDescartarRectificacionCliente')?.addEventListener('click', closeClientRectification);
+    el('clientRectificationForm')?.addEventListener('submit', (event) => {
+      event.preventDefault();
+      applyClientRectification(new FormData(event.currentTarget));
+    });
+    el('clientRectificationForm')?.elements.namedItem('rut')?.addEventListener('blur', (event) => {
+      event.currentTarget.value = normalizeRutInput(event.currentTarget.value);
+    });
 
     el('clienteForm').addEventListener('submit', (event) => {
       event.preventDefault();
