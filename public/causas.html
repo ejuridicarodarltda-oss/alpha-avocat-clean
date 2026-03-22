@@ -1449,6 +1449,7 @@
       currentDocumentId: null,
       currentDocumentContainer: 'asociados',
       ebookFallbackUrl: '',
+      officialFallbackScope: 'ebook',
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       }
@@ -1551,12 +1552,21 @@
       setMessage('detailStatusMsg', text, tone);
     }
 
-    function logEbookTrace(step, payload){
+    function logTrace(scope, step, payload){
+      const prefix = `[Alpha Avocat][${scope}] ${step}`;
       if (payload === undefined) {
-        console.info(`[Alpha Avocat][ebook] ${step}`);
+        console.info(prefix);
         return;
       }
-      console.info(`[Alpha Avocat][ebook] ${step}`, payload);
+      console.info(prefix, payload);
+    }
+
+    function logEbookTrace(step, payload){
+      logTrace('ebook', step, payload);
+    }
+
+    function logPjudTrace(step, payload){
+      logTrace('pjud', step, payload);
     }
 
     function isHttpUrl(value){
@@ -1610,24 +1620,33 @@
       ].map(normalizeDownloadUrl).filter(Boolean);
 
       const preferred = candidates.find((candidate) => isOfficialPjudUrl(candidate) && !isBlockedEbookEndpoint(candidate));
-      return preferred || '';
+      return preferred || candidates.find((candidate) => isOfficialPjudUrl(candidate)) || '';
     }
 
-    function toggleEbookFallback(url = ''){
+    function buildPjudExternalUrl(cause){
+      const candidates = [
+        cause?.poderJudicial?.link,
+        cause?.tribunalData?.poderJudicial,
+      ].map(normalizeDownloadUrl).filter(Boolean);
+      return candidates.find((candidate) => isOfficialPjudUrl(candidate)) || '';
+    }
+
+    function toggleEbookFallback(url = '', scope = 'ebook'){
       state.ebookFallbackUrl = url || '';
+      state.officialFallbackScope = scope;
       const container = $('ebookFallbackActions');
       if (!container) return;
       container.hidden = !state.ebookFallbackUrl;
     }
 
-    function pushEbookTraceToCause(entry, payload = {}){
+    function pushJudicialTraceToCause(entry, payload = {}){
       const next = ensureCauseStorage(entry, entry?.id);
       next.syncHistory.unshift({
-        id: `sync-ebook-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
+        id: `sync-${payload.scope || 'pjud'}-${Date.now()}-${Math.random().toString(16).slice(2, 6)}`,
         createdAt: new Date().toISOString(),
         source: 'Poder Judicial',
-        mode: 'descarga-ebook',
-        result: payload.result || 'Descarga ebook',
+        mode: payload.mode || 'navegacion-externa',
+        result: payload.result || 'Apertura externa Poder Judicial',
         notes: payload.notes || '',
         importedMovementIds: [],
         importedDocIds: payload.documentId ? [payload.documentId] : [],
@@ -1635,15 +1654,168 @@
       return next;
     }
 
-    function registerEbookTrace(documentRecord, payload = {}){
+    function registerJudicialTrace(payload = {}){
       const cause = getCurrentCause();
-      if (!cause || !documentRecord) return;
-      persistCurrentCause((entry) => pushEbookTraceToCause(entry, {
-        result: payload.result || 'Apertura externa ebook',
-        notes: payload.notes || '',
-        documentId: documentRecord.id,
-      }));
+      if (!cause) return;
+      persistCurrentCause((entry) => pushJudicialTraceToCause(entry, payload));
       loadCases().then(renderAll);
+    }
+
+    function writePopupLoadingState(popup, title, message){
+      if (!popup || popup.closed) return;
+      try {
+        popup.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><title>${escapeHtml(title)}</title><style>body{font-family:system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;padding:24px;background:#f6f7fb;color:#111827}h1{font-size:18px;margin:0 0 8px}p{margin:0;font-size:14px;line-height:1.5;color:#4b5563}</style></head><body><h1>${escapeHtml(title)}</h1><p>${escapeHtml(message)}</p></body></html>`);
+        popup.document.close();
+      } catch (error) {
+        console.warn('[Alpha Avocat][external-nav] No fue posible escribir el estado de carga en la pestaña emergente.', error);
+      }
+    }
+
+    function openExternalPopup(scope, loadingMessage){
+      const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      const blocked = popup == null;
+      logTrace(scope, blocked ? 'popup-null' : 'popup-abierto', { blocked });
+      if (blocked) return null;
+      writePopupLoadingState(
+        popup,
+        scope === 'ebook' ? 'Abriendo ebook del Poder Judicial...' : 'Abriendo causa en Poder Judicial...',
+        loadingMessage,
+      );
+      return popup;
+    }
+
+    function closePopupSafely(popup){
+      if (!popup || popup.closed) return;
+      try {
+        popup.close();
+      } catch (error) {
+        console.warn('[Alpha Avocat][external-nav] No fue posible cerrar la pestaña emergente.', error);
+      }
+    }
+
+    async function resolveOfficialNavigation(scope, cause, documentRecord = null){
+      const requestedUrl = scope === 'ebook'
+        ? (documentRecord?.sourcePageUrl || documentRecord?.sourceUrl || cause?.poderJudicial?.link || cause?.tribunalData?.poderJudicial || '')
+        : (cause?.poderJudicial?.link || cause?.tribunalData?.poderJudicial || '');
+      logTrace(scope, 'solicitando-url', {
+        causeId: cause?.id || '',
+        documentId: documentRecord?.id || '',
+        requestedUrl,
+        backendUrl: 'cliente://resolver-enlace-pjud',
+      });
+      await Promise.resolve();
+      const officialUrl = scope === 'ebook' ? buildEbookExternalUrl(cause, documentRecord) : buildPjudExternalUrl(cause);
+      const response = {
+        ok: Boolean(officialUrl),
+        url: officialUrl,
+        source: 'client-side-resolution',
+        requestedUrl,
+        redirectedToLogin: looksLikeLoginUrl(officialUrl),
+      };
+      logTrace(scope, 'respuesta-url', response);
+      return response;
+    }
+
+    function getNavigationMessages(scope){
+      if (scope === 'ebook') {
+        return {
+          popupBlocked: 'Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.',
+          urlUnavailable: 'No fue posible obtener el enlace del ebook del Poder Judicial.',
+          sessionWarning: 'El ebook se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.',
+          redirectError: 'No fue posible redirigir la pestaña al ebook del Poder Judicial.',
+          success: 'El ebook se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.',
+        };
+      }
+      return {
+        popupBlocked: 'Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.',
+        urlUnavailable: 'No fue posible obtener el enlace del Poder Judicial para esta causa.',
+        sessionWarning: 'La causa se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.',
+        redirectError: 'No fue posible redirigir la pestaña al sitio oficial del Poder Judicial.',
+        success: 'La causa se abrirá en el sitio oficial del Poder Judicial en una pestaña nueva.',
+      };
+    }
+
+    async function navigateToOfficialSite({ scope, cause, documentRecord = null, popup, requestedBy = 'primary-action', registerDownloadOnSuccess = false }){
+      const messages = getNavigationMessages(scope);
+      try {
+        const response = await resolveOfficialNavigation(scope, cause, documentRecord);
+        const finalUrl = normalizeDownloadUrl(response?.url || '');
+        const redirectedToLogin = looksLikeLoginUrl(finalUrl);
+        toggleEbookFallback(finalUrl, scope);
+
+        if (!response?.ok || !finalUrl) {
+          logTrace(scope, 'url-vacia-o-invalida', { causeId: cause?.id || '', documentId: documentRecord?.id || '', response });
+          closePopupSafely(popup);
+          setDetailStatus(messages.urlUnavailable, 'error');
+          registerJudicialTrace({
+            scope,
+            mode: scope === 'ebook' ? 'descarga-ebook' : 'apertura-pjud',
+            result: scope === 'ebook' ? 'Sin URL oficial de ebook' : 'Sin URL oficial PJUD',
+            notes: `No fue posible obtener una URL oficial. Popup bloqueado: no. URL solicitada: ${response?.requestedUrl || 'sin datos'}.`,
+            documentId: documentRecord?.id,
+          });
+          return false;
+        }
+
+        logTrace(scope, 'url-recibida', { finalUrl, redirectedToLogin, requestedBy });
+        if (redirectedToLogin) {
+          setDetailStatus(messages.sessionWarning, 'warn');
+        } else {
+          setDetailStatus(messages.success, scope === 'ebook' ? 'warn' : 'ok');
+        }
+
+        if (!popup || popup.closed) {
+          logTrace(scope, 'popup-cerrado-antes-redireccion', { finalUrl, requestedBy });
+          setDetailStatus(messages.redirectError, 'error');
+          registerJudicialTrace({
+            scope,
+            mode: scope === 'ebook' ? 'descarga-ebook' : 'apertura-pjud',
+            result: 'Popup cerrado antes de redirección',
+            notes: `La pestaña se cerró antes de navegar a ${finalUrl}.`,
+            documentId: documentRecord?.id,
+          });
+          return false;
+        }
+
+        popup.location.href = finalUrl;
+        logTrace(scope, 'redireccion-ejecutada', { finalUrl, redirectedToLogin, requestedBy });
+
+        if (registerDownloadOnSuccess && documentRecord?.id) {
+          persistCurrentCause((entry) => recordDownload(entry, documentRecord.id));
+          await loadCases();
+          renderAll();
+        }
+
+        registerJudicialTrace({
+          scope,
+          mode: scope === 'ebook' ? 'descarga-ebook' : 'apertura-pjud',
+          result: redirectedToLogin
+            ? (scope === 'ebook' ? 'Apertura externa con posible login' : 'Apertura PJUD con posible login')
+            : (scope === 'ebook' ? 'Apertura externa ebook' : 'Apertura externa Poder Judicial'),
+          notes: `URL solicitada: ${response.requestedUrl || 'sin datos'}. URL final: ${finalUrl}. Popup bloqueado: no. Redirección a login: ${redirectedToLogin ? 'sí' : 'no o no verificable'}. Fallback activo: ${finalUrl ? 'sí' : 'no'}.`,
+          documentId: documentRecord?.id,
+        });
+        return true;
+      } catch (error) {
+        logTrace(scope, 'error', {
+          causeId: cause?.id || '',
+          documentId: documentRecord?.id || '',
+          message: error?.message || 'Error desconocido',
+          stack: error?.stack || '',
+          requestedBy,
+        });
+        closePopupSafely(popup);
+        toggleEbookFallback(scope === 'ebook' ? buildEbookExternalUrl(cause, documentRecord) : buildPjudExternalUrl(cause), scope);
+        setDetailStatus(messages.urlUnavailable, 'error');
+        registerJudicialTrace({
+          scope,
+          mode: scope === 'ebook' ? 'descarga-ebook' : 'apertura-pjud',
+          result: 'Error obteniendo URL oficial',
+          notes: `Error capturado: ${error?.message || 'Error desconocido'}.`,
+          documentId: documentRecord?.id,
+        });
+        return false;
+      }
     }
 
     async function copyTextToClipboard(text){
@@ -1662,67 +1834,38 @@
       return success;
     }
 
-    function monitorExternalWindow(openedWindow, generatedUrl, documentRecord){
-      window.setTimeout(() => {
-        let redirectedToLogin = false;
-        let currentUrl = generatedUrl;
-        try {
-          currentUrl = openedWindow?.location?.href || generatedUrl;
-          redirectedToLogin = looksLikeLoginUrl(currentUrl);
-        } catch {
-          redirectedToLogin = looksLikeLoginUrl(generatedUrl);
-        }
-        logEbookTrace('redireccion-login-detectada', { generatedUrl, currentUrl, redirectedToLogin });
-        registerEbookTrace(documentRecord, {
-          result: redirectedToLogin ? 'Apertura externa con posible login' : 'Apertura externa ebook',
-          notes: `URL generada: ${generatedUrl}. ¿Intentó iframe?: no. ¿Window.open bloqueado?: no. ¿Redirección a login?: ${redirectedToLogin ? 'sí' : 'no o no verificable'}.`,
-        });
-      }, 1200);
-    }
-
-    function openEbookExternally(documentRecord){
+    async function openEbookExternally(documentRecord){
       const cause = getCurrentCause();
       if (!cause || !documentRecord) return false;
 
-      const generatedUrl = buildEbookExternalUrl(cause, documentRecord);
-      const redirectedToLogin = looksLikeLoginUrl(generatedUrl);
-      logEbookTrace('click-detectado', {
+      logEbookTrace('click recibido', {
         causeId: cause.id,
         documentId: documentRecord.id,
-        generatedUrl,
         sourceUrl: documentRecord.sourceUrl || '',
         sourcePageUrl: documentRecord.sourcePageUrl || cause.poderJudicial?.link || '',
-        iframeAttempted: false,
-        redirectedToLogin,
       });
-
-      if (!generatedUrl) {
-        toggleEbookFallback('');
-        setDetailStatus('No se pudo generar un enlace oficial del Poder Judicial para este eBook.', 'error');
-        registerEbookTrace(documentRecord, {
-          result: 'Sin URL oficial de ebook',
-          notes: 'No fue posible generar una URL oficial del PJUD. ¿Intentó iframe?: no. ¿Window.open bloqueado?: no. ¿Redirección a login?: no.',
-        });
-        return false;
-      }
-
-      toggleEbookFallback(generatedUrl);
-      setDetailStatus('El eBook se abrirá en el sitio oficial del Poder Judicial. Si no carga, inicie sesión allí y vuelva a intentarlo.', 'warn');
-      const openedWindow = window.open(generatedUrl, '_blank', 'noopener,noreferrer');
-      if (!openedWindow) {
-        logEbookTrace('window-open-bloqueado', { generatedUrl, iframeAttempted: false, redirectedToLogin });
+      const popup = openExternalPopup('ebook', 'Estamos preparando la navegación externa hacia el ebook oficial del Poder Judicial.');
+      if (!popup) {
+        toggleEbookFallback(buildEbookExternalUrl(cause, documentRecord), 'ebook');
         setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
-        registerEbookTrace(documentRecord, {
+        registerJudicialTrace({
+          scope: 'ebook',
+          mode: 'descarga-ebook',
           result: 'Ventana emergente bloqueada',
-          notes: `URL generada: ${generatedUrl}. ¿Intentó iframe?: no. ¿Window.open bloqueado?: sí. ¿Redirección a login?: ${redirectedToLogin ? 'sí' : 'no'}.`,
+          notes: `Causa: ${cause.id}. Documento: ${documentRecord.id}. Popup bloqueado: sí.`,
+          documentId: documentRecord.id,
         });
         return false;
       }
 
-      persistCurrentCause((entry) => recordDownload(entry, documentRecord.id));
-      loadCases().then(renderAll);
-      monitorExternalWindow(openedWindow, generatedUrl, documentRecord);
-      return true;
+      return navigateToOfficialSite({
+        scope: 'ebook',
+        cause,
+        documentRecord,
+        popup,
+        requestedBy: 'detail-action:ebook',
+        registerDownloadOnSuccess: true,
+      });
     }
 
     function openManagedModal(id){
@@ -3475,14 +3618,33 @@
       openManagedModal('modalSincronizacion');
     }
 
-    function openInPoderJudicial(){
+    async function openInPoderJudicial(){
       const current = getCurrentCause();
-      const link = current?.poderJudicial?.link || current?.tribunalData?.poderJudicial;
-      if (!link) {
-        alert('Esta causa todavía no tiene link del Poder Judicial guardado.');
-        return;
+      if (!current) return false;
+
+      logPjudTrace('click recibido', {
+        causeId: current.id,
+        sourceUrl: current?.poderJudicial?.link || current?.tribunalData?.poderJudicial || '',
+      });
+      const popup = openExternalPopup('pjud', 'Estamos preparando la navegación externa hacia la causa en el sitio oficial del Poder Judicial.');
+      if (!popup) {
+        toggleEbookFallback(buildPjudExternalUrl(current), 'pjud');
+        setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
+        registerJudicialTrace({
+          scope: 'pjud',
+          mode: 'apertura-pjud',
+          result: 'Ventana emergente bloqueada',
+          notes: `Causa: ${current.id}. Popup bloqueado: sí.`,
+        });
+        return false;
       }
-      window.open(link, '_blank', 'noopener,noreferrer');
+
+      return navigateToOfficialSite({
+        scope: 'pjud',
+        cause: current,
+        popup,
+        requestedBy: 'detail-action:pjud',
+      });
     }
 
     function openDocumentModal(documentId = null, containerId = 'asociados'){
@@ -3533,7 +3695,7 @@
 
       if (action === 'open') {
         if (documentRecord.category === 'Ebook') {
-          openEbookExternally(documentRecord);
+          await openEbookExternally(documentRecord);
           return;
         }
         toggleEbookFallback('');
@@ -3543,7 +3705,7 @@
 
       if (action === 'download') {
         if (documentRecord.category === 'Ebook') {
-          openEbookExternally(documentRecord);
+          await openEbookExternally(documentRecord);
           return;
         }
         toggleEbookFallback('');
@@ -3789,31 +3951,45 @@
 
       $('btnCopyEbookLink')?.addEventListener('click', async () => {
         if (!state.ebookFallbackUrl) return;
+        const scope = state.officialFallbackScope || 'ebook';
         try {
           await copyTextToClipboard(state.ebookFallbackUrl);
           setDetailStatus('Enlace oficial copiado al portapapeles.', 'ok');
-          logEbookTrace('enlace-copiado', { generatedUrl: state.ebookFallbackUrl });
+          logTrace(scope, 'enlace-copiado', { generatedUrl: state.ebookFallbackUrl, fallbackActivated: true });
         } catch (error) {
           setDetailStatus('No fue posible copiar el enlace automáticamente. Puede abrirlo manualmente desde el botón disponible.', 'error');
-          logEbookTrace('error-copiar-enlace', { generatedUrl: state.ebookFallbackUrl, message: error?.message || 'Error desconocido' });
+          logTrace(scope, 'error-copiar-enlace', { generatedUrl: state.ebookFallbackUrl, message: error?.message || 'Error desconocido' });
         }
       });
 
       $('btnOpenEbookOfficial')?.addEventListener('click', () => {
         if (!state.ebookFallbackUrl) return;
-        const openedWindow = window.open(state.ebookFallbackUrl, '_blank', 'noopener,noreferrer');
-        const blocked = !openedWindow;
-        logEbookTrace('reintento-apertura-externa', {
-          generatedUrl: state.ebookFallbackUrl,
-          iframeAttempted: false,
-          windowOpenBlocked: blocked,
-          redirectedToLogin: looksLikeLoginUrl(state.ebookFallbackUrl),
-        });
-        if (blocked) {
+        const scope = state.officialFallbackScope || 'ebook';
+        const popup = openExternalPopup(scope, 'Estamos abriendo el enlace oficial del Poder Judicial en una nueva pestaña.');
+        if (!popup) {
           setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
           return;
         }
-        setDetailStatus('El eBook se abrirá en el sitio oficial del Poder Judicial. Si no carga, inicie sesión allí y vuelva a intentarlo.', 'warn');
+        try {
+          popup.location.href = state.ebookFallbackUrl;
+          logTrace(scope, 'fallback activado', {
+            generatedUrl: state.ebookFallbackUrl,
+            redirectedToLogin: looksLikeLoginUrl(state.ebookFallbackUrl),
+          });
+          setDetailStatus(
+            scope === 'ebook'
+              ? 'El ebook se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.'
+              : 'La causa se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.',
+            'warn',
+          );
+        } catch (error) {
+          closePopupSafely(popup);
+          logTrace(scope, 'error-redireccion-fallback', {
+            generatedUrl: state.ebookFallbackUrl,
+            message: error?.message || 'Error desconocido',
+          });
+          setDetailStatus('No fue posible redirigir la pestaña al sitio oficial del Poder Judicial.', 'error');
+        }
       });
     }
 
