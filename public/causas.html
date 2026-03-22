@@ -1245,6 +1245,29 @@
       </div>
 
       <form id="formImportacion" class="form">
+        <div class="helper-box">
+          <strong>Transferencia masiva desde Oficina Judicial Virtual</strong>
+          <div class="timeline-meta">Pega un consolidado de varias causas/exportaciones de OJV. El sistema filtrará solo aquellas donde figure Mario Javier Rodríguez Ardiles, transferirá automáticamente los documentos detectados a Alpha Avocat y creará la causa si todavía no existe.</div>
+        </div>
+
+        <div class="grid-2">
+          <div class="field">
+            <label for="batch_actor_name">Interviniente a filtrar</label>
+            <input id="batch_actor_name" class="input" value="Mario Javier Rodríguez Ardiles" />
+          </div>
+          <div class="field">
+            <label for="batch_raw">Consolidado OJV / Poder Judicial</label>
+            <textarea id="batch_raw" class="textarea" placeholder="Pega aquí varias causas. Puedes separarlas con líneas como --- CAUSA --- o incluir bloques con Rol, RIT, Tribunal, documentos y movimientos."></textarea>
+          </div>
+        </div>
+
+        <div class="modal-actions">
+          <button type="button" id="btnAnalizarLoteImportacion" class="btn">Analizar lote OJV</button>
+          <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Transferir causas de Mario</button>
+        </div>
+
+        <div class="helper-box" id="batchImportPreview">Aún no se ha analizado un lote de causas judiciales.</div>
+
         <div class="grid-3">
           <div class="field">
             <label for="import_url">URL de la causa</label>
@@ -1394,6 +1417,7 @@
       markManualEdit,
       normalizeCaratula,
       openDocument,
+      parseJudicialBatchImportInput,
       parseJudicialImportInput,
       recordDownload,
       removeDocument,
@@ -1445,6 +1469,7 @@
       selectedId: null,
       activeTab: 'informacion',
       pendingImport: null,
+      pendingBatchImports: [],
       importTargetCaseId: null,
       currentDocumentId: null,
       currentDocumentContainer: 'asociados',
@@ -3805,6 +3830,36 @@
       `;
     }
 
+    function renderBatchImportPreview(items = [], actorName = 'Mario Javier Rodríguez Ardiles'){
+      const preview = $('batchImportPreview');
+      if (!preview) return;
+      if (!$('batch_raw')?.value.trim() && !items.length) {
+        preview.innerHTML = 'Aún no se ha analizado un lote de causas judiciales.';
+        return;
+      }
+      if (!items.length) {
+        preview.innerHTML = `No se detectaron causas del consolidado donde figure ${escapeHtml(actorName)}.`;
+        return;
+      }
+
+      preview.innerHTML = `
+        <div class="selection-grid">
+          <div class="selection-card">
+            <strong>Lote listo para transferir</strong>
+            <div class="case-meta">Causas detectadas para ${escapeHtml(actorName)}: ${items.length}</div>
+            <div class="timeline-meta">Cada causa se actualizará si ya existe o se creará automáticamente si no está en Alpha Avocat.</div>
+          </div>
+          ${items.slice(0, 6).map((item) => `
+            <div class="selection-card">
+              <strong>${escapeHtml(item.basic?.caratula || item.basic?.rol || `Causa ${item.batchMeta?.blockIndex + 1 || ''}`)}</strong>
+              <div class="case-meta">Rol: ${escapeHtml(item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.basic?.rit || 'Pendiente')}</div>
+              <div class="timeline-meta">Tribunal: ${escapeHtml(item.basic?.tribunal || 'Pendiente')} · Documentos: ${(item.documents?.length || 0) + (item.ebook ? 1 : 0)} · Movimientos: ${item.movements?.length || 0}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
     function analyzeImport(){
       const importData = parseJudicialImportInput({
         url: $('import_url').value,
@@ -3824,13 +3879,70 @@
       }
     }
 
+    function analyzeBatchImport(){
+      const actorName = $('batch_actor_name').value.trim() || 'Mario Javier Rodríguez Ardiles';
+      const items = parseJudicialBatchImportInput({
+        rawText: $('batch_raw').value,
+        actorName,
+      });
+      state.pendingBatchImports = items;
+      renderBatchImportPreview(items, actorName);
+      if (!items.length) {
+        setMessage('importMsg', `No se detectaron causas judiciales donde figure ${actorName}.`, 'warn');
+        return;
+      }
+      setMessage('importMsg', `Lote analizado: ${items.length} causa(s) lista(s) para transferencia automática.`, 'ok');
+    }
+
     function openImportModal(){
       $('formImportacion').reset();
+      $('batch_actor_name').value = 'Mario Javier Rodríguez Ardiles';
       state.pendingImport = null;
+      state.pendingBatchImports = [];
       state.importTargetCaseId = null;
       renderImportPreview(null);
+      renderBatchImportPreview([], 'Mario Javier Rodríguez Ardiles');
       setMessage('importMsg', '', '');
       openManagedModal('modalImportacion');
+    }
+
+    async function createImportedCaseFromData(importData, { primaryClientName, selectedClientParties = [] } = {}){
+      const matchingClient = state.clients.find((client) => String(client.display_name || '').toLowerCase() === String(primaryClientName).toLowerCase());
+      const payload = {
+        [C.k_client_id]: matchingClient?.[C.c_id] || state.clients[0]?.[C.c_id] || null,
+        [C.k_responsible]: $('k_resp').value.trim() || 'Mario Javier Rodríguez Ardiles',
+        [C.k_court]: importData.basic?.tribunal || null,
+        [C.k_rol]: [importData.basic?.rol, importData.basic?.rit].filter(Boolean).join(' / ') || null,
+        [C.k_subject]: importData.basic?.materia || null,
+        [C.k_fee_total]: null,
+        [C.k_fee_type]: 'Fijo',
+        [C.k_payment]: 'Único pago',
+        [C.k_ppm]: null,
+        [C.k_withheld_by]: 'Retiene receptor',
+        [C.k_notes]: importData.rawText || null,
+      };
+      const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
+      if (error) throw error;
+
+      const detail = applyImportToDetail(createSeedDetail({
+        id: String(data[C.k_id]),
+        cliente: primaryClientName,
+        caratula: importData.basic?.caratula || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
+        rol: importData.basic?.rol || '',
+        rit: importData.basic?.rit || '',
+        tribunal: importData.basic?.tribunal || '',
+        procedimiento: importData.basic?.procedimiento || '',
+        materia: importData.basic?.materia || '',
+        estadoProcesal: importData.basic?.estadoProcesal || 'En tramitación',
+        notes: importData.rawText || '',
+      }), importData, {
+        primaryClientName,
+        selectedClientParties,
+        operationMode: 'create',
+        createdNewCase: true,
+      });
+      updateWorkspaceEntry(String(data[C.k_id]), () => detail);
+      return { data, detail };
     }
 
     async function createOrUpdateImportedCase(event){
@@ -3863,51 +3975,71 @@
         return updated;
       }
 
-      const matchingClient = state.clients.find((client) => String(client.display_name || '').toLowerCase() === String(primaryClientName).toLowerCase());
-      const payload = {
-        [C.k_client_id]: matchingClient?.[C.c_id] || state.clients[0]?.[C.c_id] || null,
-        [C.k_responsible]: $('k_resp').value.trim() || null,
-        [C.k_court]: importData.basic?.tribunal || null,
-        [C.k_rol]: [importData.basic?.rol, importData.basic?.rit].filter(Boolean).join(' / ') || null,
-        [C.k_subject]: importData.basic?.materia || null,
-        [C.k_fee_total]: null,
-        [C.k_fee_type]: 'Fijo',
-        [C.k_payment]: 'Único pago',
-        [C.k_ppm]: null,
-        [C.k_withheld_by]: 'Retiene receptor',
-        [C.k_notes]: importData.rawText || null,
-      };
-      const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
-      if (error) {
+      let data
+      try {
+        ({ data } = await createImportedCaseFromData(importData, {
+          primaryClientName,
+          selectedClientParties,
+        }))
+      } catch (error) {
         setMessage('importMsg', `No fue posible crear la causa importada: ${buildLoadError('la causa importada', error).message}`, 'error');
         return null;
       }
-
-      const detail = applyImportToDetail(createSeedDetail({
-        id: String(data[C.k_id]),
-        cliente: primaryClientName,
-        caratula: importData.basic?.caratula || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
-        rol: importData.basic?.rol || '',
-        rit: importData.basic?.rit || '',
-        tribunal: importData.basic?.tribunal || '',
-        procedimiento: importData.basic?.procedimiento || '',
-        materia: importData.basic?.materia || '',
-        estadoProcesal: importData.basic?.estadoProcesal || 'En tramitación',
-        notes: importData.rawText || '',
-      }), importData, {
-        primaryClientName,
-        selectedClientParties,
-        operationMode: 'create',
-        createdNewCase: true,
-      });
-      updateWorkspaceEntry(String(data[C.k_id]), () => detail);
       state.selectedId = String(data[C.k_id]);
       setMessage('importMsg', 'Causa creada desde flujo judicial semiautomático y documentada con trazabilidad.', 'ok');
       await loadCases();
       populateFilters();
       renderAll();
       closeManagedModal('modalImportacion');
-      return detail;
+      return state.caseMap.get(String(data[C.k_id])) || null;
+    }
+
+    async function transferBatchImport(){
+      if (!state.pendingBatchImports.length) analyzeBatchImport();
+      const items = state.pendingBatchImports || [];
+      if (!items.length) return;
+
+      let created = 0;
+      let updated = 0;
+      let failures = 0;
+      let lastSelectedId = null;
+
+      for (const importData of items) {
+        const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
+        const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
+        const duplicate = findDuplicateCase(getAllCases(), importData);
+
+        try {
+          if (duplicate) {
+            updateWorkspaceEntry(duplicate.id, (entry) => applyImportToDetail(entry, importData, {
+              primaryClientName,
+              selectedClientParties,
+              operationMode: 'update',
+              createdNewCase: false,
+            }));
+            updated += 1;
+            lastSelectedId = duplicate.id;
+          } else {
+            const { data } = await createImportedCaseFromData(importData, {
+              primaryClientName,
+              selectedClientParties,
+            });
+            created += 1;
+            lastSelectedId = String(data[C.k_id]);
+          }
+          await loadCases();
+        } catch (error) {
+          console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
+          failures += 1;
+        }
+      }
+
+      if (lastSelectedId) state.selectedId = String(lastSelectedId);
+      await loadCases();
+      populateFilters();
+      renderAll();
+      setMessage('importMsg', `Transferencia masiva finalizada. Creadas: ${created}. Actualizadas: ${updated}. Errores: ${failures}.`, failures ? 'warn' : 'ok');
+      if (!failures) closeManagedModal('modalImportacion');
     }
 
     function openSyncModal(){
@@ -4152,6 +4284,8 @@
 
       $('btnNuevaCausa').addEventListener('click', openModal);
       $('btnImportar').addEventListener('click', openImportModal);
+      $('btnAnalizarLoteImportacion').addEventListener('click', analyzeBatchImport);
+      $('btnTransferirLoteImportacion').addEventListener('click', transferBatchImport);
       $('btnCalendario').addEventListener('click', () => window.location.href = './agenda.html');
       $('btnActualizarEstado').addEventListener('click', openSyncModal);
       $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));

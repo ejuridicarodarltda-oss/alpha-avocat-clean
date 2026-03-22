@@ -316,6 +316,61 @@ function parsePartiesFromText(text = '') {
   return parties
 }
 
+function normalizeSearchText(value = '') {
+  return String(value || '')
+    .toLowerCase()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+}
+
+function containsNamedParticipant(text = '', participant = '') {
+  const haystack = normalizeSearchText(text)
+  const needle = normalizeSearchText(participant)
+  if (!needle) return false
+  return haystack.includes(needle)
+}
+
+function splitJudicialBatchBlocks(rawText = '') {
+  const normalized = String(rawText || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+
+  if (!normalized) return []
+
+  const explicitBlocks = normalized
+    .split(/\n(?=(?:=|-){3,}\s*(?:causa|expediente|proceso)?)/i)
+    .map((block) => block.replace(/^(?:=|-){3,}\s*(?:causa|expediente|proceso)?\s*(?:=|-)*\s*/i, '').trim())
+    .filter(Boolean)
+
+  if (explicitBlocks.length > 1) return explicitBlocks
+
+  const lines = normalized.split('\n')
+  const blocks = []
+  let current = []
+
+  const flush = () => {
+    const joined = current.join('\n').trim()
+    if (joined) blocks.push(joined)
+    current = []
+  }
+
+  lines.forEach((line) => {
+    const trimmed = line.trim()
+    const startsNewCase = /^(?:causa|expediente|proceso)\b/i.test(trimmed) && current.length > 0
+    if (startsNewCase) flush()
+    current.push(line)
+  })
+  flush()
+
+  if (blocks.length > 1) return blocks
+
+  return normalized
+    .split(/\n\s*\n(?=(?:caratula|carátula|rol|rit|tribunal|causa)\s*[:：-])/i)
+    .map((block) => block.trim())
+    .filter(Boolean)
+}
+
 export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribunal = '', rawText = '' } = {}) {
   const sourceUrl = String(url || '').trim()
   const raw = String(rawText || '').trim()
@@ -354,7 +409,7 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
   const docLines = String(raw || '')
     .split(/\n+/)
     .map((line) => line.trim())
-    .filter((line) => /^documento\s*[:：-]/i.test(line) || /^archivo\s*[:：-]/i.test(line) || /^ebook\s*[:：-]/i.test(line))
+    .filter((line) => /^documento\s*[:：-]/i.test(line) || /^archivo\s*[:：-]/i.test(line) || /^ebook\s*[:：-]/i.test(line) || /^adjunto\s*[:：-]/i.test(line) || /^anexo\s*[:：-]/i.test(line))
 
   const documents = docLines.map((line, index) => {
     const body = line.replace(/^[^:：-]+[:：-]\s*/i, '')
@@ -431,6 +486,40 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
     ebook,
     rawText: raw,
   }
+}
+
+export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Mario Javier Rodríguez Ardiles' } = {}) {
+  const blocks = splitJudicialBatchBlocks(rawText)
+
+  return blocks
+    .map((block, index) => {
+      const parsedUrl = extractFirstUrl(block)
+      const parsedRol = parseSimpleField(block, ['rol'])
+      const parsedRit = parseSimpleField(block, ['rit'])
+      const parsedTribunal = parseSimpleField(block, ['tribunal'])
+      const importData = parseJudicialImportInput({
+        url: parsedUrl,
+        rol: parsedRol,
+        rit: parsedRit,
+        tribunal: parsedTribunal,
+        rawText: block,
+      })
+
+      const mentionsActor = containsNamedParticipant(block, actorName)
+      const hasMinimumIdentity = Boolean(importData.basic?.rol || importData.basic?.rit || importData.basic?.caratula || importData.basic?.tribunal)
+
+      if (!mentionsActor || !hasMinimumIdentity) return null
+
+      return {
+        ...importData,
+        batchMeta: {
+          actorName,
+          blockIndex: index,
+          matchedByName: mentionsActor,
+        },
+      }
+    })
+    .filter(Boolean)
 }
 
 export function findDuplicateCase(cases = [], importData = {}) {
