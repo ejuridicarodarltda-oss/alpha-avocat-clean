@@ -76,6 +76,28 @@ function inferMimeFromName(name = '') {
   return 'application/octet-stream'
 }
 
+function deriveNameFromUrl(sourceUrl = '', fallback = 'documento.bin') {
+  try {
+    const resolved = new URL(String(sourceUrl || ''), window.location.href)
+    const pathname = resolved.pathname.split('/').filter(Boolean).pop() || ''
+    const cleanName = pathname.trim()
+    return cleanName || fallback
+  } catch {
+    return fallback
+  }
+}
+
+function extractFirstUrl(text = '') {
+  return String(text || '').match(/https?:\/\/[^\s)>"']+/i)?.[0] || ''
+}
+
+function deriveImportedDocumentName(body = '', sourceUrl = '', index = 0) {
+  const normalizedBody = normalizeParticipantLabel(body)
+  if (normalizedBody.includes('.')) return normalizedBody
+  if (sourceUrl) return deriveNameFromUrl(sourceUrl, `documento-${index + 1}.bin`)
+  return `${normalizedBody || `Documento ${index + 1}`}.txt`
+}
+
 function toBase64(value = '') {
   return btoa(unescape(encodeURIComponent(String(value))))
 }
@@ -144,6 +166,11 @@ export function upsertDocument(detail = {}, input = {}) {
     downloadCount: Number(input.downloadCount || 0),
     hash,
     content,
+    sourceUrl: input.sourceUrl || '',
+    sourcePageUrl: input.sourcePageUrl || '',
+    downloadStrategy: input.downloadStrategy || (input.sourceUrl ? 'remote' : 'stored'),
+    lastTransferStatus: input.lastTransferStatus || '',
+    lastTransferError: input.lastTransferError || '',
   }
 
   if (existingIndex >= 0) {
@@ -331,7 +358,9 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
 
   const documents = docLines.map((line, index) => {
     const body = line.replace(/^[^:：-]+[:：-]\s*/i, '')
-    const name = body.includes('.') ? body : `${body || `Documento ${index + 1}`}.txt`
+    const extractedUrl = extractFirstUrl(body)
+    const cleanBody = normalizeParticipantLabel(body.replace(extractedUrl, '').replace(/\s*[|·-]\s*$/, ''))
+    const name = deriveImportedDocumentName(cleanBody, extractedUrl, index)
     const category = /^ebook/i.test(line) ? 'Ebook' : inferCategory(name)
     return {
       id: `import-doc-${Date.now()}-${index}`,
@@ -345,9 +374,14 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
       destinationContainer: category === 'Ebook' ? 'ebook' : (category === 'Otros antecedentes' ? 'asociados' : containerIdForCategory(category)),
       content: buildTextDataUrl(`Documento registrado durante la importación judicial.\n\nNombre: ${name}\nOrigen: Poder Judicial\nFuente: ${sourceUrl || 'manual'}\n`),
       hash: quickHash(`${name}|${sourceUrl}|${index}`),
+      sourceUrl: extractedUrl,
+      sourcePageUrl: sourceUrl || extractedUrl,
+      downloadStrategy: extractedUrl ? 'remote' : 'stored',
     }
   })
 
+  const explicitEbookSourceUrl = documents.find((documentRecord) => documentRecord.category === 'Ebook')?.sourceUrl || ''
+  const ebookSourcePageUrl = sourceUrl || extractFirstUrl(raw) || ''
   const ebook = documents.find((documentRecord) => documentRecord.category === 'Ebook') || {
     name: `ebook-${slugId(caratula || parsedRol || 'causa')}.txt`,
     category: 'Ebook',
@@ -369,6 +403,9 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
       'Para reemplazar este archivo por el ebook oficial, use la acción “Cargar archivo” en la sección Ebook.'
     ].join('\n')),
     hash: quickHash(`ebook|${caratula}|${parsedRol}|${sourceUrl}`),
+    sourceUrl: explicitEbookSourceUrl,
+    sourcePageUrl: ebookSourcePageUrl,
+    downloadStrategy: explicitEbookSourceUrl || ebookSourcePageUrl ? 'remote' : 'stored',
   }
 
   return {
