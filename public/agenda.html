@@ -54,6 +54,10 @@ main.agenda-main{
   --agenda-accent:#163A5F;
   --agenda-critical:#7A1E2C;
   --agenda-white:#FFFFFF;
+  --agenda-button-glow:0 0 0 1px rgba(255,255,255,.16), 0 12px 24px rgba(111,76,139,.18), 0 0 18px rgba(147,62,209,.18);
+  --agenda-button-glow-hover:0 0 0 1px rgba(255,255,255,.22), 0 16px 30px rgba(22,58,95,.22), 0 0 24px rgba(147,62,209,.22);
+  --agenda-button-glow-active:inset 0 2px 8px rgba(22,58,95,.16), 0 8px 18px rgba(22,58,95,.18);
+  --agenda-card-shadow-static:0 10px 20px rgba(111,76,139,.10);
   max-width:1240px;
   margin:0 auto 28px;
   padding:24px;
@@ -70,9 +74,9 @@ main.agenda-main{
   display:none;
   border-radius:22px;
   padding:24px;
-  background:var(--agenda-block);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--agenda-block) 88%, white), var(--agenda-block));
   border:1px solid color-mix(in srgb, var(--agenda-border) 76%, white);
-  box-shadow:inset 0 1px 0 rgba(255,255,255,.45), 0 10px 22px rgba(111,76,139,.10);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.45), var(--agenda-card-shadow-static);
   color:var(--agenda-text);
 }
 
@@ -136,17 +140,18 @@ main.agenda-main{
 .actions button,
 #eventsTable button{
   appearance:none;
-  border:1px solid color-mix(in srgb, var(--agenda-border) 70%, white);
-  border-radius:14px;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 66%, white);
+  border-radius:16px;
   padding:12px 16px;
-  background:var(--agenda-white);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--agenda-white) 96%, white), color-mix(in srgb, var(--agenda-card-soft) 74%, white));
   color:var(--agenda-text);
   cursor:pointer;
   font:inherit;
-  font-weight:700;
+  font-weight:800;
   line-height:1.25;
-  box-shadow:0 6px 16px rgba(111,76,139,.10);
-  transition:background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease;
+  box-shadow:var(--agenda-button-glow);
+  transition:background-color .18s ease, color .18s ease, border-color .18s ease, transform .18s ease, box-shadow .18s ease, filter .18s ease;
+  position:relative;
 }
 
 .nav-btn:hover,
@@ -157,8 +162,9 @@ main.agenda-main{
 #eventsTable button:focus-visible{
   outline:none;
   border-color:var(--agenda-accent);
-  transform:translateY(-1px);
-  box-shadow:0 10px 18px rgba(22,58,95,.18);
+  transform:translateY(-2px);
+  box-shadow:var(--agenda-button-glow-hover);
+  filter:brightness(1.02);
 }
 
 .nav-btn:active,
@@ -167,16 +173,17 @@ main.agenda-main{
 .nav-btn.is-active,
 .actions button.is-active,
 #eventsTable button.is-active{
-  background:var(--agenda-accent);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--agenda-accent) 86%, white), var(--agenda-accent));
   border-color:var(--agenda-accent);
   color:var(--agenda-white);
+  box-shadow:var(--agenda-button-glow-active);
 }
 
 .actions .btn-cancel,
 .actions .btn-danger,
 #eventsTable .btn-danger,
 #eventsTable .delete{
-  background:var(--agenda-critical);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--agenda-critical) 86%, white), var(--agenda-critical));
   border-color:var(--agenda-critical);
   color:var(--agenda-white);
 }
@@ -196,8 +203,41 @@ main.agenda-main{
 .actions .btn-save,
 .actions .btn-nav[data-target],
 .actions .btn-nav[data-home="primary"]{
-  background:var(--agenda-white);
+  background:linear-gradient(135deg, color-mix(in srgb, var(--agenda-white) 96%, white), color-mix(in srgb, var(--agenda-card-soft) 74%, white));
   color:var(--agenda-text);
+}
+
+.actions button:disabled,
+.actions button[aria-disabled="true"],
+.nav-btn:disabled,
+#eventsTable button:disabled{
+  opacity:.62;
+  cursor:not-allowed;
+  filter:saturate(.72);
+  box-shadow:0 6px 14px rgba(111,76,139,.10);
+}
+
+.actions button[data-coming-soon],
+.nav-btn[data-coming-soon],
+#eventsTable button[data-coming-soon]{
+  padding-bottom:24px;
+}
+
+.actions button[data-coming-soon]::after,
+.nav-btn[data-coming-soon]::after,
+#eventsTable button[data-coming-soon]::after{
+  content:attr(data-coming-soon);
+  position:absolute;
+  left:12px;
+  bottom:7px;
+  font-size:10px;
+  font-weight:800;
+  letter-spacing:.04em;
+  text-transform:uppercase;
+  padding:3px 7px;
+  border-radius:999px;
+  background:rgba(255,255,255,.6);
+  color:currentColor;
 }
 
 .rectification-panel{
@@ -557,7 +597,7 @@ input[type="checkbox"]{
         <label data-recording-field>Grabación remota<input id="act_remote_recording" placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
-    <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Iniciar actividad</button><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="contenedor">
@@ -566,7 +606,7 @@ input[type="checkbox"]{
     <div class="block"><h3>Bloque B. Transcripción</h3><div class="check-grid"><label><input type="checkbox">Acta Word</label><label><input type="checkbox">Revisar</label><label><input type="checkbox">Corregir</label><label><input type="checkbox">Aprobar</label><label><input type="checkbox">Convertir a PDF</label><label><input type="checkbox">Acta PDF</label></div></div>
     <div class="block"><h3>Bloque C. Depositar grabación</h3><div class="check-grid"><label><input type="checkbox">Guardar en contenedor de archivos por asunto asociado a causa</label><label><input type="checkbox">Guardar en contenedor de archivos por asunto asociado a cliente</label><label><input type="checkbox">Guardar en contenedor de Agenda para no cliente</label></div></div>
     <div class="block"><h3>Bloque D. Imprimir y enviar</h3><div class="check-grid"><label><input type="checkbox">Imprimir acta en PDF</label><label><input type="checkbox">Enviar acta PDF al cliente</label><label><input type="checkbox">Correo</label><label><input type="checkbox">WhatsApp</label></div></div>
-    <div class="actions"><button class="btn-save">Subir grabación</button><button class="btn-save">Generar acta Word</button><button class="btn-save">Convertir a PDF</button><button class="btn-save">Guardar archivo</button><button class="btn-save">Imprimir</button><button class="btn-save">Enviar</button><button class="btn-nav" data-target="honorarios">Ir a Honorarios de atención</button><button class="btn-nav" data-target="actividad">Volver a Actividad</button><button class="btn-clear" data-clear="contenedor">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Subir grabación</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Generar acta Word</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Convertir a PDF</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Guardar archivo</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Imprimir</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Enviar</button><button class="btn-nav" data-target="honorarios">Ir a Honorarios de atención</button><button class="btn-nav" data-target="actividad">Volver a Actividad</button><button class="btn-clear" data-clear="contenedor">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="calendario">
@@ -574,7 +614,7 @@ input[type="checkbox"]{
     <div class="block"><h3>Bloque A. Calendario</h3><div class="check-grid"><label><input type="radio" name="vista" checked>Vista diaria</label><label><input type="radio" name="vista">Vista semanal</label><label><input type="radio" name="vista">Vista mensual</label></div></div>
     <div class="block"><h3>Bloque B. Eventos</h3><div class="check-grid"><label><input type="checkbox">Eventos del día</label><label><input type="checkbox">Próximos eventos</label><label><input type="checkbox">Evento en curso</label><label><input type="checkbox">Evento vencido</label><label><input type="checkbox">Evento finalizado</label></div></div>
     <div class="block"><h3>Bloque C. Reloj</h3><div class="fields"><label>Fecha actual<input id="fechaActual" readonly></label><label>Hora actual<input id="horaActual" readonly></label></div></div>
-    <div class="actions"><button class="btn-save">Ver día</button><button class="btn-save">Ver semana</button><button class="btn-save">Ver mes</button><button class="btn-nav" data-target="nuevo-evento">Abrir evento</button><button class="btn-nav" data-target="nuevo-evento">Crear nuevo evento</button><button class="btn-nav" data-home>Volver a Agenda principal</button><button class="btn-clear" data-clear="calendario">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ver día</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ver semana</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ver mes</button><button class="btn-nav" data-target="nuevo-evento">Abrir evento</button><button class="btn-nav" data-target="nuevo-evento">Crear nuevo evento</button><button class="btn-nav" data-home>Volver a Agenda principal</button><button class="btn-clear" data-clear="calendario">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="honorarios">
@@ -583,7 +623,7 @@ input[type="checkbox"]{
     <div class="block"><h3>Bloque B. Emisión de boleta</h3><div class="fields"><label>Link a la página del SII<input value="https://www.sii.cl"></label><label>Ingresar clave de usuario<input type="password"></label><label>Emitir boleta por la atención<input></label><label>Registrar N° de boleta<input></label><label>Registrar fecha de emisión<input type="date"></label><label>Registrar monto<input type="number"></label><label>Registrar observación<textarea></textarea></label></div></div>
     <div class="block"><h3>Bloque C. Guardar boleta</h3><div class="check-grid"><label><input type="checkbox">Subir boleta en PDF</label><label><input type="checkbox">Guardar boleta en el sistema</label><label><input type="checkbox">Asociar boleta al evento</label><label><input type="checkbox">Asociar boleta al cliente</label><label><input type="checkbox">Asociar boleta a la causa, si la hubiere</label></div></div>
     <div class="block"><h3>Bloque D. Enviar boleta</h3><div class="check-grid"><label><input type="checkbox">Correo</label><label><input type="checkbox">WhatsApp</label></div></div>
-    <div class="actions"><button class="btn-save">Ir al SII</button><button class="btn-save">Guardar boleta</button><button class="btn-save">Ver boleta</button><button class="btn-save">Enviar boleta</button><button class="btn-cancel">Marcar gratuidad</button><button class="btn-nav" data-target="contenedor">Volver a Contenedor y registro</button><button class="btn-clear" data-clear="honorarios">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ir al SII</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Guardar boleta</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ver boleta</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Enviar boleta</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Marcar gratuidad</button><button class="btn-nav" data-target="contenedor">Volver a Contenedor y registro</button><button class="btn-clear" data-clear="honorarios">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 </main>
 
