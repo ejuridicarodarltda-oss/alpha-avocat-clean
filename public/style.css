@@ -449,6 +449,102 @@ min-height:54px;
 .b3{background:linear-gradient(135deg,#c4b5fd,#8b5cf6);}
 .b4{background:linear-gradient(135deg,#d8b08c,#bc8d67);}
 
+.panel-quick-modal-overlay{
+position:fixed;
+top:0;
+left:0;
+width:100%;
+height:100%;
+display:none;
+align-items:center;
+justify-content:center;
+padding:24px;
+background:rgba(12,31,52,.42);
+z-index:2000;
+}
+
+.panel-quick-modal-overlay.is-open{
+display:flex;
+}
+
+body.panel-page.modal-open{
+overflow:hidden;
+}
+
+.panel-quick-modal{
+width:min(560px,100%);
+background:#ffffff;
+border-radius:22px;
+box-shadow:0 24px 48px rgba(0,0,0,.30);
+padding:24px;
+color:#0f172a;
+display:grid;
+gap:18px;
+}
+
+.panel-quick-modal-header{
+display:flex;
+align-items:flex-start;
+justify-content:space-between;
+gap:16px;
+}
+
+.panel-quick-modal-title{
+margin:0;
+font-size:28px;
+line-height:1.1;
+color:#0c1f34;
+}
+
+.panel-quick-modal-subtitle{
+margin:8px 0 0 0;
+font-size:15px;
+line-height:1.45;
+color:#475569;
+}
+
+.panel-quick-modal-close{
+border:none;
+border-radius:999px;
+background:#eef1f5;
+color:#0c1f34;
+width:40px;
+height:40px;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+font-size:20px;
+font-weight:700;
+cursor:pointer;
+flex-shrink:0;
+box-shadow:0 8px 16px rgba(15,23,42,.12);
+}
+
+.panel-quick-modal-actions{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+gap:12px;
+}
+
+.panel-quick-modal-action{
+min-height:52px;
+border:none;
+border-radius:16px;
+padding:12px 16px;
+font-size:14px;
+font-weight:700;
+line-height:1.2;
+cursor:pointer;
+color:#0c1f34;
+background:#eef1f5;
+box-shadow:0 10px 18px rgba(15,23,42,.12);
+}
+
+.panel-quick-modal-action-primary{
+color:#ffffff;
+background:linear-gradient(135deg,#14b8a6,#0f766e);
+}
+
 /* PANELES */
 
 .paneles{
@@ -678,6 +774,18 @@ gap:10px;
 min-height:48px;
 }
 
+.panel-quick-modal-overlay{
+padding:16px;
+}
+
+.panel-quick-modal{
+padding:20px;
+}
+
+.panel-quick-modal-title{
+font-size:24px;
+}
+
 .paneles{
 overflow:visible;
 }
@@ -848,6 +956,33 @@ overflow:hidden;
 
 body.panel-page .panel{
 max-height:none;
+}
+}
+
+@media (max-width:480px){
+.panel-quick-modal-overlay{
+padding:12px;
+}
+
+.panel-quick-modal{
+padding:18px;
+border-radius:18px;
+}
+
+.panel-quick-modal-header{
+gap:12px;
+}
+
+.panel-quick-modal-title{
+font-size:22px;
+}
+
+.panel-quick-modal-subtitle{
+font-size:14px;
+}
+
+.panel-quick-modal-actions{
+grid-template-columns:1fr;
 }
 }
 

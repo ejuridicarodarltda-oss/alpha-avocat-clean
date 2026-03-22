@@ -166,23 +166,6 @@ Cerrar sesión
 
 </section>
 
-<div id="panelQuickModal" class="modal" aria-hidden="true">
-  <div class="modal-panel" style="max-width:560px">
-    <div class="modal-header">
-      <div>
-        <div class="modal-title">Nuevo documento</div>
-        <p class="panel-subtitle">Elige dónde quieres incorporar el documento sin salir del flujo operativo del panel.</p>
-      </div>
-      <button class="icon-btn" type="button" id="btnCerrarQuickModal" aria-label="Cerrar">✕</button>
-    </div>
-    <div class="action-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:8px;">
-      <button class="btn btn-primary" data-quick-doc-target="causas">Ir a Causas</button>
-      <button class="btn" data-quick-doc-target="clientes">Ir a Clientes</button>
-      <button class="btn" data-quick-doc-target="agenda">Ir a Agenda</button>
-    </div>
-  </div>
-</div>
-
 <section class="paneles">
 
 <div class="panel actividad">
@@ -224,6 +207,31 @@ Todos los derechos reservados
 </main>
 
 </div>
+</div>
+
+<div
+id="panelQuickModal"
+class="panel-quick-modal-overlay"
+aria-hidden="true"
+role="dialog"
+aria-modal="true"
+aria-labelledby="panelQuickModalTitle"
+aria-describedby="panelQuickModalDescription"
+>
+  <div class="panel-quick-modal" role="document">
+    <div class="panel-quick-modal-header">
+      <div>
+        <h3 id="panelQuickModalTitle" class="panel-quick-modal-title">Nuevo documento</h3>
+        <p id="panelQuickModalDescription" class="panel-quick-modal-subtitle">Elige dónde quieres incorporar el documento sin salir del flujo operativo del panel.</p>
+      </div>
+      <button class="panel-quick-modal-close" type="button" id="btnCerrarQuickModal" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="panel-quick-modal-actions">
+      <button type="button" class="panel-quick-modal-action panel-quick-modal-action-primary" data-quick-doc-target="causas">Ir a Causas</button>
+      <button type="button" class="panel-quick-modal-action" data-quick-doc-target="clientes">Ir a Clientes</button>
+      <button type="button" class="panel-quick-modal-action" data-quick-doc-target="agenda">Ir a Agenda</button>
+    </div>
+  </div>
 </div>
 
 <script>
@@ -333,7 +341,22 @@ const cerrarSesionBtn = document.getElementById("cerrar-sesion-btn")
 const panelSearch = document.getElementById('panelSearch')
 const quickModal = document.getElementById('panelQuickModal')
 const quickDocButton = document.getElementById('btnNuevoDocumentoPanel')
+const quickModalCloseButton = document.getElementById('btnCerrarQuickModal')
 let consolidatedState = null
+
+function openQuickModal() {
+  if (!quickModal) return
+  quickModal.classList.add('is-open')
+  quickModal.setAttribute('aria-hidden', 'false')
+  document.body.classList.add('modal-open')
+}
+
+function closeQuickModal() {
+  if (!quickModal) return
+  quickModal.classList.remove('is-open')
+  quickModal.setAttribute('aria-hidden', 'true')
+  document.body.classList.remove('modal-open')
+}
 
 function escapeHtml(value) {
   return String(value ?? '').replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[char]))
@@ -481,31 +504,28 @@ if (cerrarSesionBtn) {
 }
 
 quickDocButton?.addEventListener('click', () => {
-  quickModal?.classList.add('open')
-  quickModal?.setAttribute('aria-hidden', 'false')
+  openQuickModal()
 })
 
-document.getElementById('btnCerrarQuickModal')?.addEventListener('click', () => {
-  quickModal?.classList.remove('open')
-  quickModal?.setAttribute('aria-hidden', 'true')
+quickModalCloseButton?.addEventListener('click', () => {
+  closeQuickModal()
 })
 
 quickModal?.addEventListener('click', (event) => {
   if (event.target === quickModal) {
-    quickModal.classList.remove('open')
-    quickModal.setAttribute('aria-hidden', 'true')
+    closeQuickModal()
     return
   }
 
   const action = event.target.closest('[data-quick-doc-target]')
   if (!action) return
+  closeQuickModal()
   window.location.href = `./${action.dataset.quickDocTarget}.html`
 })
 
 document.addEventListener('keydown', (event) => {
-  if (event.key === 'Escape' && quickModal?.classList.contains('open')) {
-    quickModal.classList.remove('open')
-    quickModal.setAttribute('aria-hidden', 'true')
+  if (event.key === 'Escape' && quickModal?.classList.contains('is-open')) {
+    closeQuickModal()
   }
 })
 
