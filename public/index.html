@@ -11,18 +11,9 @@
 
 <link rel="stylesheet" href="./style.css">
 
-<script>
-document.documentElement.classList.add("session-check-pending")
-</script>
-
 </head>
 
 <body class="app-shell">
-
-<div id="startup-loader" class="startup-loader" role="status" aria-live="polite">
-<div class="startup-loader__spinner" aria-hidden="true"></div>
-<p class="startup-loader__label">Cargando Alpha Avocat…</p>
-</div>
 
 
 <header class="topbar">
@@ -96,9 +87,7 @@ import { supabase } from "./app.js"
 
 async function verificarSesion(){
 
-const shell = document.body
-
-const loader = document.getElementById("startup-loader")
+limpiarEstadoInicialPublico()
 
 try{
 
@@ -118,13 +107,50 @@ console.error("No fue posible validar la sesión al iniciar.", error)
 
 }
 
-document.documentElement.classList.remove("session-check-pending")
+}
 
-shell.classList.add("session-check-ready")
+function limpiarEstadoInicialPublico(){
 
-loader?.setAttribute("hidden","hidden")
+document.documentElement.classList.remove(
+"session-check-pending",
+"loading",
+"auth-loading",
+"startup",
+"intro",
+"transition",
+"blur",
+"overlay",
+"pending"
+)
+
+document.body.classList.remove(
+"session-check-pending",
+"session-check-ready",
+"loading",
+"auth-loading",
+"startup",
+"intro",
+"transition",
+"blur",
+"overlay",
+"pending"
+)
+
+for(const selector of ["body",".topbar",".layout",".main",".card"]){
+const element = selector === "body" ? document.body : document.querySelector(selector)
+if(!element) continue
+element.style.opacity = "1"
+element.style.filter = "none"
+element.style.backdropFilter = "none"
+element.style.visibility = "visible"
+element.style.pointerEvents = "auto"
+}
+
+document.getElementById("startup-loader")?.remove()
 
 }
+
+document.addEventListener("DOMContentLoaded", limpiarEstadoInicialPublico, { once:true })
 
 
 verificarSesion()
