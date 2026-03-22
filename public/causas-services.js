@@ -274,6 +274,250 @@ export function downloadDocument(documentRecord = {}) {
   return true
 }
 
+function classifyDocumentNode(documentRecord = {}) {
+  const extension = String(documentRecord.extension || documentRecord.name?.split('.').pop() || '').toLowerCase()
+  const mime = String(documentRecord.type || '').toLowerCase()
+  if (mime.includes('pdf') || extension === 'pdf') return 'pdf'
+  if (mime.includes('word') || ['doc', 'docx'].includes(extension)) return 'word'
+  if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) return 'image'
+  if (mime.includes('zip') || ['zip', 'rar', '7z'].includes(extension)) return 'zip'
+  return 'file'
+}
+
+function formatNodeDate(value = '') {
+  if (!value) return ''
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return ''
+  return date.toISOString()
+}
+
+export function buildDocumentExplorer(detail = {}, options = {}) {
+  const cause = ensureCauseStorage(detail, detail?.id)
+  const archive = cause.expedienteDigital || {}
+  const rootName = options.rootName || 'Expedientes Digitales'
+  const nodes = []
+  const seenIds = new Set()
+  const childrenById = new Map()
+
+  const ensureUniqueId = (candidate) => {
+    const base = slugId(candidate || `node-${nodes.length + 1}`)
+    if (!seenIds.has(base)) {
+      seenIds.add(base)
+      return base
+    }
+    let index = 2
+    while (seenIds.has(`${base}-${index}`)) index += 1
+    const nextId = `${base}-${index}`
+    seenIds.add(nextId)
+    return nextId
+  }
+
+  const createNode = (input = {}) => {
+    const node = {
+      id: ensureUniqueId(input.id || `${input.parentId || 'root'}-${input.name || input.type || 'node'}`),
+      name: String(input.name || 'Elemento sin nombre').trim() || 'Elemento sin nombre',
+      type: input.type || 'file',
+      extension: input.extension || '',
+      path: input.path || '',
+      parentId: input.parentId ?? null,
+      children: [],
+      size: Number(input.size || 0),
+      updatedAt: input.updatedAt || '',
+      thumbnailUrl: input.thumbnailUrl || '',
+      downloadUrl: input.downloadUrl || '',
+      previewUrl: input.previewUrl || '',
+      isExpandable: Boolean(input.isExpandable),
+      documentId: input.documentId || null,
+      mimeType: input.mimeType || '',
+      meta: input.meta || {},
+    }
+    nodes.push(node)
+    childrenById.set(node.id, node.children)
+    if (node.parentId) {
+      const siblingList = childrenById.get(node.parentId)
+      if (Array.isArray(siblingList)) siblingList.push(node.id)
+    }
+    return node
+  }
+
+  const root = createNode({
+    id: 'document-explorer-root',
+    name: rootName,
+    type: 'folder',
+    parentId: null,
+    isExpandable: true,
+    path: rootName,
+  })
+
+  const clientArchive = createNode({
+    id: 'archivador-cliente',
+    name: archive.cliente?.nombre || options.clientName || cause.cliente || 'Archivador Cliente',
+    type: 'archivador',
+    parentId: root.id,
+    isExpandable: true,
+    path: `${root.path} / ${archive.cliente?.nombre || options.clientName || cause.cliente || 'Archivador Cliente'}`,
+  })
+
+  const libraryArchive = createNode({
+    id: 'archivador-biblioteca',
+    name: archive.biblioteca?.nombre || 'Biblioteca',
+    type: 'archivador',
+    parentId: root.id,
+    isExpandable: true,
+    path: `${root.path} / ${archive.biblioteca?.nombre || 'Biblioteca'}`,
+  })
+
+  const tribunalBranch = createNode({
+    id: 'archivador-cliente-tribunal',
+    name: 'Tribunal',
+    type: 'folder',
+    parentId: clientArchive.id,
+    isExpandable: true,
+    path: `${clientArchive.path} / Tribunal`,
+  })
+
+  const advisoryBranch = createNode({
+    id: 'archivador-cliente-asesoria',
+    name: 'Asesoría',
+    type: 'folder',
+    parentId: clientArchive.id,
+    isExpandable: true,
+    path: `${clientArchive.path} / Asesoría`,
+  })
+
+  const documentsByContainer = new Map(Object.keys(cause.documentContainers || {}).map((containerId) => [containerId, getDocumentsByContainer(cause, containerId)]))
+  const assignedDocumentIds = new Set()
+
+  const appendDocumentNodes = (parentNode, documents = []) => {
+    documents.forEach((documentRecord) => {
+      if (!documentRecord) return
+      assignedDocumentIds.add(documentRecord.id)
+      createNode({
+        id: `doc-${documentRecord.id}`,
+        name: documentRecord.name || 'Archivo sin nombre',
+        type: classifyDocumentNode(documentRecord),
+        extension: documentRecord.extension || '',
+        parentId: parentNode.id,
+        isExpandable: false,
+        size: Number(documentRecord.size || 0),
+        updatedAt: formatNodeDate(documentRecord.updatedAt || documentRecord.createdAt),
+        thumbnailUrl: classifyDocumentNode(documentRecord) === 'image' ? documentRecord.content || '' : '',
+        downloadUrl: documentRecord.content || '',
+        previewUrl: documentRecord.content || '',
+        documentId: documentRecord.id,
+        mimeType: documentRecord.type || '',
+        path: `${parentNode.path} / ${documentRecord.name || 'Archivo sin nombre'}`,
+        meta: {
+          category: documentRecord.category || '',
+          origin: documentRecord.origin || '',
+        },
+      })
+    })
+  }
+
+  ;(archive.cliente?.tribunal?.carpetas || []).forEach((folder, folderIndex) => {
+    const tribunalFolder = createNode({
+      id: `tribunal-${folderIndex}-${folder.tribunal || cause.tribunal || 'tribunal'}`,
+      name: folder.tribunal || cause.tribunal || 'Tribunal',
+      type: 'folder',
+      parentId: tribunalBranch.id,
+      isExpandable: true,
+      path: `${tribunalBranch.path} / ${folder.tribunal || cause.tribunal || 'Tribunal'}`,
+    })
+
+    ;(folder.causas || []).forEach((caseFolder, caseIndex) => {
+      const causeFolder = createNode({
+        id: `tribunal-causa-${folderIndex}-${caseIndex}-${caseFolder.nombre || cause.caratula || 'causa'}`,
+        name: caseFolder.nombre || cause.caratula || 'Causa',
+        type: 'folder',
+        parentId: tribunalFolder.id,
+        isExpandable: true,
+        path: `${tribunalFolder.path} / ${caseFolder.nombre || cause.caratula || 'Causa'}`,
+      })
+
+      const knownFolders = new Map()
+      ;(caseFolder.subcarpetas || []).forEach((subfolder, subIndex) => {
+        const node = createNode({
+          id: `tribunal-subcarpeta-${folderIndex}-${caseIndex}-${subIndex}-${subfolder}`,
+          name: subfolder,
+          type: 'folder',
+          parentId: causeFolder.id,
+          isExpandable: true,
+          path: `${causeFolder.path} / ${subfolder}`,
+        })
+        knownFolders.set(slugId(subfolder), node)
+      })
+
+      const containerMappings = [
+        ['ebook', ['ebook']],
+        ['asociados', ['carpeta-digital', 'documentos']],
+        ['escritos', ['borradores-de-escritos', 'escritos']],
+        ['resoluciones', ['resoluciones']],
+        ['notificaciones', ['notificaciones']],
+        ['antecedentes', ['otros-antecedentes-relacionados-con-la-asesoria', 'estrategia-juridica-para-el-caso']],
+      ]
+
+      containerMappings.forEach(([containerId, aliases]) => {
+        const documents = documentsByContainer.get(containerId) || []
+        if (!documents.length) return
+        const targetFolder = aliases.map((alias) => knownFolders.get(alias)).find(Boolean)
+        appendDocumentNodes(targetFolder || causeFolder, documents)
+      })
+    })
+  })
+
+  ;(archive.cliente?.asesoria?.carpetas || []).forEach((folder, folderIndex) => {
+    const advisoryFolder = createNode({
+      id: `asesoria-${folderIndex}-${folder.nombre || 'asesoria'}`,
+      name: folder.nombre || `Asesoría ${folderIndex + 1}`,
+      type: 'folder',
+      parentId: advisoryBranch.id,
+      isExpandable: true,
+      path: `${advisoryBranch.path} / ${folder.nombre || `Asesoría ${folderIndex + 1}`}`,
+    })
+
+    ;(folder.contenidos || []).forEach((item, itemIndex) => {
+      createNode({
+        id: `asesoria-contenido-${folderIndex}-${itemIndex}-${item}`,
+        name: item,
+        type: 'folder',
+        parentId: advisoryFolder.id,
+        isExpandable: true,
+        path: `${advisoryFolder.path} / ${item}`,
+      })
+    })
+  })
+
+  ;(archive.biblioteca?.colecciones || []).forEach((collection, index) => {
+    createNode({
+      id: `biblioteca-${index}-${collection}`,
+      name: collection,
+      type: 'folder',
+      parentId: libraryArchive.id,
+      isExpandable: true,
+      path: `${libraryArchive.path} / ${collection}`,
+    })
+  })
+
+  const orphanDocuments = (cause.documents || []).filter((documentRecord) => !assignedDocumentIds.has(documentRecord.id))
+  if (orphanDocuments.length) {
+    appendDocumentNodes(clientArchive, orphanDocuments)
+  }
+
+  nodes.forEach((node) => {
+    node.children = [...new Set(node.children)]
+    node.isExpandable = node.isExpandable || node.children.length > 0
+  })
+
+  return {
+    rootId: root.id,
+    nodes,
+    nodeMap: Object.fromEntries(nodes.map((node) => [node.id, node])),
+    hasFiles: nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file'].includes(node.type)),
+    hasContent: nodes.length > 1,
+  }
+}
+
 function parseDateLine(text = '', label = '') {
   const pattern = new RegExp(`${label}\\s*[:：-]?\\s*([0-3]?\\d[\\/.-][0-1]?\\d[\\/.-]\\d{2,4})`, 'i')
   return text.match(pattern)?.[1] || ''
