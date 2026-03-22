@@ -229,6 +229,20 @@ min-width:0;
 flex-wrap:nowrap;
 }
 
+.topbar-module-brand{
+display:inline-flex;
+align-items:center;
+flex:0 0 auto;
+margin-right:2px;
+color:#1D3F8F;
+font-size:24px;
+font-weight:800;
+letter-spacing:.04em;
+line-height:1;
+text-decoration:none;
+white-space:nowrap;
+}
+
 .topbar-nav{
 flex-wrap:nowrap;
 overflow-x:auto;
