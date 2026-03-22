@@ -25,6 +25,10 @@
       --settings-text-on-dark-soft: #F8F5F2;
       --settings-shadow-soft: 0 16px 38px rgba(75, 49, 31, 0.18);
       --settings-shadow-block: 0 18px 32px rgba(75, 49, 31, 0.18);
+      --settings-button-glow: 0 0 0 1px rgba(255,255,255,0.14), 0 12px 24px rgba(75,49,31,0.18), 0 0 18px rgba(176,137,104,0.18);
+      --settings-button-glow-hover: 0 0 0 1px rgba(255,255,255,0.2), 0 16px 30px rgba(22,58,95,0.22), 0 0 24px rgba(176,137,104,0.22);
+      --settings-button-glow-active: inset 0 2px 8px rgba(75,49,31,0.16), 0 8px 18px rgba(75,49,31,0.18);
+      --settings-card-shadow-static: 0 10px 22px rgba(75,49,31,0.10);
       --topbar-burgundy: #C41E3A;
       --topbar-burgundy-dark: #8F1228;
     }
@@ -253,17 +257,18 @@
     .config-category {
       appearance: none;
       border-radius: 16px;
-      border: 1px solid var(--settings-border);
-      background: var(--settings-white);
+      border: 1px solid color-mix(in srgb, var(--settings-border) 72%, white);
+      background: linear-gradient(135deg, color-mix(in srgb, var(--settings-white) 96%, white), color-mix(in srgb, var(--settings-card-soft) 74%, white));
       color: var(--settings-text);
       cursor: pointer;
-      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease;
+      transition: transform .18s ease, border-color .18s ease, box-shadow .18s ease, background-color .18s ease, color .18s ease, filter .18s ease;
+      box-shadow: var(--settings-button-glow);
+      position: relative;
     }
 
     .config-btn {
       padding: 12px 16px;
       font-weight: 800;
-      box-shadow: 0 8px 18px rgba(60, 83, 107, 0.10);
     }
 
     .config-btn:hover,
@@ -271,9 +276,16 @@
     .config-btn:focus-visible,
     .config-category:focus-visible {
       outline: none;
-      transform: translateY(-1px);
+      transform: translateY(-2px);
       border-color: var(--settings-active);
-      box-shadow: 0 12px 24px rgba(22, 58, 95, 0.14);
+      box-shadow: var(--settings-button-glow-hover);
+      filter: brightness(1.02);
+    }
+
+    .config-btn:active,
+    .config-category:active {
+      transform: translateY(0) scale(.985);
+      box-shadow: var(--settings-button-glow-active);
     }
 
     .config-metric-default {
@@ -480,7 +492,9 @@
     .config-table-wrap,
     .theme-preview-shell,
     .toggle-card {
-      background: var(--settings-card-bg);
+      background: linear-gradient(180deg, color-mix(in srgb, var(--settings-card-bg) 98%, white), color-mix(in srgb, var(--settings-card-soft) 82%, white));
+      box-shadow: var(--settings-card-shadow-static);
+      cursor: default;
     }
 
     .config-form-grid {

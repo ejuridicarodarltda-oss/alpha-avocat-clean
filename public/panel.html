@@ -120,25 +120,25 @@ Cerrar sesión
 
 <section class="cards">
 
-<div class="card clientes">
+<div class="card ui-card ui-card--info clientes">
 <div class="card-icon">👥</div>
 <h3>Clientes Activos</h3>
 <span class="numero" id="cardClientesActivos">0</span>
 </div>
 
-<div class="card causas">
+<div class="card ui-card ui-card--info causas">
 <div class="card-icon">📂</div>
 <h3>Causas Abiertas</h3>
 <span class="numero" id="cardCausasAbiertas">0</span>
 </div>
 
-<div class="card audiencias">
+<div class="card ui-card ui-card--info audiencias">
 <div class="card-icon">⚖</div>
 <h3>Audiencias Hoy</h3>
 <span class="numero" id="cardAudienciasHoy">0</span>
 </div>
 
-<div class="card tareas">
+<div class="card ui-card ui-card--info tareas">
 <div class="card-icon">✔</div>
 <h3>Alertas Pendientes</h3>
 <span class="numero" id="cardTareasPendientes">0</span>
@@ -148,19 +148,19 @@ Cerrar sesión
 
 <section class="acciones">
 
-<button class="b1" onclick="window.location='clientes.html'">
+<button class="ui-button b1" onclick="window.location='clientes.html'">
 👤 Nuevo Cliente
 </button>
 
-<button class="b2" onclick="window.location='causas.html'">
+<button class="ui-button b2" onclick="window.location='causas.html'">
 📂 Nueva Causa
 </button>
 
-<button class="b3" onclick="window.location='agenda.html?nuevo=1'">
+<button class="ui-button b3" onclick="window.location='agenda.html?nuevo=1'">
 📅 Nuevo Evento
 </button>
 
-<button class="b4" id="btnNuevoDocumentoPanel">
+<button class="ui-button ui-button--secondary b4" id="btnNuevoDocumentoPanel">
 📄 Nuevo Documento
 </button>
 
@@ -224,12 +224,12 @@ aria-describedby="panelQuickModalDescription"
         <h3 id="panelQuickModalTitle" class="panel-quick-modal-title">Nuevo documento</h3>
         <p id="panelQuickModalDescription" class="panel-quick-modal-subtitle">Elige dónde quieres incorporar el documento sin salir del flujo operativo del panel.</p>
       </div>
-      <button class="panel-quick-modal-close" type="button" id="btnCerrarQuickModal" aria-label="Cerrar">✕</button>
+      <button class="ui-button ui-button--ghost panel-quick-modal-close" type="button" id="btnCerrarQuickModal" aria-label="Cerrar">✕</button>
     </div>
     <div class="panel-quick-modal-actions">
-      <button type="button" class="panel-quick-modal-action panel-quick-modal-action-primary" data-quick-doc-target="causas">Ir a Causas</button>
-      <button type="button" class="panel-quick-modal-action" data-quick-doc-target="clientes">Ir a Clientes</button>
-      <button type="button" class="panel-quick-modal-action" data-quick-doc-target="agenda">Ir a Agenda</button>
+      <button type="button" class="ui-button panel-quick-modal-action panel-quick-modal-action-primary" data-quick-doc-target="causas">Ir a Causas</button>
+      <button type="button" class="ui-button ui-button--secondary panel-quick-modal-action" data-quick-doc-target="clientes">Ir a Clientes</button>
+      <button type="button" class="ui-button ui-button--secondary panel-quick-modal-action" data-quick-doc-target="agenda">Ir a Agenda</button>
     </div>
   </div>
 </div>
