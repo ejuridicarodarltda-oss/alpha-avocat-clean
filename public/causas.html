@@ -3020,10 +3020,10 @@
               <p class="section-copy">Listado de resoluciones con impacto procesal, plazo que genera, audiencia que fija y estado de revisión interna.</p>
             </div>
             <div class="toolbar">
-              <button class="btn">Agregar resolución</button>
-              <button class="btn">Clasificar</button>
-              <button class="btn">Generar tarea desde resolución</button>
-              <button class="btn">Vincular plazo</button>
+              <button class="btn" data-resolution-action="add">Agregar resolución</button>
+              <button class="btn" data-resolution-action="classify">Clasificar</button>
+              <button class="btn" data-resolution-action="task">Generar tarea desde resolución</button>
+              <button class="btn" data-resolution-action="deadline">Vincular plazo</button>
             </div>
           </div>
           <div class="resolution-list">${cause.resoluciones.map(item => `
@@ -3041,6 +3041,224 @@
           `).join('')}</div>
         </section>
       `;
+    }
+
+    function buildResolutionFingerprint(resolution = {}){
+      return [
+        resolution.tipo || '',
+        isoDate(resolution.fecha) || '',
+        resolution.resumen || '',
+        resolution.plazo || '',
+      ].join('|').toLowerCase();
+    }
+
+    function getPrimaryResolution(cause){
+      if (!cause) return null;
+      const pending = (cause.resoluciones || []).find(item => String(item.revision || '').toLowerCase() !== 'clasificada');
+      return pending || (cause.resoluciones || [])[0] || null;
+    }
+
+    function buildResolutionTaskLabel(resolution){
+      const base = resolution?.plazo && resolution.plazo !== 'No fija'
+        ? `Gestionar ${resolution.plazo.toLowerCase()}`
+        : `Revisar ${String(resolution?.tipo || 'resolución').toLowerCase()}`;
+      return `${base} derivado de ${resolution?.tipo || 'resolución reciente'}`;
+    }
+
+    async function handleResolutionToolbarAction(action){
+      const current = getCurrentCause();
+      if (!current) {
+        setDetailStatus('Selecciona una causa antes de operar con resoluciones.', 'warn');
+        return;
+      }
+
+      if (action === 'add') {
+        const createdAt = new Date().toISOString();
+        const createdDate = isoDate(createdAt);
+        persistCurrentCause((entry) => {
+          const next = ensureCauseStorage(entry, entry?.id);
+          const resolutionNumber = (next.resoluciones || []).length + 1;
+          const resolution = {
+            fecha: createdDate,
+            tipo: `Resolución manual ${resolutionNumber}`,
+            resumen: `Resolución registrada manualmente desde la ficha interna de ${next.caratula}.`,
+            impacto: 'Pendiente de clasificación jurídica.',
+            plazo: 'Por definir',
+            audiencia: 'No fija',
+            documento: `Resolución-manual-${resolutionNumber}.txt`,
+            revision: 'En revisión',
+          };
+          next.resoluciones = [resolution, ...(next.resoluciones || [])];
+          next.historia = [
+            {
+              fecha: createdDate,
+              tipo: 'Resolución incorporada',
+              descripcion: `Se agregó ${resolution.tipo} para completar el expediente interno.`,
+              origen: 'Oficina',
+              autor: 'Alpha Avocat',
+              documento: resolution.documento,
+              cumplimiento: 'En curso',
+              observacion: 'Pendiente de clasificación y vinculación a plazo.',
+            },
+            ...(next.historia || []),
+          ];
+          next.ultimaResolucion = resolution.resumen;
+          next.syncHistory = [
+            {
+              id: `sync-resolution-add-${Date.now()}`,
+              createdAt,
+              source: 'Causas',
+              mode: 'manual',
+              result: 'Resolución manual agregada',
+              notes: `${resolution.tipo} quedó disponible para clasificación y trazabilidad.`,
+              importedMovementIds: [],
+              importedDocIds: [],
+            },
+            ...(next.syncHistory || []),
+          ];
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+        setDetailStatus('Se agregó una resolución manual y quedó disponible en la ficha de la causa.', 'ok');
+        return;
+      }
+
+      const reference = getPrimaryResolution(current);
+      if (!reference) {
+        setDetailStatus('Esta causa todavía no tiene resoluciones para procesar.', 'warn');
+        return;
+      }
+      const referenceFingerprint = buildResolutionFingerprint(reference);
+
+      if (action === 'classify') {
+        persistCurrentCause((entry) => {
+          const next = ensureCauseStorage(entry, entry?.id);
+          next.resoluciones = (next.resoluciones || []).map((item) => (
+            buildResolutionFingerprint(item) === referenceFingerprint
+              ? {
+                  ...item,
+                  revision: 'Clasificada',
+                  impacto: item.impacto === 'Pendiente de clasificación jurídica.'
+                    ? 'Clasificación jurídica completada y lista para seguimiento.'
+                    : item.impacto,
+                }
+              : item
+          ));
+          next.syncHistory = [
+            {
+              id: `sync-resolution-classify-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+              source: 'Causas',
+              mode: 'manual',
+              result: 'Resolución clasificada',
+              notes: `${reference.tipo} quedó marcada como clasificada.`,
+              importedMovementIds: [],
+              importedDocIds: [],
+            },
+            ...(next.syncHistory || []),
+          ];
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+        setDetailStatus(`La resolución "${reference.tipo}" quedó clasificada.`, 'ok');
+        return;
+      }
+
+      if (action === 'task') {
+        persistCurrentCause((entry) => {
+          const next = ensureCauseStorage(entry, entry?.id);
+          const taskLabel = buildResolutionTaskLabel(reference);
+          const existingInstruction = (next.instrucciones || []).some((item) => item.contenido === taskLabel);
+          if (!existingInstruction) {
+            next.instrucciones = [
+              {
+                fecha: isoDate(new Date().toISOString()),
+                contenido: taskLabel,
+                prioridad: reference.plazo && reference.plazo !== 'No fija' ? 'Alta' : 'Media',
+                autor: 'Alpha Avocat',
+                destinatario: next.responsable || 'Equipo jurídico',
+                estado: 'Pendiente',
+                cumplimiento: next.proximoPlazo || isoDate(new Date(Date.now() + 3 * 86400000).toISOString()),
+                cierre: `Generada automáticamente desde ${reference.tipo}.`,
+              },
+              ...(next.instrucciones || []),
+            ];
+          }
+          next.syncHistory = [
+            {
+              id: `sync-resolution-task-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+              source: 'Causas',
+              mode: 'manual',
+              result: existingInstruction ? 'Tarea ya existente' : 'Tarea derivada desde resolución',
+              notes: existingInstruction
+                ? `${reference.tipo} ya tenía una instrucción asociada.`
+                : `Se creó una instrucción para ${reference.tipo}.`,
+              importedMovementIds: [],
+              importedDocIds: [],
+            },
+            ...(next.syncHistory || []),
+          ];
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+        setDetailStatus(`Se generó una instrucción interna desde "${reference.tipo}".`, 'ok');
+        return;
+      }
+
+      if (action === 'deadline') {
+        persistCurrentCause((entry) => {
+          const next = ensureCauseStorage(entry, entry?.id);
+          const deadlineType = reference.plazo && reference.plazo !== 'No fija'
+            ? reference.plazo
+            : `Seguimiento de ${reference.tipo}`;
+          const alreadyLinked = (next.plazos || []).some((item) => (
+            String(item.generador || '').toLowerCase().includes(String(reference.tipo || '').toLowerCase()) &&
+            String(item.tipo || '').toLowerCase() === String(deadlineType).toLowerCase()
+          ));
+          if (!alreadyLinked) {
+            const originDate = isoDate(reference.fecha) || isoDate(new Date().toISOString());
+            const dueDate = next.proximoPlazo || isoDate(new Date(Date.now() + 5 * 86400000).toISOString());
+            next.plazos = [
+              {
+                origen: originDate,
+                generador: reference.tipo,
+                tipo: deadlineType,
+                vencimiento: dueDate,
+                alerta: normalizeAlert(reference.plazo && reference.plazo !== 'No fija' ? 'Urgente' : next.alerta),
+                escrito: 'Gestión o escrito por definir',
+                estado: 'No iniciado',
+                responsable: next.responsable || 'Equipo jurídico',
+                prioridad: reference.plazo && reference.plazo !== 'No fija' ? 'Alta' : 'Media',
+                observaciones: `Plazo vinculado manualmente desde ${reference.tipo}.`,
+              },
+              ...(next.plazos || []),
+            ];
+          }
+          next.syncHistory = [
+            {
+              id: `sync-resolution-deadline-${Date.now()}`,
+              createdAt: new Date().toISOString(),
+              source: 'Causas',
+              mode: 'manual',
+              result: alreadyLinked ? 'Plazo ya vinculado' : 'Plazo vinculado desde resolución',
+              notes: alreadyLinked
+                ? `${reference.tipo} ya tenía un plazo asociado.`
+                : `Se vinculó el plazo "${deadlineType}" a ${reference.tipo}.`,
+              importedMovementIds: [],
+              importedDocIds: [],
+            },
+            ...(next.syncHistory || []),
+          ];
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+        setDetailStatus(`Se vinculó un plazo operativo para "${reference.tipo}".`, 'ok');
+      }
     }
 
     function renderPlazos(cause){
@@ -4032,6 +4250,12 @@
         if (trigger) {
           const found = detailActions.find(item => item.id === trigger.dataset.detailActionTrigger);
           if (found) found.action();
+          return;
+        }
+
+        const resolutionAction = event.target.closest('[data-resolution-action]');
+        if (resolutionAction) {
+          handleResolutionToolbarAction(resolutionAction.dataset.resolutionAction);
           return;
         }
 
