@@ -269,6 +269,56 @@
       color:var(--causas-text-secondary);
     }
 
+    .rectification-panel{
+      margin-top:14px;
+      padding:18px;
+      border-radius:20px;
+      border:1px solid rgba(255,255,255,.22);
+      background:rgba(255,255,255,.72);
+      color:var(--causas-text);
+      box-shadow:var(--causas-shadow-soft);
+    }
+
+    .rectification-panel[hidden]{display:none;}
+
+    .rectification-form-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+      gap:12px;
+      margin-top:14px;
+    }
+
+    .rectification-form-grid label,
+    .rectification-history-item{
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(95,159,151,.3);
+      background:rgba(255,255,255,.88);
+      box-shadow:0 8px 18px rgba(22,58,95,.08);
+    }
+
+    .rectification-participants{
+      display:grid;
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .rectification-participant-row{
+      display:grid;
+      grid-template-columns:minmax(0,1.2fr) minmax(180px,.8fr) minmax(0,1fr);
+      gap:10px;
+      align-items:end;
+    }
+
+    .rectification-history-list{display:grid;gap:10px;margin-top:12px;}
+
+    .rectification-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
+
+    .rectification-message{margin-top:12px;font-size:13px;font-weight:700;color:var(--causas-title-dark);}
+
     .screen-actions{
       display:flex;
       gap:10px;
@@ -1070,6 +1120,37 @@
         </div>
 
         <div id="detailStatusMsg" class="msg" aria-live="polite"></div>
+        <section id="causeRectificationPanel" class="rectification-panel" hidden>
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Rectificar datos de la causa</h4>
+              <p class="section-copy">Corrige calidad procesal, carátula, tribunal, rol, procedimiento, estado procesal, abogado responsable y vínculos sin salir del visor.</p>
+            </div>
+            <button type="button" class="btn btn-secondary" id="btnCancelarRectificacionCausa">Cancelar</button>
+          </div>
+          <form id="causeRectificationForm">
+            <div class="rectification-form-grid">
+              <label>Carátula<input name="caratula" required></label>
+              <label>Tribunal<input name="tribunal" required></label>
+              <label>Rol / RIT<input name="rol" required></label>
+              <label>Materia<input name="materia" required></label>
+              <label>Procedimiento<input name="procedimiento" required></label>
+              <label>Estado procesal<input name="estadoProcesal" required></label>
+              <label>Abogado responsable<input name="responsable" required></label>
+              <label>Cliente relacionado<input name="cliente" required></label>
+            </div>
+            <div>
+              <div class="mini-label">Partes intervinientes</div>
+              <div class="small-note">Aquí puedes corregir la calidad procesal de cada persona. Ejemplo: demandante → demandada.</div>
+              <div id="causeParticipantRows" class="rectification-participants"></div>
+            </div>
+            <div class="rectification-actions">
+              <button type="button" class="btn btn-secondary" id="btnDescartarRectificacionCausa">Descartar</button>
+              <button type="submit" class="btn btn-primary">Guardar rectificación</button>
+            </div>
+            <div id="causeRectificationMessage" class="rectification-message" aria-live="polite"></div>
+          </form>
+        </section>
         <div id="ebookFallbackActions" class="document-actions" hidden>
           <button type="button" class="btn" id="btnCopyEbookLink">Copiar enlace</button>
           <button type="button" class="btn" id="btnOpenEbookOfficial">Abrir en sitio oficial</button>
@@ -1403,6 +1484,7 @@
 
   <script type="module">
     import { supabase } from './app.js';
+    import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, escapeHtml as escapeRectificationHtml } from './rectification.js';
     import {
       applyImportToDetail,
       applyManualSync,
@@ -1426,6 +1508,12 @@
       slugId,
       upsertDocument,
     } from './causas-services.js';
+
+    const { data: rectificationSession } = await supabase.auth.getSession();
+    if (!rectificationSession?.session) window.location.href = './login.html';
+    const rectificationAccess = getRectificationAccessState(rectificationSession.session.user);
+    const operatorName = rectificationAccess.operatorName;
+    const isRectificationAdmin = rectificationAccess.canRectify;
 
     const T_CLIENTS = 'clients';
     const T_CASES = 'cases';
@@ -1477,11 +1565,13 @@
       officialFallbackScope: 'ebook',
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
-      }
+      },
+      rectificationOpen: false
     };
 
     const detailActions = [
       { id:'editar', label:'Editar', action:() => openModal() },
+      { id:'rectificar', label:'Rectificar datos', action:() => { if (!isRectificationAdmin) return; state.rectificationOpen = true; renderCauseRectificationPanel(); $('causeRectificationPanel')?.scrollIntoView({ behavior:'smooth', block:'start' }); } },
       { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
       { id:'produccion', label:'Producción', action:() => setActiveTab('produccion') },
@@ -1564,6 +1654,178 @@
       const current = getCurrentCause();
       if (!current) return null;
       return updateWorkspaceEntry(current.id, updater);
+    }
+
+    function setCauseRectificationMessage(message = ''){
+      const node = $('causeRectificationMessage');
+      if (node) node.textContent = message;
+    }
+
+    function buildCauseRectificationSnapshot(cause){
+      if (!cause) return null;
+      return {
+        caratula: cause.caratula || '',
+        tribunal: cause.tribunal || '',
+        rol: cause.rol || '',
+        materia: cause.materia || '',
+        procedimiento: cause.procedimiento || '',
+        estadoProcesal: cause.estadoProcesal || '',
+        responsable: cause.responsable || '',
+        cliente: cause.cliente || '',
+        partes: (cause.partes || []).map((party) => ({
+          nombre: party.nombre || '',
+          rol: party.rol || '',
+          detalle: party.detalle || '',
+        })),
+      };
+    }
+
+    function renderCauseParticipantRows(cause){
+      const rows = $('causeParticipantRows');
+      if (!rows) return;
+      const parties = (cause?.partes || []).length ? cause.partes : [{ nombre: '', rol: 'Demandante', detalle: '' }, { nombre: '', rol: 'Demandado', detalle: '' }];
+      rows.innerHTML = parties.map((party, index) => `
+        <div class="rectification-participant-row">
+          <label>Interviniente ${index + 1}<input name="participant_name_${index}" value="${escapeRectificationHtml(party.nombre || '')}" required></label>
+          <label>Calidad procesal<select name="participant_role_${index}">
+            ${['Demandante','Demandado','Ejecutante','Ejecutado','Querellante','Querellado','Denunciante','Denunciado','Tercero','Apoderado','Testigo','Perito'].map((role) => `<option ${role === party.rol ? 'selected' : ''}>${escapeRectificationHtml(role)}</option>`).join('')}
+          </select></label>
+          <label>Detalle<input name="participant_detail_${index}" value="${escapeRectificationHtml(party.detalle || '')}"></label>
+        </div>
+      `).join('');
+    }
+
+    function renderCauseRectificationPanel(){
+      const panel = $('causeRectificationPanel');
+      const cause = getCurrentCause();
+      const shouldShow = Boolean(cause && state.rectificationOpen && isRectificationAdmin);
+      if (!panel) return;
+      panel.hidden = !shouldShow;
+      if (!shouldShow) return;
+      const snapshot = buildCauseRectificationSnapshot(cause);
+      const form = $('causeRectificationForm');
+      Object.entries(snapshot).forEach(([key, value]) => {
+        if (key === 'partes') return;
+        const input = form?.elements.namedItem(key);
+        if (input) input.value = value || '';
+      });
+      renderCauseParticipantRows(cause);
+      setCauseRectificationMessage('');
+    }
+
+    function closeCauseRectification(){
+      state.rectificationOpen = false;
+      setCauseRectificationMessage('');
+      $('causeRectificationPanel').hidden = true;
+    }
+
+    function renderCauseRectificationHistory(cause){
+      if (!cause) return '';
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Trazabilidad de rectificaciones</h4>
+              <p class="section-copy">Registro interno con fecha, hora, campo, valor anterior y valor nuevo.</p>
+            </div>
+          </div>
+          ${buildRectificationHistoryHtml(cause.rectificationLog || [])}
+        </section>
+      `;
+    }
+
+    function validateCauseRectification(formData){
+      const required = ['caratula','tribunal','rol','materia','procedimiento','estadoProcesal','responsable','cliente'];
+      for (const field of required) {
+        if (!String(formData.get(field) || '').trim()) return 'Debes completar todos los campos obligatorios antes de rectificar la causa.';
+      }
+      const parties = []
+      for (const [key, value] of formData.entries()) {
+        const nameMatch = key.match(/^participant_name_(\d+)$/);
+        if (!nameMatch) continue;
+        const index = Number(nameMatch[1]);
+        const name = String(value || '').trim();
+        const role = String(formData.get(`participant_role_${index}`) || '').trim();
+        if (!name || !role) return 'Cada interviniente debe conservar nombre y calidad procesal.';
+        parties.push(`${name.toLowerCase()}::${role.toLowerCase()}`);
+      }
+      if (new Set(parties).size !== parties.length) return 'No puedes dejar duplicada una misma persona con la misma calidad procesal.';
+      return '';
+    }
+
+    async function saveCauseRectification(event){
+      event.preventDefault();
+      const current = getCurrentCause();
+      if (!current) return;
+      const formData = new FormData(event.currentTarget);
+      const validationError = validateCauseRectification(formData);
+      if (validationError) {
+        setCauseRectificationMessage(validationError);
+        return;
+      }
+      const confirmed = window.confirm('Está por rectificar información del registro. ¿Desea guardar los cambios?');
+      if (!confirmed) return;
+
+      const previous = buildCauseRectificationSnapshot(current);
+      const nextParties = previous.partes.map((party, index) => ({
+        nombre: String(formData.get(`participant_name_${index}`) || '').trim(),
+        rol: String(formData.get(`participant_role_${index}`) || '').trim(),
+        detalle: String(formData.get(`participant_detail_${index}`) || '').trim() || party.detalle || '',
+      }));
+      const nextSnapshot = {
+        caratula: String(formData.get('caratula') || '').trim(),
+        tribunal: String(formData.get('tribunal') || '').trim(),
+        rol: String(formData.get('rol') || '').trim(),
+        materia: String(formData.get('materia') || '').trim(),
+        procedimiento: String(formData.get('procedimiento') || '').trim(),
+        estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
+        responsable: String(formData.get('responsable') || '').trim(),
+        cliente: String(formData.get('cliente') || '').trim(),
+        partes: nextParties,
+      };
+
+      const entries = createRectificationEntries({
+        previous,
+        next: nextSnapshot,
+        moduleName: 'Causas',
+        actor: operatorName,
+        labels: {
+          caratula: 'Carátula', tribunal: 'Tribunal', rol: 'Rol', materia: 'Materia', procedimiento: 'Procedimiento',
+          estadoProcesal: 'Estado procesal', responsable: 'Abogado responsable', cliente: 'Cliente relacionado',
+        },
+      });
+
+      updateWorkspaceEntry(current.id, (entry) => {
+        const next = ensureCauseStorage(entry, current.id);
+        next.caratula = nextSnapshot.caratula;
+        next.tribunal = nextSnapshot.tribunal;
+        next.rol = nextSnapshot.rol;
+        next.materia = nextSnapshot.materia;
+        next.procedimiento = nextSnapshot.procedimiento;
+        next.estadoProcesal = nextSnapshot.estadoProcesal;
+        next.responsable = nextSnapshot.responsable;
+        next.cliente = nextSnapshot.cliente;
+        next.partes = nextParties;
+        next.rectificationLog = appendRectificationLog({ rectificationLog: next.rectificationLog }, entries).rectificationLog;
+        return markManualEdit(next);
+      });
+
+      const payload = {
+        [C.k_court]: nextSnapshot.tribunal,
+        [C.k_rol]: nextSnapshot.rol,
+        [C.k_subject]: nextSnapshot.materia,
+        [C.k_responsible]: nextSnapshot.responsable,
+        [C.k_notes]: `${current.notes || ''}`.trim() || null,
+      };
+      const { error } = await supabase.from(T_CASES).update(payload).eq(C.k_id, current.id);
+      if (error) {
+        setCauseRectificationMessage(`No fue posible guardar la rectificación: ${error.message}`);
+        return;
+      }
+      await loadCases();
+      renderAll();
+      closeCauseRectification();
+      setDetailStatus('La causa fue rectificada y su trazabilidad quedó registrada.', 'ok');
     }
 
     function setMessage(id, text = '', tone = ''){
@@ -2542,7 +2804,7 @@
     }
 
     function renderDetailActions(){
-      $('detailActions').innerHTML = detailActions.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+      $('detailActions').innerHTML = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin).map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
     }
 
     function buildKeyValueGrid(entries){
@@ -3634,6 +3896,8 @@
     function renderCurrentTab(){
       const cause = state.caseMap.get(state.selectedId);
       if (!cause) {
+        state.rectificationOpen = false;
+        $('causeRectificationPanel').hidden = true;
         $('detailContent').innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
         return;
       }
@@ -3647,7 +3911,8 @@
         produccion: renderProduccionPillar,
       };
       const activeRenderer = renderers[state.activeTab] || renderInformationPillar;
-      $('detailContent').innerHTML = activeRenderer(cause);
+      $('detailContent').innerHTML = activeRenderer(cause) + renderCauseRectificationHistory(cause);
+      renderCauseRectificationPanel();
     }
 
     function renderAll(){
@@ -3656,6 +3921,7 @@
       renderPillarCards();
       renderTabs();
       renderCurrentTab();
+      renderCauseRectificationPanel();
     }
 
     function setActiveTab(tab){
@@ -4299,6 +4565,9 @@
       $('formDocumento').addEventListener('submit', saveDocumentMetadata);
       $('formSincronizacion').addEventListener('submit', submitSync);
       $('caseFileInput').addEventListener('change', handleFileSelection);
+      $('causeRectificationForm')?.addEventListener('submit', saveCauseRectification);
+      $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
+      $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
       [modal, $('modalImportacion'), $('modalDocumento'), $('modalSincronizacion')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {

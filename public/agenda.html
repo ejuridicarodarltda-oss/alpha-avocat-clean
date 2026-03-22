@@ -196,6 +196,37 @@ main.agenda-main{
   color:var(--agenda-text);
 }
 
+.rectification-panel{
+  margin:16px 0;
+  padding:18px;
+  border-radius:18px;
+  background:var(--agenda-card);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 72%, white);
+  box-shadow:0 10px 20px rgba(111,76,139,.12);
+}
+
+.rectification-panel[hidden]{display:none;}
+
+.rectification-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+  gap:12px 14px;
+  margin-top:14px;
+}
+
+.rectification-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
+
+.rectification-message{margin-top:12px;font-size:13px;font-weight:700;color:var(--agenda-title);}
+
+.rectification-history-list{display:grid;gap:10px;margin-top:12px;}
+
+.rectification-history-item{
+  padding:12px 14px;
+  border-radius:14px;
+  background:var(--agenda-card-soft);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 66%, white);
+}
+
 .block{
   margin-top:16px;
   padding:18px;
@@ -465,6 +496,39 @@ input[type="checkbox"]{
 
   <section class="agenda-screen" id="actividad">
     <h2>Actividad</h2><p class="subtitle">desarrollo de la atención agendada</p>
+    <section id="agendaRectificationPanel" class="rectification-panel" hidden>
+      <div class="section-head">
+        <div>
+          <h3>Rectificar datos del evento</h3>
+          <p class="subtitle">Corrige título, fecha, hora, modalidad, cliente, causa, responsable, prioridad, estado y observaciones sin rehacer el registro.</p>
+        </div>
+        <button type="button" class="btn-nav" id="btnCancelarRectificacionAgenda">Cancelar</button>
+      </div>
+      <form id="agendaRectificationForm">
+        <div class="rectification-grid">
+          <label>Título<input name="title" required></label>
+          <label>Fecha y hora<input name="starts_at" type="datetime-local" required></label>
+          <label>Tipo<select name="event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option><option>Videollamada</option><option>Llamada</option><option>Seguimiento</option></select></label>
+          <label>Cliente vinculado<input name="linked_client_name"></label>
+          <label>RUT cliente<input name="linked_client_rut"></label>
+          <label>Rol de causa<input name="linked_case_role"></label>
+          <label>Tribunal<input name="linked_case_court"></label>
+          <label>Responsable<input name="responsible" required></label>
+          <label>Estado<select name="confirmation_status"><option>Confirmado</option><option>Pendiente</option><option>Sin confirmar</option></select></label>
+          <label>Prioridad<select name="priority"><option>Alta</option><option>Media</option><option>Baja</option></select></label>
+          <label>Modalidad<select name="modality_detail"><option>Presencial</option><option>Zoom</option><option>Meet</option><option>Telefónica</option><option>Videollamada</option><option>Comparecencia remota</option><option>Otra</option></select></label>
+          <label>Ubicación o enlace<input name="location_or_link"></label>
+          <label>Materia<input name="subject"></label>
+          <label>Observaciones<textarea name="notes" rows="4"></textarea></label>
+        </div>
+        <div class="rectification-actions">
+          <button type="button" class="btn-clear" id="btnDescartarRectificacionAgenda">Descartar</button>
+          <button type="submit" class="btn-save">Guardar rectificación</button>
+        </div>
+        <div id="agendaRectificationMessage" class="rectification-message" aria-live="polite"></div>
+      </form>
+      <div id="agendaRectificationHistory"></div>
+    </section>
     <div class="block"><h3>Bloque A. Datos personales</h3><div class="fields"><label>Nombre<input id="act_name"></label><label>RUT<input id="act_rut"></label><label>Domicilio<input id="act_address"></label><label>Estado civil<input id="act_civil_status"></label><label>Domicilio electrónico<input id="act_email"></label><label>Profesión u oficio<input id="act_profession"></label><label>Teléfono<input id="act_phone"></label></div></div>
     <div class="block"><h3>Bloque B. Datos del evento</h3><div class="fields" id="activityEventFields"><label>N° Evento<input id="act_event_number" readonly></label><label>Título<input id="act_title"></label><label>Asociado a causa<input id="act_linked_case" readonly></label><label>Rol<input id="act_case_role"></label><label>Tribunal<input id="act_court"></label><label>Sin causa<input id="act_without_case"></label><label>Causa nueva<input id="act_new_case" readonly></label><label>Rol<input id="act_new_case_role"></label><label>Tribunal<input id="act_new_case_court"></label><label>Asociada a cliente<input id="act_linked_client" readonly></label><label>Nombre<input id="act_client_name"></label><label>Rut<input id="act_client_rut"></label><label>No cliente<input id="act_non_client"></label><label>Nombre<input id="act_non_client_name"></label><label>Rut<input id="act_non_client_rut"></label><label>Cliente nuevo<input id="act_new_client" readonly></label><label>Nombre<input id="act_new_client_name"></label><label>Rut<input id="act_new_client_rut"></label><label>Condición de la persona<input id="act_person_condition"></label><label>Responsable<input id="act_responsible"></label><label>Tipo<select id="act_event_type"><option>Consulta</option><option>Reunión</option><option>Audiencia</option><option>Alegato</option><option>Videollamada</option><option>Llamada</option><option>Seguimiento</option></select></label><label>Modalidad detallada<input id="act_modality_detail"></label><label>Link o ubicación<input id="act_location_or_link"></label><label>Confirmación<input id="act_confirmation_status"></label><label>Materia<input id="act_subject"></label><label>Fecha y hora<input id="act_starts_at" type="datetime-local"></label><label>Nota<textarea id="act_notes"></textarea></label></div></div>
     <div class="block hidden" id="activityModalidadBlock"><h3>Bloque C. Modalidad del evento</h3>
@@ -489,7 +553,7 @@ input[type="checkbox"]{
         <label data-recording-field>Grabación remota<input id="act_remote_recording" placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
-    <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save">Iniciar actividad</button><button class="btn-save">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="contenedor">
@@ -522,6 +586,7 @@ input[type="checkbox"]{
 <script type="module">
 import { supabase } from './app.js'
 import { AGENDA_FORM_METADATA_PREFIX } from './alerts.js'
+import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js'
 
 const screens = document.querySelectorAll('.agenda-screen')
 const home = document.getElementById('agendaHome')
@@ -538,6 +603,7 @@ const rutEl = document.getElementById('rut')
 const subjectEl = document.getElementById('subject')
 const eventNumberEl = document.getElementById('event_number')
 const saveButton = document.getElementById('btnSave')
+const btnAbrirRectificacionAgenda = document.getElementById('btnAbrirRectificacionAgenda')
 const FORM_METADATA_PREFIX = AGENDA_FORM_METADATA_PREFIX
 const nuevoEventoFieldIds = [
   'nombre',
@@ -692,7 +758,10 @@ const params = new URLSearchParams(window.location.search)
 
 const { data: sess } = await supabase.auth.getSession()
 if (!sess?.session) window.location.href = './login.html'
-
+const rectificationAccess = getRectificationAccessState(sess.session.user)
+const operatorName = rectificationAccess.operatorName
+const isRectificationAdmin = rectificationAccess.canRectify
+let rectificationEventId = null
 
 function applyClientsIntegrationPrefill() {
   if (params.get('origen') !== 'clientes') return
@@ -792,18 +861,187 @@ function applyNuevoEventoFormState(state = {}){
   document.querySelector(`input[name="grabacion"][value="${grabacion}"]`)?.click()
 }
 
-function serializeNuevoEventoState(){
-  return `${FORM_METADATA_PREFIX}${JSON.stringify(getNuevoEventoFormState())}`
+function serializeNuevoEventoState(options = {}){
+  const payload = {
+    formState: getNuevoEventoFormState(),
+    rectificationLog: Array.isArray(options.rectificationLog) ? options.rectificationLog : [],
+  }
+  return `${FORM_METADATA_PREFIX}${JSON.stringify(payload)}`
 }
 
 function parseNuevoEventoState(serializedState){
   if (typeof serializedState !== 'string' || !serializedState.startsWith(FORM_METADATA_PREFIX)) return null
 
   try {
-    return JSON.parse(serializedState.slice(FORM_METADATA_PREFIX.length))
+    const parsed = JSON.parse(serializedState.slice(FORM_METADATA_PREFIX.length))
+    if (parsed && typeof parsed === 'object' && parsed.formState) return parsed
+    return { formState: parsed || {}, rectificationLog: [] }
   } catch {
     return null
   }
+}
+
+function getAgendaRectificationMessageNode(){
+  return document.getElementById('agendaRectificationMessage')
+}
+
+function setAgendaRectificationMessage(message = ''){
+  const node = getAgendaRectificationMessageNode()
+  if (node) node.textContent = message
+}
+
+function getEventMetadata(eventData = {}){
+  return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [] }
+}
+
+function buildAgendaRectificationSnapshot(eventData = {}){
+  const metadata = getEventMetadata(eventData)
+  const formState = metadata.formState || {}
+  return {
+    title: formState.title || eventData.title || '',
+    starts_at: formState.starts_at || (eventData.starts_at ? new Date(eventData.starts_at).toISOString().slice(0, 16) : ''),
+    event_type: formState.event_type || titleCase(eventData.event_type || 'Consulta'),
+    linked_client_name: formState.linked_client_name || formState.client_name || eventData.external_name || '',
+    linked_client_rut: normalizeRutInput(formState.linked_client_rut || formState.client_rut || ''),
+    linked_case_role: formState.linked_case_role || formState.case_role || eventData.rol || '',
+    linked_case_court: formState.linked_case_court || formState.court || '',
+    responsible: formState.responsible || eventData.responsible || '',
+    confirmation_status: formState.confirmation_status || formState.confirmationStatus || 'Sin confirmar',
+    priority: formState.priority || 'Media',
+    modality_detail: formState.modality_detail || formState.modalityDetail || titleCase(eventData.meeting_mode || '') || 'Presencial',
+    location_or_link: formState.location_or_link || formState.locationOrLink || '',
+    subject: formState.subject || '',
+    notes: formState.notes || eventData.notes || '',
+  }
+}
+
+function closeAgendaRectification(){
+  rectificationEventId = null
+  const panel = document.getElementById('agendaRectificationPanel')
+  if (panel) panel.hidden = true
+  setAgendaRectificationMessage('')
+}
+
+function renderAgendaRectificationPanel(eventData = null){
+  const panel = document.getElementById('agendaRectificationPanel')
+  const historyNode = document.getElementById('agendaRectificationHistory')
+  if (!panel) return
+  const shouldShow = Boolean(eventData && rectificationEventId === eventData.id && isRectificationAdmin)
+  panel.hidden = !shouldShow
+  if (!shouldShow) return
+  const snapshot = buildAgendaRectificationSnapshot(eventData)
+  const form = document.getElementById('agendaRectificationForm')
+  Object.entries(snapshot).forEach(([key, value]) => {
+    const field = form?.elements.namedItem(key)
+    if (field) field.value = value || ''
+  })
+  const log = getEventMetadata(eventData).rectificationLog || []
+  historyNode.innerHTML = `
+    <div class="small-note">Trazabilidad interna de rectificaciones.</div>
+    ${buildRectificationHistoryHtml(log)}
+  `
+  setAgendaRectificationMessage('')
+}
+
+function validateAgendaRectification(formData){
+  if (!String(formData.get('title') || '').trim()) return 'El título del evento es obligatorio.'
+  if (!String(formData.get('starts_at') || '').trim()) return 'Debes indicar fecha y hora.'
+  if (Number.isNaN(new Date(String(formData.get('starts_at'))).getTime())) return 'La fecha u hora ingresada no es válida.'
+  const rut = String(formData.get('linked_client_rut') || '').trim()
+  if (rut && !isValidRut(normalizeRutInput(rut))) return 'El RUT del cliente vinculado no es válido.'
+  if (!String(formData.get('responsible') || '').trim()) return 'Debes indicar un responsable.'
+  return ''
+}
+
+async function saveAgendaRectification(event){
+  event.preventDefault()
+  const eventData = eventsCache.find((item) => item.id === rectificationEventId)
+  if (!eventData) return
+  const formData = new FormData(event.currentTarget)
+  const validationError = validateAgendaRectification(formData)
+  if (validationError) {
+    setAgendaRectificationMessage(validationError)
+    return
+  }
+  const confirmed = window.confirm('Está por rectificar información del registro. ¿Desea guardar los cambios?')
+  if (!confirmed) return
+
+  const previous = buildAgendaRectificationSnapshot(eventData)
+  const nextSnapshot = {
+    title: String(formData.get('title') || '').trim(),
+    starts_at: String(formData.get('starts_at') || '').trim(),
+    event_type: String(formData.get('event_type') || '').trim(),
+    linked_client_name: String(formData.get('linked_client_name') || '').trim(),
+    linked_client_rut: normalizeRutInput(formData.get('linked_client_rut')),
+    linked_case_role: String(formData.get('linked_case_role') || '').trim(),
+    linked_case_court: String(formData.get('linked_case_court') || '').trim(),
+    responsible: String(formData.get('responsible') || '').trim(),
+    confirmation_status: String(formData.get('confirmation_status') || '').trim(),
+    priority: String(formData.get('priority') || '').trim(),
+    modality_detail: String(formData.get('modality_detail') || '').trim(),
+    location_or_link: String(formData.get('location_or_link') || '').trim(),
+    subject: String(formData.get('subject') || '').trim(),
+    notes: String(formData.get('notes') || '').trim(),
+  }
+  const metadata = getEventMetadata(eventData)
+  const entries = createRectificationEntries({
+    previous,
+    next: nextSnapshot,
+    moduleName: 'Agenda',
+    actor: operatorName,
+    labels: {
+      title: 'Título', starts_at: 'Fecha y hora', event_type: 'Tipo de actividad', linked_client_name: 'Cliente vinculado', linked_client_rut: 'RUT cliente',
+      linked_case_role: 'Rol de causa', linked_case_court: 'Tribunal', responsible: 'Responsable', confirmation_status: 'Estado', priority: 'Prioridad',
+      modality_detail: 'Modalidad', location_or_link: 'Ubicación o enlace', subject: 'Materia', notes: 'Observaciones',
+    },
+  })
+  const nextFormState = {
+    ...metadata.formState,
+    title: nextSnapshot.title,
+    starts_at: nextSnapshot.starts_at,
+    event_type: nextSnapshot.event_type,
+    linked_client_name: nextSnapshot.linked_client_name,
+    linked_client_rut: nextSnapshot.linked_client_rut,
+    linked_case_role: nextSnapshot.linked_case_role,
+    linked_case_court: nextSnapshot.linked_case_court,
+    responsible: nextSnapshot.responsible,
+    confirmation_status: nextSnapshot.confirmation_status,
+    priority: nextSnapshot.priority,
+    modality_detail: nextSnapshot.modality_detail,
+    location_or_link: nextSnapshot.location_or_link,
+    subject: nextSnapshot.subject,
+    notes: nextSnapshot.notes,
+    nombre: nextSnapshot.linked_client_name || metadata.formState?.nombre || eventData.external_name || '',
+    rut: nextSnapshot.linked_client_rut || metadata.formState?.rut || '',
+  }
+  const rectificationLog = appendRectificationLog({ rectificationLog: metadata.rectificationLog }, entries).rectificationLog
+  const payload = {
+    title: nextSnapshot.title,
+    event_type: nextSnapshot.event_type.toLowerCase(),
+    kind: nextSnapshot.event_type.toLowerCase(),
+    external_name: nextSnapshot.linked_client_name || eventData.external_name || null,
+    person_name: nextSnapshot.linked_client_name || eventData.person_name || null,
+    responsible: nextSnapshot.responsible,
+    rol: nextSnapshot.linked_case_role || null,
+    event_date: nextSnapshot.starts_at.slice(0, 10),
+    meeting_mode: nextSnapshot.modality_detail.toLowerCase(),
+    starts_at: new Date(nextSnapshot.starts_at).toISOString(),
+    notes: nextSnapshot.notes || null,
+    required_background: `${FORM_METADATA_PREFIX}${JSON.stringify({ formState: nextFormState, rectificationLog })}`
+  }
+  const { error } = await supabase.from('appointments').update(payload).eq('id', eventData.id)
+  if (error) {
+    setAgendaRectificationMessage(error.message)
+    return
+  }
+  await loadEvents(eventData.id)
+  const fresh = eventsCache.find((item) => item.id === eventData.id)
+  if (fresh) {
+    startEditingEvent(fresh)
+    copyEventToActivity()
+    renderAgendaRectificationPanel(fresh)
+  }
+  alert('Evento rectificado correctamente')
 }
 
 function syncNuevoEventoToActivitySnapshot(){
@@ -865,7 +1103,8 @@ function startEditingEvent(eventData){
     eventNumberEl.value = eventIndex >= 0 ? getCorrelativeNumber(eventIndex) : ''
   }
 
-  const persistedState = parseNuevoEventoState(eventData.required_background)
+  const persistedMeta = parseNuevoEventoState(eventData.required_background)
+  const persistedState = persistedMeta?.formState || {}
 
   applyNuevoEventoFormState({
     ...persistedState,
@@ -994,7 +1233,7 @@ async function loadEvents(savedId = null){
     return
   }
 
-  tableBody.innerHTML = eventsCache.map((e, index)=>`<tr class="${e.id === activeEventRowId ? 'is-active-row' : ''}"><td data-label="N°">${getCorrelativeNumber(index)}</td><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-nav edit" data-id="${escapeHtml(e.id)}">Abrir</button> <button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
+  tableBody.innerHTML = eventsCache.map((e, index)=>`<tr class="${e.id === activeEventRowId ? 'is-active-row' : ''}"><td data-label="N°">${getCorrelativeNumber(index)}</td><td data-label="Fecha">${new Date(e.starts_at).toLocaleString()}</td><td data-label="Título">${escapeHtml(e.title)}</td><td data-label="Tipo">${escapeHtml(e.event_type)}</td><td data-label="Persona">${escapeHtml(e.external_name || '')}</td><td data-label="Acciones"><button class="btn-nav edit" data-id="${escapeHtml(e.id)}">Abrir</button> ${isRectificationAdmin ? `<button class="btn-nav rectify" data-id="${escapeHtml(e.id)}">Rectificar</button>` : ''} <button class="btn-danger delete" data-id="${escapeHtml(e.id)}">Eliminar</button></td></tr>`).join('')
 
   if (savedId) {
     const savedIndex = eventsCache.findIndex(event => event.id === savedId)
@@ -1006,6 +1245,23 @@ async function loadEvents(savedId = null){
 }
 
 tableBody.addEventListener('click', async (event) => {
+  const rectifyButton = event.target.closest('.rectify')
+  if (rectifyButton) {
+    const { data, error } = await supabase.from('appointments').select('*').eq('id', rectifyButton.dataset.id).single()
+    if (error) {
+      alert(error.message)
+      return
+    }
+    activeEventRowId = data.id
+    rectificationEventId = data.id
+    await loadEvents(data.id)
+    startEditingEvent(data)
+    copyEventToActivity()
+    openScreen('actividad')
+    renderAgendaRectificationPanel(data)
+    return
+  }
+
   const editButton = event.target.closest('.edit')
   if (editButton) {
     const { data, error } = await supabase.from('appointments').select('*').eq('id', editButton.dataset.id).single()
@@ -1013,9 +1269,11 @@ tableBody.addEventListener('click', async (event) => {
       alert(error.message)
       return
     }
+    rectificationEventId = null
     startEditingEvent(data)
     await loadEvents(data.id)
     openScreen('nuevo-evento')
+    renderAgendaRectificationPanel(null)
     return
   }
 
@@ -1030,10 +1288,18 @@ tableBody.addEventListener('click', async (event) => {
   }
   pendingActivityEventNumber = ''
   if (activeEventRowId === deleteButton.dataset.id) activeEventRowId = null
+  if (rectificationEventId === deleteButton.dataset.id) closeAgendaRectification()
   await loadEvents()
   if (editingEventId === deleteButton.dataset.id) {
     resetNuevoEventoForm()
   }
+})
+
+document.getElementById('agendaRectificationForm')?.addEventListener('submit', saveAgendaRectification)
+document.getElementById('btnCancelarRectificacionAgenda')?.addEventListener('click', closeAgendaRectification)
+document.getElementById('btnDescartarRectificacionAgenda')?.addEventListener('click', closeAgendaRectification)
+document.querySelector('#agendaRectificationForm [name="linked_client_rut"]')?.addEventListener('blur', (event) => {
+  event.currentTarget.value = normalizeRutInput(event.currentTarget.value)
 })
 
 saveButton.addEventListener('click', async ()=>{
@@ -1067,12 +1333,13 @@ saveButton.addEventListener('click', async ()=>{
     record_mode: grabacion,
     starts_at: fecha.toISOString(),
     notes: notesEl.value || null,
-    required_background: serializeNuevoEventoState()
+    required_background: serializeNuevoEventoState({ rectificationLog: parseNuevoEventoState(eventsCache.find((item) => item.id === editingEventId)?.required_background)?.rectificationLog || [] })
   }
 
   if (editingEventId) {
     const { error } = await supabase.from('appointments').update(payload).eq('id', editingEventId)
     if (error) return alert(error.message)
+    closeAgendaRectification()
     alert('Evento actualizado correctamente')
     pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
     activeEventRowId = editingEventId
@@ -1090,6 +1357,7 @@ saveButton.addEventListener('click', async ()=>{
   activeEventRowId = savedId
   await loadEvents(savedId)
   copyEventToActivity()
+  closeAgendaRectification()
   alert(`Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
   resetNuevoEventoForm({ preserveActivitySnapshot: true })
 })
@@ -1097,6 +1365,20 @@ saveButton.addEventListener('click', async ()=>{
 if (btnGoActividad) {
   btnGoActividad.addEventListener('click', () => {
     pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
+  })
+}
+
+if (btnAbrirRectificacionAgenda) {
+  btnAbrirRectificacionAgenda.hidden = !isRectificationAdmin
+  btnAbrirRectificacionAgenda.addEventListener('click', () => {
+    const currentEvent = eventsCache.find((item) => item.id === activeEventRowId || item.id === editingEventId)
+    if (!currentEvent) {
+      alert('Debes abrir primero un evento desde el visor de Agenda para rectificarlo.')
+      return
+    }
+    rectificationEventId = currentEvent.id
+    renderAgendaRectificationPanel(currentEvent)
+    document.getElementById('agendaRectificationPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   })
 }
 
