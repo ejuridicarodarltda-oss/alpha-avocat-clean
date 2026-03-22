@@ -160,11 +160,28 @@ Cerrar sesión
 📅 Nuevo Evento
 </button>
 
-<button class="b4">
+<button class="b4" id="btnNuevoDocumentoPanel">
 📄 Nuevo Documento
 </button>
 
 </section>
+
+<div id="panelQuickModal" class="modal" aria-hidden="true">
+  <div class="modal-panel" style="max-width:560px">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">Nuevo documento</div>
+        <p class="panel-subtitle">Elige dónde quieres incorporar el documento sin salir del flujo operativo del panel.</p>
+      </div>
+      <button class="icon-btn" type="button" id="btnCerrarQuickModal" aria-label="Cerrar">✕</button>
+    </div>
+    <div class="action-grid" style="grid-template-columns:repeat(auto-fit,minmax(180px,1fr));margin-top:8px;">
+      <button class="btn btn-primary" data-quick-doc-target="causas">Ir a Causas</button>
+      <button class="btn" data-quick-doc-target="clientes">Ir a Clientes</button>
+      <button class="btn" data-quick-doc-target="agenda">Ir a Agenda</button>
+    </div>
+  </div>
+</div>
 
 <section class="paneles">
 
@@ -314,6 +331,8 @@ await requireAuth()
 
 const cerrarSesionBtn = document.getElementById("cerrar-sesion-btn")
 const panelSearch = document.getElementById('panelSearch')
+const quickModal = document.getElementById('panelQuickModal')
+const quickDocButton = document.getElementById('btnNuevoDocumentoPanel')
 let consolidatedState = null
 
 function escapeHtml(value) {
@@ -460,6 +479,35 @@ if (cerrarSesionBtn) {
     window.location.href = "./login.html"
   })
 }
+
+quickDocButton?.addEventListener('click', () => {
+  quickModal?.classList.add('open')
+  quickModal?.setAttribute('aria-hidden', 'false')
+})
+
+document.getElementById('btnCerrarQuickModal')?.addEventListener('click', () => {
+  quickModal?.classList.remove('open')
+  quickModal?.setAttribute('aria-hidden', 'true')
+})
+
+quickModal?.addEventListener('click', (event) => {
+  if (event.target === quickModal) {
+    quickModal.classList.remove('open')
+    quickModal.setAttribute('aria-hidden', 'true')
+    return
+  }
+
+  const action = event.target.closest('[data-quick-doc-target]')
+  if (!action) return
+  window.location.href = `./${action.dataset.quickDocTarget}.html`
+})
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && quickModal?.classList.contains('open')) {
+    quickModal.classList.remove('open')
+    quickModal.setAttribute('aria-hidden', 'true')
+  }
+})
 
 await loadPanelData()
 window.addEventListener('storage', (event) => {
