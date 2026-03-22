@@ -746,6 +746,241 @@
       line-height:1.5;
     }
 
+    .document-explorer-panel{
+      display:grid;
+      gap:14px;
+      min-height:720px;
+      padding:18px;
+      border-radius:22px;
+      background:linear-gradient(180deg, rgba(255,255,255,.62) 0%, rgba(244,255,252,.92) 100%);
+      border:1px solid rgba(95,159,151,.34);
+      box-shadow:var(--causas-shadow-soft);
+    }
+
+    .explorer-toolbar,
+    .explorer-breadcrumb{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:center;
+      flex-wrap:wrap;
+    }
+
+    .explorer-breadcrumb{
+      padding:10px 14px;
+      border-radius:16px;
+      background:rgba(255,255,255,.72);
+      border:1px solid rgba(95,159,151,.22);
+      justify-content:flex-start;
+    }
+
+    .explorer-breadcrumb-link{
+      border:none;
+      background:none;
+      color:var(--causas-active);
+      font-weight:700;
+      cursor:pointer;
+      padding:0;
+    }
+
+    .explorer-shell{
+      display:grid;
+      grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
+      gap:16px;
+      min-height:560px;
+    }
+
+    .explorer-sidebar,
+    .explorer-main{
+      display:grid;
+      gap:12px;
+      min-height:0;
+      padding:16px;
+      border-radius:20px;
+      background:rgba(255,255,255,.68);
+      border:1px solid rgba(95,159,151,.26);
+    }
+
+    .explorer-tree-scroll,
+    .explorer-content-scroll{
+      min-height:0;
+      max-height:420px;
+      overflow:auto;
+      padding-right:4px;
+    }
+
+    .explorer-tree-list{
+      list-style:none;
+      margin:0;
+      padding:0;
+      display:grid;
+      gap:6px;
+    }
+
+    .explorer-tree-row{
+      display:flex;
+      align-items:center;
+      gap:6px;
+      padding-left:calc(var(--tree-depth, 0) * 14px);
+    }
+
+    .explorer-tree-row.active .explorer-tree-link{
+      background:#e3f5f1;
+      border-color:rgba(22,58,95,.25);
+    }
+
+    .explorer-tree-toggle,
+    .explorer-tree-link{
+      border:1px solid transparent;
+      background:none;
+      color:var(--causas-text);
+      cursor:pointer;
+      border-radius:12px;
+    }
+
+    .explorer-tree-toggle{
+      width:28px;
+      height:28px;
+      font-size:14px;
+    }
+
+    .explorer-tree-toggle.spacer{
+      display:inline-block;
+      width:28px;
+      height:28px;
+    }
+
+    .explorer-tree-row.active .explorer-tree-toggle{
+      transform:rotate(90deg);
+    }
+
+    .explorer-tree-link{
+      display:flex;
+      align-items:center;
+      gap:8px;
+      width:100%;
+      text-align:left;
+      padding:8px 10px;
+      font-weight:700;
+    }
+
+    .explorer-tree-icon{
+      width:22px;
+      text-align:center;
+    }
+
+    .explorer-grid-view{
+      display:grid;
+      gap:14px;
+      grid-template-columns:repeat(auto-fill, minmax(180px, 1fr));
+      align-content:start;
+    }
+
+    .explorer-card{
+      display:grid;
+      gap:12px;
+      align-content:start;
+      min-height:180px;
+      padding:16px;
+      border-radius:20px;
+      border:1px solid rgba(95,159,151,.28);
+      background:#f8fffd;
+      cursor:pointer;
+      transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+    }
+
+    .explorer-card:hover{
+      transform:translateY(-2px);
+      box-shadow:0 14px 28px rgba(22,58,95,.10);
+      border-color:var(--causas-active);
+    }
+
+    .explorer-card-icon{
+      width:64px;
+      height:64px;
+      border-radius:18px;
+      display:grid;
+      place-items:center;
+      overflow:hidden;
+      background:linear-gradient(180deg,#d8f0eb 0%,#ffffff 100%);
+      border:1px solid rgba(95,159,151,.24);
+      font-size:30px;
+    }
+
+    .explorer-card-icon img{
+      width:100%;
+      height:100%;
+      object-fit:cover;
+    }
+
+    .explorer-card-body{
+      display:grid;
+      gap:6px;
+    }
+
+    .explorer-list-wrap{
+      overflow:auto;
+      border:1px solid rgba(95,159,151,.24);
+      border-radius:18px;
+      background:#f8fffd;
+    }
+
+    .explorer-list-table{
+      width:100%;
+      border-collapse:collapse;
+    }
+
+    .explorer-list-table th,
+    .explorer-list-table td{
+      padding:12px 14px;
+      border-bottom:1px solid rgba(95,159,151,.16);
+      text-align:left;
+    }
+
+    .explorer-list-table tbody tr{
+      cursor:pointer;
+      transition:background .18s ease;
+    }
+
+    .explorer-list-table tbody tr:hover{
+      background:#eef9f6;
+    }
+
+    .explorer-list-name{
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      font-weight:700;
+    }
+
+    .explorer-preview-card{
+      display:grid;
+      gap:12px;
+      padding:16px;
+      border-radius:20px;
+      background:rgba(240,252,249,.94);
+      border:1px solid rgba(95,159,151,.24);
+    }
+
+    .explorer-state{
+      min-height:360px;
+      display:grid;
+      place-items:center;
+      text-align:center;
+      padding:28px;
+      border-radius:22px;
+      background:#f5fcfa;
+      border:1px dashed rgba(45,124,116,.45);
+      color:var(--causas-text-secondary);
+      font-weight:700;
+    }
+
+    .explorer-state.error{
+      color:var(--causas-critical);
+      background:#fff4f6;
+      border-color:rgba(122,30,44,.35);
+    }
+
     .modal{
       position:fixed;
       inset:0;
@@ -863,6 +1098,7 @@
       .folder-grid,
       .branch-grid,
       .archive-grid,
+      .explorer-shell,
       .action-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     }
 
@@ -907,9 +1143,13 @@
       .folder-grid,
       .branch-grid,
       .archive-grid,
+      .explorer-shell,
       .action-grid{ grid-template-columns:1fr; }
       .screen-title{ font-size:28px; }
       .detail-title{ font-size:24px; }
+      .document-explorer-panel{ min-height:auto; }
+      .explorer-tree-scroll,
+      .explorer-content-scroll{ max-height:none; }
     }
   </style>
 </head>
@@ -1373,6 +1613,7 @@
     import {
       applyImportToDetail,
       applyManualSync,
+      buildDocumentExplorer,
       buildCaratula,
       containerIdForCategory,
       downloadDocument,
@@ -1442,6 +1683,16 @@
       currentDocumentContainer: 'asociados',
       ebookFallbackUrl: '',
       officialFallbackScope: 'ebook',
+      explorer: {
+        causeId: null,
+        signature: '',
+        selectedNodeId: null,
+        expandedNodeIds: [],
+        viewMode: 'grid',
+        status: 'loading',
+        error: '',
+        model: null,
+      },
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       }
@@ -1968,6 +2219,254 @@
         notificaciones: 'Notificaciones',
         antecedentes: 'Otros antecedentes',
       })[containerId] || 'Documentos asociados';
+    }
+
+    function explorerNodeIcon(type){
+      return ({
+        archivador: '🗃️',
+        folder: '📁',
+        pdf: '📕',
+        word: '📘',
+        image: '🖼️',
+        zip: '🗜️',
+        file: '📄',
+      })[type] || '📄';
+    }
+
+    function formatExplorerSize(bytes){
+      const value = Number(bytes || 0);
+      if (!value) return '—';
+      if (value < 1024) return `${value} B`;
+      if (value < 1024 * 1024) return `${Math.ceil(value / 1024)} KB`;
+      return `${(value / (1024 * 1024)).toFixed(1)} MB`;
+    }
+
+    function getExplorerState(cause){
+      if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[] };
+      const explorerSignature = [
+        cause.id,
+        (cause.documents || []).length,
+        (cause.documents || []).map((item) => `${item.id}:${item.updatedAt || item.createdAt || ''}:${item.destinationContainer || ''}`).join('|'),
+      ].join('::');
+      if (state.explorer.causeId !== cause.id || state.explorer.signature !== explorerSignature) {
+        try {
+          const model = buildDocumentExplorer(cause, {
+            rootName: `Expedientes digitales · ${cause.caratula || cause.rol || 'Causa'}`,
+            clientName: cause.cliente,
+          });
+          const selectedNodeId = model.nodeMap[state.explorer.selectedNodeId] ? state.explorer.selectedNodeId : model.rootId;
+          const expandedNodeIds = Array.from(new Set([model.rootId, ...(state.explorer.expandedNodeIds || [])].filter((nodeId) => model.nodeMap[nodeId])));
+          state.explorer = {
+            ...state.explorer,
+            causeId: cause.id,
+            signature: explorerSignature,
+            selectedNodeId,
+            expandedNodeIds,
+            status: model.hasContent ? 'loaded' : 'empty',
+            error: '',
+            model,
+          };
+        } catch (error) {
+          console.error('[Alpha Avocat][explorer] No fue posible construir el árbol documental.', error);
+          state.explorer = {
+            ...state.explorer,
+            causeId: cause.id,
+            signature: explorerSignature,
+            selectedNodeId: null,
+            expandedNodeIds: [],
+            status: 'error',
+            error: error?.message || 'Error desconocido',
+            model: null,
+          };
+        }
+      }
+
+      const model = state.explorer.model;
+      const currentNode = model?.nodeMap?.[state.explorer.selectedNodeId] || model?.nodeMap?.[model?.rootId];
+      const breadcrumbs = [];
+      if (model && currentNode) {
+        let pointer = currentNode;
+        while (pointer) {
+          breadcrumbs.unshift(pointer);
+          pointer = pointer.parentId ? model.nodeMap[pointer.parentId] : null;
+        }
+      }
+      const items = currentNode?.children?.map((nodeId) => model.nodeMap[nodeId]).filter(Boolean) || [];
+      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs };
+    }
+
+    function renderExplorerTree(model, nodeId, depth = 0){
+      const node = model?.nodeMap?.[nodeId];
+      if (!node) return '';
+      const isSelected = state.explorer.selectedNodeId === node.id;
+      const isExpanded = (state.explorer.expandedNodeIds || []).includes(node.id);
+      const canExpand = Boolean(node.children?.length);
+      return `
+        <li class="explorer-tree-item">
+          <div class="explorer-tree-row ${isSelected ? 'active' : ''}" style="--tree-depth:${depth}">
+            ${canExpand ? `<button class="explorer-tree-toggle" data-explorer-toggle="${node.id}" aria-label="${isExpanded ? 'Contraer' : 'Expandir'}">▸</button>` : '<span class="explorer-tree-toggle spacer"></span>'}
+            <button class="explorer-tree-link" data-explorer-node="${node.id}">
+              <span class="explorer-tree-icon" aria-hidden="true">${explorerNodeIcon(node.type)}</span>
+              <span>${escapeHtml(node.name)}</span>
+            </button>
+          </div>
+          ${canExpand && isExpanded ? `<ul class="explorer-tree-list">${node.children.map((childId) => renderExplorerTree(model, childId, depth + 1)).join('')}</ul>` : ''}
+        </li>
+      `;
+    }
+
+    function renderExplorerItem(node){
+      const isFolderLike = ['archivador','folder'].includes(node.type);
+      const meta = [
+        node.extension ? `.${node.extension}` : (node.type === 'archivador' ? 'Archivador' : (node.type === 'folder' ? 'Carpeta' : 'Archivo')),
+        node.updatedAt ? formatDate(node.updatedAt) : '',
+        !isFolderLike ? formatExplorerSize(node.size) : `${node.children?.length || 0} elemento(s)`,
+      ].filter(Boolean);
+      return `
+        <article class="explorer-card ${isFolderLike ? 'folder' : 'file'}" data-explorer-node="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(node.name)}">
+          <div class="explorer-card-icon" aria-hidden="true">${node.thumbnailUrl && node.type === 'image'
+            ? `<img src="${escapeHtml(node.thumbnailUrl)}" alt="">`
+            : explorerNodeIcon(node.type)}</div>
+          <div class="explorer-card-body">
+            <strong>${escapeHtml(node.name)}</strong>
+            <div class="timeline-meta">${meta.map(escapeHtml).join(' · ')}</div>
+            <div class="case-meta">${isFolderLike ? 'Clic para abrir el contenido.' : 'Clic para abrir el archivo.'}</div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderExplorerListRow(node){
+      const kind = ({
+        archivador:'Archivador',
+        folder:'Carpeta',
+        pdf:'PDF',
+        word:'Word',
+        image:'Imagen',
+        zip:'ZIP',
+        file:'Archivo',
+      })[node.type] || 'Archivo';
+      return `
+        <tr data-explorer-node="${node.id}">
+          <td><span class="explorer-list-name"><span aria-hidden="true">${explorerNodeIcon(node.type)}</span>${escapeHtml(node.name)}</span></td>
+          <td>${escapeHtml(kind)}</td>
+          <td>${escapeHtml(node.updatedAt ? formatDate(node.updatedAt) : '—')}</td>
+          <td>${escapeHtml(['archivador','folder'].includes(node.type) ? `${node.children?.length || 0} elemento(s)` : formatExplorerSize(node.size))}</td>
+        </tr>
+      `;
+    }
+
+    function renderExplorerPreview(node, cause){
+      if (!node) {
+        return '<div class="helper-box">Selecciona un archivador, carpeta o archivo para revisar su contexto documental.</div>';
+      }
+      const isFile = !['archivador','folder'].includes(node.type);
+      const breadcrumbs = (node.path || '').split(' / ').filter(Boolean).join(' / ');
+      return `
+        <div class="explorer-preview-card">
+          <div class="case-top">
+            <strong>${escapeHtml(node.name)}</strong>
+            <span class="badge badge-info">${escapeHtml(({
+              archivador:'Archivador',
+              folder:'Carpeta',
+              pdf:'PDF',
+              word:'Word',
+              image:'Imagen',
+              zip:'ZIP',
+              file:'Archivo',
+            })[node.type] || 'Archivo')}</span>
+          </div>
+          <div class="timeline-meta">${escapeHtml(breadcrumbs || `Cliente / ${cause.caratula || cause.rol || 'Causa'}`)}</div>
+          <div class="micro-grid">
+            <div class="helper-box"><strong>Tamaño</strong><div>${escapeHtml(formatExplorerSize(node.size))}</div></div>
+            <div class="helper-box"><strong>Actualización</strong><div>${escapeHtml(node.updatedAt ? formatDate(node.updatedAt) : 'No informada')}</div></div>
+            <div class="helper-box"><strong>Extensión</strong><div>${escapeHtml(node.extension ? `.${node.extension}` : 'No informada')}</div></div>
+            <div class="helper-box"><strong>Acción</strong><div>${isFile ? 'Abrir o descargar' : 'Explorar contenido'}</div></div>
+          </div>
+          ${isFile ? `
+            <div class="document-actions">
+              <button class="btn btn-primary" data-doc-action="open" data-doc-id="${node.documentId}">Abrir archivo</button>
+              <button class="btn" data-doc-action="download" data-doc-id="${node.documentId}">Descargar</button>
+            </div>
+          ` : '<div class="linked-note">Este contenedor permite navegar archivadores, carpetas, subcarpetas y archivos de la causa actual sin perder el contexto institucional.</div>'}
+        </div>
+      `;
+    }
+
+    function renderDocumentExplorer(cause){
+      const explorer = getExplorerState(cause);
+      if (explorer.status === 'loading') {
+        return '<div class="explorer-state">Cargando archivos del expediente…</div>';
+      }
+      if (explorer.status === 'error') {
+        return `<div class="explorer-state error">No fue posible cargar la estructura documental de esta causa.<div class="timeline-meta">${escapeHtml(explorer.error || 'Revise la estructura del expediente digital.')}</div></div>`;
+      }
+      if (explorer.status === 'empty' || !explorer.model) {
+        return '<div class="explorer-state">Esta causa aún no contiene archivos en Expedientes Digitales.</div>';
+      }
+      const currentNode = explorer.currentNode || explorer.model.nodeMap[explorer.model.rootId];
+      const itemsMarkup = state.explorer.viewMode === 'list'
+        ? `
+          <div class="explorer-list-wrap">
+            <table class="explorer-list-table">
+              <thead><tr><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th></tr></thead>
+              <tbody>${explorer.items.map(renderExplorerListRow).join('') || '<tr><td colspan="4">No hay elementos visibles en este nivel.</td></tr>'}</tbody>
+            </table>
+          </div>
+        `
+        : `
+          <div class="explorer-grid-view">
+            ${explorer.items.map(renderExplorerItem).join('') || '<div class="helper-box">No hay elementos visibles en este nivel del expediente digital.</div>'}
+          </div>
+        `;
+
+      return `
+        <article class="document-explorer-panel">
+          <div class="explorer-toolbar">
+            <div>
+              <strong>Document Explorer</strong>
+              <div class="timeline-meta">${escapeHtml(cause.cliente)} / ${escapeHtml(cause.caratula || cause.rol || 'Causa actual')} / Expedientes Digitales</div>
+            </div>
+            <div class="document-actions">
+              <button class="btn" data-explorer-nav="up">Subir</button>
+              <button class="btn ${state.explorer.viewMode === 'grid' ? 'btn-primary' : ''}" data-explorer-view="grid">Vista íconos</button>
+              <button class="btn ${state.explorer.viewMode === 'list' ? 'btn-primary' : ''}" data-explorer-view="list">Vista lista</button>
+            </div>
+          </div>
+          <div class="explorer-breadcrumb">
+            ${explorer.breadcrumbs.map((node, index) => `
+              <button class="explorer-breadcrumb-link" data-explorer-node="${node.id}">
+                ${escapeHtml(node.name)}
+              </button>${index < explorer.breadcrumbs.length - 1 ? '<span>/</span>' : ''}
+            `).join('')}
+          </div>
+          <div class="explorer-shell">
+            <aside class="explorer-sidebar">
+              <div class="branch-head">
+                <div>
+                  <h5 class="segment-title">Árbol documental</h5>
+                  <p class="segment-copy">Explora archivadores, carpetas, subcarpetas y archivos de la causa actual.</p>
+                </div>
+                <span class="badge badge-info">${explorer.model.nodes.length} nodo(s)</span>
+              </div>
+              <div class="explorer-tree-scroll">
+                <ul class="explorer-tree-list">${renderExplorerTree(explorer.model, explorer.model.rootId)}</ul>
+              </div>
+            </aside>
+            <section class="explorer-main">
+              <div class="branch-head">
+                <div>
+                  <h5 class="segment-title">${escapeHtml(currentNode?.name || 'Expedientes digitales')}</h5>
+                  <p class="segment-copy">Vista principal del expediente con scroll, íconos por tipo y apertura por clic.</p>
+                </div>
+                <span class="badge badge-active">${explorer.items.length} elemento(s)</span>
+              </div>
+              <div class="explorer-content-scroll">${itemsMarkup}</div>
+              ${renderExplorerPreview(currentNode, cause)}
+            </section>
+          </div>
+        </article>
+      `;
     }
 
     function getClientDisplayName(client){
@@ -2609,21 +3108,12 @@
     }
 
     function renderExpedientesPillar(cause){
-      const archive = cause.expedienteDigital || {};
-      const tribunalFolders = archive.cliente?.tribunal?.carpetas || [];
-      const advisoryFolders = archive.cliente?.asesoria?.carpetas || [];
-      const ebookDocs = getDocumentsByContainer(cause, 'ebook');
-      const associatedDocs = getDocumentsByContainer(cause, 'asociados');
-      const resolutionDocs = getDocumentsByContainer(cause, 'resoluciones');
-      const writtenDocs = getDocumentsByContainer(cause, 'escritos');
-      const notificationDocs = getDocumentsByContainer(cause, 'notificaciones');
-      const otherDocs = getDocumentsByContainer(cause, 'antecedentes');
       return `
         <section class="section-card">
           <div class="section-head">
             <div>
               <h4 class="section-title">Expedientes digitales</h4>
-              <p class="section-copy">Pantalla documental del módulo CAUSAS con dos archivadores principales: Cliente y Biblioteca.</p>
+              <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
             </div>
             <div class="toolbar">
               <button class="btn" data-doc-upload="asociados">Cargar archivo</button>
@@ -2631,103 +3121,7 @@
               <button class="btn" data-doc-create="asociados">Agregar documento</button>
             </div>
           </div>
-          <div class="archive-grid">
-            <article class="branch-panel">
-              <div class="branch-head">
-                <div>
-                  <h5 class="segment-title">Ebook y documentos asociados</h5>
-                  <p class="segment-copy">Contenedor operativo con apertura, descarga, renombrado, clasificación, movimiento y eliminación segura.</p>
-                </div>
-                <span class="badge badge-active">${ebookDocs.length ? 'Operativo' : 'Pendiente'}</span>
-              </div>
-              <div class="document-list">
-                ${renderDocumentGroup('Ebook', 'ebook', ebookDocs)}
-                ${renderDocumentGroup('Documentos asociados', 'asociados', associatedDocs)}
-                ${renderDocumentGroup('Escritos', 'escritos', writtenDocs)}
-                ${renderDocumentGroup('Resoluciones', 'resoluciones', resolutionDocs)}
-                ${renderDocumentGroup('Notificaciones', 'notificaciones', notificationDocs)}
-                ${renderDocumentGroup('Otros antecedentes', 'antecedentes', otherDocs)}
-              </div>
-            </article>
-          </div>
-          <div class="archive-grid">
-            <article class="branch-panel">
-              <div class="branch-head">
-                <div>
-                  <h5 class="segment-title">Archivador Cliente</h5>
-                  <p class="segment-copy">Vinculado al módulo CLIENTE y separado en dos ramas principales: Tribunal y Asesoría.</p>
-                </div>
-                <span class="badge badge-active">Cliente</span>
-              </div>
-              <div class="branch-grid">
-                <div class="tree-card">
-                  <div class="branch-head">
-                    <div>
-                      <h5 class="segment-title">Rama Tribunal</h5>
-                      <p class="segment-copy">Todo lo judicializado o asociado a tribunal queda en esta rama.</p>
-                    </div>
-                    <span class="badge badge-info">📁 Tribunal</span>
-                  </div>
-                  <div class="stack-list">${tribunalFolders.map(folder => `
-                    <article class="folder-card">
-                      <div class="case-top">
-                        <div class="folder-icon" aria-hidden="true">📁</div>
-                        <span class="badge badge-ok">Editable</span>
-                      </div>
-                      <strong>${escapeHtml(folder.tribunal)}</strong>
-                      <div class="timeline-meta">${escapeHtml(folder.editable)}</div>
-                      <div class="folder-grid">${(folder.causas || []).map(caseFolder => `
-                        <article class="folder-card">
-                          <strong>${escapeHtml(caseFolder.nombre)}</strong>
-                          <ul class="tree-list">${(caseFolder.subcarpetas || []).map(sub => `<li>${escapeHtml(sub)}</li>`).join('')}</ul>
-                        </article>
-                      `).join('')}</div>
-                    </article>
-                  `).join('')}</div>
-                </div>
-                <div class="tree-card">
-                  <div class="branch-head">
-                    <div>
-                      <h5 class="segment-title">Rama Asesoría</h5>
-                      <p class="segment-copy">Organiza antecedentes consultivos, preparatorios o no judicializados al mismo nivel de Tribunal.</p>
-                    </div>
-                    <span class="badge badge-info">📁 Asesoría</span>
-                  </div>
-                  <div class="folder-grid">${advisoryFolders.map(folder => `
-                    <article class="folder-card">
-                      <div class="case-top">
-                        <div class="folder-icon" aria-hidden="true">📁</div>
-                        <span class="badge badge-ok">Asesoría</span>
-                      </div>
-                      <strong>${escapeHtml(folder.nombre)}</strong>
-                      <ul class="tree-list">${(folder.contenidos || []).map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-                    </article>
-                  `).join('')}</div>
-                  <div class="linked-note">Vinculaciones activas: ${(archive.cliente?.asesoria?.vinculos || []).map(escapeHtml).join(' · ')}.</div>
-                </div>
-              </div>
-            </article>
-            <article class="branch-panel">
-              <div class="branch-head">
-                <div>
-                  <h5 class="segment-title">Biblioteca</h5>
-                  <p class="segment-copy">Archivador documental transversal del sistema. Incluye Doctrina como una colección interna más.</p>
-                </div>
-                <span class="badge badge-active">Biblioteca</span>
-              </div>
-              <div class="stack-list">${(archive.biblioteca?.colecciones || []).map(item => `
-                <article class="folder-card">
-                  <div class="case-top">
-                    <div class="folder-icon" aria-hidden="true">📚</div>
-                    <span class="badge badge-info">Colección</span>
-                  </div>
-                  <strong>${escapeHtml(item)}</strong>
-                </article>
-              `).join('')}</div>
-              <div class="file-chip-wrap">${(archive.tiposArchivo || []).map(item => `<span class="file-chip">📄 ${escapeHtml(item)}</span>`).join('')}</div>
-              <div class="linked-note">Acciones mínimas disponibles: ${(archive.cliente?.acciones || []).map(escapeHtml).join(' · ')}.</div>
-            </article>
-          </div>
+          ${renderDocumentExplorer(cause)}
         </section>
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
@@ -4328,6 +4722,56 @@
       });
 
       $('detailContent').addEventListener('click', (event) => {
+        const explorerView = event.target.closest('[data-explorer-view]');
+        if (explorerView) {
+          state.explorer.viewMode = explorerView.dataset.explorerView === 'list' ? 'list' : 'grid';
+          renderCurrentTab();
+          return;
+        }
+
+        const explorerToggle = event.target.closest('[data-explorer-toggle]');
+        if (explorerToggle) {
+          const nodeId = explorerToggle.dataset.explorerToggle;
+          const expanded = new Set(state.explorer.expandedNodeIds || []);
+          if (expanded.has(nodeId)) expanded.delete(nodeId);
+          else expanded.add(nodeId);
+          state.explorer.expandedNodeIds = Array.from(expanded);
+          renderCurrentTab();
+          return;
+        }
+
+        const explorerNode = event.target.closest('[data-explorer-node]');
+        if (explorerNode) {
+          const cause = getCurrentCause();
+          const explorer = getExplorerState(cause);
+          const node = explorer.model?.nodeMap?.[explorerNode.dataset.explorerNode];
+          if (node) {
+            state.explorer.selectedNodeId = node.id;
+            if (['archivador','folder'].includes(node.type)) {
+              const expanded = new Set(state.explorer.expandedNodeIds || []);
+              expanded.add(node.id);
+              state.explorer.expandedNodeIds = Array.from(expanded);
+              renderCurrentTab();
+            } else if (node.documentId) {
+              renderCurrentTab();
+              handleDocumentAction(node.documentId, 'open');
+            }
+          }
+          return;
+        }
+
+        const explorerNav = event.target.closest('[data-explorer-nav]');
+        if (explorerNav) {
+          const cause = getCurrentCause();
+          const explorer = getExplorerState(cause);
+          const currentNode = explorer.currentNode;
+          if (explorerNav.dataset.explorerNav === 'up' && currentNode?.parentId && explorer.model?.nodeMap?.[currentNode.parentId]) {
+            state.explorer.selectedNodeId = currentNode.parentId;
+          }
+          renderCurrentTab();
+          return;
+        }
+
         const upload = event.target.closest('[data-doc-upload]');
         if (upload) {
           state.currentDocumentContainer = upload.dataset.docUpload;
