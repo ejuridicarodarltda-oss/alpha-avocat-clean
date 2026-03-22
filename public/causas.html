@@ -1868,6 +1868,14 @@
       });
     }
 
+    function shouldOpenStoredEbook(documentRecord){
+      if (!documentRecord || documentRecord.category !== 'Ebook') return false;
+      const strategy = String(documentRecord.downloadStrategy || '').toLowerCase();
+      const content = String(documentRecord.content || '');
+      if (strategy === 'stored') return Boolean(content);
+      return Boolean(content) && !documentRecord.sourceUrl && !documentRecord.sourcePageUrl;
+    }
+
     function openManagedModal(id){
       const target = $(id);
       if (!target) return;
@@ -3695,6 +3703,12 @@
 
       if (action === 'open') {
         if (documentRecord.category === 'Ebook') {
+          if (shouldOpenStoredEbook(documentRecord)) {
+            toggleEbookFallback('');
+            openDocument(documentRecord);
+            setDetailStatus('Ebook abierto desde el expediente digital de Alpha Avocat.', 'ok');
+            return;
+          }
           await openEbookExternally(documentRecord);
           return;
         }
@@ -3705,6 +3719,18 @@
 
       if (action === 'download') {
         if (documentRecord.category === 'Ebook') {
+          if (shouldOpenStoredEbook(documentRecord)) {
+            toggleEbookFallback('');
+            if (downloadDocument(documentRecord)) {
+              persistCurrentCause((entry) => recordDownload(entry, documentId));
+              setDetailStatus('Ebook descargado desde el expediente digital de Alpha Avocat.', 'ok');
+              await loadCases();
+              renderAll();
+            } else {
+              setDetailStatus('La respuesta recibida no corresponde a un ebook descargable.', 'error');
+            }
+            return;
+          }
           await openEbookExternally(documentRecord);
           return;
         }
