@@ -1070,6 +1070,10 @@
         </div>
 
         <div id="detailStatusMsg" class="msg" aria-live="polite"></div>
+        <div id="ebookFallbackActions" class="document-actions" hidden>
+          <button type="button" class="btn" id="btnCopyEbookLink">Copiar enlace</button>
+          <button type="button" class="btn" id="btnOpenEbookOfficial">Abrir en sitio oficial</button>
+        </div>
         <div class="tab-bar" id="tabBar"></div>
         <div id="detailContent"></div>
       </section>
@@ -1444,6 +1448,7 @@
       importTargetCaseId: null,
       currentDocumentId: null,
       currentDocumentContainer: 'asociados',
+      ebookFallbackUrl: '',
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       }
@@ -1568,206 +1573,51 @@
       return new URL(String(value || ''), window.location.href).toString();
     }
 
-    function looksLikeDirectDownloadUrl(url = ''){
-      return /(ebook|descarg|download|archivo|adjunto|documento|pdf|docx?)([/?#._-]|$)/i.test(String(url || ''));
-    }
-
-    function inferFilenameFromDisposition(disposition = ''){
-      const utfMatch = disposition.match(/filename\*\s*=\s*UTF-8''([^;]+)/i);
-      if (utfMatch?.[1]) return decodeURIComponent(utfMatch[1]).replace(/["']/g, '').trim();
-      const plainMatch = disposition.match(/filename\s*=\s*("?)([^";]+)\1/i);
-      return plainMatch?.[2]?.trim() || '';
-    }
-
-    function inferFilenameFromUrl(url = '', fallback = 'documento.bin'){
+    function isOfficialPjudUrl(value){
+      const normalized = normalizeDownloadUrl(value);
+      if (!normalized) return false;
       try {
-        const parsed = new URL(String(url || ''), window.location.href);
-        const token = parsed.pathname.split('/').filter(Boolean).pop() || '';
-        return token || fallback;
+        const parsed = new URL(normalized);
+        return /(^|\.)pjud\.cl$/i.test(parsed.hostname);
       } catch {
-        return fallback;
+        return false;
       }
     }
 
-    function inferExtensionFromMime(type = ''){
-      const mime = String(type || '').toLowerCase();
-      if (mime.includes('pdf')) return 'pdf';
-      if (mime.includes('msword')) return 'doc';
-      if (mime.includes('wordprocessingml')) return 'docx';
-      if (mime.includes('jpeg')) return 'jpg';
-      if (mime.includes('png')) return 'png';
-      if (mime.includes('json')) return 'json';
-      if (mime.includes('plain')) return 'txt';
-      return 'bin';
-    }
-
-    function resolveDownloadFilename({ documentRecord, responseUrl, disposition, contentType }){
-      const byHeader = inferFilenameFromDisposition(disposition);
-      if (byHeader) return byHeader;
-      const byUrl = inferFilenameFromUrl(responseUrl, '');
-      if (byUrl) return byUrl;
-      const currentName = documentRecord?.name || '';
-      if (currentName && /\.[a-z0-9]{2,8}$/i.test(currentName)) return currentName;
-      const extension = inferExtensionFromMime(contentType || documentRecord?.type || '');
-      const base = currentName ? currentName.replace(/\.[a-z0-9]{2,8}$/i, '') : `ebook-${slugId(documentRecord?.caseId || documentRecord?.name || 'causa')}`;
-      return `${base}.${extension}`;
-    }
-
-    function looksLikeHtmlResponse(contentType = '', fileName = ''){
-      const lowerType = String(contentType || '').toLowerCase();
-      const lowerName = String(fileName || '').toLowerCase();
-      return lowerType.includes('text/html') || lowerType.includes('application/xhtml+xml') || lowerName.endsWith('.html') || lowerName.endsWith('.htm');
-    }
-
-    function blobToDataUrl(blob){
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || ''));
-        reader.onerror = () => reject(reader.error || new Error('No fue posible serializar el archivo descargado.'));
-        reader.readAsDataURL(blob);
-      });
-    }
-
-    async function inspectHtmlFailure(response, blob){
-      const text = await blob.text();
-      const body = text.slice(0, 500).toLowerCase();
-      logEbookTrace('respuesta-html-inesperada', { status: response.status, url: response.url, preview: text.slice(0, 180) });
-      if (response.status === 401 || response.status === 403 || body.includes('iniciar sesión') || body.includes('login') || body.includes('sesión')) {
-        throw new Error('La sesión del Poder Judicial no permitió descargar el archivo');
+    function isBlockedEbookEndpoint(value){
+      const normalized = normalizeDownloadUrl(value);
+      if (!normalized) return false;
+      try {
+        const parsed = new URL(normalized);
+        return /^ojv\.pjud\.cl$/i.test(parsed.hostname) || /^oficinajudicialvirtual\.pjud\.cl$/i.test(parsed.hostname);
+      } catch {
+        return false;
       }
-      if (response.redirected) {
-        throw new Error('La respuesta recibida no corresponde a un archivo descargable');
-      }
-      throw new Error('La respuesta recibida no corresponde a un archivo descargable');
     }
 
-    function extractDownloadCandidatesFromHtml(html, baseUrl){
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const candidates = new Set();
-      const pushCandidate = (rawValue) => {
-        if (!rawValue) return;
-        try {
-          const resolved = new URL(rawValue, baseUrl).toString();
-          if (/(ebook|descarg|document|pdf|archivo|adjunto)/i.test(resolved)) candidates.add(resolved);
-        } catch {}
-      };
-
-      doc.querySelectorAll('a[href], iframe[src], form[action]').forEach((node) => {
-        pushCandidate(node.getAttribute('href') || node.getAttribute('src') || node.getAttribute('action'));
-      });
-
-      const scriptMatches = html.match(/(?:window\.open|location\.href|src)\s*\(?\s*['"]([^'"]+)['"]/gi) || [];
-      scriptMatches.forEach((entry) => {
-        const match = entry.match(/['"]([^'"]+)['"]/);
-        pushCandidate(match?.[1] || '');
-      });
-
-      return Array.from(candidates);
+    function looksLikeLoginUrl(value){
+      const normalized = normalizeDownloadUrl(value);
+      if (!normalized) return false;
+      return /(login|ingreso|autentic|claveunica|sesion|sesión|signin)/i.test(normalized);
     }
 
-    async function resolveRemoteDocumentTarget(cause, documentRecord){
-      const initialCandidates = [
-        documentRecord?.sourceUrl,
-        documentRecord?.downloadUrl,
-      ].map(normalizeDownloadUrl).filter(Boolean);
-      const directCandidates = initialCandidates.filter(looksLikeDirectDownloadUrl);
-      const promotedPageCandidates = initialCandidates.filter((url) => !looksLikeDirectDownloadUrl(url));
-      if (directCandidates.length) {
-        logEbookTrace('url-descarga-resuelta-directa', { url: directCandidates[0] });
-        return { url: directCandidates[0], source: 'documento' };
-      }
-
-      const pageCandidates = [
-        ...promotedPageCandidates,
+    function buildEbookExternalUrl(cause, documentRecord){
+      const candidates = [
         documentRecord?.sourcePageUrl,
         cause?.poderJudicial?.link,
         cause?.tribunalData?.poderJudicial,
+        isOfficialPjudUrl(documentRecord?.sourceUrl) ? documentRecord?.sourceUrl : '',
       ].map(normalizeDownloadUrl).filter(Boolean);
 
-      for (const pageUrl of pageCandidates) {
-        logEbookTrace('inspeccionando-pagina-pjud', { pageUrl });
-        const response = await fetch(pageUrl, {
-          credentials: 'include',
-          redirect: 'follow',
-          headers: { Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
-          cache: 'no-store',
-        });
-        const contentType = response.headers.get('content-type') || '';
-        logEbookTrace('respuesta-pagina-pjud', { status: response.status, url: response.url, contentType });
-
-        if (response.status === 401 || response.status === 403) {
-          throw new Error('La sesión del Poder Judicial no permitió descargar el archivo');
-        }
-        if (!response.ok) continue;
-        if (!looksLikeHtmlResponse(contentType)) {
-          return { url: response.url, source: 'respuesta-directa', response };
-        }
-
-        const html = await response.text();
-        const candidates = extractDownloadCandidatesFromHtml(html, response.url);
-        if (candidates.length) {
-          logEbookTrace('url-descarga-detectada-en-html', { pageUrl: response.url, candidates });
-          return { url: candidates[0], source: 'html' };
-        }
-      }
-
-      throw new Error('No se obtuvo URL válida de descarga');
+      const preferred = candidates.find((candidate) => isOfficialPjudUrl(candidate) && !isBlockedEbookEndpoint(candidate));
+      return preferred || '';
     }
 
-    async function fetchRemoteDocument(cause, documentRecord){
-      const target = await resolveRemoteDocumentTarget(cause, documentRecord);
-      const response = target.response || await fetch(target.url, {
-        credentials: 'include',
-        redirect: 'follow',
-        headers: { Accept: 'application/pdf,application/octet-stream,*/*' },
-        cache: 'no-store',
-      });
-      const contentType = response.headers.get('content-type') || '';
-      const disposition = response.headers.get('content-disposition') || '';
-      logEbookTrace('respuesta-descarga-recibida', {
-        requestedUrl: target.url,
-        finalUrl: response.url,
-        status: response.status,
-        redirected: response.redirected,
-        contentType,
-        disposition,
-      });
-
-      if (response.status === 401 || response.status === 403) {
-        throw new Error('La sesión del Poder Judicial no permitió descargar el archivo');
-      }
-      if (!response.ok) {
-        throw new Error('Se produjo un error de red o autenticación durante la descarga');
-      }
-
-      const blob = await response.blob();
-      const resolvedName = resolveDownloadFilename({
-        documentRecord,
-        responseUrl: response.url,
-        disposition,
-        contentType: contentType || blob.type,
-      });
-      logEbookTrace('archivo-recibido', {
-        mimeType: blob.type || contentType || 'application/octet-stream',
-        size: blob.size,
-        fileName: resolvedName,
-      });
-
-      if (!blob.size) {
-        throw new Error('La respuesta recibida no corresponde a un archivo descargable');
-      }
-      if (looksLikeHtmlResponse(contentType || blob.type, resolvedName)) {
-        await inspectHtmlFailure(response, blob);
-      }
-
-      return {
-        blob,
-        response,
-        contentType: blob.type || contentType || 'application/octet-stream',
-        disposition,
-        fileName: resolvedName,
-      };
+    function toggleEbookFallback(url = ''){
+      state.ebookFallbackUrl = url || '';
+      const container = $('ebookFallbackActions');
+      if (!container) return;
+      container.hidden = !state.ebookFallbackUrl;
     }
 
     function pushEbookTraceToCause(entry, payload = {}){
@@ -1785,76 +1635,94 @@
       return next;
     }
 
-    async function downloadAndIncorporateRemoteDocument(documentRecord){
+    function registerEbookTrace(documentRecord, payload = {}){
+      const cause = getCurrentCause();
+      if (!cause || !documentRecord) return;
+      persistCurrentCause((entry) => pushEbookTraceToCause(entry, {
+        result: payload.result || 'Apertura externa ebook',
+        notes: payload.notes || '',
+        documentId: documentRecord.id,
+      }));
+      loadCases().then(renderAll);
+    }
+
+    async function copyTextToClipboard(text){
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+      const helper = document.createElement('textarea');
+      helper.value = text;
+      helper.setAttribute('readonly', 'readonly');
+      helper.className = 'hidden-input';
+      document.body.appendChild(helper);
+      helper.select();
+      const success = document.execCommand('copy');
+      helper.remove();
+      return success;
+    }
+
+    function monitorExternalWindow(openedWindow, generatedUrl, documentRecord){
+      window.setTimeout(() => {
+        let redirectedToLogin = false;
+        let currentUrl = generatedUrl;
+        try {
+          currentUrl = openedWindow?.location?.href || generatedUrl;
+          redirectedToLogin = looksLikeLoginUrl(currentUrl);
+        } catch {
+          redirectedToLogin = looksLikeLoginUrl(generatedUrl);
+        }
+        logEbookTrace('redireccion-login-detectada', { generatedUrl, currentUrl, redirectedToLogin });
+        registerEbookTrace(documentRecord, {
+          result: redirectedToLogin ? 'Apertura externa con posible login' : 'Apertura externa ebook',
+          notes: `URL generada: ${generatedUrl}. ¿Intentó iframe?: no. ¿Window.open bloqueado?: no. ¿Redirección a login?: ${redirectedToLogin ? 'sí' : 'no o no verificable'}.`,
+        });
+      }, 1200);
+    }
+
+    function openEbookExternally(documentRecord){
       const cause = getCurrentCause();
       if (!cause || !documentRecord) return false;
 
-      setDetailStatus('Descargando archivo…', 'warn');
+      const generatedUrl = buildEbookExternalUrl(cause, documentRecord);
+      const redirectedToLogin = looksLikeLoginUrl(generatedUrl);
       logEbookTrace('click-detectado', {
         causeId: cause.id,
         documentId: documentRecord.id,
+        generatedUrl,
         sourceUrl: documentRecord.sourceUrl || '',
         sourcePageUrl: documentRecord.sourcePageUrl || cause.poderJudicial?.link || '',
+        iframeAttempted: false,
+        redirectedToLogin,
       });
 
-      try {
-        const remoteFile = await fetchRemoteDocument(cause, documentRecord);
-        setDetailStatus('Archivo recibido', 'ok');
-        const dataUrl = await blobToDataUrl(remoteFile.blob);
-        const persisted = persistCurrentCause((entry) => {
-          const currentDoc = (entry.documents || []).find((item) => item.id === documentRecord.id) || documentRecord;
-          let next = upsertDocument(entry, {
-            ...currentDoc,
-            id: currentDoc.id,
-            name: remoteFile.fileName,
-            size: remoteFile.blob.size,
-            type: remoteFile.contentType,
-            content: dataUrl,
-            origin: 'Poder Judicial',
-            caseId: cause.id,
-            linkedClient: cause.cliente,
-            sourceUrl: remoteFile.response.url,
-            sourcePageUrl: currentDoc.sourcePageUrl || cause.poderJudicial?.link || '',
-            downloadStrategy: 'stored',
-            lastTransferStatus: `Descarga exitosa ${new Date().toISOString()}`,
-            lastTransferError: '',
-            observation: currentDoc.observation || 'Documento descargado e incorporado desde el Poder Judicial.',
-          });
-          next = recordDownload(next, currentDoc.id);
-          return pushEbookTraceToCause(next, {
-            result: 'Archivo incorporado correctamente',
-            notes: `Archivo ${remoteFile.fileName} recibido desde ${remoteFile.response.url}. MIME ${remoteFile.contentType}. Tamaño ${remoteFile.blob.size} bytes.`,
-            documentId: currentDoc.id,
-          });
+      if (!generatedUrl) {
+        toggleEbookFallback('');
+        setDetailStatus('No se pudo generar un enlace oficial del Poder Judicial para este eBook.', 'error');
+        registerEbookTrace(documentRecord, {
+          result: 'Sin URL oficial de ebook',
+          notes: 'No fue posible generar una URL oficial del PJUD. ¿Intentó iframe?: no. ¿Window.open bloqueado?: no. ¿Redirección a login?: no.',
         });
-        await loadCases();
-        renderAll();
-        const savedDoc = (persisted?.documents || []).find((item) => item.id === documentRecord.id) || documentRecord;
-        downloadDocument(savedDoc);
-        setDetailStatus('Archivo incorporado correctamente', 'ok');
-        return true;
-      } catch (error) {
-        const message = error?.message || 'Se produjo un error de red o autenticación durante la descarga';
-        logEbookTrace('error-descarga-ebook', { message, stack: error?.stack || '' });
-        persistCurrentCause((entry) => {
-          const currentDoc = (entry.documents || []).find((item) => item.id === documentRecord.id) || documentRecord;
-          const next = upsertDocument(entry, {
-            ...currentDoc,
-            id: currentDoc.id,
-            lastTransferStatus: 'Descarga fallida',
-            lastTransferError: message,
-          });
-          return pushEbookTraceToCause(next, {
-            result: 'Error en descarga ebook',
-            notes: message,
-            documentId: currentDoc.id,
-          });
-        });
-        await loadCases();
-        renderAll();
-        setDetailStatus(message, 'error');
         return false;
       }
+
+      toggleEbookFallback(generatedUrl);
+      setDetailStatus('El eBook se abrirá en el sitio oficial del Poder Judicial. Si no carga, inicie sesión allí y vuelva a intentarlo.', 'warn');
+      const openedWindow = window.open(generatedUrl, '_blank', 'noopener,noreferrer');
+      if (!openedWindow) {
+        logEbookTrace('window-open-bloqueado', { generatedUrl, iframeAttempted: false, redirectedToLogin });
+        setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
+        registerEbookTrace(documentRecord, {
+          result: 'Ventana emergente bloqueada',
+          notes: `URL generada: ${generatedUrl}. ¿Intentó iframe?: no. ¿Window.open bloqueado?: sí. ¿Redirección a login?: ${redirectedToLogin ? 'sí' : 'no'}.`,
+        });
+        return false;
+      }
+
+      persistCurrentCause((entry) => recordDownload(entry, documentRecord.id));
+      loadCases().then(renderAll);
+      monitorExternalWindow(openedWindow, generatedUrl, documentRecord);
+      return true;
     }
 
     function openManagedModal(id){
@@ -3664,20 +3532,21 @@
       if (!documentRecord) return;
 
       if (action === 'open') {
+        if (documentRecord.category === 'Ebook') {
+          openEbookExternally(documentRecord);
+          return;
+        }
+        toggleEbookFallback('');
         openDocument(documentRecord);
         return;
       }
 
       if (action === 'download') {
-        const shouldResolveRemotely = documentRecord.category === 'Ebook' && documentRecord.downloadStrategy === 'remote' && Boolean(
-          normalizeDownloadUrl(documentRecord.sourceUrl) ||
-          normalizeDownloadUrl(documentRecord.sourcePageUrl) ||
-          normalizeDownloadUrl(current.poderJudicial?.link)
-        );
-        if (shouldResolveRemotely) {
-          await downloadAndIncorporateRemoteDocument(documentRecord);
+        if (documentRecord.category === 'Ebook') {
+          openEbookExternally(documentRecord);
           return;
         }
+        toggleEbookFallback('');
         if (downloadDocument(documentRecord)) {
           persistCurrentCause((entry) => recordDownload(entry, documentId));
           setDetailStatus('Archivo descargado desde el expediente digital.', 'ok');
@@ -3916,6 +3785,35 @@
 
       $('k_caratula').addEventListener('blur', () => {
         $('k_caratula').value = normalizeCaratula($('k_caratula').value);
+      });
+
+      $('btnCopyEbookLink')?.addEventListener('click', async () => {
+        if (!state.ebookFallbackUrl) return;
+        try {
+          await copyTextToClipboard(state.ebookFallbackUrl);
+          setDetailStatus('Enlace oficial copiado al portapapeles.', 'ok');
+          logEbookTrace('enlace-copiado', { generatedUrl: state.ebookFallbackUrl });
+        } catch (error) {
+          setDetailStatus('No fue posible copiar el enlace automáticamente. Puede abrirlo manualmente desde el botón disponible.', 'error');
+          logEbookTrace('error-copiar-enlace', { generatedUrl: state.ebookFallbackUrl, message: error?.message || 'Error desconocido' });
+        }
+      });
+
+      $('btnOpenEbookOfficial')?.addEventListener('click', () => {
+        if (!state.ebookFallbackUrl) return;
+        const openedWindow = window.open(state.ebookFallbackUrl, '_blank', 'noopener,noreferrer');
+        const blocked = !openedWindow;
+        logEbookTrace('reintento-apertura-externa', {
+          generatedUrl: state.ebookFallbackUrl,
+          iframeAttempted: false,
+          windowOpenBlocked: blocked,
+          redirectedToLogin: looksLikeLoginUrl(state.ebookFallbackUrl),
+        });
+        if (blocked) {
+          setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
+          return;
+        }
+        setDetailStatus('El eBook se abrirá en el sitio oficial del Poder Judicial. Si no carga, inicie sesión allí y vuelva a intentarlo.', 'warn');
       });
     }
 
