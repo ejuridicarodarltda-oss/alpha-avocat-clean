@@ -298,6 +298,31 @@
 
     .rectification-panel[hidden]{display:none;}
 
+    .rectification-flow{
+      display:grid;
+      grid-template-columns:repeat(auto-fit,minmax(160px,1fr));
+      gap:10px;
+      margin-top:14px;
+    }
+
+    .rectification-flow-step,
+    .rectification-validation,
+    .section-action-note{
+      padding:12px 14px;
+      border-radius:16px;
+      border:1px solid rgba(95,159,151,.28);
+      background:rgba(255,255,255,.88);
+      box-shadow:0 8px 18px rgba(22,58,95,.08);
+    }
+
+    .rectification-flow-step strong,
+    .rectification-validation strong,
+    .section-action-note strong{
+      display:block;
+      margin-bottom:4px;
+      color:var(--causas-title-dark);
+    }
+
     .rectification-form-grid{
       display:grid;
       grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -335,6 +360,42 @@
     .rectification-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
 
     .rectification-message{margin-top:12px;font-size:13px;font-weight:700;color:var(--causas-title-dark);}
+
+    .rectification-validation{
+      margin-top:16px;
+      display:grid;
+      gap:12px;
+    }
+
+    .rectification-validation[hidden]{display:none;}
+
+    .rectification-validation-list{
+      display:grid;
+      gap:10px;
+    }
+
+    .rectification-validation-item{
+      display:grid;
+      gap:4px;
+      padding:10px 12px;
+      border-radius:14px;
+      background:rgba(185,221,214,.48);
+      border:1px solid rgba(95,159,151,.24);
+    }
+
+    .rectification-validation-actions{
+      display:flex;
+      justify-content:flex-end;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .section-head-actions{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      flex-wrap:wrap;
+    }
 
     .screen-actions{
       display:flex;
@@ -1398,10 +1459,29 @@
         <section id="causeRectificationPanel" class="rectification-panel" hidden>
           <div class="section-head">
             <div>
-              <h4 class="section-title">Rectificar datos de la causa</h4>
-              <p class="section-copy">Corrige calidad procesal, carátula, tribunal, rol, procedimiento, estado procesal, abogado responsable y vínculos sin salir del visor.</p>
+              <p id="causeRectificationEyebrow" class="eyebrow">Flujo visible de rectificación</p>
+              <h4 id="causeRectificationTitle" class="section-title">Rectificar información de la causa</h4>
+              <p id="causeRectificationCopy" class="section-copy">Corrige calidad procesal, carátula, tribunal, rol, procedimiento, estado procesal, abogado responsable y vínculos sin salir del visor.</p>
             </div>
             <button type="button" class="btn btn-secondary" id="btnCancelarRectificacionCausa">Cancelar</button>
+          </div>
+          <div class="rectification-flow">
+            <div class="rectification-flow-step">
+              <strong>1. Rectificar</strong>
+              <span>Ingresa desde la cabecera o desde el bloque específico del visor.</span>
+            </div>
+            <div class="rectification-flow-step">
+              <strong>2. Validar</strong>
+              <span>Revisa el resumen visible de cambios antes de confirmar.</span>
+            </div>
+            <div class="rectification-flow-step">
+              <strong>3. Guardar</strong>
+              <span>Confirma la rectificación para actualizar la causa.</span>
+            </div>
+            <div class="rectification-flow-step">
+              <strong>4. Trazabilidad</strong>
+              <span>El historial queda registrado automáticamente al finalizar.</span>
+            </div>
           </div>
           <form id="causeRectificationForm">
             <div class="rectification-form-grid">
@@ -1419,9 +1499,10 @@
               <div class="small-note">Aquí puedes corregir la calidad procesal de cada persona. Ejemplo: demandante → demandada.</div>
               <div id="causeParticipantRows" class="rectification-participants"></div>
             </div>
+            <section id="causeRectificationValidation" class="rectification-validation" hidden></section>
             <div class="rectification-actions">
               <button type="button" class="btn btn-secondary" id="btnDescartarRectificacionCausa">Descartar</button>
-              <button type="submit" class="btn btn-primary">Guardar rectificación</button>
+              <button type="submit" class="btn btn-primary">Validar rectificación</button>
             </div>
             <div id="causeRectificationMessage" class="rectification-message" aria-live="polite"></div>
           </form>
@@ -1852,12 +1933,14 @@
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       },
-      rectificationOpen: false
+      rectificationOpen: false,
+      rectificationScope: 'general',
+      rectificationValidation: null
     };
 
     const detailActions = [
       { id:'editar', label:'Editar', action:() => openModal() },
-      { id:'rectificar', label:'Rectificar datos', action:() => { if (!isRectificationAdmin) return; state.rectificationOpen = true; renderCauseRectificationPanel(); $('causeRectificationPanel')?.scrollIntoView({ behavior:'smooth', block:'start' }); } },
+      { id:'rectificar', label:'Rectificar información', action:() => openCauseRectification('general') },
       { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
       { id:'produccion', label:'Producción', action:() => setActiveTab('produccion') },
@@ -1947,6 +2030,32 @@
       if (node) node.textContent = message;
     }
 
+    function getRectificationScopeMeta(scope = 'general'){
+      const scopes = {
+        general: {
+          eyebrow: 'Rectificación general de la causa',
+          title: 'Rectificar información de la causa',
+          copy: 'Corrige datos generales, intervinientes y estado procesal desde un único flujo visible dentro del visor.',
+        },
+        datos: {
+          eyebrow: 'Rectificación desde datos generales',
+          title: 'Rectificar datos generales de la causa',
+          copy: 'Aquí rectificas carátula, tribunal, rol, materia, procedimiento, abogado responsable y cliente relacionado.',
+        },
+        intervinientes: {
+          eyebrow: 'Rectificación desde intervinientes',
+          title: 'Rectificar intervinientes y calidad procesal',
+          copy: 'Usa este bloque para corregir personas y su calidad procesal. Ejemplo: demandante → demandada.',
+        },
+        estado: {
+          eyebrow: 'Rectificación desde estado procesal',
+          title: 'Rectificar estado procesal',
+          copy: 'Ajusta estado procesal, rol, procedimiento y demás datos conectados con el seguimiento del expediente.',
+        },
+      };
+      return scopes[scope] || scopes.general;
+    }
+
     function buildCauseRectificationSnapshot(cause){
       if (!cause) return null;
       return {
@@ -1966,6 +2075,60 @@
       };
     }
 
+    function buildRectificationLabels(parties = []){
+      const labels = {
+        caratula: 'Carátula',
+        tribunal: 'Tribunal',
+        rol: 'Rol',
+        materia: 'Materia',
+        procedimiento: 'Procedimiento',
+        estadoProcesal: 'Estado procesal',
+        responsable: 'Abogado responsable',
+        cliente: 'Cliente relacionado',
+      };
+      parties.forEach((party, index) => {
+        const position = index + 1;
+        const fallbackName = party?.nombre || `Interviniente ${position}`;
+        labels[`partes.${index}.nombre`] = `Interviniente ${position}: nombre`;
+        labels[`partes.${index}.rol`] = `${fallbackName}: calidad procesal`;
+        labels[`partes.${index}.detalle`] = `${fallbackName}: detalle`;
+      });
+      return labels;
+    }
+
+    function buildCauseRectificationDraft(current, formData){
+      const previous = buildCauseRectificationSnapshot(current);
+      const partyIndexes = [...new Set(Array.from(formData.keys())
+        .map((key) => key.match(/^participant_name_(\d+)$/)?.[1])
+        .filter((value) => value !== undefined)
+        .map((value) => Number(value)))]
+        .sort((left, right) => left - right);
+      const nextParties = partyIndexes.map((index) => ({
+        nombre: String(formData.get(`participant_name_${index}`) || '').trim(),
+        rol: String(formData.get(`participant_role_${index}`) || '').trim(),
+        detalle: String(formData.get(`participant_detail_${index}`) || '').trim() || previous.partes[index]?.detalle || '',
+      }));
+      const nextSnapshot = {
+        caratula: String(formData.get('caratula') || '').trim(),
+        tribunal: String(formData.get('tribunal') || '').trim(),
+        rol: String(formData.get('rol') || '').trim(),
+        materia: String(formData.get('materia') || '').trim(),
+        procedimiento: String(formData.get('procedimiento') || '').trim(),
+        estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
+        responsable: String(formData.get('responsable') || '').trim(),
+        cliente: String(formData.get('cliente') || '').trim(),
+        partes: nextParties,
+      };
+      const entries = createRectificationEntries({
+        previous,
+        next: nextSnapshot,
+        moduleName: 'Causas',
+        actor: operatorName,
+        labels: buildRectificationLabels(previous.partes.length ? previous.partes : nextParties),
+      });
+      return { causeId: current.id, previous, nextSnapshot, nextParties, entries };
+    }
+
     function renderCauseParticipantRows(cause){
       const rows = $('causeParticipantRows');
       if (!rows) return;
@@ -1981,6 +2144,58 @@
       `).join('');
     }
 
+    function renderCauseRectificationValidation(){
+      const node = $('causeRectificationValidation');
+      if (!node) return;
+      const draft = state.rectificationValidation;
+      if (!draft?.entries?.length) {
+        node.hidden = true;
+        node.innerHTML = '';
+        return;
+      }
+      node.hidden = false;
+      node.innerHTML = `
+        <div class="section-head">
+          <div>
+            <h4 class="section-title">Validación de la rectificación</h4>
+            <p class="section-copy">Esta es la validación ya considerada dentro del flujo. Revisa el resumen y confirma para guardar y dejar trazabilidad automática.</p>
+          </div>
+        </div>
+        <div class="rectification-validation-list">
+          ${draft.entries.map((entry) => `
+            <article class="rectification-validation-item">
+              <strong>${escapeRectificationHtml(entry.label || entry.field || 'Campo')}</strong>
+              <div class="small-note">Anterior: ${escapeRectificationHtml(entry.previousValue || '—')}</div>
+              <div class="small-note">Nuevo: ${escapeRectificationHtml(entry.nextValue || '—')}</div>
+            </article>
+          `).join('')}
+        </div>
+        <div class="section-action-note">
+          <strong>Resultado al confirmar</strong>
+          <span>Se actualiza el visor de la causa y la trazabilidad de rectificaciones registra automáticamente cada cambio validado.</span>
+        </div>
+        <div class="rectification-validation-actions">
+          <button type="button" class="btn btn-secondary" id="btnEditarRectificacionValidada">Seguir editando</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmarRectificacionCausa">Validar y guardar</button>
+        </div>
+      `;
+    }
+
+    function resetCauseRectificationValidation({ clearMessage = true } = {}){
+      state.rectificationValidation = null;
+      renderCauseRectificationValidation();
+      if (clearMessage) setCauseRectificationMessage('');
+    }
+
+    function openCauseRectification(scope = 'general'){
+      if (!isRectificationAdmin) return;
+      state.rectificationOpen = true;
+      state.rectificationScope = scope;
+      state.rectificationValidation = null;
+      renderCauseRectificationPanel();
+      $('causeRectificationPanel')?.scrollIntoView({ behavior:'smooth', block:'start' });
+    }
+
     function renderCauseRectificationPanel(){
       const panel = $('causeRectificationPanel');
       const cause = getCurrentCause();
@@ -1988,6 +2203,10 @@
       if (!panel) return;
       panel.hidden = !shouldShow;
       if (!shouldShow) return;
+      const scopeMeta = getRectificationScopeMeta(state.rectificationScope);
+      $('causeRectificationEyebrow').textContent = scopeMeta.eyebrow;
+      $('causeRectificationTitle').textContent = scopeMeta.title;
+      $('causeRectificationCopy').textContent = scopeMeta.copy;
       const snapshot = buildCauseRectificationSnapshot(cause);
       const form = $('causeRectificationForm');
       Object.entries(snapshot).forEach(([key, value]) => {
@@ -1997,10 +2216,13 @@
       });
       renderCauseParticipantRows(cause);
       setCauseRectificationMessage('');
+      renderCauseRectificationValidation();
     }
 
     function closeCauseRectification(){
       state.rectificationOpen = false;
+      state.rectificationScope = 'general';
+      state.rectificationValidation = null;
       setCauseRectificationMessage('');
       $('causeRectificationPanel').hidden = true;
     }
@@ -2046,40 +2268,30 @@
       const formData = new FormData(event.currentTarget);
       const validationError = validateCauseRectification(formData);
       if (validationError) {
+        resetCauseRectificationValidation({ clearMessage: false });
         setCauseRectificationMessage(validationError);
         return;
       }
-      const confirmed = window.confirm('Está por rectificar información del registro. ¿Desea guardar los cambios?');
-      if (!confirmed) return;
+      const draft = buildCauseRectificationDraft(current, formData);
+      if (!draft.entries.length) {
+        resetCauseRectificationValidation({ clearMessage: false });
+        setCauseRectificationMessage('No hay cambios para validar. Rectifica algún dato antes de guardar.');
+        return;
+      }
+      state.rectificationValidation = draft;
+      renderCauseRectificationValidation();
+      $('causeRectificationValidation')?.scrollIntoView({ behavior:'smooth', block:'nearest' });
+      setCauseRectificationMessage('Revisa la validación visible de la rectificación y luego confirma para guardar.');
+    }
 
-      const previous = buildCauseRectificationSnapshot(current);
-      const nextParties = previous.partes.map((party, index) => ({
-        nombre: String(formData.get(`participant_name_${index}`) || '').trim(),
-        rol: String(formData.get(`participant_role_${index}`) || '').trim(),
-        detalle: String(formData.get(`participant_detail_${index}`) || '').trim() || party.detalle || '',
-      }));
-      const nextSnapshot = {
-        caratula: String(formData.get('caratula') || '').trim(),
-        tribunal: String(formData.get('tribunal') || '').trim(),
-        rol: String(formData.get('rol') || '').trim(),
-        materia: String(formData.get('materia') || '').trim(),
-        procedimiento: String(formData.get('procedimiento') || '').trim(),
-        estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
-        responsable: String(formData.get('responsable') || '').trim(),
-        cliente: String(formData.get('cliente') || '').trim(),
-        partes: nextParties,
-      };
-
-      const entries = createRectificationEntries({
-        previous,
-        next: nextSnapshot,
-        moduleName: 'Causas',
-        actor: operatorName,
-        labels: {
-          caratula: 'Carátula', tribunal: 'Tribunal', rol: 'Rol', materia: 'Materia', procedimiento: 'Procedimiento',
-          estadoProcesal: 'Estado procesal', responsable: 'Abogado responsable', cliente: 'Cliente relacionado',
-        },
-      });
+    async function finalizeCauseRectification(){
+      const current = getCurrentCause();
+      const draft = state.rectificationValidation;
+      if (!current || !draft?.entries?.length) {
+        setCauseRectificationMessage('Primero debes validar una rectificación con cambios reales.');
+        return;
+      }
+      const { nextSnapshot, nextParties, entries } = draft;
 
       updateWorkspaceEntry(current.id, (entry) => {
         const next = ensureCauseStorage(entry, current.id);
@@ -3350,6 +3562,11 @@
       `).join('')}</div>`;
     }
 
+    function renderRectificationTrigger(scope, label = 'Rectificar'){
+      if (!isRectificationAdmin) return '';
+      return `<button type="button" class="btn btn-secondary" data-rectify-scope="${escapeHtml(scope)}">${escapeHtml(label)}</button>`;
+    }
+
     function renderAdvisories(cause){
       return `
         <section class="section-card">
@@ -3427,6 +3644,7 @@
         </section>
         ${renderResumen(cause)}
         ${renderPartes(cause)}
+        ${renderEstadoProcesal(cause)}
         ${renderTribunal(cause)}
         ${renderAdvisories(cause)}
         ${renderHistoria(cause)}
@@ -3557,9 +3775,10 @@
               <h4 class="section-title">Resumen ejecutivo de la causa</h4>
               <p class="section-copy">Vista sintética para identificar, administrar y controlar la causa con foco jurídico-operativo.</p>
             </div>
-            <div class="toolbar">
+            <div class="section-head-actions">
               <span class="badge ${computeBadgeClass('active', cause.estadoProcesal)}">${escapeHtml(cause.estadoProcesal)}</span>
               <span class="badge ${computeBadgeClass('alert', cause.alerta)}">${escapeHtml(cause.alerta)}</span>
+              ${renderRectificationTrigger('datos', 'Rectificar datos')}
             </div>
           </div>
           ${buildKeyValueGrid([
@@ -3579,6 +3798,32 @@
             ['Cliente relacionado', cause.cliente],
             ['Expediente relacionado', cause.expediente],
           ])}
+        </section>
+      `;
+    }
+
+    function renderEstadoProcesal(cause){
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Estado procesal</h4>
+              <p class="section-copy">Bloque visible para seguir el estado actual, la etapa, las próximas actuaciones y el punto exacto donde se valida la rectificación antes de guardar.</p>
+            </div>
+            ${renderRectificationTrigger('estado', 'Rectificar estado')}
+          </div>
+          ${buildKeyValueGrid([
+            ['Estado procesal', cause.estadoProcesal],
+            ['Etapa procesal', cause.etapaProcesal],
+            ['Última resolución', cause.ultimaResolucion],
+            ['Próxima audiencia', formatDate(cause.proximaAudiencia)],
+            ['Próximo plazo fatal', formatDate(cause.proximoPlazo)],
+            ['Sistema / seguimiento', cause.tribunalData?.sistema],
+          ])}
+          <div class="section-action-note">
+            <strong>Flujo en este bloque</strong>
+            <span>Desde aquí el usuario ve el estado, entra a rectificar, valida los cambios dentro del panel superior y luego revisa la trazabilidad al final de la ficha.</span>
+          </div>
         </section>
       `;
     }
@@ -3622,6 +3867,7 @@
               <h4 class="section-title">Partes e intervinientes</h4>
               <p class="section-copy">Identificación de demandante, contraparte, representantes, abogados, apoderados, terceros, peritos, testigos y demás actores relevantes.</p>
             </div>
+            ${renderRectificationTrigger('intervinientes', 'Rectificar intervinientes')}
           </div>
           <div class="timeline">${cause.partes.map(item => `
             <article class="timeline-item">
@@ -3643,6 +3889,7 @@
               <h4 class="section-title">Tribunal</h4>
               <p class="section-copy">Competencia, ciudad, sala, juez, secretaría, sistema de tramitación y enlaces externos útiles para el seguimiento del expediente.</p>
             </div>
+            ${renderRectificationTrigger('datos', 'Rectificar')}
           </div>
           ${buildKeyValueGrid([
             ['Tribunal', t.tribunal],
@@ -4326,9 +4573,13 @@
       const cause = state.caseMap.get(state.selectedId);
       if (!cause) {
         state.rectificationOpen = false;
+        state.rectificationValidation = null;
         $('causeRectificationPanel').hidden = true;
         $('detailContent').innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
         return;
+      }
+      if (state.rectificationValidation?.causeId && state.rectificationValidation.causeId !== cause.id) {
+        state.rectificationValidation = null;
       }
       $('detailTitle').textContent = cause.caratula;
       $('detailMeta').textContent = `${cause.rol} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
@@ -4995,6 +5246,28 @@
       $('formSincronizacion').addEventListener('submit', submitSync);
       $('caseFileInput').addEventListener('change', handleFileSelection);
       $('causeRectificationForm')?.addEventListener('submit', saveCauseRectification);
+      $('causeRectificationForm')?.addEventListener('input', () => {
+        if (state.rectificationValidation) {
+          resetCauseRectificationValidation({ clearMessage: false });
+          setCauseRectificationMessage('Los cambios fueron modificados. Vuelve a validar la rectificación antes de guardar.');
+        }
+      });
+      $('causeRectificationForm')?.addEventListener('change', () => {
+        if (state.rectificationValidation) {
+          resetCauseRectificationValidation({ clearMessage: false });
+          setCauseRectificationMessage('Los cambios fueron modificados. Vuelve a validar la rectificación antes de guardar.');
+        }
+      });
+      $('causeRectificationPanel')?.addEventListener('click', (event) => {
+        if (event.target.closest('#btnEditarRectificacionValidada')) {
+          resetCauseRectificationValidation({ clearMessage: false });
+          setCauseRectificationMessage('Puedes seguir editando antes de confirmar la rectificación.');
+          return;
+        }
+        if (event.target.closest('#btnConfirmarRectificacionCausa')) {
+          finalizeCauseRectification();
+        }
+      });
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
@@ -5059,6 +5332,12 @@
       });
 
       $('detailContent').addEventListener('click', (event) => {
+        const rectifyScope = event.target.closest('[data-rectify-scope]');
+        if (rectifyScope) {
+          openCauseRectification(rectifyScope.dataset.rectifyScope || 'general');
+          return;
+        }
+
         const explorerView = event.target.closest('[data-explorer-view]');
         if (explorerView) {
           state.explorer.viewMode = explorerView.dataset.explorerView === 'list' ? 'list' : 'grid';
