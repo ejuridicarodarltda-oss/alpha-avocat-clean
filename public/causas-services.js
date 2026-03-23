@@ -564,7 +564,133 @@ function normalizeSearchText(value = '') {
   return String(value || '')
     .toLowerCase()
     .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function collapseWhitespace(value = '') {
+  return String(value || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function sanitizeVisibleText(value = '') {
+  return collapseWhitespace(String(value || '').replace(/ /g, ' '))
+}
+
+function normalizeForComparison(value = '') {
+  return normalizeSearchText(sanitizeVisibleText(value))
+}
+
+function canonicalSheetName(value = '') {
+  const normalized = normalizeForComparison(value)
+  if (normalized.includes('corte suprema')) return 'Corte Suprema'
+  if (normalized.includes('corte apelaciones') || normalized.includes('corte de apelaciones')) return 'Corte Apelaciones'
+  if (normalized.includes('civil')) return 'Civil'
+  if (normalized.includes('laboral')) return 'Laboral'
+  if (normalized.includes('penal')) return 'Penal'
+  if (normalized.includes('cobranza')) return 'Cobranza'
+  if (normalized.includes('familia')) return 'Familia'
+  return ''
+}
+
+const PJUD_MIS_CAUSAS_SHEETS = {
+  'Corte Suprema': {
+    materia: 'Corte Suprema',
+    required: ['rol', 'era'],
+    aliases: {
+      rol: ['rol'],
+      era: ['era'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      estadoCausa: ['estado causa', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['suprema', row.rol, row.era].map(normalizeForComparison).join('|'),
+  },
+  'Corte Apelaciones': {
+    materia: 'Corte Apelaciones',
+    required: ['corte', 'rol', 'era'],
+    aliases: {
+      rol: ['rol'],
+      era: ['era'],
+      corte: ['corte'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      ubicacion: ['ubicacion', 'ubicación'],
+      fechaUbicacion: ['fecha ubicacion', 'fecha ubicación'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      estadoProcesal: ['estado procesal', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['apelaciones', row.corte, row.rol, row.era].map(normalizeForComparison).join('|'),
+  },
+  Civil: {
+    materia: 'Civil',
+    required: ['tribunal', 'rol'],
+    aliases: {
+      rol: ['rol'],
+      tribunal: ['tribunal'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      estadoCausa: ['estado causa', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['civil', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+  },
+  Laboral: {
+    materia: 'Laboral',
+    required: ['tribunal', 'rol'],
+    aliases: {
+      rol: ['rol'],
+      tribunal: ['tribunal'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      estadoCausa: ['estado causa', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['laboral', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+  },
+  Penal: {
+    materia: 'Penal',
+    required: ['tribunal', 'rit', 'ruc'],
+    aliases: {
+      tipoCausa: ['tipo causa', 'tipo de causa'],
+      rit: ['rit'],
+      ruc: ['ruc'],
+      tribunal: ['tribunal'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      estadoCausa: ['estado causa', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['penal', row.tribunal, row.rit, row.ruc].map(normalizeForComparison).join('|'),
+  },
+  Cobranza: {
+    materia: 'Cobranza',
+    required: ['tribunal', 'rol'],
+    aliases: {
+      rol: ['rol'],
+      tribunal: ['tribunal'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['cobranza', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+  },
+  Familia: {
+    materia: 'Familia',
+    required: ['tribunal', 'rit'],
+    aliases: {
+      rit: ['rit'],
+      tribunal: ['tribunal'],
+      caratulado: ['caratulado', 'caratula', 'carátula'],
+      fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
+      estadoCausa: ['estado causa', 'estado'],
+      institucion: ['institucion', 'institución'],
+    },
+    dedupeKey: (row) => ['familia', row.tribunal, row.rit].map(normalizeForComparison).join('|'),
+  },
 }
 
 function containsNamedParticipant(text = '', participant = '') {
@@ -572,6 +698,260 @@ function containsNamedParticipant(text = '', participant = '') {
   const needle = normalizeSearchText(participant)
   if (!needle) return false
   return haystack.includes(needle)
+}
+
+function buildHeaderLookup(headers = []) {
+  return new Map(headers.map((header) => [normalizeForComparison(header), header]))
+}
+
+function resolveHeaderName(headerLookup = new Map(), aliases = []) {
+  for (const alias of aliases) {
+    const normalized = normalizeForComparison(alias)
+    if (headerLookup.has(normalized)) return headerLookup.get(normalized)
+  }
+  return ''
+}
+
+function toSheetJsonRows(XLSX, sheet) {
+  return XLSX.utils.sheet_to_json(sheet, {
+    defval: '',
+    raw: false,
+    blankrows: false,
+  })
+}
+
+function parseFlexibleDate(value = '') {
+  if (value == null || value === '') return ''
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10)
+
+  const raw = sanitizeVisibleText(value)
+  if (!raw) return ''
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+
+  const match = raw.match(/^(\d{1,2})[\/.-](\d{1,2})[\/.-](\d{2,4})$/)
+  if (match) {
+    const day = Number(match[1])
+    const month = Number(match[2])
+    let year = Number(match[3])
+    if (year < 100) year += year >= 70 ? 1900 : 2000
+    const date = new Date(Date.UTC(year, month - 1, day))
+    if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10)
+  }
+
+  const parsed = new Date(raw)
+  if (!Number.isNaN(parsed.getTime())) return parsed.toISOString().slice(0, 10)
+  return ''
+}
+
+function buildComparableRowSignature(row = {}) {
+  return [
+    row.materia,
+    row.corte,
+    row.tribunal,
+    row.rol,
+    row.era,
+    row.rit,
+    row.ruc,
+    row.tipoCausa,
+    row.fechaIngreso,
+    row.fechaUbicacion,
+    row.caratulado,
+    row.estadoCausa,
+    row.estadoProcesal,
+    row.ubicacion,
+    row.institucion,
+  ].map(normalizeForComparison).join('|')
+}
+
+function isStructurallyValidPjudRow(row = {}, config = {}) {
+  const requiredHits = (config.required || []).every((field) => normalizeForComparison(row[field]))
+  if (requiredHits) return true
+  return [row.rol, row.rit, row.ruc, row.caratulado, row.tribunal, row.corte].some((value) => normalizeForComparison(value))
+}
+
+function getStatePriority(row = {}) {
+  const value = normalizeForComparison(row.estadoProcesal || row.estadoCausa)
+  if (!value) return 0
+  if (/(tramit|vigente|pendiente|en curso|activo|abierta)/.test(value)) return 4
+  if (/(fallad|terminad|archivad|suspendid)/.test(value)) return 2
+  if (/(concluid|ejecutoriad|cerrad)/.test(value)) return 1
+  return 3
+}
+
+function pickPreferredPjudRow(current = {}, candidate = {}) {
+  if (!current || !Object.keys(current).length) return candidate
+  const currentPriority = getStatePriority(current)
+  const candidatePriority = getStatePriority(candidate)
+  if (candidatePriority !== currentPriority) return candidatePriority > currentPriority ? candidate : current
+
+  const currentDate = parseFlexibleDate(current.fechaUbicacion || current.fechaIngreso)
+  const candidateDate = parseFlexibleDate(candidate.fechaUbicacion || candidate.fechaIngreso)
+  if (candidateDate && currentDate && candidateDate !== currentDate) return candidateDate > currentDate ? candidate : current
+  if (candidateDate && !currentDate) return candidate
+  return current
+}
+
+function mapPjudSheetRow(rawRow = {}, config = {}, headerLookup = new Map()) {
+  const mapped = {
+    materia: config.materia,
+    tribunal: '',
+    corte: '',
+    rol: '',
+    era: '',
+    rit: '',
+    ruc: '',
+    tipoCausa: '',
+    fechaIngreso: '',
+    fechaUbicacion: '',
+    caratulado: '',
+    estadoCausa: '',
+    estadoProcesal: '',
+    ubicacion: '',
+    institucion: '',
+    source: 'pjud_excel_mis_causas',
+    sourceConfidence: 'high',
+  }
+
+  Object.entries(config.aliases || {}).forEach(([field, aliases]) => {
+    const headerName = resolveHeaderName(headerLookup, aliases)
+    if (!headerName) return
+    const rawValue = rawRow[headerName]
+    if (field === 'fechaIngreso' || field === 'fechaUbicacion') {
+      mapped[field] = parseFlexibleDate(rawValue)
+      mapped[`${field}Original`] = sanitizeVisibleText(rawValue)
+      return
+    }
+    mapped[field] = sanitizeVisibleText(rawValue)
+  })
+
+  mapped.caratulado = normalizeCaratula(mapped.caratulado)
+  return mapped
+}
+
+export async function parsePjudMisCausasWorkbook(file, XLSX) {
+  if (!file) throw new Error('Debes seleccionar un archivo Excel exportado desde Mis Causas.')
+  if (!XLSX?.read) throw new Error('No fue posible cargar el parser XLSX en el navegador.')
+
+  const fileName = String(file.name || 'mis-causas.xlsx')
+  const buffer = await file.arrayBuffer()
+  const workbook = XLSX.read(buffer, { type: 'array', cellDates: true })
+  const sheetNames = workbook.SheetNames || []
+  const detectedSheets = []
+  const rawRows = []
+  const invalidRows = []
+  const countsBySheet = {}
+
+  sheetNames.forEach((sheetName) => {
+    const canonical = canonicalSheetName(sheetName)
+    if (!canonical) return
+    const config = PJUD_MIS_CAUSAS_SHEETS[canonical]
+    const sheet = workbook.Sheets[sheetName]
+    if (!config || !sheet) return
+
+    detectedSheets.push(canonical)
+    const rows = toSheetJsonRows(XLSX, sheet)
+    const headerLookup = buildHeaderLookup(Object.keys(rows[0] || {}))
+    countsBySheet[canonical] = rows.length
+
+    rows.forEach((rawRow, index) => {
+      const mapped = mapPjudSheetRow(rawRow, config, headerLookup)
+      if (!isStructurallyValidPjudRow(mapped, config)) {
+        invalidRows.push({ sheetName: canonical, rowNumber: index + 2, raw: rawRow })
+        return
+      }
+      rawRows.push({
+        ...mapped,
+        sheetName: canonical,
+        rowNumber: index + 2,
+        dedupeKey: config.dedupeKey(mapped),
+        rowSignature: buildComparableRowSignature(mapped),
+        raw: rawRow,
+      })
+    })
+  })
+
+  const grouped = new Map()
+  rawRows.forEach((row) => {
+    const existing = grouped.get(row.dedupeKey)
+    if (!existing) {
+      grouped.set(row.dedupeKey, {
+        dedupeKey: row.dedupeKey,
+        materia: row.materia,
+        sheetName: row.sheetName,
+        primary: row,
+        signatures: new Set([row.rowSignature]),
+        variants: [row],
+        states: new Set([normalizeForComparison(row.estadoProcesal || row.estadoCausa)].filter(Boolean)),
+      })
+      return
+    }
+
+    if (!existing.signatures.has(row.rowSignature)) {
+      existing.signatures.add(row.rowSignature)
+      existing.variants.push(row)
+      const stateValue = normalizeForComparison(row.estadoProcesal || row.estadoCausa)
+      if (stateValue) existing.states.add(stateValue)
+    }
+    existing.primary = pickPreferredPjudRow(existing.primary, row)
+  })
+
+  const consolidatedCases = [...grouped.values()].map((entry) => {
+    const primary = entry.primary
+    const variants = entry.variants
+    const preferredActive = variants.find((item) => getStatePriority(item) >= 4)
+    const preferredEstado = preferredActive?.estadoProcesal || preferredActive?.estadoCausa || primary.estadoProcesal || primary.estadoCausa || ''
+
+    return {
+      ...primary,
+      estadoProcesal: primary.estadoProcesal || (primary.materia === 'Corte Apelaciones' ? preferredEstado : ''),
+      estadoCausa: primary.estadoCausa || (primary.materia !== 'Corte Apelaciones' ? preferredEstado : ''),
+      consolidatedFrom: variants.length,
+      conflictStates: [...entry.states],
+      rawVariants: variants,
+      pjudCaseKey: entry.dedupeKey,
+      basic: {
+        rol: primary.rol,
+        rit: primary.rit,
+        tribunal: primary.tribunal || primary.corte,
+        procedimiento: primary.tipoCausa,
+        materia: primary.materia,
+        estadoProcesal: primary.estadoProcesal || primary.estadoCausa,
+        fechaIngreso: primary.fechaIngreso,
+        caratula: primary.caratulado,
+        link: '',
+        importedAt: new Date().toISOString(),
+      },
+      parties: [],
+      demandantes: [],
+      demandados: [],
+      movements: [],
+      documents: [],
+      ebook: null,
+      rawText: variants.map((item) => Object.entries(item.raw || {}).map(([key, value]) => `${key}: ${value}`).join('\n')).join('\n\n---\n\n'),
+      importSource: 'mis_causas_excel',
+    }
+  })
+
+  const countsByMateria = consolidatedCases.reduce((acc, item) => {
+    acc[item.materia] = (acc[item.materia] || 0) + 1
+    return acc
+  }, {})
+
+  return {
+    source: 'pjud_excel_mis_causas',
+    sourceConfidence: 'high',
+    mode: 'mis_causas_excel',
+    fileName,
+    sheetsDetected: detectedSheets,
+    countsBySheet,
+    rowsProcessed: rawRows.length,
+    invalidRows: invalidRows.length,
+    rawRows,
+    invalidRowDetails: invalidRows,
+    consolidatedCount: consolidatedCases.length,
+    countsByMateria,
+    consolidatedCases,
+  }
 }
 
 function splitJudicialBatchBlocks(rawText = '') {
@@ -732,7 +1112,7 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
   }
 }
 
-export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Mario Javier Rodríguez Ardiles' } = {}) {
+export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Usuario autenticado' } = {}) {
   const blocks = splitJudicialBatchBlocks(rawText)
 
   return blocks
@@ -749,17 +1129,15 @@ export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Mario
         rawText: block,
       })
 
-      const mentionsActor = containsNamedParticipant(block, actorName)
       const hasMinimumIdentity = Boolean(importData.basic?.rol || importData.basic?.rit || importData.basic?.caratula || importData.basic?.tribunal)
-
-      if (!mentionsActor || !hasMinimumIdentity) return null
+      if (!hasMinimumIdentity) return null
 
       return {
         ...importData,
         batchMeta: {
           actorName,
           blockIndex: index,
-          matchedByName: mentionsActor,
+          matchedByName: containsNamedParticipant(block, actorName),
         },
       }
     })
@@ -768,19 +1146,22 @@ export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Mario
 
 export function findDuplicateCase(cases = [], importData = {}) {
   const basic = importData.basic || {}
-  const normalizedLink = String(basic.link || '').trim().toLowerCase()
-  const normalizedRol = String(basic.rol || '').trim().toLowerCase()
-  const normalizedRit = String(basic.rit || '').trim().toLowerCase()
-  const normalizedTribunal = String(basic.tribunal || '').trim().toLowerCase()
-  const normalizedCaratula = String(basic.caratula || '').trim().toLowerCase()
+  const normalizedLink = normalizeForComparison(basic.link || '')
+  const normalizedRol = normalizeForComparison(basic.rol || '')
+  const normalizedRit = normalizeForComparison(basic.rit || '')
+  const normalizedTribunal = normalizeForComparison(basic.tribunal || '')
+  const normalizedCaratula = normalizeForComparison(basic.caratula || '')
+  const normalizedPjudKey = normalizeForComparison(importData.pjudCaseKey || basic.pjudCaseKey || '')
 
   return cases.find((item) => {
-    const link = String(item.poderJudicial?.link || item.tribunalData?.poderJudicial || '').trim().toLowerCase()
-    const rol = String(item.rol || '').trim().toLowerCase()
-    const rit = String(item.rit || '').trim().toLowerCase()
-    const tribunal = String(item.tribunal || '').trim().toLowerCase()
-    const caratula = String(item.caratula || '').trim().toLowerCase()
+    const link = normalizeForComparison(item.poderJudicial?.link || item.tribunalData?.poderJudicial || '')
+    const rol = normalizeForComparison(item.rol || '')
+    const rit = normalizeForComparison(item.rit || '')
+    const tribunal = normalizeForComparison(item.tribunal || '')
+    const caratula = normalizeForComparison(item.caratula || '')
+    const pjudCaseKey = normalizeForComparison(item.pjudCaseKey || item.pjud_case_key || '')
 
+    if (normalizedPjudKey && pjudCaseKey && normalizedPjudKey === pjudCaseKey) return true
     if (normalizedLink && link && normalizedLink === link) return true
     if (normalizedRol && rol && normalizedRol === rol && normalizedTribunal && tribunal === normalizedTribunal) return true
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
@@ -796,14 +1177,27 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   const operationId = `imp-${Date.now()}`
   const previousSnapshot = structuredClone(next)
 
-  next.caratula = importData.basic?.caratula || next.caratula
-  next.rol = importData.basic?.rol || next.rol
-  next.rit = importData.basic?.rit || next.rit
-  next.tribunal = importData.basic?.tribunal || next.tribunal
-  next.procedimiento = importData.basic?.procedimiento || next.procedimiento
-  next.materia = importData.basic?.materia || next.materia
-  next.estadoProcesal = importData.basic?.estadoProcesal || next.estadoProcesal
-  next.fechaInicio = importData.basic?.fechaIngreso || next.fechaInicio
+  next.caratula = importData.basic?.caratula || importData.caratulado || next.caratula
+  next.rol = importData.basic?.rol || importData.rol || next.rol
+  next.rit = importData.basic?.rit || importData.rit || next.rit
+  next.ruc = importData.ruc || next.ruc
+  next.era = importData.era || next.era
+  next.corte = importData.corte || next.corte
+  next.tribunal = importData.basic?.tribunal || importData.tribunal || next.tribunal
+  next.procedimiento = importData.basic?.procedimiento || importData.tipoCausa || next.procedimiento
+  next.tipoCausa = importData.tipoCausa || next.tipoCausa
+  next.materia = importData.basic?.materia || importData.materia || next.materia
+  next.submateria = importData.submateria || next.submateria
+  next.estadoProcesal = importData.basic?.estadoProcesal || importData.estadoProcesal || importData.estadoCausa || next.estadoProcesal
+  next.estadoCausa = importData.estadoCausa || next.estadoCausa
+  next.ubicacion = importData.ubicacion || next.ubicacion
+  next.fechaUbicacion = importData.fechaUbicacion || next.fechaUbicacion
+  next.institucion = importData.institucion || next.institucion
+  next.fechaInicio = importData.basic?.fechaIngreso || importData.fechaIngreso || next.fechaInicio
+  next.source = importData.source || next.source || 'pjud_excel_mis_causas'
+  next.sourceConfidence = importData.sourceConfidence || next.sourceConfidence || 'high'
+  next.importBatchId = options.importBatchId || importData.importBatchId || next.importBatchId || null
+  next.pjudCaseKey = importData.pjudCaseKey || next.pjudCaseKey || ''
   next.cliente = options.primaryClientName || next.cliente
   next.selectedClientParties = options.selectedClientParties || []
   next.importMeta = {
@@ -817,7 +1211,9 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
     sourceType: importData.mode || 'manual',
     importedAt: importData.basic?.importedAt || now,
     lastSyncAt: importData.basic?.importedAt || now,
-    notes: importData.rawText ? 'Importación semiautomática con texto analizado por el usuario.' : 'Importación creada desde referencia judicial manual.',
+    notes: importData.mode === 'mis_causas_excel'
+      ? 'Importación desde Excel oficial Mis Causas del usuario autenticado.'
+      : (importData.rawText ? 'Importación semiautomática con texto analizado por el usuario.' : 'Importación creada desde referencia judicial manual.'),
   }
 
   next.partes = (importData.parties || []).length
