@@ -261,6 +261,158 @@ main.agenda-main{
 .rectification-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
 
 .rectification-message{margin-top:12px;font-size:13px;font-weight:700;color:var(--agenda-title);}
+.activity-media-toolbar{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  align-items:center;
+  justify-content:space-between;
+  margin-bottom:16px;
+}
+.camera-launch-btn{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  border:none;
+}
+.camera-launch-btn .camera-icon{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  width:28px;
+  height:28px;
+  border-radius:999px;
+  background:rgba(255,255,255,.24);
+  font-size:16px;
+}
+.activity-media-message{
+  min-height:20px;
+  font-size:13px;
+  font-weight:700;
+  color:var(--agenda-title);
+}
+.activity-media-message.is-error{color:var(--agenda-critical);}
+.activity-media-empty{
+  padding:16px 18px;
+  border-radius:16px;
+  border:1px dashed color-mix(in srgb, var(--agenda-border) 70%, white);
+  background:color-mix(in srgb, var(--agenda-card-soft) 88%, white);
+  color:var(--agenda-text-secondary);
+  font-size:14px;
+}
+.activity-media-grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit, minmax(180px, 1fr));
+  gap:16px;
+}
+.activity-media-card{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+  padding:14px;
+  border-radius:18px;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 68%, white);
+  background:linear-gradient(180deg, color-mix(in srgb, var(--agenda-card) 96%, white), color-mix(in srgb, var(--agenda-card-soft) 82%, white));
+  box-shadow:var(--agenda-card-shadow-static);
+}
+.activity-media-thumb{
+  width:100%;
+  aspect-ratio:4 / 3;
+  object-fit:cover;
+  border-radius:14px;
+  border:1px solid color-mix(in srgb, var(--agenda-border) 42%, white);
+  background:color-mix(in srgb, var(--agenda-card-soft) 76%, white);
+}
+.activity-media-meta{
+  display:grid;
+  gap:4px;
+  font-size:12px;
+  color:var(--agenda-text-secondary);
+}
+.activity-media-card-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+}
+.activity-media-card-actions .btn-nav,
+.activity-media-card-actions .btn-danger{
+  flex:1 1 120px;
+}
+.camera-modal-backdrop,
+.image-viewer-backdrop{
+  position:fixed;
+  inset:0;
+  background:rgba(17,17,17,.58);
+  backdrop-filter:blur(4px);
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  padding:24px;
+  z-index:1200;
+}
+.camera-modal-backdrop[hidden],
+.image-viewer-backdrop[hidden]{display:none;}
+.camera-modal,
+.image-viewer-modal{
+  width:min(100%, 860px);
+  max-height:min(92vh, 860px);
+  overflow:auto;
+  border-radius:24px;
+  padding:22px;
+  background:linear-gradient(180deg, color-mix(in srgb, var(--agenda-card) 97%, white), color-mix(in srgb, var(--agenda-card-soft) 82%, white));
+  border:1px solid color-mix(in srgb, var(--agenda-border) 68%, white);
+  box-shadow:0 28px 60px rgba(17,17,17,.18);
+}
+.camera-modal-header,
+.image-viewer-header{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:16px;
+  margin-bottom:16px;
+}
+.camera-modal-stage{
+  display:grid;
+  grid-template-columns:minmax(0, 1fr);
+  gap:16px;
+}
+.camera-live-shell,
+.camera-preview-shell,
+.image-viewer-stage{
+  border-radius:20px;
+  padding:16px;
+  background:color-mix(in srgb, var(--agenda-block) 70%, white);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 64%, white);
+}
+.camera-live-feed,
+.camera-still-preview,
+.image-viewer-full{
+  width:100%;
+  border-radius:16px;
+  background:#111;
+  aspect-ratio:4 / 3;
+  object-fit:cover;
+}
+.camera-preview-shell[hidden]{display:none;}
+.camera-modal-actions{
+  display:flex;
+  flex-wrap:wrap;
+  gap:12px;
+  margin-top:18px;
+}
+.camera-status-copy{
+  margin:0;
+  font-size:13px;
+  color:var(--agenda-text-secondary);
+}
+@media (max-width: 640px){
+  .camera-modal-backdrop,
+  .image-viewer-backdrop{padding:14px;}
+  .camera-modal,
+  .image-viewer-modal{padding:18px; border-radius:20px;}
+  .camera-modal-actions > button,
+  .activity-media-card-actions > button{width:100%;}
+}
 
 .rectification-history-list{display:grid;gap:10px;margin-top:12px;}
 
@@ -597,7 +749,16 @@ input[type="checkbox"]{
         <label data-recording-field>Grabación remota<input id="act_remote_recording" placeholder="Indicar canal y respaldo de grabación"></label>
       </div>
     </div>
-    <div class="actions"><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Iniciar actividad</button><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="block" id="activityMediaBlock">
+      <h3>Evidencia fotográfica</h3>
+      <div class="activity-media-toolbar">
+        <button class="btn-save camera-launch-btn" id="btnAbrirCamaraActividad" type="button"><span class="camera-icon" aria-hidden="true">📷</span><span>Abrir cámara</span></button>
+        <div id="activityMediaMessage" class="activity-media-message" aria-live="polite"></div>
+      </div>
+      <div id="activityMediaEmptyState" class="activity-media-empty">Todavía no hay fotos adjuntas a esta actividad. Puedes abrir la cámara, capturar evidencia y guardarla junto con el evento.</div>
+      <div id="activityMediaGrid" class="activity-media-grid" hidden></div>
+    </div>
+    <div class="actions"><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Iniciar actividad</button><button class="btn-save" id="btnGuardarActividad" type="button">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="contenedor">
@@ -626,6 +787,48 @@ input[type="checkbox"]{
     <div class="actions"><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ir al SII</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Guardar boleta</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Ver boleta</button><button class="btn-save" data-coming-soon="Próximamente" disabled title="Próximamente">Enviar boleta</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Marcar gratuidad</button><button class="btn-nav" data-target="contenedor">Volver a Contenedor y registro</button><button class="btn-clear" data-clear="honorarios">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 </main>
+
+<div id="activityCameraModal" class="camera-modal-backdrop" hidden>
+  <section class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="activityCameraModalTitle">
+    <div class="camera-modal-header">
+      <div>
+        <h3 id="activityCameraModalTitle">Cámara de actividad</h3>
+        <p class="subtitle">Captura evidencia sin salir de Agenda. El permiso solo se solicita cuando eliges abrir la cámara.</p>
+      </div>
+      <button type="button" class="btn-cancel" id="btnCerrarCamaraActividad">Cerrar cámara</button>
+    </div>
+    <div class="camera-modal-stage">
+      <div class="camera-live-shell">
+        <video id="activityCameraVideo" class="camera-live-feed" autoplay playsinline muted></video>
+      </div>
+      <div id="activityCameraPreviewShell" class="camera-preview-shell" hidden>
+        <img id="activityCameraPreview" class="camera-still-preview" alt="Vista previa de la foto capturada para la actividad.">
+      </div>
+    </div>
+    <p id="activityCameraStatus" class="camera-status-copy" aria-live="polite">La cámara se abrirá solo cuando presiones “Abrir cámara”.</p>
+    <div class="camera-modal-actions">
+      <button type="button" class="btn-save" id="btnTomarFotoActividad">Tomar foto</button>
+      <button type="button" class="btn-clear" id="btnRepetirFotoActividad" disabled>Repetir</button>
+      <button type="button" class="btn-save" id="btnUsarFotoActividad" disabled>Usar foto</button>
+      <button type="button" class="btn-cancel" id="btnCancelarCamaraActividad">Cancelar</button>
+    </div>
+  </section>
+</div>
+
+<div id="activityImageViewer" class="image-viewer-backdrop" hidden>
+  <section class="image-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="activityImageViewerTitle">
+    <div class="image-viewer-header">
+      <div>
+        <h3 id="activityImageViewerTitle">Evidencia fotográfica</h3>
+        <p id="activityImageViewerMeta" class="subtitle">Vista ampliada del adjunto.</p>
+      </div>
+      <button type="button" class="btn-cancel" id="btnCerrarVisorImagenActividad">Cerrar</button>
+    </div>
+    <div class="image-viewer-stage">
+      <img id="activityImageViewerImg" class="image-viewer-full" alt="Imagen ampliada adjunta a la actividad.">
+    </div>
+  </section>
+</div>
 
 <script type="module">
 import { supabase } from './app.js'
@@ -694,14 +897,40 @@ const nuevoEventoLegacyFieldAliases = {
   linked_client_rut: ['client_rut']
 }
 const btnGoActividad = document.getElementById('btnGoActividad')
+const btnGuardarActividad = document.getElementById('btnGuardarActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
 const activityEventFields = document.getElementById('activityEventFields')
 const actividadPresencialFields = document.getElementById('actividadPresencialFields')
 const actividadRemotaFields = document.getElementById('actividadRemotaFields')
 const activityRecordingFields = document.querySelectorAll('[data-recording-field]')
+const activityMediaMessage = document.getElementById('activityMediaMessage')
+const activityMediaGrid = document.getElementById('activityMediaGrid')
+const activityMediaEmptyState = document.getElementById('activityMediaEmptyState')
+const btnAbrirCamaraActividad = document.getElementById('btnAbrirCamaraActividad')
+const activityCameraModal = document.getElementById('activityCameraModal')
+const btnCerrarCamaraActividad = document.getElementById('btnCerrarCamaraActividad')
+const btnCancelarCamaraActividad = document.getElementById('btnCancelarCamaraActividad')
+const btnTomarFotoActividad = document.getElementById('btnTomarFotoActividad')
+const btnRepetirFotoActividad = document.getElementById('btnRepetirFotoActividad')
+const btnUsarFotoActividad = document.getElementById('btnUsarFotoActividad')
+const activityCameraVideo = document.getElementById('activityCameraVideo')
+const activityCameraPreview = document.getElementById('activityCameraPreview')
+const activityCameraPreviewShell = document.getElementById('activityCameraPreviewShell')
+const activityCameraStatus = document.getElementById('activityCameraStatus')
+const activityImageViewer = document.getElementById('activityImageViewer')
+const activityImageViewerImg = document.getElementById('activityImageViewerImg')
+const activityImageViewerMeta = document.getElementById('activityImageViewerMeta')
+const btnCerrarVisorImagenActividad = document.getElementById('btnCerrarVisorImagenActividad')
 
 const modalidadRadios = document.querySelectorAll('input[name="modalidad"]')
 const grabacionRadios = document.querySelectorAll('input[name="grabacion"]')
+const activityStateFieldIds = Array.from(document.querySelectorAll('#actividad input[id], #actividad select[id], #actividad textarea[id]'))
+  .map(field => field.id)
+  .filter(id => ![
+    'activityCameraVideo',
+    'activityCameraPreview',
+    'activityImageViewerImg'
+  ].includes(id))
 
 function getFirstDefinedValue(...values){
   return values.find(value => value !== undefined && value !== null && value !== '') || ''
@@ -710,6 +939,37 @@ function getFirstDefinedValue(...values){
 function titleCase(value){
   const text = String(value || '').trim()
   return text ? text.charAt(0).toUpperCase() + text.slice(1) : ''
+}
+
+function formatActivityCaptureDate(value){
+  if (!value) return 'Sin fecha'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return 'Sin fecha'
+  return date.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' })
+}
+
+function buildAttachmentId(){
+  if (window.crypto?.randomUUID) return window.crypto.randomUUID()
+  return `activity-photo-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function normalizeActivityMediaList(items = []){
+  return (Array.isArray(items) ? items : [])
+    .map((item, index) => {
+      if (!item || typeof item !== 'object') return null
+      const dataUrl = typeof item.dataUrl === 'string' ? item.dataUrl : ''
+      if (!dataUrl.startsWith('data:image/')) return null
+      return {
+        id: item.id || buildAttachmentId(),
+        dataUrl,
+        capturedAt: item.capturedAt || item.createdAt || new Date().toISOString(),
+        createdByUserId: item.createdByUserId || '',
+        createdByLabel: item.createdByLabel || item.createdBy || currentUserLabel,
+        fileName: item.fileName || `actividad-${index + 1}.jpg`,
+        mimeType: item.mimeType || 'image/jpeg'
+      }
+    })
+    .filter(Boolean)
 }
 
 function getNuevoEventoStateValue(state, fieldId){
@@ -798,6 +1058,10 @@ let editingEventId = null
 let activeEventRowId = null
 let eventsCache = []
 let pendingActivityEventNumber = ''
+let persistedActivityState = {}
+let activityMediaAttachments = []
+let currentCameraCapture = null
+let currentCameraStream = null
 const params = new URLSearchParams(window.location.search)
 
 const { data: sess } = await supabase.auth.getSession()
@@ -806,6 +1070,8 @@ const rectificationAccess = getRectificationAccessState(sess.session.user)
 const operatorName = rectificationAccess.operatorName
 const isRectificationAdmin = rectificationAccess.canRectify
 let rectificationEventId = null
+const currentUserId = sess?.session?.user?.id || ''
+const currentUserLabel = operatorName || sess?.session?.user?.email || 'Usuario autenticado'
 
 function applyClientsIntegrationPrefill() {
   if (params.get('origen') !== 'clientes') return
@@ -892,6 +1158,33 @@ function getNuevoEventoFormState(){
   return state
 }
 
+function getActivityFormState(){
+  return activityStateFieldIds.reduce((state, id) => {
+    const field = document.getElementById(id)
+    if (!field) return state
+    if (field.type === 'checkbox' || field.type === 'radio') {
+      state[id] = field.checked
+    } else {
+      state[id] = field.value || ''
+    }
+    return state
+  }, {})
+}
+
+function applyActivityFormState(state = {}){
+  activityStateFieldIds.forEach(id => {
+    const field = document.getElementById(id)
+    if (!field || !(id in state)) return
+    if (field.type === 'checkbox' || field.type === 'radio') {
+      field.checked = Boolean(state[id])
+    } else {
+      field.value = state[id] ?? ''
+    }
+  })
+  updateActivityEventFieldAttenuation()
+  updateActivityModalityBlock()
+}
+
 function applyNuevoEventoFormState(state = {}){
   nuevoEventoFieldIds.forEach(id => {
     const element = document.getElementById(id)
@@ -905,12 +1198,18 @@ function applyNuevoEventoFormState(state = {}){
   document.querySelector(`input[name="grabacion"][value="${grabacion}"]`)?.click()
 }
 
-function serializeNuevoEventoState(options = {}){
+function buildSerializedAgendaMetadata(options = {}){
   const payload = {
-    formState: getNuevoEventoFormState(),
+    formState: options.formState || getNuevoEventoFormState(),
     rectificationLog: Array.isArray(options.rectificationLog) ? options.rectificationLog : [],
+    activityState: options.activityState || getActivityFormState(),
+    activityMedia: normalizeActivityMediaList(options.activityMedia ?? activityMediaAttachments),
   }
   return `${FORM_METADATA_PREFIX}${JSON.stringify(payload)}`
+}
+
+function serializeNuevoEventoState(options = {}){
+  return buildSerializedAgendaMetadata(options)
 }
 
 function parseNuevoEventoState(serializedState){
@@ -918,8 +1217,15 @@ function parseNuevoEventoState(serializedState){
 
   try {
     const parsed = JSON.parse(serializedState.slice(FORM_METADATA_PREFIX.length))
-    if (parsed && typeof parsed === 'object' && parsed.formState) return parsed
-    return { formState: parsed || {}, rectificationLog: [] }
+    if (parsed && typeof parsed === 'object' && parsed.formState) {
+      return {
+        formState: parsed.formState || {},
+        rectificationLog: Array.isArray(parsed.rectificationLog) ? parsed.rectificationLog : [],
+        activityState: parsed.activityState && typeof parsed.activityState === 'object' ? parsed.activityState : {},
+        activityMedia: normalizeActivityMediaList(parsed.activityMedia)
+      }
+    }
+    return { formState: parsed || {}, rectificationLog: [], activityState: {}, activityMedia: [] }
   } catch {
     return null
   }
@@ -935,7 +1241,7 @@ function setAgendaRectificationMessage(message = ''){
 }
 
 function getEventMetadata(eventData = {}){
-  return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [] }
+  return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [], activityState: {}, activityMedia: [] }
 }
 
 function getEventResponsible(eventData = {}, metadata = getEventMetadata(eventData)){
@@ -996,6 +1302,182 @@ function renderAgendaRectificationPanel(eventData = null){
   setAgendaRectificationMessage('')
 }
 
+function setActivityMediaMessage(message = '', { isError = false } = {}){
+  if (!activityMediaMessage) return
+  activityMediaMessage.textContent = message
+  activityMediaMessage.classList.toggle('is-error', isError)
+}
+
+function updateCameraActionState({ hasCapture = Boolean(currentCameraCapture), cameraReady = false } = {}){
+  if (btnTomarFotoActividad) btnTomarFotoActividad.disabled = !cameraReady || hasCapture
+  if (btnRepetirFotoActividad) btnRepetirFotoActividad.disabled = !hasCapture
+  if (btnUsarFotoActividad) btnUsarFotoActividad.disabled = !hasCapture
+}
+
+function renderActivityMedia(){
+  if (!activityMediaGrid || !activityMediaEmptyState) return
+  const hasAttachments = activityMediaAttachments.length > 0
+  activityMediaGrid.hidden = !hasAttachments
+  activityMediaEmptyState.hidden = hasAttachments
+  if (!hasAttachments) {
+    activityMediaGrid.innerHTML = ''
+    return
+  }
+  activityMediaGrid.innerHTML = activityMediaAttachments.map((attachment, index) => `
+    <article class="activity-media-card">
+      <img class="activity-media-thumb" src="${escapeHtml(attachment.dataUrl)}" alt="Adjunto fotográfico ${index + 1} de la actividad.">
+      <div class="activity-media-meta">
+        <strong>Adjunto ${index + 1}</strong>
+        <span>${escapeHtml(formatActivityCaptureDate(attachment.capturedAt))}</span>
+        <span>${escapeHtml(attachment.createdByLabel || 'Usuario autenticado')}</span>
+        <span>${escapeHtml(attachment.fileName || 'captura.jpg')}</span>
+      </div>
+      <div class="activity-media-card-actions">
+        <button type="button" class="btn-nav" data-activity-media-open="${escapeHtml(attachment.id)}">Ver foto</button>
+        <button type="button" class="btn-danger" data-activity-media-remove="${escapeHtml(attachment.id)}">Eliminar</button>
+      </div>
+    </article>
+  `).join('')
+}
+
+function hydrateActivityMedia(items = []){
+  activityMediaAttachments = normalizeActivityMediaList(items)
+  renderActivityMedia()
+}
+
+function resetCameraCapture(){
+  currentCameraCapture = null
+  if (activityCameraPreview) activityCameraPreview.removeAttribute('src')
+  activityCameraPreviewShell?.setAttribute('hidden', '')
+  updateCameraActionState({ hasCapture: false, cameraReady: Boolean(currentCameraStream) })
+}
+
+function stopActivityCameraStream(){
+  if (currentCameraStream) {
+    currentCameraStream.getTracks().forEach(track => track.stop())
+    currentCameraStream = null
+  }
+  if (activityCameraVideo) activityCameraVideo.srcObject = null
+  updateCameraActionState({ hasCapture: Boolean(currentCameraCapture), cameraReady: false })
+}
+
+function closeActivityCameraModal({ keepMessage = true } = {}){
+  stopActivityCameraStream()
+  resetCameraCapture()
+  activityCameraModal?.setAttribute('hidden', '')
+  if (activityCameraStatus) {
+    activityCameraStatus.textContent = 'La cámara se abrirá solo cuando presiones “Abrir cámara”.'
+  }
+  if (!keepMessage) setActivityMediaMessage('')
+}
+
+async function openActivityCameraModal(){
+  if (!window.isSecureContext) {
+    setActivityMediaMessage('La cámara del navegador requiere un contexto seguro (HTTPS o localhost) para funcionar.', { isError: true })
+    return
+  }
+  if (!navigator.mediaDevices?.getUserMedia) {
+    setActivityMediaMessage('Este navegador no permite usar la cámara desde esta vista. Prueba en Chrome o Edge actualizados.', { isError: true })
+    return
+  }
+  activityCameraModal?.removeAttribute('hidden')
+  stopActivityCameraStream()
+  resetCameraCapture()
+  if (activityCameraStatus) activityCameraStatus.textContent = 'Solicitando permiso para acceder a la cámara…'
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      audio: false,
+      video: {
+        facingMode: 'user',
+        width: { ideal: 1280 },
+        height: { ideal: 720 }
+      }
+    })
+    currentCameraStream = stream
+    if (activityCameraVideo) {
+      activityCameraVideo.srcObject = stream
+      await activityCameraVideo.play().catch(() => {})
+    }
+    if (activityCameraStatus) activityCameraStatus.textContent = 'Cámara lista. Puedes tomar la foto cuando quieras.'
+    updateCameraActionState({ hasCapture: false, cameraReady: true })
+    setActivityMediaMessage('Cámara abierta correctamente.')
+  } catch (error) {
+    closeActivityCameraModal()
+    const normalizedMessage = error?.name === 'NotAllowedError'
+      ? 'No pudimos abrir la cámara porque el permiso fue denegado.'
+      : error?.name === 'NotFoundError'
+        ? 'No encontramos una cámara disponible en este equipo.'
+        : error?.name === 'NotReadableError'
+          ? 'La cámara está siendo usada por otra aplicación. Cierra esa aplicación e inténtalo de nuevo.'
+          : 'Ocurrió un problema al abrir la cámara. Revisa permisos y disponibilidad del dispositivo.'
+    setActivityMediaMessage(normalizedMessage, { isError: true })
+  }
+}
+
+function captureActivityPhoto(){
+  if (!activityCameraVideo || !currentCameraStream) {
+    setActivityMediaMessage('Primero debes abrir la cámara para tomar una foto.', { isError: true })
+    return
+  }
+  const width = activityCameraVideo.videoWidth
+  const height = activityCameraVideo.videoHeight
+  if (!width || !height) {
+    setActivityMediaMessage('La cámara aún no entrega imagen. Espera un instante e inténtalo nuevamente.', { isError: true })
+    return
+  }
+  const canvas = document.createElement('canvas')
+  const maxWidth = 1600
+  const scale = width > maxWidth ? maxWidth / width : 1
+  canvas.width = Math.round(width * scale)
+  canvas.height = Math.round(height * scale)
+  const context = canvas.getContext('2d')
+  if (!context) {
+    setActivityMediaMessage('No fue posible preparar la captura de la foto.', { isError: true })
+    return
+  }
+  context.drawImage(activityCameraVideo, 0, 0, canvas.width, canvas.height)
+  const dataUrl = canvas.toDataURL('image/jpeg', .9)
+  currentCameraCapture = {
+    id: buildAttachmentId(),
+    dataUrl,
+    capturedAt: new Date().toISOString(),
+    createdByUserId: currentUserId,
+    createdByLabel: currentUserLabel,
+    fileName: `actividad-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`,
+    mimeType: 'image/jpeg'
+  }
+  if (activityCameraPreview) activityCameraPreview.src = dataUrl
+  activityCameraPreviewShell?.removeAttribute('hidden')
+  if (activityCameraStatus) activityCameraStatus.textContent = 'Foto capturada. Puedes repetirla o usarla como adjunto.'
+  updateCameraActionState({ hasCapture: true, cameraReady: true })
+  setActivityMediaMessage('Foto capturada correctamente.')
+}
+
+function useCapturedActivityPhoto(){
+  if (!currentCameraCapture) {
+    setActivityMediaMessage('Primero debes capturar una foto antes de adjuntarla.', { isError: true })
+    return
+  }
+  activityMediaAttachments = [...activityMediaAttachments, currentCameraCapture]
+  renderActivityMedia()
+  setActivityMediaMessage('La foto quedó adjunta a la actividad. Recuerda guardar la actividad para persistirla.')
+  closeActivityCameraModal()
+}
+
+function openActivityImageViewer(attachmentId){
+  const attachment = activityMediaAttachments.find(item => item.id === attachmentId)
+  if (!attachment || !activityImageViewerImg) return
+  activityImageViewerImg.src = attachment.dataUrl
+  if (activityImageViewerMeta) {
+    activityImageViewerMeta.textContent = `${formatActivityCaptureDate(attachment.capturedAt)} · ${attachment.createdByLabel || 'Usuario autenticado'}`
+  }
+  activityImageViewer?.removeAttribute('hidden')
+}
+
+function closeActivityImageViewer(){
+  activityImageViewer?.setAttribute('hidden', '')
+}
+
 function validateAgendaRectification(formData){
   if (!String(formData.get('title') || '').trim()) return 'El título del evento es obligatorio.'
   if (!String(formData.get('starts_at') || '').trim()) return 'Debes indicar fecha y hora.'
@@ -1004,6 +1486,100 @@ function validateAgendaRectification(formData){
   if (rut && !isValidRut(normalizeRutInput(rut))) return 'El RUT del cliente vinculado no es válido.'
   if (!String(formData.get('responsible') || '').trim()) return 'Debes indicar un responsable.'
   return ''
+}
+
+function getCurrentRectificationLogForEvent(eventId){
+  return parseNuevoEventoState(eventsCache.find((item) => item.id === eventId)?.required_background)?.rectificationLog || []
+}
+
+async function persistAgendaEvent({ keepActivityScreen = false } = {}){
+  if(!startsEl.value) {
+    alert('Debes ingresar una fecha y hora')
+    return null
+  }
+  const fecha = new Date(startsEl.value)
+  if(Number.isNaN(fecha.getTime())) {
+    alert('Fecha inválida')
+    return null
+  }
+
+  const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
+  const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
+  const eventIdToUpdate = editingEventId || activeEventRowId || null
+  const modalityDetail = document.getElementById('modality_detail')?.value || (modalidad === 'remota' ? 'Videollamada' : 'Presencial')
+  const bestPersonName = document.getElementById('linked_client_name')?.value
+    || document.getElementById('new_client_name')?.value
+    || document.getElementById('non_client_name')?.value
+    || nameEl.value
+    || null
+
+  const serializedMetadata = buildSerializedAgendaMetadata({
+    rectificationLog: getCurrentRectificationLogForEvent(eventIdToUpdate),
+    activityState: getActivityFormState(),
+    activityMedia: activityMediaAttachments
+  })
+
+  const payload = {
+    title: titleEl.value,
+    event_type: typeEl.value.toLowerCase(),
+    kind: typeEl.value.toLowerCase(),
+    external_name: bestPersonName,
+    person_name: bestPersonName,
+    email: emailEl.value || null,
+    phone: phoneEl.value || null,
+    rol: document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || null,
+    event_date: startsEl.value ? startsEl.value.slice(0, 10) : null,
+    meeting_mode: modalityDetail.toLowerCase(),
+    recording_authorized: grabacion !== 'no',
+    record_mode: grabacion,
+    starts_at: fecha.toISOString(),
+    notes: notesEl.value || null,
+    required_background: serializedMetadata
+  }
+
+  if (eventIdToUpdate) {
+    const currentId = eventIdToUpdate
+    const { error } = await supabase.from('appointments').update(payload).eq('id', currentId)
+    if (error) {
+      alert(error.message)
+      return null
+    }
+    persistedActivityState = getActivityFormState()
+    closeAgendaRectification()
+    activeEventRowId = currentId
+    pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
+    await loadEvents(currentId)
+    const fresh = eventsCache.find(item => item.id === currentId)
+    if (fresh) startEditingEvent(fresh)
+    copyEventToActivity()
+    alert(keepActivityScreen ? 'Actividad guardada correctamente' : 'Evento actualizado correctamente')
+    if (!keepActivityScreen) {
+      resetNuevoEventoForm({ preserveActivitySnapshot: true })
+    }
+    return currentId
+  }
+
+  const { data: insertedRows, error } = await supabase.from('appointments').insert(payload).select('id')
+  if (error) {
+    alert(error.message)
+    return null
+  }
+
+  const savedId = insertedRows?.[0]?.id ?? null
+  activeEventRowId = savedId
+  await loadEvents(savedId)
+  const fresh = eventsCache.find(item => item.id === savedId)
+  if (fresh) startEditingEvent(fresh)
+  copyEventToActivity()
+  closeAgendaRectification()
+  persistedActivityState = getActivityFormState()
+  alert(keepActivityScreen
+    ? 'Actividad guardada correctamente y asociada al nuevo evento.'
+    : `Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
+  if (!keepActivityScreen) {
+    resetNuevoEventoForm({ preserveActivitySnapshot: true })
+  }
+  return savedId
 }
 
 async function saveAgendaRectification(event){
@@ -1079,7 +1655,12 @@ async function saveAgendaRectification(event){
     meeting_mode: nextSnapshot.modality_detail.toLowerCase(),
     starts_at: new Date(nextSnapshot.starts_at).toISOString(),
     notes: nextSnapshot.notes || null,
-    required_background: `${FORM_METADATA_PREFIX}${JSON.stringify({ formState: nextFormState, rectificationLog })}`
+    required_background: buildSerializedAgendaMetadata({
+      formState: nextFormState,
+      rectificationLog,
+      activityState: metadata.activityState || {},
+      activityMedia: metadata.activityMedia || []
+    })
   }
   const { error } = await supabase.from('appointments').update(payload).eq('id', eventData.id)
   if (error) {
@@ -1112,11 +1693,13 @@ function syncNuevoEventoToActivitySnapshot(){
 }
 
 function applyActivitySnapshot(){
+  const mergedSnapshot = { ...activitySnapshot, ...persistedActivityState }
   activityFieldKeys.forEach(key => {
     const targetField = activityFields[key]
     if (!targetField) return
-    targetField.value = activitySnapshot[key] || ''
+    targetField.value = mergedSnapshot[key] || ''
   })
+  applyActivityFormState(persistedActivityState)
   updateActivityEventFieldAttenuation()
 }
 
@@ -1132,6 +1715,7 @@ function updateActivityEventFieldAttenuation(){
 function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
   editingEventId = null
   if (!preserveActivitySnapshot) activeEventRowId = null
+  if (!preserveActivitySnapshot) persistedActivityState = {}
   saveButton.textContent = 'Guardar evento'
   document.querySelectorAll('#nuevo-evento input, #nuevo-evento textarea, #nuevo-evento select').forEach(el=>{
     if (el.type === 'radio' || el.type === 'checkbox') {
@@ -1143,6 +1727,9 @@ function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
   })
   refreshNextEventNumber()
   if (preserveActivitySnapshot) return
+  hydrateActivityMedia([])
+  closeActivityImageViewer()
+  closeActivityCameraModal({ keepMessage: false })
   syncNuevoEventoToActivitySnapshot()
 }
 
@@ -1157,6 +1744,9 @@ function startEditingEvent(eventData){
 
   const persistedMeta = parseNuevoEventoState(eventData.required_background)
   const persistedState = persistedMeta?.formState || {}
+  persistedActivityState = persistedMeta?.activityState || {}
+  hydrateActivityMedia(persistedMeta?.activityMedia || [])
+  closeActivityImageViewer()
 
   applyNuevoEventoFormState({
     ...persistedState,
@@ -1248,19 +1838,36 @@ document.addEventListener('click', (e)=>{
     if (target.dataset.target === 'actividad') {
       pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
     }
+    closeActivityCameraModal()
+    closeActivityImageViewer()
     openScreen(target.dataset.target)
   }
-  if (target.matches('[data-home]')) showHome()
+  if (target.matches('[data-home]')) {
+    closeActivityCameraModal()
+    closeActivityImageViewer()
+    showHome()
+  }
   if (target.matches('[data-clear]')) {
     if (target.dataset.clear === 'nuevo-evento') {
       pendingActivityEventNumber = ''
       resetNuevoEventoForm()
     } else {
+      if (target.dataset.clear === 'actividad') {
+        closeActivityCameraModal({ keepMessage: false })
+        closeActivityImageViewer()
+        persistedActivityState = {}
+        hydrateActivityMedia([])
+      }
       document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
         if (el.type === 'checkbox' || el.type === 'radio') el.checked = false
         else el.value = ''
       })
-      if (target.dataset.clear === 'actividad') updateActivityEventFieldAttenuation()
+      if (target.dataset.clear === 'actividad') {
+        syncNuevoEventoToActivitySnapshot()
+        copyEventToActivity()
+        setActivityMediaMessage('Se limpiaron los datos y adjuntos de la actividad.')
+        updateActivityEventFieldAttenuation()
+      }
     }
   }
 })
@@ -1339,7 +1946,13 @@ tableBody.addEventListener('click', async (event) => {
     return
   }
   pendingActivityEventNumber = ''
-  if (activeEventRowId === deleteButton.dataset.id) activeEventRowId = null
+  if (activeEventRowId === deleteButton.dataset.id) {
+    activeEventRowId = null
+    persistedActivityState = {}
+    hydrateActivityMedia([])
+    closeActivityCameraModal({ keepMessage: false })
+    closeActivityImageViewer()
+  }
   if (rectificationEventId === deleteButton.dataset.id) closeAgendaRectification()
   await loadEvents()
   if (editingEventId === deleteButton.dataset.id) {
@@ -1355,62 +1968,15 @@ document.querySelector('#agendaRectificationForm [name="linked_client_rut"]')?.a
 })
 
 saveButton.addEventListener('click', async ()=>{
-  if(!startsEl.value) return alert('Debes ingresar una fecha y hora')
-  const fecha = new Date(startsEl.value)
-  if(Number.isNaN(fecha.getTime())) return alert('Fecha inválida')
+  await persistAgendaEvent()
+})
 
-  const modalidad = document.querySelector('input[name="modalidad"]:checked')?.value || 'presencial'
-  const grabacion = document.querySelector('input[name="grabacion"]:checked')?.value || 'audio'
-
-  const modalityDetail = document.getElementById('modality_detail')?.value || (modalidad === 'remota' ? 'Videollamada' : 'Presencial')
-  const bestPersonName = document.getElementById('linked_client_name')?.value
-    || document.getElementById('new_client_name')?.value
-    || document.getElementById('non_client_name')?.value
-    || nameEl.value
-    || null
-
-  const payload = {
-    title: titleEl.value,
-    event_type: typeEl.value.toLowerCase(),
-    kind: typeEl.value.toLowerCase(),
-    external_name: bestPersonName,
-    person_name: bestPersonName,
-    email: emailEl.value || null,
-    phone: phoneEl.value || null,
-    rol: document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || null,
-    event_date: startsEl.value ? startsEl.value.slice(0, 10) : null,
-    meeting_mode: modalityDetail.toLowerCase(),
-    recording_authorized: grabacion !== 'no',
-    record_mode: grabacion,
-    starts_at: fecha.toISOString(),
-    notes: notesEl.value || null,
-    required_background: serializeNuevoEventoState({ rectificationLog: parseNuevoEventoState(eventsCache.find((item) => item.id === editingEventId)?.required_background)?.rectificationLog || [] })
+btnGuardarActividad?.addEventListener('click', async () => {
+  const savedId = await persistAgendaEvent({ keepActivityScreen: true })
+  if (savedId) {
+    openScreen('actividad')
+    setActivityMediaMessage('Actividad y evidencia fotográfica guardadas correctamente.')
   }
-
-  if (editingEventId) {
-    const { error } = await supabase.from('appointments').update(payload).eq('id', editingEventId)
-    if (error) return alert(error.message)
-    closeAgendaRectification()
-    alert('Evento actualizado correctamente')
-    pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
-    activeEventRowId = editingEventId
-    copyEventToActivity()
-    const updatedEventId = activeEventRowId
-    resetNuevoEventoForm({ preserveActivitySnapshot: true })
-    await loadEvents(updatedEventId)
-    return
-  }
-
-  const { data: insertedRows, error } = await supabase.from('appointments').insert(payload).select('id')
-  if (error) return alert(error.message)
-
-  const savedId = insertedRows?.[0]?.id ?? null
-  activeEventRowId = savedId
-  await loadEvents(savedId)
-  copyEventToActivity()
-  closeAgendaRectification()
-  alert(`Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
-  resetNuevoEventoForm({ preserveActivitySnapshot: true })
 })
 
 if (btnGoActividad) {
@@ -1433,6 +1999,43 @@ if (btnAbrirRectificacionAgenda) {
   })
 }
 
+btnAbrirCamaraActividad?.addEventListener('click', openActivityCameraModal)
+btnCerrarCamaraActividad?.addEventListener('click', () => closeActivityCameraModal())
+btnCancelarCamaraActividad?.addEventListener('click', () => closeActivityCameraModal())
+btnTomarFotoActividad?.addEventListener('click', captureActivityPhoto)
+btnRepetirFotoActividad?.addEventListener('click', () => {
+  resetCameraCapture()
+  if (activityCameraStatus) activityCameraStatus.textContent = 'La captura anterior fue descartada. Puedes tomar otra foto.'
+  setActivityMediaMessage('Puedes capturar una nueva foto.')
+})
+btnUsarFotoActividad?.addEventListener('click', useCapturedActivityPhoto)
+btnCerrarVisorImagenActividad?.addEventListener('click', closeActivityImageViewer)
+
+activityMediaGrid?.addEventListener('click', (event) => {
+  const openButton = event.target.closest('[data-activity-media-open]')
+  if (openButton) {
+    openActivityImageViewer(openButton.dataset.activityMediaOpen)
+    return
+  }
+  const removeButton = event.target.closest('[data-activity-media-remove]')
+  if (!removeButton) return
+  activityMediaAttachments = activityMediaAttachments.filter(item => item.id !== removeButton.dataset.activityMediaRemove)
+  renderActivityMedia()
+  closeActivityImageViewer()
+  setActivityMediaMessage('La foto fue eliminada de la actividad.')
+})
+
+activityCameraModal?.addEventListener('click', (event) => {
+  if (event.target === activityCameraModal) closeActivityCameraModal()
+})
+activityImageViewer?.addEventListener('click', (event) => {
+  if (event.target === activityImageViewer) closeActivityImageViewer()
+})
+
+window.addEventListener('beforeunload', () => {
+  stopActivityCameraStream()
+})
+
 setInterval(()=>{
   const now = new Date()
   const fecha = document.getElementById('fechaActual')
@@ -1445,6 +2048,8 @@ setInterval(()=>{
 
 applyClientsIntegrationPrefill()
 syncNuevoEventoToActivitySnapshot()
+hydrateActivityMedia([])
+updateCameraActionState()
 updateActivityEventFieldAttenuation()
 loadEvents()
 if (params.get('nuevo') === '1') {
