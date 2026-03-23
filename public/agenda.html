@@ -938,6 +938,15 @@ function getEventMetadata(eventData = {}){
   return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [] }
 }
 
+function getEventResponsible(eventData = {}, metadata = getEventMetadata(eventData)){
+  const formState = metadata.formState || {}
+  return getFirstDefinedValue(
+    getNuevoEventoStateValue(formState, 'responsible'),
+    formState.event_responsible,
+    eventData.responsible
+  )
+}
+
 function buildAgendaRectificationSnapshot(eventData = {}){
   const metadata = getEventMetadata(eventData)
   const formState = metadata.formState || {}
@@ -949,7 +958,7 @@ function buildAgendaRectificationSnapshot(eventData = {}){
     linked_client_rut: normalizeRutInput(formState.linked_client_rut || formState.client_rut || ''),
     linked_case_role: formState.linked_case_role || formState.case_role || eventData.rol || '',
     linked_case_court: formState.linked_case_court || formState.court || '',
-    responsible: formState.responsible || eventData.responsible || '',
+    responsible: getEventResponsible(eventData, metadata),
     confirmation_status: formState.confirmation_status || formState.confirmationStatus || 'Sin confirmar',
     priority: formState.priority || 'Media',
     modality_detail: formState.modality_detail || formState.modalityDetail || titleCase(eventData.meeting_mode || '') || 'Presencial',
@@ -1065,7 +1074,6 @@ async function saveAgendaRectification(event){
     kind: nextSnapshot.event_type.toLowerCase(),
     external_name: nextSnapshot.linked_client_name || eventData.external_name || null,
     person_name: nextSnapshot.linked_client_name || eventData.person_name || null,
-    responsible: nextSnapshot.responsible,
     rol: nextSnapshot.linked_case_role || null,
     event_date: nextSnapshot.starts_at.slice(0, 10),
     meeting_mode: nextSnapshot.modality_detail.toLowerCase(),
@@ -1163,7 +1171,7 @@ function startEditingEvent(eventData){
     modality_detail: persistedState?.modality_detail || persistedState?.modalityDetail || titleCase(eventData.meeting_mode || '') || 'Presencial',
     location_or_link: persistedState?.location_or_link || persistedState?.locationOrLink || '',
     confirmation_status: persistedState?.confirmation_status || persistedState?.confirmationStatus || 'Sin confirmar',
-    responsible: persistedState?.responsible || eventData.responsible || '',
+    responsible: getEventResponsible(eventData, persistedMeta),
     person_condition: persistedState?.person_condition || persistedState?.personCondition || 'Cliente',
     grabacion: persistedState?.grabacion || (eventData.recording_authorized ? (eventData.record_mode || 'audio') : 'no')
   })
@@ -1369,7 +1377,6 @@ saveButton.addEventListener('click', async ()=>{
     person_name: bestPersonName,
     email: emailEl.value || null,
     phone: phoneEl.value || null,
-    responsible: document.getElementById('responsible')?.value || null,
     rol: document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || null,
     event_date: startsEl.value ? startsEl.value.slice(0, 10) : null,
     meeting_mode: modalityDetail.toLowerCase(),
