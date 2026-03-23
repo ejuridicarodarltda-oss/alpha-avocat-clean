@@ -1683,24 +1683,25 @@
 
       <form id="formImportacion" class="form">
         <div class="helper-box">
-          <strong>Transferencia masiva desde Oficina Judicial Virtual</strong>
-          <div class="timeline-meta">Pega un consolidado de varias causas/exportaciones de OJV. El sistema filtrará solo aquellas donde figure Mario Javier Rodríguez Ardiles, transferirá automáticamente los documentos detectados a Alpha Avocat y creará la causa si todavía no existe.</div>
+          <strong>Importación masiva desde Poder Judicial / Mis Causas</strong>
+          <div class="timeline-meta">Carga el Excel oficial exportado desde Mis Causas o, si necesitas un respaldo manual, pega un consolidado tabular. Cuando el origen es el Excel oficial del usuario autenticado, Alpha Avocat lo tratará como fuente confiable y no filtrará por nombre en caratulado, demandante, demandado ni institución.</div>
         </div>
 
         <div class="grid-2">
           <div class="field">
-            <label for="batch_actor_name">Interviniente a filtrar</label>
-            <input id="batch_actor_name" class="input" value="Mario Javier Rodríguez Ardiles" />
+            <label for="batch_excel_file">Excel oficial de Mis Causas</label>
+            <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" />
+            <div class="small-note">Se procesan automáticamente las hojas Corte Suprema, Corte Apelaciones, Civil, Laboral, Penal, Cobranza y Familia.</div>
           </div>
           <div class="field">
-            <label for="batch_raw">Consolidado OJV / Poder Judicial</label>
-            <textarea id="batch_raw" class="textarea" placeholder="Pega aquí varias causas. Puedes separarlas con líneas como --- CAUSA --- o incluir bloques con Rol, RIT, Tribunal, documentos y movimientos."></textarea>
+            <label for="batch_raw">Consolidado manual OJV / Poder Judicial</label>
+            <textarea id="batch_raw" class="textarea" placeholder="Opcional: pega aquí varias causas o un respaldo tabular si no usarás el Excel oficial."></textarea>
           </div>
         </div>
 
         <div class="modal-actions">
-          <button type="button" id="btnAnalizarLoteImportacion" class="btn">Analizar lote OJV</button>
-          <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Transferir causas de Mario</button>
+          <button type="button" id="btnAnalizarLoteImportacion" class="btn">Analizar lote PJUD</button>
+          <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Importar causas del lote</button>
         </div>
 
         <div class="helper-box" id="batchImportPreview">Aún no se ha analizado un lote de causas judiciales.</div>
@@ -1859,6 +1860,7 @@
       openDocument,
       parseJudicialBatchImportInput,
       parseJudicialImportInput,
+      parsePjudMisCausasWorkbook,
       recordDownload,
       removeDocument,
       revertLastImport,
@@ -1867,14 +1869,18 @@
       upsertDocument,
     } from './causas-services.js';
 
+    const XLSX = await import('https://esm.sh/xlsx@0.18.5');
     const { data: rectificationSession } = await supabase.auth.getSession();
     if (!rectificationSession?.session) window.location.href = './login.html';
-    const rectificationAccess = getRectificationAccessState(rectificationSession.session.user);
+    const authenticatedUser = rectificationSession.session.user;
+    const rectificationAccess = getRectificationAccessState(authenticatedUser);
     const operatorName = rectificationAccess.operatorName;
     const isRectificationAdmin = rectificationAccess.canRectify;
 
     const T_CLIENTS = 'clients';
     const T_CASES = 'cases';
+    const T_PJUD_IMPORT_BATCHES = 'pjud_import_batches';
+    const T_PJUD_IMPORT_ROWS = 'pjud_import_rows';
     const TODAY = new Date('2026-03-20T00:00:00Z');
 
     const C = {
@@ -1916,6 +1922,8 @@
       activeTab: 'informacion',
       pendingImport: null,
       pendingBatchImports: [],
+      pendingPjudWorkbook: null,
+      pendingPjudBatchId: null,
       importTargetCaseId: null,
       currentDocumentId: null,
       currentDocumentContainer: 'asociados',
@@ -3051,16 +3059,26 @@
         rol,
         rit: base.rit || 'RIT pendiente',
         ruc: base.ruc || 'RUC pendiente',
+        era: base.era || '',
+        corte: base.corte || '',
         tribunal: base.tribunal || 'Tribunal pendiente',
         procedimiento,
         materia,
         submateria: base.submateria || 'Submateria estratégica',
         cuantia: base.cuantia || (base.fee_total ? money.format(base.fee_total) : 'No definida'),
         estadoProcesal: state,
+        estadoCausa: base.estadoCausa || '',
         etapaProcesal: stage,
         fechaInicio: base.fechaInicio || '2026-03-01',
         fechaNotificacion: base.fechaNotificacion || '2026-03-08',
+        fechaUbicacion: base.fechaUbicacion || '',
+        ubicacion: base.ubicacion || '',
+        institucion: base.institucion || '',
         tipoCausa: base.tipoCausa || 'Contenciosa',
+        source: base.source || '',
+        sourceConfidence: base.sourceConfidence || '',
+        importBatchId: base.importBatchId || null,
+        pjudCaseKey: base.pjudCaseKey || '',
         observaciones: base.notes || 'Sin observaciones adicionales.',
         causaRelacionada: base.causaRelacionada || 'Sin causa principal relacionada',
         cliente,
@@ -3312,12 +3330,28 @@
         clientId: baseCase[C.k_client_id],
         cliente: clientName,
         responsable: baseCase[C.k_responsible] || workspaceEntry?.responsable || 'Sin responsable',
-        tribunal: baseCase[C.k_court] || workspaceEntry?.tribunal || 'Sin tribunal',
+        tribunal: baseCase.pjud_tribunal || baseCase[C.k_court] || workspaceEntry?.tribunal || 'Sin tribunal',
+        corte: baseCase.pjud_corte || workspaceEntry?.corte || '',
         rol: baseCase[C.k_rol] || workspaceEntry?.rol || 'Sin rol',
-        materia: baseCase[C.k_subject] || workspaceEntry?.materia || 'Sin materia',
+        era: baseCase.pjud_era || workspaceEntry?.era || '',
+        rit: baseCase.pjud_rit || workspaceEntry?.rit || '',
+        ruc: baseCase.pjud_ruc || workspaceEntry?.ruc || '',
+        tipoCausa: baseCase.pjud_tipo_causa || workspaceEntry?.tipoCausa || '',
+        materia: baseCase.pjud_materia || baseCase[C.k_subject] || workspaceEntry?.materia || 'Sin materia',
+        submateria: baseCase.pjud_submateria || workspaceEntry?.submateria || '',
+        estadoCausa: baseCase.pjud_estado_causa || workspaceEntry?.estadoCausa || '',
+        estadoProcesal: baseCase.pjud_estado_procesal || workspaceEntry?.estadoProcesal || '',
+        fechaInicio: baseCase.pjud_fecha_ingreso || workspaceEntry?.fechaInicio || '',
+        fechaUbicacion: baseCase.pjud_fecha_ubicacion || workspaceEntry?.fechaUbicacion || '',
+        ubicacion: baseCase.pjud_ubicacion || workspaceEntry?.ubicacion || '',
+        institucion: baseCase.pjud_institucion || workspaceEntry?.institucion || '',
+        source: baseCase.source || workspaceEntry?.source || '',
+        sourceConfidence: baseCase.source_confidence || workspaceEntry?.sourceConfidence || '',
+        importBatchId: baseCase.import_batch_id || workspaceEntry?.importBatchId || null,
+        pjudCaseKey: baseCase.pjud_case_key || workspaceEntry?.pjudCaseKey || '',
         fee_total: baseCase[C.k_fee_total] ?? null,
         notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
-        updatedAt: isoDate(baseCase[C.k_created]) || '2026-03-20',
+        updatedAt: isoDate(baseCase.updated_at || baseCase[C.k_created]) || '2026-03-20',
       };
       const detail = ensureCauseStorage(Object.assign(createSeedDetail({ ...record, ...workspaceEntry }), workspaceEntry || {}), record.id);
       detail.cliente = clientName;
@@ -3413,7 +3447,7 @@
 
     function caseMatches(caseItem){
       const search = state.filters.search.trim().toLowerCase();
-      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.materia, caseItem.procedimiento].join(' ').toLowerCase();
+      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.corte, caseItem.materia, caseItem.procedimiento, caseItem.ubicacion, caseItem.institucion].join(' ').toLowerCase();
       if (search && !haystack.includes(search)) return false;
       if (state.filters.estado && caseItem.estadoProcesal !== state.filters.estado) return false;
       if (state.filters.tribunal && caseItem.tribunal !== state.filters.tribunal) return false;
@@ -4836,116 +4870,283 @@
       `;
     }
 
-    function renderBatchImportPreview(items = [], actorName = 'Mario Javier Rodríguez Ardiles'){
+    function renderBatchImportPreview(items = [], summary = null){
       const preview = $('batchImportPreview');
       if (!preview) return;
-      if (!$('batch_raw')?.value.trim() && !items.length) {
+      const hasRawText = Boolean($('batch_raw')?.value.trim());
+      const hasWorkbook = Boolean($('batch_excel_file')?.files?.length);
+      if (!hasRawText && !hasWorkbook && !items.length && !summary) {
         preview.innerHTML = 'Aún no se ha analizado un lote de causas judiciales.';
         return;
       }
       if (!items.length) {
-        preview.innerHTML = `No se detectaron causas del consolidado donde figure ${escapeHtml(actorName)}.`;
+        preview.innerHTML = 'No se detectaron causas válidas para importar. Revisa si el archivo está vacío o tiene un problema estructural real.';
         return;
       }
+
+      const countsMarkup = Object.entries(summary?.countsByMateria || {})
+        .sort((left, right) => left[0].localeCompare(right[0], 'es'))
+        .map(([materia, count]) => `<span class="badge badge-info">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
+        .join(' ');
+      const sheetMarkup = (summary?.sheetsDetected || [])
+        .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet)}</span>`)
+        .join(' ');
 
       preview.innerHTML = `
         <div class="selection-grid">
           <div class="selection-card">
-            <strong>Lote listo para transferir</strong>
-            <div class="case-meta">Causas detectadas para ${escapeHtml(actorName)}: ${items.length}</div>
-            <div class="timeline-meta">Cada causa se actualizará si ya existe o se creará automáticamente si no está en Alpha Avocat.</div>
+            <strong>Lote listo para importar</strong>
+            <div class="case-meta">Filas válidas procesadas: ${escapeHtml(summary?.rowsProcessed ?? items.length)}</div>
+            <div class="timeline-meta">Causas consolidadas: ${escapeHtml(summary?.consolidatedCount ?? items.length)} · Filas descartadas por estructura: ${escapeHtml(summary?.invalidRows ?? 0)}</div>
+            <div class="timeline-meta">La vinculación se resuelve por origen confiable del archivo y no por coincidencia de nombre en caratulado o partes.</div>
+          </div>
+          <div class="selection-card">
+            <strong>Hojas detectadas</strong>
+            <div class="case-meta">${sheetMarkup || '<span class="badge badge-warning">Entrada manual</span>'}</div>
+            <div class="timeline-meta">${countsMarkup || 'Sin distribución por materia disponible.'}</div>
           </div>
           ${items.slice(0, 6).map((item) => `
             <div class="selection-card">
               <strong>${escapeHtml(item.basic?.caratula || item.basic?.rol || `Causa ${item.batchMeta?.blockIndex + 1 || ''}`)}</strong>
-              <div class="case-meta">Rol: ${escapeHtml(item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.basic?.rit || 'Pendiente')}</div>
-              <div class="timeline-meta">Tribunal: ${escapeHtml(item.basic?.tribunal || 'Pendiente')} · Documentos: ${(item.documents?.length || 0) + (item.ebook ? 1 : 0)} · Movimientos: ${item.movements?.length || 0}</div>
+              <div class="case-meta">Materia: ${escapeHtml(item.materia || item.basic?.materia || 'Pendiente')} · Rol: ${escapeHtml(item.rol || item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.rit || item.basic?.rit || 'Pendiente')}</div>
+              <div class="timeline-meta">Tribunal: ${escapeHtml(item.tribunal || item.corte || item.basic?.tribunal || 'Pendiente')} · Estado: ${escapeHtml(item.estadoProcesal || item.estadoCausa || item.basic?.estadoProcesal || 'Pendiente')} · Consolidada desde ${escapeHtml(item.consolidatedFrom || 1)} fila(s)</div>
             </div>
           `).join('')}
         </div>
       `;
     }
 
-    function analyzeImport(){
-      const importData = parseJudicialImportInput({
-        url: $('import_url').value,
-        rol: $('import_rol').value,
-        rit: $('import_rit').value,
-        tribunal: $('import_tribunal').value,
-        rawText: $('import_raw').value,
-      });
-      state.pendingImport = importData;
-      const duplicate = findDuplicateCase(getAllCases(), importData);
-      state.importTargetCaseId = duplicate?.id || null;
-      renderImportPreview(importData);
-      if (duplicate) {
-        setMessage('importMsg', 'Esta causa ya existe. Puedes actualizarla con los últimos movimientos y documentos.', 'warn');
-      } else {
-        setMessage('importMsg', 'Importación analizada. Puedes crear una nueva causa o completar la selección del cliente.', 'ok');
-      }
-    }
-
-    function analyzeBatchImport(){
-      const actorName = $('batch_actor_name').value.trim() || 'Mario Javier Rodríguez Ardiles';
-      const items = parseJudicialBatchImportInput({
-        rawText: $('batch_raw').value,
-        actorName,
-      });
-      state.pendingBatchImports = items;
-      renderBatchImportPreview(items, actorName);
-      if (!items.length) {
-        setMessage('importMsg', `No se detectaron causas judiciales donde figure ${actorName}.`, 'warn');
-        return;
-      }
-      setMessage('importMsg', `Lote analizado: ${items.length} causa(s) lista(s) para transferencia automática.`, 'ok');
-    }
-
-    function openImportModal(){
-      $('formImportacion').reset();
-      $('batch_actor_name').value = 'Mario Javier Rodríguez Ardiles';
-      state.pendingImport = null;
-      state.pendingBatchImports = [];
-      state.importTargetCaseId = null;
-      renderImportPreview(null);
-      renderBatchImportPreview([], 'Mario Javier Rodríguez Ardiles');
-      setMessage('importMsg', '', '');
-      openManagedModal('modalImportacion');
-    }
-
-    async function createImportedCaseFromData(importData, { primaryClientName, selectedClientParties = [] } = {}){
-      const matchingClient = state.clients.find((client) => String(client.display_name || '').toLowerCase() === String(primaryClientName).toLowerCase());
-      const payload = {
-        [C.k_client_id]: matchingClient?.[C.c_id] || state.clients[0]?.[C.c_id] || null,
-        [C.k_responsible]: $('k_resp').value.trim() || 'Mario Javier Rodríguez Ardiles',
-        [C.k_court]: importData.basic?.tribunal || null,
-        [C.k_rol]: [importData.basic?.rol, importData.basic?.rit].filter(Boolean).join(' / ') || null,
-        [C.k_subject]: importData.basic?.materia || null,
+    function buildPjudStructuredPayload(importData, { primaryClientName, importBatchId = null } = {}){
+      const matchingClient = state.clients.find((client) => String(client.display_name || '').toLowerCase() === String(primaryClientName || '').toLowerCase());
+      const tribunal = importData.tribunal || importData.basic?.tribunal || '';
+      const corte = importData.corte || '';
+      const rolComposite = [importData.rol || importData.basic?.rol, importData.era, importData.rit, importData.ruc].filter(Boolean).join(' / ') || null;
+      return {
+        [C.k_client_id]: matchingClient?.[C.c_id] || null,
+        [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
+        [C.k_court]: tribunal || corte || null,
+        [C.k_rol]: rolComposite,
+        [C.k_subject]: importData.materia || importData.basic?.materia || null,
         [C.k_fee_total]: null,
         [C.k_fee_type]: 'Fijo',
         [C.k_payment]: 'Único pago',
         [C.k_ppm]: null,
         [C.k_withheld_by]: 'Retiene receptor',
         [C.k_notes]: importData.rawText || null,
+        owner_user_id: authenticatedUser.id,
+        source: 'pjud_excel_mis_causas',
+        source_confidence: 'high',
+        import_batch_id: importBatchId,
+        imported_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        pjud_case_key: importData.pjudCaseKey || null,
+        pjud_materia: importData.materia || importData.basic?.materia || null,
+        pjud_submateria: importData.submateria || null,
+        pjud_tribunal: tribunal || null,
+        pjud_corte: corte || null,
+        pjud_era: importData.era || null,
+        pjud_rit: importData.rit || importData.basic?.rit || null,
+        pjud_ruc: importData.ruc || null,
+        pjud_tipo_causa: importData.tipoCausa || importData.basic?.procedimiento || null,
+        pjud_fecha_ingreso: importData.fechaIngreso || importData.basic?.fechaIngreso || null,
+        pjud_caratulado: importData.caratulado || importData.basic?.caratula || null,
+        pjud_estado_causa: importData.estadoCausa || null,
+        pjud_estado_procesal: importData.estadoProcesal || importData.basic?.estadoProcesal || null,
+        pjud_ubicacion: importData.ubicacion || null,
+        pjud_fecha_ubicacion: importData.fechaUbicacion || null,
+        pjud_institucion: importData.institucion || null,
       };
+    }
+
+    function buildImportedSeedDetail(baseRow, importData, primaryClientName = ''){
+      return createSeedDetail({
+        id: String(baseRow[C.k_id] || baseRow.id),
+        cliente: primaryClientName || state.clientMap.get(baseRow[C.k_client_id]) || SAFE_CLIENT_LABEL,
+        caratula: importData.basic?.caratula || importData.caratulado || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
+        rol: importData.rol || importData.basic?.rol || '',
+        rit: importData.rit || importData.basic?.rit || '',
+        ruc: importData.ruc || '',
+        era: importData.era || '',
+        corte: importData.corte || '',
+        tribunal: importData.tribunal || importData.basic?.tribunal || '',
+        procedimiento: importData.tipoCausa || importData.basic?.procedimiento || '',
+        tipoCausa: importData.tipoCausa || '',
+        materia: importData.materia || importData.basic?.materia || '',
+        submateria: importData.submateria || '',
+        estadoProcesal: importData.estadoProcesal || importData.estadoCausa || importData.basic?.estadoProcesal || 'En tramitación',
+        estadoCausa: importData.estadoCausa || '',
+        fechaInicio: importData.fechaIngreso || importData.basic?.fechaIngreso || '',
+        ubicacion: importData.ubicacion || '',
+        fechaUbicacion: importData.fechaUbicacion || '',
+        institucion: importData.institucion || '',
+        notes: importData.rawText || '',
+        updatedAt: isoDate(baseRow.updated_at || baseRow[C.k_created] || baseRow.created_at) || new Date().toISOString().slice(0,10),
+      });
+    }
+
+    async function persistPjudImportBatch(summary){
+      const batchPayload = {
+        owner_user_id: authenticatedUser.id,
+        source: 'pjud_excel_mis_causas',
+        source_confidence: 'high',
+        file_name: summary.fileName || null,
+        file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
+        sheets_detected: summary.sheetsDetected || [],
+        sheet_row_counts: summary.countsBySheet || {},
+        rows_processed: summary.rowsProcessed || 0,
+        rows_invalid: summary.invalidRows || 0,
+        causes_consolidated: summary.consolidatedCount || 0,
+        counts_by_materia: summary.countsByMateria || {},
+        metadata: {
+          mode: summary.mode || 'mis_causas_excel',
+          importedAtClient: new Date().toISOString(),
+        },
+      };
+      const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
+      if (batchError) throw batchError;
+
+      const rowPayloads = (summary.rawRows || []).map((row) => ({
+        batch_id: batch.id,
+        owner_user_id: authenticatedUser.id,
+        materia: row.materia,
+        sheet_name: row.sheetName,
+        row_number: row.rowNumber,
+        dedupe_key: row.dedupeKey,
+        row_signature: row.rowSignature,
+        is_valid: true,
+        payload: row,
+      }));
+      for (let index = 0; index < rowPayloads.length; index += 250) {
+        const slice = rowPayloads.slice(index, index + 250);
+        if (!slice.length) continue;
+        const { error } = await supabase.from(T_PJUD_IMPORT_ROWS).insert(slice);
+        if (error) throw error;
+      }
+      return batch;
+    }
+
+    async function upsertImportedWorkbookCases(summary){
+      const batch = await persistPjudImportBatch(summary);
+      state.pendingPjudBatchId = batch.id;
+      const nowIso = new Date().toISOString();
+      const casePayloads = summary.consolidatedCases.map((item) => buildPjudStructuredPayload(item, {
+        primaryClientName: 'Cliente asociado por Mis Causas',
+        importBatchId: batch.id,
+      }));
+
+      const upsertedRows = [];
+      for (let index = 0; index < casePayloads.length; index += 200) {
+        const slice = casePayloads.slice(index, index + 200);
+        const { data, error } = await supabase
+          .from(T_CASES)
+          .upsert(slice, { onConflict: 'owner_user_id,pjud_case_key' })
+          .select('*');
+        if (error) throw error;
+        upsertedRows.push(...(data || []));
+      }
+
+      const byKey = new Map(upsertedRows.map((row) => [row.pjud_case_key, row]));
+      summary.consolidatedCases.forEach((item) => {
+        const row = byKey.get(item.pjudCaseKey);
+        if (!row) return;
+        const primaryClientName = state.clientMap.get(row[C.k_client_id]) || 'Cliente asociado por Mis Causas';
+        const detail = applyImportToDetail(buildImportedSeedDetail(row, item, primaryClientName), {
+          ...item,
+          importBatchId: batch.id,
+          basic: {
+            ...item.basic,
+            importedAt: nowIso,
+          },
+        }, {
+          primaryClientName,
+          selectedClientParties: [],
+          operationMode: 'upsert',
+          createdNewCase: false,
+          importBatchId: batch.id,
+        });
+        updateWorkspaceEntry(String(row[C.k_id]), () => detail);
+      });
+
+      await loadCases();
+      populateFilters();
+      renderAll();
+      return { batch, rows: upsertedRows };
+    }
+
+    async function analyzeBatchImport(){
+      const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      if (excelFile) {
+        try {
+          const summary = await parsePjudMisCausasWorkbook(excelFile, XLSX);
+          state.pendingPjudWorkbook = summary;
+          state.pendingBatchImports = summary.consolidatedCases;
+          renderBatchImportPreview(summary.consolidatedCases, summary);
+          if (!summary.consolidatedCases.length) {
+            setMessage('importMsg', 'El Excel fue leído, pero no entregó causas válidas. Revisa si el archivo tiene filas vacías o un error estructural real.', 'warn');
+            return;
+          }
+          setMessage('importMsg', `Excel Mis Causas analizado: ${summary.rowsProcessed} filas válidas, ${summary.consolidatedCount} causas consolidadas y ${summary.sheetsDetected.length} hojas reconocidas.`, 'ok');
+          return;
+        } catch (error) {
+          console.error('[Alpha Avocat][pjud-excel] No fue posible analizar el Excel Mis Causas.', error);
+          state.pendingPjudWorkbook = null;
+          state.pendingBatchImports = [];
+          renderBatchImportPreview([], null);
+          setMessage('importMsg', `No fue posible analizar el Excel Mis Causas: ${buildLoadError('el archivo Excel de Mis Causas', error).message}`, 'error');
+          return;
+        }
+      }
+
+      const items = parseJudicialBatchImportInput({
+        rawText: $('batch_raw').value,
+        actorName: operatorName || 'Usuario autenticado',
+      });
+      state.pendingPjudWorkbook = null;
+      state.pendingBatchImports = items;
+      renderBatchImportPreview(items, {
+        rowsProcessed: items.length,
+        consolidatedCount: items.length,
+        invalidRows: 0,
+        countsByMateria: items.reduce((acc, item) => {
+          const key = item.basic?.materia || item.materia || 'Sin materia';
+          acc[key] = (acc[key] || 0) + 1;
+          return acc;
+        }, {}),
+      });
+      if (!items.length) {
+        setMessage('importMsg', 'No se detectaron causas judiciales válidas en el lote manual.', 'warn');
+        return;
+      }
+      setMessage('importMsg', `Lote manual analizado: ${items.length} causa(s) lista(s) para transferencia automática.`, 'ok');
+    }
+
+    function openImportModal(){
+      $('formImportacion').reset();
+      state.pendingImport = null;
+      state.pendingBatchImports = [];
+      state.pendingPjudWorkbook = null;
+      state.pendingPjudBatchId = null;
+      state.importTargetCaseId = null;
+      renderImportPreview(null);
+      renderBatchImportPreview([], null);
+      setMessage('importMsg', '', '');
+      openManagedModal('modalImportacion');
+    }
+
+    async function createImportedCaseFromData(importData, { primaryClientName, selectedClientParties = [], importBatchId = null } = {}){
+      const payload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId });
       const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
       if (error) throw error;
 
-      const detail = applyImportToDetail(createSeedDetail({
-        id: String(data[C.k_id]),
-        cliente: primaryClientName,
-        caratula: importData.basic?.caratula || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
-        rol: importData.basic?.rol || '',
-        rit: importData.basic?.rit || '',
-        tribunal: importData.basic?.tribunal || '',
-        procedimiento: importData.basic?.procedimiento || '',
-        materia: importData.basic?.materia || '',
-        estadoProcesal: importData.basic?.estadoProcesal || 'En tramitación',
-        notes: importData.rawText || '',
-      }), importData, {
+      const detail = applyImportToDetail(buildImportedSeedDetail(data, importData, primaryClientName), {
+        ...importData,
+        importBatchId,
+      }, {
         primaryClientName,
         selectedClientParties,
         operationMode: 'create',
         createdNewCase: true,
+        importBatchId,
       });
       updateWorkspaceEntry(String(data[C.k_id]), () => detail);
       return { data, detail };
@@ -4967,15 +5168,23 @@
       const duplicate = findDuplicateCase(getAllCases(), importData);
 
       if (duplicate) {
+        const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
+        const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
+        if (updateError) {
+          setMessage('importMsg', `No fue posible actualizar la causa existente: ${updateError.message}`, 'error');
+          return null;
+        }
         const updated = updateWorkspaceEntry(duplicate.id, (entry) => applyImportToDetail(entry, importData, {
           primaryClientName,
           selectedClientParties,
           operationMode: 'update',
           createdNewCase: false,
+          importBatchId: state.pendingPjudBatchId,
         }));
         state.selectedId = duplicate.id;
-        setMessage('importMsg', 'Causa existente actualizada con los últimos movimientos y documentos detectados.', 'ok');
+        setMessage('importMsg', 'Causa existente actualizada con los últimos movimientos y datos estructurados del Poder Judicial.', 'ok');
         await loadCases();
+        populateFilters();
         renderAll();
         closeManagedModal('modalImportacion');
         return updated;
@@ -5001,7 +5210,24 @@
     }
 
     async function transferBatchImport(){
-      if (!state.pendingBatchImports.length) analyzeBatchImport();
+      if (!state.pendingBatchImports.length && !state.pendingPjudWorkbook) {
+        await analyzeBatchImport();
+      }
+      if (state.pendingPjudWorkbook?.consolidatedCases?.length) {
+        try {
+          const { batch } = await upsertImportedWorkbookCases(state.pendingPjudWorkbook);
+          const rowsProcessed = state.pendingPjudWorkbook.rowsProcessed || 0;
+          const consolidated = state.pendingPjudWorkbook.consolidatedCount || 0;
+          setMessage('importMsg', `Importación PJUD completada. Batch ${batch.id}: ${rowsProcessed} filas válidas procesadas, ${consolidated} causas consolidadas y listado general actualizado.`, 'ok');
+          closeManagedModal('modalImportacion');
+          return;
+        } catch (error) {
+          console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
+          setMessage('importMsg', `No fue posible importar el lote PJUD: ${buildLoadError('la importación PJUD', error).message}`, 'error');
+          return;
+        }
+      }
+
       const items = state.pendingBatchImports || [];
       if (!items.length) return;
 
@@ -5292,6 +5518,12 @@
       $('btnImportar').addEventListener('click', openImportModal);
       $('btnAnalizarLoteImportacion').addEventListener('click', analyzeBatchImport);
       $('btnTransferirLoteImportacion').addEventListener('click', transferBatchImport);
+      $('batch_excel_file')?.addEventListener('change', () => {
+        state.pendingPjudWorkbook = null;
+        state.pendingBatchImports = [];
+        renderBatchImportPreview([], null);
+        setMessage('importMsg', '', '');
+      });
       $('btnCalendario').addEventListener('click', () => window.location.href = './agenda.html');
       $('btnActualizarEstado').addEventListener('click', openSyncModal);
       $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));
