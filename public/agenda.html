@@ -262,6 +262,49 @@ main.agenda-main{
 .rectification-actions{display:flex;justify-content:flex-end;gap:10px;flex-wrap:wrap;margin-top:16px;}
 
 .rectification-message{margin-top:12px;font-size:13px;font-weight:700;color:var(--agenda-title);}
+.activity-workflow-bar{
+  display:grid;
+  grid-template-columns:minmax(0,1.3fr) minmax(260px,.7fr);
+  gap:14px;
+  margin:16px 0;
+  padding:16px 18px;
+  border-radius:18px;
+  background:linear-gradient(180deg, rgba(255,255,255,.98), rgba(244,244,250,.96));
+  border:1px solid color-mix(in srgb, var(--agenda-border) 72%, white);
+}
+.activity-workflow-copy{
+  display:grid;
+  gap:8px;
+}
+.activity-workflow-copy p{
+  margin:0;
+  color:var(--agenda-text-secondary);
+  font-size:13px;
+  line-height:1.5;
+}
+.activity-state-pill{
+  display:inline-flex;
+  width:max-content;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(22,58,95,.1);
+  color:var(--agenda-accent);
+  font-size:12px;
+  font-weight:800;
+  text-transform:capitalize;
+}
+.activity-workflow-log{
+  min-height:56px;
+  padding:12px 14px;
+  border-radius:16px;
+  background:var(--agenda-card-soft);
+  border:1px solid color-mix(in srgb, var(--agenda-border) 68%, white);
+  color:var(--agenda-text-secondary);
+  font-size:12px;
+  line-height:1.5;
+}
 .activity-media-toolbar{
   display:flex;
   flex-wrap:wrap;
@@ -339,6 +382,10 @@ main.agenda-main{
 .activity-media-card-actions .btn-danger{
   flex:1 1 120px;
 }
+.media-mode-card button:disabled{
+  opacity:.58;
+  cursor:not-allowed;
+}
 .camera-modal-backdrop,
 .image-viewer-backdrop{
   position:fixed;
@@ -412,6 +459,7 @@ main.agenda-main{
   .camera-modal,
   .image-viewer-modal{padding:18px; border-radius:20px;}
   .camera-modal-actions > button,
+  .activity-workflow-bar{grid-template-columns:minmax(0,1fr);}
   .activity-media-card-actions > button{width:100%;}
 }
 
@@ -758,23 +806,31 @@ input[type="checkbox"]{
           <article class="media-mode-card">
             <strong>Foto</strong>
             <p>Captura fotográfica real desde cámara con previsualización, repetir y guardado diferenciado.</p>
-            <button class="btn-save" type="button" data-activity-capture-mode="photo">Tomar fotografía</button>
+            <button class="btn-save" type="button" data-activity-capture-mode="photo" disabled>Tomar fotografía</button>
           </article>
           <article class="media-mode-card">
             <strong>Audio</strong>
             <p>Graba la entrevista o atención solo con micrófono, con pausa, reproducción y regrabación.</p>
-            <button class="btn-save" type="button" data-activity-capture-mode="audio">Grabar audio</button>
+            <button class="btn-save" type="button" data-activity-capture-mode="audio" disabled>Grabar audio</button>
           </article>
           <article class="media-mode-card">
             <strong>Video</strong>
             <p>Graba video de la atención con vista previa en vivo y opción de incluir o excluir audio.</p>
-            <button class="btn-save" type="button" data-activity-capture-mode="video">Grabar video</button>
+            <button class="btn-save" type="button" data-activity-capture-mode="video" disabled>Grabar video</button>
           </article>
           <article class="media-mode-card">
             <strong>Audio + video</strong>
             <p>Registra la atención completa con cámara y micrófono simultáneamente cuando el dispositivo lo permita.</p>
-            <button class="btn-save" type="button" data-activity-capture-mode="av">Grabar audio + video</button>
+            <button class="btn-save" type="button" data-activity-capture-mode="av" disabled>Grabar audio + video</button>
           </article>
+        </div>
+        <div class="activity-workflow-bar">
+          <div class="activity-workflow-copy">
+            <span id="activityWorkflowState" class="activity-state-pill">idle</span>
+            <strong id="activityWorkflowTitle">Actividad lista para iniciar</strong>
+            <p id="activityWorkflowDescription">Presiona “Iniciar actividad” para habilitar la captura multimedia y el cierre formal de la atención.</p>
+          </div>
+          <div id="activityWorkflowLog" class="activity-workflow-log" aria-live="polite"></div>
         </div>
         <div class="activity-media-toolbar">
           <label class="mm-check"><input type="checkbox" id="activityLinkCaseToggle" checked><span>Vincular también a la causa/expediente asociado cuando exista</span></label>
@@ -784,7 +840,7 @@ input[type="checkbox"]{
         <div id="activityMediaGrid" class="activity-media-grid" hidden></div>
       </div>
     </div>
-    <div class="actions"><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Iniciar actividad</button><button class="btn-save" id="btnGuardarActividad" type="button">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
+    <div class="actions"><button class="btn-save" id="btnIniciarActividad" type="button">Iniciar actividad</button><button class="btn-save" id="btnGuardarActividad" type="button">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" id="btnFinalizarActividad" type="button" disabled aria-disabled="true">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
 
   <section class="agenda-screen" id="contenedor">
@@ -883,6 +939,8 @@ const nuevoEventoLegacyFieldAliases = {
   linked_client_rut: ['client_rut']
 }
 const btnGoActividad = document.getElementById('btnGoActividad')
+const btnIniciarActividad = document.getElementById('btnIniciarActividad')
+const btnFinalizarActividad = document.getElementById('btnFinalizarActividad')
 const btnGuardarActividad = document.getElementById('btnGuardarActividad')
 const activityModalidadBlock = document.getElementById('activityModalidadBlock')
 const activityEventFields = document.getElementById('activityEventFields')
@@ -892,6 +950,11 @@ const activityRecordingFields = document.querySelectorAll('[data-recording-field
 const activityMediaMessage = document.getElementById('activityMediaMessage')
 const activityMediaGrid = document.getElementById('activityMediaGrid')
 const activityMediaEmptyState = document.getElementById('activityMediaEmptyState')
+const activityWorkflowState = document.getElementById('activityWorkflowState')
+const activityWorkflowTitle = document.getElementById('activityWorkflowTitle')
+const activityWorkflowDescription = document.getElementById('activityWorkflowDescription')
+const activityWorkflowLog = document.getElementById('activityWorkflowLog')
+const activityCaptureButtons = Array.from(document.querySelectorAll('[data-activity-capture-mode]'))
 const btnAbrirCamaraActividad = document.getElementById('btnAbrirCamaraActividad')
 const activityCameraModal = document.getElementById('activityCameraModal')
 const btnCerrarCamaraActividad = document.getElementById('btnCerrarCamaraActividad')
@@ -937,6 +1000,87 @@ function formatActivityCaptureDate(value){
 function buildAttachmentId(){
   if (window.crypto?.randomUUID) return window.crypto.randomUUID()
   return `activity-photo-${Date.now()}-${Math.random().toString(16).slice(2)}`
+}
+
+function buildActivityWorkflowLogEntry(message, timestamp = new Date().toISOString()){
+  return { message, timestamp }
+}
+
+function normalizeActivityWorkflowState(raw = {}){
+  const state = Object.values(ACTIVITY_WORKFLOW_STATES).includes(raw?.state) ? raw.state : ACTIVITY_WORKFLOW_STATES.IDLE
+  return {
+    state,
+    startedAt: raw?.startedAt || null,
+    finishedAt: raw?.finishedAt || null,
+    log: Array.isArray(raw?.log) ? raw.log.filter(entry => entry && entry.message) : []
+  }
+}
+
+function updateActivityWorkflowPanel(){
+  const copy = {
+    [ACTIVITY_WORKFLOW_STATES.IDLE]: { title: 'Actividad lista para iniciar', description: 'Presiona “Iniciar actividad” para habilitar la captura multimedia y el cierre formal de la atención.' },
+    [ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS]: { title: 'Actividad en curso', description: 'La actividad está activa. Ya puedes abrir la captura multimedia e iniciar una toma.' },
+    [ACTIVITY_WORKFLOW_STATES.RECORDING]: { title: 'Grabación en curso', description: 'La grabación está activa. Usa “Detener grabación” o “Cancelar grabación” para cerrar correctamente el recorder.' },
+    [ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED]: { title: 'Grabación finalizada', description: 'La toma quedó lista. Puedes reproducir, detener reproducción, eliminar, volver a grabar, guardar o finalizar la actividad.' },
+    [ACTIVITY_WORKFLOW_STATES.PLAYING]: { title: 'Reproducción en curso', description: 'El archivo se está reproduciendo. Usa “Detener reproducción” para volver al estado de revisión.' },
+    [ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED]: { title: 'Actividad finalizada', description: 'La actividad terminó, se liberaron recursos locales y el flujo quedó listo para iniciar una nueva actividad.' }
+  }
+  const currentCopy = copy[activityWorkflow.state] || copy[ACTIVITY_WORKFLOW_STATES.IDLE]
+  if (activityWorkflowState) activityWorkflowState.textContent = activityWorkflow.state.replaceAll('_', ' ')
+  if (activityWorkflowTitle) activityWorkflowTitle.textContent = currentCopy.title
+  if (activityWorkflowDescription) activityWorkflowDescription.textContent = currentCopy.description
+  if (activityWorkflowLog) {
+    const latest = activityWorkflow.log[0]
+    activityWorkflowLog.textContent = latest
+      ? `${formatActivityCaptureDate(latest.timestamp)} · ${latest.message}`
+      : 'Aún no hay transiciones registradas para esta actividad.'
+  }
+}
+
+function syncActivityActionButtons(){
+  const state = activityWorkflow.state
+  const canStartActivity = state === ACTIVITY_WORKFLOW_STATES.IDLE || state === ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED
+  const canFinishActivity = [ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS, ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED, ACTIVITY_WORKFLOW_STATES.PLAYING].includes(state)
+  const canCapture = [ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS, ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED, ACTIVITY_WORKFLOW_STATES.PLAYING].includes(state)
+
+  if (btnIniciarActividad) {
+    btnIniciarActividad.disabled = !canStartActivity
+    btnIniciarActividad.setAttribute('aria-disabled', String(!canStartActivity))
+  }
+  if (btnFinalizarActividad) {
+    const isBlockedByRecording = state === ACTIVITY_WORKFLOW_STATES.RECORDING
+    btnFinalizarActividad.disabled = !canFinishActivity
+    btnFinalizarActividad.setAttribute('aria-disabled', String(!canFinishActivity))
+    btnFinalizarActividad.title = isBlockedByRecording ? 'Debes detener o cancelar la grabación antes de finalizar la actividad.' : ''
+  }
+
+  activityCaptureButtons.forEach(button => {
+    button.disabled = !canCapture
+    button.setAttribute('aria-disabled', String(!canCapture))
+  })
+  updateActivityWorkflowPanel()
+}
+
+function updateActivityWorkflowState(nextState, message){
+  if (!Object.values(ACTIVITY_WORKFLOW_STATES).includes(nextState)) return
+  activityWorkflow = {
+    ...activityWorkflow,
+    state: nextState,
+    startedAt: nextState === ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS && !activityWorkflow.startedAt ? new Date().toISOString() : activityWorkflow.startedAt,
+    finishedAt: nextState === ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED ? new Date().toISOString() : (nextState === ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS ? null : activityWorkflow.finishedAt),
+    log: message ? [buildActivityWorkflowLogEntry(message), ...activityWorkflow.log].slice(0, 20) : activityWorkflow.log
+  }
+  syncActivityActionButtons()
+}
+
+function resetActivityWorkflow({ preserveLog = false } = {}){
+  activityWorkflow = {
+    state: ACTIVITY_WORKFLOW_STATES.IDLE,
+    startedAt: null,
+    finishedAt: null,
+    log: preserveLog ? activityWorkflow.log : []
+  }
+  syncActivityActionButtons()
 }
 
 function getNuevoEventoStateValue(state, fieldId){
@@ -1020,12 +1164,32 @@ const activityFields = {
 
 const activityFieldKeys = Object.keys(activityFields)
 const activitySnapshot = Object.fromEntries(activityFieldKeys.map(key => [key, '']))
+const ACTIVITY_WORKFLOW_STATES = {
+  IDLE: 'idle',
+  ACTIVITY_IN_PROGRESS: 'actividad_en_curso',
+  RECORDING: 'grabando',
+  RECORDING_FINISHED: 'grabacion_finalizada',
+  PLAYING: 'reproduciendo',
+  ACTIVITY_FINISHED: 'actividad_finalizada'
+}
+const ACTIVE_ACTIVITY_STATES = new Set([
+  ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS,
+  ACTIVITY_WORKFLOW_STATES.RECORDING,
+  ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED,
+  ACTIVITY_WORKFLOW_STATES.PLAYING
+])
 
 let editingEventId = null
 let activeEventRowId = null
 let eventsCache = []
 let pendingActivityEventNumber = ''
 let persistedActivityState = {}
+let activityWorkflow = {
+  state: ACTIVITY_WORKFLOW_STATES.IDLE,
+  startedAt: null,
+  finishedAt: null,
+  log: []
+}
 let activityMediaAttachments = []
 let currentCameraCapture = null
 let currentCameraStream = null
@@ -1170,6 +1334,7 @@ function buildSerializedAgendaMetadata(options = {}){
     formState: options.formState || getNuevoEventoFormState(),
     rectificationLog: Array.isArray(options.rectificationLog) ? options.rectificationLog : [],
     activityState: options.activityState || getActivityFormState(),
+    activityWorkflow: normalizeActivityWorkflowState(options.activityWorkflow || activityWorkflow),
     activityMedia: serializeActivityMediaForMetadata(options.activityMedia ?? activityMediaAttachments),
   }
   return `${FORM_METADATA_PREFIX}${JSON.stringify(payload)}`
@@ -1189,10 +1354,11 @@ function parseNuevoEventoState(serializedState){
         formState: parsed.formState || {},
         rectificationLog: Array.isArray(parsed.rectificationLog) ? parsed.rectificationLog : [],
         activityState: parsed.activityState && typeof parsed.activityState === 'object' ? parsed.activityState : {},
+        activityWorkflow: normalizeActivityWorkflowState(parsed.activityWorkflow || parsed.activityState?.__workflow || {}),
         activityMedia: normalizeActivityMediaList(parsed.activityMedia)
       }
     }
-    return { formState: parsed || {}, rectificationLog: [], activityState: {}, activityMedia: [] }
+    return { formState: parsed || {}, rectificationLog: [], activityState: {}, activityWorkflow: normalizeActivityWorkflowState(), activityMedia: [] }
   } catch {
     return null
   }
@@ -1208,7 +1374,7 @@ function setAgendaRectificationMessage(message = ''){
 }
 
 function getEventMetadata(eventData = {}){
-  return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [], activityState: {}, activityMedia: [] }
+  return parseNuevoEventoState(eventData.required_background) || { formState: {}, rectificationLog: [], activityState: {}, activityWorkflow: normalizeActivityWorkflowState(), activityMedia: [] }
 }
 
 function getEventResponsible(eventData = {}, metadata = getEventMetadata(eventData)){
@@ -1278,6 +1444,23 @@ function setActivityMediaMessage(message = '', { isError = false } = {}){
 const activityLinkCaseToggle = document.getElementById('activityLinkCaseToggle')
 const activityCaptureModal = new MultimediaCaptureModal({
   allowManualPhotoUpload: true,
+  onStateChange: ({ state, mode, hasPreview }) => {
+    const nextState = Object.values(ACTIVITY_WORKFLOW_STATES).includes(state) ? state : ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS
+    if (nextState === ACTIVITY_WORKFLOW_STATES.IDLE && ACTIVE_ACTIVITY_STATES.has(activityWorkflow.state)) {
+      syncActivityActionButtons()
+      return
+    }
+    const shouldLog = nextState !== activityWorkflow.state
+    const messageByState = {
+      [ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS]: `Actividad multimedia habilitada en modo ${MEDIA_TYPE_LABELS[mode] || mode}.`,
+      [ACTIVITY_WORKFLOW_STATES.RECORDING]: `Grabación ${MEDIA_TYPE_LABELS[mode] || mode} iniciada.`,
+      [ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED]: hasPreview ? `Grabación ${MEDIA_TYPE_LABELS[mode] || mode} finalizada y lista para revisión.` : 'Se volvió al estado activo de la actividad.',
+      [ACTIVITY_WORKFLOW_STATES.PLAYING]: `Reproducción ${MEDIA_TYPE_LABELS[mode] || mode} en curso.`,
+      [ACTIVITY_WORKFLOW_STATES.IDLE]: 'Modal de captura cerrado.',
+      [ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED]: 'Archivo multimedia guardado en el borrador de la actividad.'
+    }
+    updateActivityWorkflowState(nextState, shouldLog ? messageByState[nextState] : '')
+  },
   onSave: async ({ blob, mode, mimeType, durationSeconds, notes, fileName }) => {
     const previewUrl = mode === 'photo' ? await blobToObjectPreview(blob) : URL.createObjectURL(blob)
     const draft = normalizeActivityMediaList([{
@@ -1299,12 +1482,13 @@ const activityCaptureModal = new MultimediaCaptureModal({
     }])[0]
     activityMediaAttachments = [draft, ...activityMediaAttachments]
     renderActivityMedia()
+    updateActivityWorkflowState(ACTIVITY_WORKFLOW_STATES.RECORDING_FINISHED, `${MEDIA_TYPE_LABELS[mode]} preparada. Guarda la actividad para subir archivo y metadata.`)
     setActivityMediaMessage(`${MEDIA_TYPE_LABELS[mode]} preparada. Guarda la actividad para subir archivo y metadata.`, { isError: false })
   }
 })
 
 function updateCameraActionState(){
-  return undefined
+  syncActivityActionButtons()
 }
 
 async function blobToObjectPreview(blob){
@@ -1476,15 +1660,47 @@ function resetCameraCapture(){
 }
 
 function stopActivityCameraStream(){
-  return undefined
+  activityCaptureModal.teardownStream()
 }
 
-function closeActivityCameraModal({ keepMessage = true } = {}){
-  activityCaptureModal.close()
+async function closeActivityCameraModal({ keepMessage = true } = {}){
+  await activityCaptureModal.close()
+  if (ACTIVE_ACTIVITY_STATES.has(activityWorkflow.state)) {
+    syncActivityActionButtons()
+  }
   if (!keepMessage) setActivityMediaMessage('')
 }
 
+async function startActivityWorkflow(){
+  if (!(activityWorkflow.state === ACTIVITY_WORKFLOW_STATES.IDLE || activityWorkflow.state === ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED)) return
+  updateActivityWorkflowState(ACTIVITY_WORKFLOW_STATES.ACTIVITY_IN_PROGRESS, 'Actividad iniciada. La captura multimedia quedó habilitada.')
+  setActivityMediaMessage('Actividad iniciada. Ya puedes capturar fotografía, audio, video o audio + video.', { isError: false })
+}
+
+async function finalizeActivityWorkflow(){
+  if (activityWorkflow.state === ACTIVITY_WORKFLOW_STATES.RECORDING) {
+    setActivityMediaMessage('Debes detener o cancelar la grabación antes de finalizar la actividad.', { isError: true })
+    return
+  }
+  if (!ACTIVE_ACTIVITY_STATES.has(activityWorkflow.state)) return
+  await closeActivityCameraModal()
+  updateActivityWorkflowState(ACTIVITY_WORKFLOW_STATES.ACTIVITY_FINISHED, 'Actividad finalizada. Se cerró la captura y se liberaron los recursos locales.')
+  setActivityMediaMessage('Actividad finalizada. Puedes iniciar una nueva actividad o guardar el registro actual.', { isError: false })
+  const savedId = await persistAgendaEvent({ keepActivityScreen: true })
+  if (savedId) {
+    setActivityMediaMessage('Actividad finalizada y persistida correctamente.', { isError: false })
+  }
+}
+
 async function openActivityCameraModal(mode = 'photo'){
+  if (!ACTIVE_ACTIVITY_STATES.has(activityWorkflow.state)) {
+    setActivityMediaMessage('Primero debes iniciar la actividad para habilitar la captura multimedia.', { isError: true })
+    return
+  }
+  if (activityWorkflow.state === ACTIVITY_WORKFLOW_STATES.RECORDING) {
+    setActivityMediaMessage('Ya hay una grabación en curso. Detén o cancela la grabación actual antes de abrir otra captura.', { isError: true })
+    return
+  }
   await activityCaptureModal.open({ mode })
 }
 
@@ -1751,6 +1967,7 @@ async function saveAgendaRectification(event){
       formState: nextFormState,
       rectificationLog,
       activityState: metadata.activityState || {},
+      activityWorkflow: metadata.activityWorkflow || normalizeActivityWorkflowState(),
       activityMedia: metadata.activityMedia || []
     })
   }
@@ -1793,6 +2010,7 @@ function applyActivitySnapshot(){
   })
   applyActivityFormState(persistedActivityState)
   updateActivityEventFieldAttenuation()
+  syncActivityActionButtons()
 }
 
 function updateActivityEventFieldAttenuation(){
@@ -1822,6 +2040,7 @@ function resetNuevoEventoForm({ preserveActivitySnapshot = false } = {}){
   hydrateActivityMedia([])
   closeActivityImageViewer()
   closeActivityCameraModal({ keepMessage: false })
+  resetActivityWorkflow()
   syncNuevoEventoToActivitySnapshot()
 }
 
@@ -1837,8 +2056,10 @@ function startEditingEvent(eventData){
   const persistedMeta = parseNuevoEventoState(eventData.required_background)
   const persistedState = persistedMeta?.formState || {}
   persistedActivityState = persistedMeta?.activityState || {}
+  activityWorkflow = normalizeActivityWorkflowState(persistedMeta?.activityWorkflow || {})
   hydrateActivityMedia(persistedMeta?.activityMedia || [])
   closeActivityImageViewer()
+  syncActivityActionButtons()
 
   applyNuevoEventoFormState({
     ...persistedState,
@@ -1948,6 +2169,7 @@ document.addEventListener('click', (e)=>{
         closeActivityCameraModal({ keepMessage: false })
         closeActivityImageViewer()
         persistedActivityState = {}
+        resetActivityWorkflow()
         hydrateActivityMedia([])
       }
       document.querySelectorAll(`#${target.dataset.clear} input, #${target.dataset.clear} textarea, #${target.dataset.clear} select`).forEach(el=>{
@@ -2063,6 +2285,14 @@ saveButton.addEventListener('click', async ()=>{
   await persistAgendaEvent()
 })
 
+btnIniciarActividad?.addEventListener('click', async () => {
+  await startActivityWorkflow()
+})
+
+btnFinalizarActividad?.addEventListener('click', async () => {
+  await finalizeActivityWorkflow()
+})
+
 btnGuardarActividad?.addEventListener('click', async () => {
   const savedId = await persistAgendaEvent({ keepActivityScreen: true })
   if (savedId) {
@@ -2091,7 +2321,7 @@ if (btnAbrirRectificacionAgenda) {
   })
 }
 
-document.querySelectorAll('[data-activity-capture-mode]').forEach((button) => {
+activityCaptureButtons.forEach((button) => {
   button.addEventListener('click', async () => {
     await openActivityCameraModal(button.dataset.activityCaptureMode)
   })
@@ -2125,6 +2355,7 @@ setInterval(()=>{
 applyClientsIntegrationPrefill()
 syncNuevoEventoToActivitySnapshot()
 hydrateActivityMedia([])
+resetActivityWorkflow()
 updateCameraActionState()
 updateActivityEventFieldAttenuation()
 loadEvents()

@@ -130,6 +130,18 @@
   font-size:12px;
   font-weight:800;
 }
+.mm-state-pill{
+  display:inline-flex;
+  align-items:center;
+  justify-content:center;
+  padding:6px 10px;
+  border-radius:999px;
+  background:rgba(22,58,95,.1);
+  color:#163a5f;
+  font-size:12px;
+  font-weight:800;
+  text-transform:capitalize;
+}
 .mm-check{
   display:inline-flex;
   align-items:center;
@@ -154,6 +166,23 @@
   padding:12px 14px;
   font:inherit;
   resize:vertical;
+}
+.mm-preview-controls{
+  display:flex;
+  flex-wrap:wrap;
+  gap:10px;
+  margin:0 0 14px;
+}
+
+.mm-preview-controls > button{
+  flex:1 1 180px;
+}
+
+.mm-action-bar button:disabled,
+.mm-preview-controls button:disabled{
+  opacity:.58;
+  cursor:not-allowed;
+  filter:saturate(.72);
 }
 .media-module-shell{
   display:grid;

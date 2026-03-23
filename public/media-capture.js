@@ -1,5 +1,14 @@
 import { blobToDataUrl, buildMediaFileName, detectBestMimeType, formatDuration, MEDIA_TYPE_LABELS } from './media-assets.js'
 
+const CAPTURE_STATES = {
+  IDLE: 'idle',
+  ACTIVITY_IN_PROGRESS: 'actividad_en_curso',
+  RECORDING: 'grabando',
+  RECORDING_FINISHED: 'grabacion_finalizada',
+  PLAYING: 'reproduciendo',
+  ACTIVITY_FINISHED: 'actividad_finalizada'
+}
+
 const TEMPLATE = `
   <div class="mm-capture-backdrop" hidden>
     <section class="mm-capture-modal" role="dialog" aria-modal="true" aria-labelledby="mmCaptureTitle">
@@ -7,7 +16,7 @@ const TEMPLATE = `
         <div>
           <p class="mm-capture-kicker">Captura multimedia</p>
           <h3 id="mmCaptureTitle">Registro multimedia</h3>
-          <p class="mm-capture-subtitle">Selecciona el modo de captura y guarda el archivo solo cuando la vista previa sea correcta.</p>
+          <p class="mm-capture-subtitle">Selecciona el modo de captura y completa el ciclo: iniciar, detener, revisar, reproducir, detener reproducción y guardar.</p>
         </div>
         <button type="button" class="btn-cancel" data-mm-action="close">Cerrar</button>
       </header>
@@ -22,6 +31,7 @@ const TEMPLATE = `
           <div class="mm-live-meta">
             <div class="mm-status-stack">
               <span class="mm-live-chip" data-mm-live-chip hidden>● Grabando</span>
+              <span class="mm-state-pill" data-mm-state-pill>Idle</span>
               <strong data-mm-mode-title>Fotografía</strong>
               <span data-mm-support-copy>Al ingresar al modo se solicitarán solo los permisos necesarios.</span>
             </div>
@@ -37,7 +47,7 @@ const TEMPLATE = `
             <video data-mm-live-video autoplay playsinline muted></video>
             <div class="mm-audio-shell" data-mm-audio-shell hidden>
               <div class="mm-audio-pulse"></div>
-              <p>Micrófono listo. Usa iniciar para grabar el audio de la atención.</p>
+              <p>Micrófono listo. Usa los botones de acción para iniciar, detener o cancelar la grabación.</p>
             </div>
           </div>
           <p class="mm-stage-help" data-mm-status>La captura multimedia se activa solo cuando entras a un modo compatible.</p>
@@ -46,15 +56,22 @@ const TEMPLATE = `
           <div class="mm-preview-meta">
             <div>
               <strong>Vista previa antes de guardar</strong>
-              <p>Reproduce, repite o descarta antes de persistir el archivo.</p>
+              <p>Usa reproducir y detener reproducción para validar el archivo antes de persistirlo.</p>
             </div>
             <strong class="mm-timer" data-mm-timer>00:00</strong>
           </div>
           <div class="mm-preview-shell">
             <img data-mm-photo-preview alt="Vista previa de fotografía capturada." hidden>
-            <audio data-mm-audio-preview controls hidden></audio>
-            <video data-mm-video-preview controls playsinline hidden></video>
+            <audio data-mm-audio-preview hidden></audio>
+            <video data-mm-video-preview playsinline hidden></video>
             <div class="mm-preview-empty" data-mm-preview-empty>Sin captura todavía. Selecciona un modo, autoriza permisos y ejecuta la acción correspondiente.</div>
+          </div>
+          <div class="mm-preview-controls" data-mm-preview-controls>
+            <button type="button" class="btn-nav" data-mm-action="play-preview">Reproducir</button>
+            <button type="button" class="btn-cancel" data-mm-action="stop-preview">Detener reproducción</button>
+            <button type="button" class="btn-clear" data-mm-action="repeat">Volver a grabar</button>
+            <button type="button" class="btn-danger" data-mm-action="delete">Eliminar</button>
+            <button type="button" class="btn-save" data-mm-action="save">Guardar</button>
           </div>
           <label class="mm-notes-field">Notas opcionales
             <textarea rows="3" data-mm-notes placeholder="Ej.: entrevista inicial, respaldo de atención, avatar del cliente, incidencia durante la reunión..."></textarea>
@@ -64,15 +81,13 @@ const TEMPLATE = `
       <div class="mm-action-bar">
         <div class="mm-primary-actions">
           <button type="button" class="btn-save" data-mm-action="capture-photo">Tomar foto</button>
-          <button type="button" class="btn-save" data-mm-action="start-record">Iniciar</button>
-          <button type="button" class="btn-nav" data-mm-action="pause-record">Pausar</button>
-          <button type="button" class="btn-cancel" data-mm-action="stop-record">Detener</button>
+          <button type="button" class="btn-save" data-mm-action="start-record">Iniciar grabación</button>
+          <button type="button" class="btn-nav" data-mm-action="pause-record">Pausar grabación</button>
+          <button type="button" class="btn-cancel" data-mm-action="stop-record">Detener grabación</button>
+          <button type="button" class="btn-danger" data-mm-action="cancel-record">Cancelar grabación</button>
         </div>
         <div class="mm-secondary-actions">
           <button type="button" class="btn-outline" data-mm-action="upload-photo">Subir imagen</button>
-          <button type="button" class="btn-clear" data-mm-action="repeat">Repetir</button>
-          <button type="button" class="btn-danger" data-mm-action="delete">Eliminar</button>
-          <button type="button" class="btn-save" data-mm-action="save">Guardar</button>
           <button type="button" class="btn-cancel" data-mm-action="cancel">Cancelar</button>
         </div>
       </div>
@@ -92,13 +107,15 @@ function ensureTemplate() {
 }
 
 export class MultimediaCaptureModal {
-  constructor({ onSave, allowManualPhotoUpload = false } = {}) {
+  constructor({ onSave, onStateChange, allowManualPhotoUpload = false } = {}) {
     this.onSave = onSave
+    this.onStateChange = onStateChange
     this.allowManualPhotoUpload = allowManualPhotoUpload
     this.root = ensureTemplate()
     this.backdrop = this.root.querySelector('.mm-capture-backdrop')
     this.modeButtons = [...this.root.querySelectorAll('[data-mm-mode]')]
     this.liveChip = this.root.querySelector('[data-mm-live-chip]')
+    this.statePill = this.root.querySelector('[data-mm-state-pill]')
     this.modeTitle = this.root.querySelector('[data-mm-mode-title]')
     this.supportCopy = this.root.querySelector('[data-mm-support-copy]')
     this.liveVideo = this.root.querySelector('[data-mm-live-video]')
@@ -110,6 +127,7 @@ export class MultimediaCaptureModal {
     this.audioPreview = this.root.querySelector('[data-mm-audio-preview]')
     this.videoPreview = this.root.querySelector('[data-mm-video-preview]')
     this.previewEmpty = this.root.querySelector('[data-mm-preview-empty]')
+    this.previewControls = this.root.querySelector('[data-mm-preview-controls]')
     this.uploadInput = this.root.querySelector('[data-mm-upload-input]')
     this.videoAudioToggle = this.root.querySelector('[data-mm-video-audio-toggle]')
     this.videoWithAudioInput = this.root.querySelector('[data-mm-video-with-audio]')
@@ -119,6 +137,9 @@ export class MultimediaCaptureModal {
       start: this.root.querySelector('[data-mm-action="start-record"]'),
       pause: this.root.querySelector('[data-mm-action="pause-record"]'),
       stop: this.root.querySelector('[data-mm-action="stop-record"]'),
+      cancelRecord: this.root.querySelector('[data-mm-action="cancel-record"]'),
+      playPreview: this.root.querySelector('[data-mm-action="play-preview"]'),
+      stopPreview: this.root.querySelector('[data-mm-action="stop-preview"]'),
       uploadPhoto: this.root.querySelector('[data-mm-action="upload-photo"]'),
       repeat: this.root.querySelector('[data-mm-action="repeat"]'),
       delete: this.root.querySelector('[data-mm-action="delete"]'),
@@ -140,6 +161,8 @@ export class MultimediaCaptureModal {
     this.pauseStartedAt = 0
     this.timerInterval = null
     this.context = {}
+    this.workflowState = CAPTURE_STATES.IDLE
+    this.discardNextRecording = false
 
     this.bindEvents()
     this.syncUi()
@@ -158,6 +181,9 @@ export class MultimediaCaptureModal {
     this.buttons.start.addEventListener('click', () => this.startRecording())
     this.buttons.pause.addEventListener('click', () => this.togglePause())
     this.buttons.stop.addEventListener('click', () => this.stopRecording())
+    this.buttons.cancelRecord.addEventListener('click', () => this.cancelRecording())
+    this.buttons.playPreview.addEventListener('click', () => this.playPreview())
+    this.buttons.stopPreview.addEventListener('click', () => this.stopPreview())
     this.buttons.repeat.addEventListener('click', () => this.repeatCapture())
     this.buttons.delete.addEventListener('click', () => this.deletePreview())
     this.buttons.save.addEventListener('click', () => this.save())
@@ -171,21 +197,60 @@ export class MultimediaCaptureModal {
         this.syncUi()
       }
     })
+
+    ;[this.audioPreview, this.videoPreview].forEach((element) => {
+      element.addEventListener('play', () => {
+        if (!this.previewBlob) return
+        this.setWorkflowState(CAPTURE_STATES.PLAYING)
+        this.status.textContent = 'Reproducción en curso…'
+      })
+      element.addEventListener('pause', () => {
+        if (!this.previewBlob || this.workflowState !== CAPTURE_STATES.PLAYING) return
+        this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
+        this.status.textContent = 'Reproducción detenida. Puedes volver a reproducir, eliminar o guardar.'
+      })
+      element.addEventListener('ended', () => {
+        if (!this.previewBlob) return
+        this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
+        this.status.textContent = 'La reproducción terminó. Puedes reproducir nuevamente o guardar.'
+        element.currentTime = 0
+      })
+    })
+  }
+
+  setWorkflowState(state) {
+    this.workflowState = state
+    if (this.statePill) this.statePill.textContent = state.replaceAll('_', ' ')
+    if (typeof this.onStateChange === 'function') {
+      this.onStateChange({ state, mode: this.mode, hasPreview: Boolean(this.previewBlob) })
+    }
+    this.syncUi()
+  }
+
+  getState() {
+    return this.workflowState
+  }
+
+  isRecording() {
+    return ['recording', 'paused'].includes(this.recorder?.state)
   }
 
   async open({ mode = 'photo', context = {} } = {}) {
     this.context = context
     this.backdrop.hidden = false
+    this.setWorkflowState(CAPTURE_STATES.ACTIVITY_IN_PROGRESS)
     await this.setMode(mode)
   }
 
   async close() {
+    this.stopPreview({ resetTime: true })
     this.backdrop.hidden = true
     this.clearPreview()
     this.stopTimer()
     await this.teardownStream()
     this.notes.value = ''
     this.status.textContent = 'Captura cancelada.'
+    this.setWorkflowState(CAPTURE_STATES.IDLE)
   }
 
   async setMode(mode) {
@@ -199,6 +264,9 @@ export class MultimediaCaptureModal {
     this.buttons.start.hidden = !isRecordingMode
     this.buttons.pause.hidden = !isRecordingMode
     this.buttons.stop.hidden = !isRecordingMode
+    this.buttons.cancelRecord.hidden = !isRecordingMode
+    this.buttons.playPreview.hidden = mode === 'photo'
+    this.buttons.stopPreview.hidden = mode === 'photo'
     this.buttons.uploadPhoto.hidden = !(this.allowManualPhotoUpload && mode === 'photo')
     this.audioShell.hidden = mode !== 'audio'
     this.liveVideo.hidden = mode === 'audio'
@@ -208,7 +276,7 @@ export class MultimediaCaptureModal {
     this.stopTimer()
     await this.teardownStream()
     await this.prepareStream()
-    this.syncUi()
+    this.setWorkflowState(CAPTURE_STATES.ACTIVITY_IN_PROGRESS)
   }
 
   getSupportCopy(mode) {
@@ -301,15 +369,22 @@ export class MultimediaCaptureModal {
     const hasPreview = Boolean(this.previewBlob)
     const isRecording = this.recorder?.state === 'recording'
     const isPaused = this.recorder?.state === 'paused'
+    const isPlayableMedia = hasPreview && !this.previewMimeType.startsWith('image/')
+    const isPlaying = this.workflowState === CAPTURE_STATES.PLAYING
+
     this.liveChip.hidden = !isRecording
-    this.buttons.pause.disabled = !this.recorder || (this.mode === 'photo') || !['recording', 'paused'].includes(this.recorder.state)
-    this.buttons.pause.textContent = isPaused ? 'Reanudar' : 'Pausar'
+    this.previewControls.hidden = !hasPreview
+    this.buttons.pause.disabled = !this.recorder || this.mode === 'photo' || !['recording', 'paused'].includes(this.recorder.state)
+    this.buttons.pause.textContent = isPaused ? 'Reanudar grabación' : 'Pausar grabación'
     this.buttons.stop.disabled = !isRecording && !isPaused
+    this.buttons.cancelRecord.disabled = !isRecording && !isPaused
     this.buttons.start.disabled = !this.stream || hasPreview || isRecording || isPaused || this.mode === 'photo'
     this.buttons.capturePhoto.disabled = this.mode !== 'photo' || !this.stream || hasPreview
-    this.buttons.repeat.disabled = !hasPreview
-    this.buttons.delete.disabled = !hasPreview
-    this.buttons.save.disabled = !hasPreview
+    this.buttons.playPreview.disabled = !isPlayableMedia || isPlaying
+    this.buttons.stopPreview.disabled = !isPlayableMedia || !isPlaying
+    this.buttons.repeat.disabled = !hasPreview || isRecording || isPaused
+    this.buttons.delete.disabled = !hasPreview || isRecording || isPaused
+    this.buttons.save.disabled = !hasPreview || isRecording || isPaused
   }
 
   async capturePhoto() {
@@ -332,6 +407,7 @@ export class MultimediaCaptureModal {
       return
     }
     await this.setPreview(blob, 'image/jpeg')
+    this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
     this.status.textContent = 'Fotografía capturada. Revísala antes de guardarla.'
   }
 
@@ -339,6 +415,7 @@ export class MultimediaCaptureModal {
     const file = event.target.files?.[0]
     if (!file) return
     await this.setPreview(file, file.type || 'image/jpeg')
+    this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
     this.status.textContent = 'Imagen cargada manualmente. Puedes guardarla como avatar o respaldo visual.'
     event.target.value = ''
   }
@@ -352,30 +429,53 @@ export class MultimediaCaptureModal {
       this.status.textContent = 'El navegador no soporta grabación multimedia con MediaRecorder.'
       return
     }
+
+    this.stopPreview({ resetTime: true })
     const mimeType = detectBestMimeType(this.mode === 'audio' ? 'audio' : 'video')
     this.chunks = []
+    this.discardNextRecording = false
+    let recorder
     try {
-      this.recorder = new MediaRecorder(this.stream, mimeType ? { mimeType } : undefined)
-    } catch (error) {
+      recorder = new MediaRecorder(this.stream, mimeType ? { mimeType } : undefined)
+      this.recorder = recorder
+    } catch {
       this.status.textContent = 'No fue posible iniciar MediaRecorder en este navegador o dispositivo.'
       return
     }
-    this.recorder.addEventListener('dataavailable', (event) => {
+
+    recorder.addEventListener('dataavailable', (event) => {
       if (event.data?.size) this.chunks.push(event.data)
     })
-    this.recorder.addEventListener('stop', async () => {
+    recorder.addEventListener('stop', async () => {
       const fallbackType = this.mode === 'audio' ? 'audio/webm' : 'video/webm'
-      const blob = new Blob(this.chunks, { type: this.recorder.mimeType || mimeType || fallbackType })
+      const recorderMimeType = recorder.mimeType || mimeType || fallbackType
+      const shouldDiscard = this.discardNextRecording
+      this.recorder = null
+      this.stopTimer()
+
+      if (shouldDiscard || !this.chunks.length) {
+        this.chunks = []
+        this.discardNextRecording = false
+        this.timer.textContent = '00:00'
+        this.status.textContent = 'La grabación fue cancelada. Puedes iniciar una nueva toma.'
+        this.setWorkflowState(CAPTURE_STATES.ACTIVITY_IN_PROGRESS)
+        return
+      }
+
+      const blob = new Blob(this.chunks, { type: recorderMimeType })
+      this.chunks = []
       await this.setPreview(blob, blob.type || fallbackType)
       this.status.textContent = `${MEDIA_TYPE_LABELS[this.mode]} lista para reproducción y guardado.`
+      this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
     })
-    this.recorder.start(250)
+
+    recorder.start(250)
     this.recordingStartedAt = Date.now()
     this.pausedAccumulatedMs = 0
     this.pauseStartedAt = 0
     this.startTimer()
     this.status.textContent = 'Grabación en curso…'
-    this.syncUi()
+    this.setWorkflowState(CAPTURE_STATES.RECORDING)
   }
 
   togglePause() {
@@ -389,6 +489,7 @@ export class MultimediaCaptureModal {
       if (this.pauseStartedAt) this.pausedAccumulatedMs += Date.now() - this.pauseStartedAt
       this.pauseStartedAt = 0
       this.status.textContent = 'Grabación reanudada.'
+      this.setWorkflowState(CAPTURE_STATES.RECORDING)
     }
     this.syncUi()
   }
@@ -400,7 +501,43 @@ export class MultimediaCaptureModal {
       this.pauseStartedAt = 0
     }
     this.recorder.stop()
+    this.status.textContent = 'Procesando archivo grabado…'
+    this.syncUi()
+  }
+
+  cancelRecording() {
+    if (!this.recorder || !['recording', 'paused'].includes(this.recorder.state)) return
+    if (this.recorder.state === 'paused' && this.pauseStartedAt) {
+      this.pausedAccumulatedMs += Date.now() - this.pauseStartedAt
+      this.pauseStartedAt = 0
+    }
+    this.discardNextRecording = true
+    this.recorder.stop()
     this.stopTimer()
+    this.stopPreview({ resetTime: true })
+    this.clearPreview()
+    this.status.textContent = 'Cancelando grabación…'
+    this.syncUi()
+  }
+
+  playPreview() {
+    if (!this.previewBlob || this.previewMimeType.startsWith('image/')) return
+    const mediaElement = this.previewMimeType.startsWith('audio/') ? this.audioPreview : this.videoPreview
+    mediaElement.currentTime = 0
+    mediaElement.play().catch(() => {
+      this.status.textContent = 'No fue posible iniciar la reproducción en este navegador.'
+      this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
+    })
+  }
+
+  stopPreview({ resetTime = true } = {}) {
+    const mediaElement = this.previewMimeType.startsWith('audio/') ? this.audioPreview : this.videoPreview
+    if (!mediaElement || typeof mediaElement.pause !== 'function') return
+    mediaElement.pause()
+    if (resetTime) mediaElement.currentTime = 0
+    if (this.previewBlob && this.workflowState === CAPTURE_STATES.PLAYING) {
+      this.setWorkflowState(CAPTURE_STATES.RECORDING_FINISHED)
+    }
     this.syncUi()
   }
 
@@ -428,6 +565,7 @@ export class MultimediaCaptureModal {
   }
 
   clearPreview(resetTimer = true) {
+    this.stopPreview({ resetTime: true })
     if (this.previewUrl) URL.revokeObjectURL(this.previewUrl)
     this.previewBlob = null
     this.previewUrl = ''
@@ -444,15 +582,19 @@ export class MultimediaCaptureModal {
   }
 
   async repeatCapture() {
+    this.stopPreview({ resetTime: true })
     this.clearPreview()
     if (!this.stream) await this.prepareStream()
+    this.setWorkflowState(CAPTURE_STATES.ACTIVITY_IN_PROGRESS)
     this.status.textContent = this.mode === 'photo'
       ? 'La foto fue descartada. Puedes capturar una nueva.'
       : 'La grabación fue descartada. Puedes registrar una nueva toma.'
   }
 
   async deletePreview() {
+    this.stopPreview({ resetTime: true })
     this.clearPreview()
+    this.setWorkflowState(CAPTURE_STATES.ACTIVITY_IN_PROGRESS)
     this.status.textContent = 'El archivo previo fue eliminado.'
   }
 
@@ -493,7 +635,9 @@ export class MultimediaCaptureModal {
       this.status.textContent = 'Primero debes capturar o cargar un archivo antes de guardarlo.'
       return
     }
-    const durationSeconds = this.mode === 'photo' ? null : this.currentDurationSeconds() || Number(this.timer.textContent.split(':').reduce((acc, part) => acc * 60 + Number(part), 0))
+    const durationSeconds = this.mode === 'photo'
+      ? null
+      : this.currentDurationSeconds() || Number(this.timer.textContent.split(':').reduce((acc, part) => acc * 60 + Number(part), 0))
     try {
       await this.onSave({
         blob: this.previewBlob,
@@ -513,6 +657,7 @@ export class MultimediaCaptureModal {
 
   async teardownStream() {
     if (this.recorder && ['recording', 'paused'].includes(this.recorder.state)) {
+      this.discardNextRecording = true
       this.recorder.stop()
     }
     this.recorder = null
@@ -524,3 +669,5 @@ export class MultimediaCaptureModal {
     this.syncUi()
   }
 }
+
+export { CAPTURE_STATES }
