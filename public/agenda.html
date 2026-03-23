@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Agenda — Alpha Avocat</title>
 <link rel="stylesheet" href="./style.css?v=42">
+<link rel="stylesheet" href="./media-capture.css?v=1">
 <style>
 body.app-shell{
   overflow:auto;
@@ -750,13 +751,38 @@ input[type="checkbox"]{
       </div>
     </div>
     <div class="block" id="activityMediaBlock">
-      <h3>Evidencia fotográfica</h3>
-      <div class="activity-media-toolbar">
-        <button class="btn-save camera-launch-btn" id="btnAbrirCamaraActividad" type="button"><span class="camera-icon" aria-hidden="true">📷</span><span>Abrir cámara</span></button>
-        <div id="activityMediaMessage" class="activity-media-message" aria-live="polite"></div>
+      <h3>Captura multimedia</h3>
+      <p class="subtitle">Foto para avatar o respaldo visual; audio, video y audio + video para registrar la atención, respaldar la actividad y apoyar la futura transcripción a acta.</p>
+      <div class="media-module-shell">
+        <div class="media-mode-grid">
+          <article class="media-mode-card">
+            <strong>Foto</strong>
+            <p>Captura fotográfica real desde cámara con previsualización, repetir y guardado diferenciado.</p>
+            <button class="btn-save" type="button" data-activity-capture-mode="photo">Tomar fotografía</button>
+          </article>
+          <article class="media-mode-card">
+            <strong>Audio</strong>
+            <p>Graba la entrevista o atención solo con micrófono, con pausa, reproducción y regrabación.</p>
+            <button class="btn-save" type="button" data-activity-capture-mode="audio">Grabar audio</button>
+          </article>
+          <article class="media-mode-card">
+            <strong>Video</strong>
+            <p>Graba video de la atención con vista previa en vivo y opción de incluir o excluir audio.</p>
+            <button class="btn-save" type="button" data-activity-capture-mode="video">Grabar video</button>
+          </article>
+          <article class="media-mode-card">
+            <strong>Audio + video</strong>
+            <p>Registra la atención completa con cámara y micrófono simultáneamente cuando el dispositivo lo permita.</p>
+            <button class="btn-save" type="button" data-activity-capture-mode="av">Grabar audio + video</button>
+          </article>
+        </div>
+        <div class="activity-media-toolbar">
+          <label class="mm-check"><input type="checkbox" id="activityLinkCaseToggle" checked><span>Vincular también a la causa/expediente asociado cuando exista</span></label>
+          <div id="activityMediaMessage" class="activity-media-message" aria-live="polite"></div>
+        </div>
+        <div id="activityMediaEmptyState" class="activity-media-empty">No hay registros multimedia asociados todavía. Puedes capturar fotografía, audio, video o audio + video y luego guardar la actividad para persistir archivos y metadata.</div>
+        <div id="activityMediaGrid" class="activity-media-grid" hidden></div>
       </div>
-      <div id="activityMediaEmptyState" class="activity-media-empty">Todavía no hay fotos adjuntas a esta actividad. Puedes abrir la cámara, capturar evidencia y guardarla junto con el evento.</div>
-      <div id="activityMediaGrid" class="activity-media-grid" hidden></div>
     </div>
     <div class="actions"><button class="btn-save" data-coming-soon="En desarrollo" disabled title="En desarrollo">Iniciar actividad</button><button class="btn-save" id="btnGuardarActividad" type="button">Guardar actividad</button><button class="btn-nav" id="btnAbrirRectificacionAgenda" type="button">Rectificar datos</button><button class="btn-cancel" data-coming-soon="En desarrollo" disabled title="En desarrollo">Finalizar actividad</button><button class="btn-nav" data-target="contenedor">Ir a Contenedor y registro</button><button class="btn-nav" data-target="nuevo-evento">Volver a Nuevo evento</button><button class="btn-clear" data-clear="actividad">Limpiar</button><button class="btn-cancel" data-home>Cancelar</button><button class="btn-close" data-home>Cerrar</button></div>
   </section>
@@ -788,52 +814,12 @@ input[type="checkbox"]{
   </section>
 </main>
 
-<div id="activityCameraModal" class="camera-modal-backdrop" hidden>
-  <section class="camera-modal" role="dialog" aria-modal="true" aria-labelledby="activityCameraModalTitle">
-    <div class="camera-modal-header">
-      <div>
-        <h3 id="activityCameraModalTitle">Cámara de actividad</h3>
-        <p class="subtitle">Captura evidencia sin salir de Agenda. El permiso solo se solicita cuando eliges abrir la cámara.</p>
-      </div>
-      <button type="button" class="btn-cancel" id="btnCerrarCamaraActividad">Cerrar cámara</button>
-    </div>
-    <div class="camera-modal-stage">
-      <div class="camera-live-shell">
-        <video id="activityCameraVideo" class="camera-live-feed" autoplay playsinline muted></video>
-      </div>
-      <div id="activityCameraPreviewShell" class="camera-preview-shell" hidden>
-        <img id="activityCameraPreview" class="camera-still-preview" alt="Vista previa de la foto capturada para la actividad.">
-      </div>
-    </div>
-    <p id="activityCameraStatus" class="camera-status-copy" aria-live="polite">La cámara se abrirá solo cuando presiones “Abrir cámara”.</p>
-    <div class="camera-modal-actions">
-      <button type="button" class="btn-save" id="btnTomarFotoActividad">Tomar foto</button>
-      <button type="button" class="btn-clear" id="btnRepetirFotoActividad" disabled>Repetir</button>
-      <button type="button" class="btn-save" id="btnUsarFotoActividad" disabled>Usar foto</button>
-      <button type="button" class="btn-cancel" id="btnCancelarCamaraActividad">Cancelar</button>
-    </div>
-  </section>
-</div>
-
-<div id="activityImageViewer" class="image-viewer-backdrop" hidden>
-  <section class="image-viewer-modal" role="dialog" aria-modal="true" aria-labelledby="activityImageViewerTitle">
-    <div class="image-viewer-header">
-      <div>
-        <h3 id="activityImageViewerTitle">Evidencia fotográfica</h3>
-        <p id="activityImageViewerMeta" class="subtitle">Vista ampliada del adjunto.</p>
-      </div>
-      <button type="button" class="btn-cancel" id="btnCerrarVisorImagenActividad">Cerrar</button>
-    </div>
-    <div class="image-viewer-stage">
-      <img id="activityImageViewerImg" class="image-viewer-full" alt="Imagen ampliada adjunta a la actividad.">
-    </div>
-  </section>
-</div>
-
 <script type="module">
 import { supabase } from './app.js'
 import { AGENDA_FORM_METADATA_PREFIX } from './alerts.js'
 import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js'
+import { MultimediaCaptureModal } from './media-capture.js'
+import { deleteMediaAsset, formatDuration, listMediaAssets, MEDIA_ROLE_LABELS, MEDIA_TYPE_LABELS, resolveAgendaMediaRelations, uploadMediaAsset } from './media-assets.js'
 
 const screens = document.querySelectorAll('.agenda-screen')
 const home = document.getElementById('agendaHome')
@@ -951,25 +937,6 @@ function formatActivityCaptureDate(value){
 function buildAttachmentId(){
   if (window.crypto?.randomUUID) return window.crypto.randomUUID()
   return `activity-photo-${Date.now()}-${Math.random().toString(16).slice(2)}`
-}
-
-function normalizeActivityMediaList(items = []){
-  return (Array.isArray(items) ? items : [])
-    .map((item, index) => {
-      if (!item || typeof item !== 'object') return null
-      const dataUrl = typeof item.dataUrl === 'string' ? item.dataUrl : ''
-      if (!dataUrl.startsWith('data:image/')) return null
-      return {
-        id: item.id || buildAttachmentId(),
-        dataUrl,
-        capturedAt: item.capturedAt || item.createdAt || new Date().toISOString(),
-        createdByUserId: item.createdByUserId || '',
-        createdByLabel: item.createdByLabel || item.createdBy || currentUserLabel,
-        fileName: item.fileName || `actividad-${index + 1}.jpg`,
-        mimeType: item.mimeType || 'image/jpeg'
-      }
-    })
-    .filter(Boolean)
 }
 
 function getNuevoEventoStateValue(state, fieldId){
@@ -1203,7 +1170,7 @@ function buildSerializedAgendaMetadata(options = {}){
     formState: options.formState || getNuevoEventoFormState(),
     rectificationLog: Array.isArray(options.rectificationLog) ? options.rectificationLog : [],
     activityState: options.activityState || getActivityFormState(),
-    activityMedia: normalizeActivityMediaList(options.activityMedia ?? activityMediaAttachments),
+    activityMedia: serializeActivityMediaForMetadata(options.activityMedia ?? activityMediaAttachments),
   }
   return `${FORM_METADATA_PREFIX}${JSON.stringify(payload)}`
 }
@@ -1308,10 +1275,129 @@ function setActivityMediaMessage(message = '', { isError = false } = {}){
   activityMediaMessage.classList.toggle('is-error', isError)
 }
 
-function updateCameraActionState({ hasCapture = Boolean(currentCameraCapture), cameraReady = false } = {}){
-  if (btnTomarFotoActividad) btnTomarFotoActividad.disabled = !cameraReady || hasCapture
-  if (btnRepetirFotoActividad) btnRepetirFotoActividad.disabled = !hasCapture
-  if (btnUsarFotoActividad) btnUsarFotoActividad.disabled = !hasCapture
+const activityLinkCaseToggle = document.getElementById('activityLinkCaseToggle')
+const activityCaptureModal = new MultimediaCaptureModal({
+  allowManualPhotoUpload: true,
+  onSave: async ({ blob, mode, mimeType, durationSeconds, notes, fileName }) => {
+    const previewUrl = mode === 'photo' ? await blobToObjectPreview(blob) : URL.createObjectURL(blob)
+    const draft = normalizeActivityMediaList([{
+      id: buildAttachmentId(),
+      mediaType: mode,
+      mediaRole: mode === 'photo' ? 'evidence' : 'activity_record',
+      previewUrl,
+      fileUrl: previewUrl,
+      mimeType,
+      fileName,
+      durationSeconds,
+      capturedAt: new Date().toISOString(),
+      createdByUserId: currentUserId,
+      createdByLabel: currentUserLabel,
+      notes,
+      pendingBlob: blob,
+      isPersisted: false,
+      source: 'draft'
+    }])[0]
+    activityMediaAttachments = [draft, ...activityMediaAttachments]
+    renderActivityMedia()
+    setActivityMediaMessage(`${MEDIA_TYPE_LABELS[mode]} preparada. Guarda la actividad para subir archivo y metadata.`, { isError: false })
+  }
+})
+
+function updateCameraActionState(){
+  return undefined
+}
+
+async function blobToObjectPreview(blob){
+  if (blob.type.startsWith('image/')) {
+    return await new Promise((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result || ''))
+      reader.onerror = () => reject(new Error('No fue posible preparar la vista previa de la imagen.'))
+      reader.readAsDataURL(blob)
+    })
+  }
+  return URL.createObjectURL(blob)
+}
+
+function normalizeMediaType(item = {}){
+  const explicit = String(item.mediaType || item.media_type || '').trim().toLowerCase()
+  if (['photo', 'audio', 'video', 'av'].includes(explicit)) return explicit
+  const mime = String(item.mimeType || item.mime_type || '').toLowerCase()
+  if (mime.startsWith('image/')) return 'photo'
+  if (mime.startsWith('audio/')) return 'audio'
+  if (mime.startsWith('video/')) return 'video'
+  if (String(item.dataUrl || '').startsWith('data:image/')) return 'photo'
+  return 'photo'
+}
+
+function serializeActivityMediaForMetadata(items = []){
+  return normalizeActivityMediaList(items).map((item) => ({
+    id: item.id,
+    mediaType: item.mediaType,
+    mediaRole: item.mediaRole,
+    previewUrl: item.isPersisted ? item.fileUrl : null,
+    fileUrl: item.fileUrl,
+    fileName: item.fileName,
+    mimeType: item.mimeType,
+    durationSeconds: item.durationSeconds,
+    capturedAt: item.capturedAt,
+    createdByUserId: item.createdByUserId,
+    createdByLabel: item.createdByLabel,
+    notes: item.notes,
+    storagePath: item.storagePath,
+    storageBucket: item.storageBucket,
+    appointmentId: item.appointmentId,
+    caseId: item.caseId,
+    clientId: item.clientId,
+    isPersisted: item.isPersisted,
+    source: item.source,
+    dataUrl: item.legacyDataUrl || null
+  }))
+}
+
+function normalizeActivityMediaList(items = []){
+  return (Array.isArray(items) ? items : [])
+    .map((item, index) => {
+      if (!item || typeof item !== 'object') return null
+      const mediaType = normalizeMediaType(item)
+      const previewUrl = item.previewUrl || item.file_url || item.fileUrl || item.dataUrl || ''
+      return {
+        id: item.id || buildAttachmentId(),
+        mediaType,
+        mediaRole: item.mediaRole || item.media_role || (mediaType === 'photo' ? 'evidence' : 'activity_record'),
+        previewUrl,
+        fileUrl: item.file_url || item.fileUrl || previewUrl,
+        storagePath: item.storage_path || item.storagePath || '',
+        storageBucket: item.storage_bucket || item.storageBucket || '',
+        capturedAt: item.capturedAt || item.recorded_at || item.recordedAt || item.created_at || item.createdAt || new Date().toISOString(),
+        createdByUserId: item.createdByUserId || item.created_by || item.createdBy || currentUserId,
+        createdByLabel: item.createdByLabel || item.createdBy || currentUserLabel,
+        fileName: item.file_name || item.fileName || `actividad-${mediaType}-${index + 1}`,
+        mimeType: item.mimeType || item.mime_type || (mediaType === 'photo' ? 'image/jpeg' : mediaType === 'audio' ? 'audio/webm' : 'video/webm'),
+        durationSeconds: item.durationSeconds ?? item.duration_seconds ?? null,
+        notes: item.notes || '',
+        clientId: item.clientId || item.client_id || null,
+        caseId: item.caseId || item.case_id || null,
+        appointmentId: item.appointmentId || item.appointment_id || null,
+        pendingBlob: item.pendingBlob instanceof Blob ? item.pendingBlob : null,
+        isPersisted: Boolean(item.isPersisted || item.storage_path || item.file_url || item.fileUrl),
+        source: item.source || (item.pendingBlob ? 'draft' : (item.dataUrl ? 'legacy' : 'persisted')),
+        legacyDataUrl: item.dataUrl || null
+      }
+    })
+    .filter(Boolean)
+}
+
+function buildActivityMediaPreviewMarkup(attachment, index){
+  const label = MEDIA_TYPE_LABELS[attachment.mediaType] || 'Archivo'
+  const source = escapeHtml(attachment.fileUrl || attachment.previewUrl || '')
+  if (attachment.mediaType === 'photo') {
+    return `<img class="activity-media-thumb" src="${source}" alt="${escapeHtml(`${label} ${index + 1} de la actividad`)}">`
+  }
+  if (attachment.mediaType === 'audio') {
+    return `<div class="media-asset-thumb media-asset-thumb--icon">🎙️</div><audio controls src="${source}"></audio>`
+  }
+  return `<video class="activity-media-thumb" controls playsinline src="${source}"></video>`
 }
 
 function renderActivityMedia(){
@@ -1324,16 +1410,25 @@ function renderActivityMedia(){
     return
   }
   activityMediaGrid.innerHTML = activityMediaAttachments.map((attachment, index) => `
-    <article class="activity-media-card">
-      <img class="activity-media-thumb" src="${escapeHtml(attachment.dataUrl)}" alt="Adjunto fotográfico ${index + 1} de la actividad.">
-      <div class="activity-media-meta">
-        <strong>Adjunto ${index + 1}</strong>
+    <article class="activity-media-card ${attachment.isPersisted ? '' : 'is-pending'}">
+      ${buildActivityMediaPreviewMarkup(attachment, index)}
+      <div class="media-asset-meta">
+        <strong>${escapeHtml(attachment.fileName || `${MEDIA_TYPE_LABELS[attachment.mediaType]} ${index + 1}`)}</strong>
+        <span>${escapeHtml(MEDIA_TYPE_LABELS[attachment.mediaType] || attachment.mediaType)} · ${escapeHtml(MEDIA_ROLE_LABELS[attachment.mediaRole] || attachment.mediaRole)}</span>
         <span>${escapeHtml(formatActivityCaptureDate(attachment.capturedAt))}</span>
         <span>${escapeHtml(attachment.createdByLabel || 'Usuario autenticado')}</span>
-        <span>${escapeHtml(attachment.fileName || 'captura.jpg')}</span>
+        ${attachment.durationSeconds ? `<span>Duración: ${escapeHtml(formatDuration(attachment.durationSeconds))}</span>` : ''}
+        ${attachment.notes ? `<span>Nota: ${escapeHtml(attachment.notes)}</span>` : ''}
       </div>
-      <div class="activity-media-card-actions">
-        <button type="button" class="btn-nav" data-activity-media-open="${escapeHtml(attachment.id)}">Ver foto</button>
+      <div class="media-asset-tags">
+        <span>${attachment.isPersisted ? 'Guardado' : 'Pendiente de guardar'}</span>
+        ${attachment.caseId ? '<span>Vinculado a causa</span>' : ''}
+        ${attachment.clientId ? '<span>Vinculado a cliente</span>' : ''}
+        ${attachment.appointmentId ? '<span>Vinculado a actividad</span>' : ''}
+      </div>
+      <div class="activity-media-card-actions media-asset-actions">
+        ${attachment.fileUrl || attachment.previewUrl ? `<a class="btn-nav" href="${escapeHtml(attachment.fileUrl || attachment.previewUrl)}" target="_blank" rel="noopener">Abrir / reproducir</a>` : ''}
+        ${attachment.fileUrl || attachment.previewUrl ? `<a class="btn-save" href="${escapeHtml(attachment.fileUrl || attachment.previewUrl)}" download="${escapeHtml(attachment.fileName || 'archivo-multimedia')}">Descargar</a>` : ''}
         <button type="button" class="btn-danger" data-activity-media-remove="${escapeHtml(attachment.id)}">Eliminar</button>
       </div>
     </article>
@@ -1345,137 +1440,129 @@ function hydrateActivityMedia(items = []){
   renderActivityMedia()
 }
 
+async function loadActivityMediaForAppointment(appointmentId, fallbackItems = []){
+  const legacyItems = normalizeActivityMediaList(fallbackItems)
+  if (!appointmentId) {
+    hydrateActivityMedia(legacyItems)
+    return
+  }
+  try {
+    const persistedItems = await listMediaAssets({ appointmentId })
+    const merged = normalizeActivityMediaList([...persistedItems, ...legacyItems.filter((item) => !item.isPersisted)])
+    hydrateActivityMedia(merged)
+  } catch (error) {
+    hydrateActivityMedia(legacyItems)
+    setActivityMediaMessage(`No se pudieron cargar los adjuntos multimedia persistidos: ${error.message}`, { isError: true })
+  }
+}
+
+async function removeActivityMediaAttachment(attachmentId){
+  const attachment = activityMediaAttachments.find((item) => item.id === attachmentId)
+  if (!attachment) return
+  if (attachment.isPersisted) {
+    await deleteMediaAsset(attachment)
+  }
+  if (String(attachment.previewUrl || '').startsWith('blob:')) {
+    try {
+      URL.revokeObjectURL(attachment.previewUrl)
+    } catch {}
+  }
+  activityMediaAttachments = activityMediaAttachments.filter((item) => item.id !== attachmentId)
+  renderActivityMedia()
+}
+
 function resetCameraCapture(){
-  currentCameraCapture = null
-  if (activityCameraPreview) activityCameraPreview.removeAttribute('src')
-  activityCameraPreviewShell?.setAttribute('hidden', '')
-  updateCameraActionState({ hasCapture: false, cameraReady: Boolean(currentCameraStream) })
+  return undefined
 }
 
 function stopActivityCameraStream(){
-  if (currentCameraStream) {
-    currentCameraStream.getTracks().forEach(track => track.stop())
-    currentCameraStream = null
-  }
-  if (activityCameraVideo) activityCameraVideo.srcObject = null
-  updateCameraActionState({ hasCapture: Boolean(currentCameraCapture), cameraReady: false })
+  return undefined
 }
 
 function closeActivityCameraModal({ keepMessage = true } = {}){
-  stopActivityCameraStream()
-  resetCameraCapture()
-  activityCameraModal?.setAttribute('hidden', '')
-  if (activityCameraStatus) {
-    activityCameraStatus.textContent = 'La cámara se abrirá solo cuando presiones “Abrir cámara”.'
-  }
+  activityCaptureModal.close()
   if (!keepMessage) setActivityMediaMessage('')
 }
 
-async function openActivityCameraModal(){
-  if (!window.isSecureContext) {
-    setActivityMediaMessage('La cámara del navegador requiere un contexto seguro (HTTPS o localhost) para funcionar.', { isError: true })
-    return
-  }
-  if (!navigator.mediaDevices?.getUserMedia) {
-    setActivityMediaMessage('Este navegador no permite usar la cámara desde esta vista. Prueba en Chrome o Edge actualizados.', { isError: true })
-    return
-  }
-  activityCameraModal?.removeAttribute('hidden')
-  stopActivityCameraStream()
-  resetCameraCapture()
-  if (activityCameraStatus) activityCameraStatus.textContent = 'Solicitando permiso para acceder a la cámara…'
-  try {
-    const stream = await navigator.mediaDevices.getUserMedia({
-      audio: false,
-      video: {
-        facingMode: 'user',
-        width: { ideal: 1280 },
-        height: { ideal: 720 }
-      }
-    })
-    currentCameraStream = stream
-    if (activityCameraVideo) {
-      activityCameraVideo.srcObject = stream
-      await activityCameraVideo.play().catch(() => {})
-    }
-    if (activityCameraStatus) activityCameraStatus.textContent = 'Cámara lista. Puedes tomar la foto cuando quieras.'
-    updateCameraActionState({ hasCapture: false, cameraReady: true })
-    setActivityMediaMessage('Cámara abierta correctamente.')
-  } catch (error) {
-    closeActivityCameraModal()
-    const normalizedMessage = error?.name === 'NotAllowedError'
-      ? 'No pudimos abrir la cámara porque el permiso fue denegado.'
-      : error?.name === 'NotFoundError'
-        ? 'No encontramos una cámara disponible en este equipo.'
-        : error?.name === 'NotReadableError'
-          ? 'La cámara está siendo usada por otra aplicación. Cierra esa aplicación e inténtalo de nuevo.'
-          : 'Ocurrió un problema al abrir la cámara. Revisa permisos y disponibilidad del dispositivo.'
-    setActivityMediaMessage(normalizedMessage, { isError: true })
-  }
+async function openActivityCameraModal(mode = 'photo'){
+  await activityCaptureModal.open({ mode })
 }
 
 function captureActivityPhoto(){
-  if (!activityCameraVideo || !currentCameraStream) {
-    setActivityMediaMessage('Primero debes abrir la cámara para tomar una foto.', { isError: true })
-    return
-  }
-  const width = activityCameraVideo.videoWidth
-  const height = activityCameraVideo.videoHeight
-  if (!width || !height) {
-    setActivityMediaMessage('La cámara aún no entrega imagen. Espera un instante e inténtalo nuevamente.', { isError: true })
-    return
-  }
-  const canvas = document.createElement('canvas')
-  const maxWidth = 1600
-  const scale = width > maxWidth ? maxWidth / width : 1
-  canvas.width = Math.round(width * scale)
-  canvas.height = Math.round(height * scale)
-  const context = canvas.getContext('2d')
-  if (!context) {
-    setActivityMediaMessage('No fue posible preparar la captura de la foto.', { isError: true })
-    return
-  }
-  context.drawImage(activityCameraVideo, 0, 0, canvas.width, canvas.height)
-  const dataUrl = canvas.toDataURL('image/jpeg', .9)
-  currentCameraCapture = {
-    id: buildAttachmentId(),
-    dataUrl,
-    capturedAt: new Date().toISOString(),
-    createdByUserId: currentUserId,
-    createdByLabel: currentUserLabel,
-    fileName: `actividad-${new Date().toISOString().replace(/[:.]/g, '-')}.jpg`,
-    mimeType: 'image/jpeg'
-  }
-  if (activityCameraPreview) activityCameraPreview.src = dataUrl
-  activityCameraPreviewShell?.removeAttribute('hidden')
-  if (activityCameraStatus) activityCameraStatus.textContent = 'Foto capturada. Puedes repetirla o usarla como adjunto.'
-  updateCameraActionState({ hasCapture: true, cameraReady: true })
-  setActivityMediaMessage('Foto capturada correctamente.')
+  return undefined
 }
 
 function useCapturedActivityPhoto(){
-  if (!currentCameraCapture) {
-    setActivityMediaMessage('Primero debes capturar una foto antes de adjuntarla.', { isError: true })
-    return
-  }
-  activityMediaAttachments = [...activityMediaAttachments, currentCameraCapture]
-  renderActivityMedia()
-  setActivityMediaMessage('La foto quedó adjunta a la actividad. Recuerda guardar la actividad para persistirla.')
-  closeActivityCameraModal()
+  return undefined
 }
 
-function openActivityImageViewer(attachmentId){
-  const attachment = activityMediaAttachments.find(item => item.id === attachmentId)
-  if (!attachment || !activityImageViewerImg) return
-  activityImageViewerImg.src = attachment.dataUrl
-  if (activityImageViewerMeta) {
-    activityImageViewerMeta.textContent = `${formatActivityCaptureDate(attachment.capturedAt)} · ${attachment.createdByLabel || 'Usuario autenticado'}`
-  }
-  activityImageViewer?.removeAttribute('hidden')
+function openActivityImageViewer(){
+  return undefined
 }
 
 function closeActivityImageViewer(){
-  activityImageViewer?.setAttribute('hidden', '')
+  return undefined
+}
+
+async function syncPendingActivityMedia({ appointmentId }){
+  const pendingAttachments = activityMediaAttachments.filter((item) => item.pendingBlob && !item.isPersisted)
+  if (!pendingAttachments.length || !appointmentId) return { uploaded: 0, failed: [] }
+
+  const clientName = document.getElementById('linked_client_name')?.value
+    || document.getElementById('new_client_name')?.value
+    || document.getElementById('non_client_name')?.value
+    || nameEl?.value
+    || ''
+  const caseRol = document.getElementById('linked_case_role')?.value || document.getElementById('new_case_role')?.value || ''
+  const caseCourt = document.getElementById('linked_case_court')?.value || document.getElementById('new_case_court')?.value || ''
+  const linkCase = Boolean(activityLinkCaseToggle?.checked)
+  let relations = { clientId: null, caseId: null }
+  const uploaded = []
+  const failed = []
+  try {
+    relations = await resolveAgendaMediaRelations({ clientName, caseRol: linkCase ? caseRol : '', caseCourt: linkCase ? caseCourt : '' })
+  } catch (error) {
+    failed.push(...pendingAttachments.map((attachment) => ({ attachment, message: `No fue posible resolver vínculos con cliente/causa: ${error.message}` })))
+    return { uploaded: 0, failed }
+  }
+
+  for (const attachment of pendingAttachments) {
+    try {
+      const saved = await uploadMediaAsset({
+        blob: attachment.pendingBlob,
+        mediaType: attachment.mediaType,
+        mediaRole: attachment.mediaRole,
+        mimeType: attachment.mimeType,
+        fileName: attachment.fileName,
+        durationSeconds: attachment.durationSeconds,
+        appointmentId,
+        caseId: linkCase ? relations.caseId : null,
+        clientId: relations.clientId,
+        clientRef: clientName || null,
+        caseRef: linkCase ? (caseRol || caseCourt || null) : null,
+        createdBy: currentUserId || null,
+        notes: attachment.notes || null,
+        metadata: {
+          created_by_label: currentUserLabel,
+          linked_case_rol: caseRol || null,
+          linked_case_court: caseCourt || null,
+          linked_client_name: clientName || null,
+          agenda_title: titleEl?.value || null,
+          agenda_subject: subjectEl?.value || null,
+          agenda_started_at: startsEl?.value || null
+        },
+        recordedAt: attachment.capturedAt || new Date().toISOString()
+      })
+      uploaded.push(saved)
+    } catch (error) {
+      failed.push({ attachment, message: error.message })
+    }
+  }
+
+  if (uploaded.length) {
+    await loadActivityMediaForAppointment(appointmentId, failed.map((entry) => entry.attachment))
+  }
+  return { uploaded: uploaded.length, failed }
 }
 
 function validateAgendaRectification(formData){
@@ -1545,6 +1632,7 @@ async function persistAgendaEvent({ keepActivityScreen = false } = {}){
       return null
     }
     persistedActivityState = getActivityFormState()
+    const mediaSync = await syncPendingActivityMedia({ appointmentId: currentId })
     closeAgendaRectification()
     activeEventRowId = currentId
     pendingActivityEventNumber = eventNumberEl?.value || pendingActivityEventNumber
@@ -1552,7 +1640,8 @@ async function persistAgendaEvent({ keepActivityScreen = false } = {}){
     const fresh = eventsCache.find(item => item.id === currentId)
     if (fresh) startEditingEvent(fresh)
     copyEventToActivity()
-    alert(keepActivityScreen ? 'Actividad guardada correctamente' : 'Evento actualizado correctamente')
+    const mediaMessage = mediaSync.failed.length ? ` Se guardó la actividad, pero ${mediaSync.failed.length} archivo(s) multimedia no pudieron subirse.` : mediaSync.uploaded ? ` Se subieron ${mediaSync.uploaded} archivo(s) multimedia.` : ''
+    alert(`${keepActivityScreen ? 'Actividad guardada correctamente' : 'Evento actualizado correctamente'}${mediaMessage}`)
     if (!keepActivityScreen) {
       resetNuevoEventoForm({ preserveActivitySnapshot: true })
     }
@@ -1573,9 +1662,12 @@ async function persistAgendaEvent({ keepActivityScreen = false } = {}){
   copyEventToActivity()
   closeAgendaRectification()
   persistedActivityState = getActivityFormState()
-  alert(keepActivityScreen
+  const mediaSync = await syncPendingActivityMedia({ appointmentId: savedId })
+  const saveAlert = keepActivityScreen
     ? 'Actividad guardada correctamente y asociada al nuevo evento.'
-    : `Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`)
+    : `Evento ${pendingActivityEventNumber || eventNumberEl?.value || ''} guardado correctamente`
+  const mediaAlert = mediaSync.failed.length ? ` ${mediaSync.failed.length} archivo(s) multimedia no pudieron subirse.` : mediaSync.uploaded ? ` Se subieron ${mediaSync.uploaded} archivo(s) multimedia.` : ''
+  alert(`${saveAlert}${mediaAlert}`)
   if (!keepActivityScreen) {
     resetNuevoEventoForm({ preserveActivitySnapshot: true })
   }
@@ -1975,7 +2067,7 @@ btnGuardarActividad?.addEventListener('click', async () => {
   const savedId = await persistAgendaEvent({ keepActivityScreen: true })
   if (savedId) {
     openScreen('actividad')
-    setActivityMediaMessage('Actividad y evidencia fotográfica guardadas correctamente.')
+    setActivityMediaMessage('Actividad y registro multimedia guardados correctamente.')
   }
 })
 
@@ -1999,37 +2091,21 @@ if (btnAbrirRectificacionAgenda) {
   })
 }
 
-btnAbrirCamaraActividad?.addEventListener('click', openActivityCameraModal)
-btnCerrarCamaraActividad?.addEventListener('click', () => closeActivityCameraModal())
-btnCancelarCamaraActividad?.addEventListener('click', () => closeActivityCameraModal())
-btnTomarFotoActividad?.addEventListener('click', captureActivityPhoto)
-btnRepetirFotoActividad?.addEventListener('click', () => {
-  resetCameraCapture()
-  if (activityCameraStatus) activityCameraStatus.textContent = 'La captura anterior fue descartada. Puedes tomar otra foto.'
-  setActivityMediaMessage('Puedes capturar una nueva foto.')
+document.querySelectorAll('[data-activity-capture-mode]').forEach((button) => {
+  button.addEventListener('click', async () => {
+    await openActivityCameraModal(button.dataset.activityCaptureMode)
+  })
 })
-btnUsarFotoActividad?.addEventListener('click', useCapturedActivityPhoto)
-btnCerrarVisorImagenActividad?.addEventListener('click', closeActivityImageViewer)
 
-activityMediaGrid?.addEventListener('click', (event) => {
-  const openButton = event.target.closest('[data-activity-media-open]')
-  if (openButton) {
-    openActivityImageViewer(openButton.dataset.activityMediaOpen)
-    return
-  }
+activityMediaGrid?.addEventListener('click', async (event) => {
   const removeButton = event.target.closest('[data-activity-media-remove]')
   if (!removeButton) return
-  activityMediaAttachments = activityMediaAttachments.filter(item => item.id !== removeButton.dataset.activityMediaRemove)
-  renderActivityMedia()
-  closeActivityImageViewer()
-  setActivityMediaMessage('La foto fue eliminada de la actividad.')
-})
-
-activityCameraModal?.addEventListener('click', (event) => {
-  if (event.target === activityCameraModal) closeActivityCameraModal()
-})
-activityImageViewer?.addEventListener('click', (event) => {
-  if (event.target === activityImageViewer) closeActivityImageViewer()
+  try {
+    await removeActivityMediaAttachment(removeButton.dataset.activityMediaRemove)
+    setActivityMediaMessage('El archivo multimedia fue eliminado de la actividad.')
+  } catch (error) {
+    setActivityMediaMessage(`No se pudo eliminar el archivo multimedia: ${error.message}`, { isError: true })
+  }
 })
 
 window.addEventListener('beforeunload', () => {

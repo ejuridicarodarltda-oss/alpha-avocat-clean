@@ -1383,11 +1383,14 @@
   <script type="module">
     import { supabase } from './app.js';
     import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js';
+    import { MultimediaCaptureModal } from './media-capture.js';
+    import { listMediaAssets, MEDIA_ROLE_LABELS, MEDIA_TYPE_LABELS, uploadMediaAsset } from './media-assets.js';
 
     const { data: sess } = await supabase.auth.getSession();
     if (!sess?.session) window.location.href = './login.html';
 
     const sessionUser = sess.session.user;
+    const currentUserId = sessionUser?.id || null;
     const rectificationAccess = getRectificationAccessState(sessionUser);
     const operatorName = rectificationAccess.operatorName;
     const isRectificationAdmin = rectificationAccess.canRectify;
@@ -1691,6 +1694,106 @@
     function slug(value) {
       return value.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
     }
+
+    function getClientInitials(name = '') {
+      return String(name || '')
+        .split(/\s+/)
+        .filter(Boolean)
+        .slice(0, 2)
+        .map(part => part.charAt(0).toUpperCase())
+        .join('') || 'AA';
+    }
+
+    function buildMediaAssetMarkup(asset) {
+      const type = asset.media_type || asset.mediaType || 'photo';
+      const label = MEDIA_TYPE_LABELS[type] || type;
+      const role = MEDIA_ROLE_LABELS[asset.media_role || asset.mediaRole || 'attachment'] || 'Adjunto';
+      const url = asset.file_url || asset.fileUrl || '';
+      const duration = asset.duration_seconds || asset.durationSeconds;
+      const preview = type === 'photo'
+        ? `<img class="media-asset-thumb" src="${url}" alt="${label} vinculada al expediente." />`
+        : type === 'audio'
+          ? `<div class="media-asset-thumb media-asset-thumb--icon">🎙️</div><audio controls src="${url}"></audio>`
+          : `<video class="media-asset-thumb" controls playsinline src="${url}"></video>`;
+      return `
+        <article class="media-asset-card">
+          ${preview}
+          <div class="media-asset-meta">
+            <strong>${asset.file_name || asset.fileName || 'Archivo multimedia'}</strong>
+            <span>${label} · ${role}</span>
+            <span>${asset.created_at ? new Date(asset.created_at).toLocaleString('es-CL') : 'Sin fecha'}</span>
+            ${duration ? `<span>Duración: ${duration}s</span>` : ''}
+            ${asset.notes ? `<span>Nota: ${asset.notes}</span>` : ''}
+          </div>
+          <div class="media-asset-actions">
+            <a class="btn-outline" href="${url}" target="_blank" rel="noopener">Abrir</a>
+            <a class="btn-cta" href="${url}" download="${asset.file_name || 'media'}">Descargar</a>
+          </div>
+        </article>
+      `;
+    }
+
+    async function refreshSelectedClientMedia() {
+      const selected = getSelectedExpediente();
+      const shell = el('clientMediaAssetsShell');
+      if (!selected || !shell) return;
+      shell.innerHTML = '<div class="media-empty-state">Cargando archivos multimedia vinculados…</div>';
+      try {
+        const assets = await listMediaAssets({ clientRef: selected.client.id });
+        const visibleAssets = assets.filter(asset => {
+          const assetCaseRef = asset.case_ref || asset.caseRef || '';
+          return !assetCaseRef || assetCaseRef === selected.id || assetCaseRef === selected.code;
+        });
+        if (!visibleAssets.length) {
+          shell.innerHTML = '<div class="media-empty-state">No hay archivos multimedia asociados todavía a este cliente o expediente.</div>';
+          return;
+        }
+        shell.innerHTML = visibleAssets.map(buildMediaAssetMarkup).join('');
+        const latestAvatar = visibleAssets.find(asset => (asset.media_role || asset.mediaRole) === 'avatar');
+        if (latestAvatar && selected.client.avatarUrl !== latestAvatar.file_url) {
+          const ref = data.clients.find(item => item.id === selected.client.id);
+          if (ref) {
+            ref.avatarUrl = latestAvatar.file_url;
+            ref.avatarMediaId = latestAvatar.id;
+            saveData(data);
+          }
+        }
+      } catch (error) {
+        shell.innerHTML = `<div class="media-empty-state">No fue posible cargar los archivos multimedia: ${error.message}</div>`;
+      }
+    }
+
+    const clientAvatarCaptureModal = new MultimediaCaptureModal({
+      allowManualPhotoUpload: true,
+      onSave: async ({ blob, mode, mimeType, durationSeconds, notes, fileName }) => {
+        const selected = getSelectedExpediente();
+        if (!selected) throw new Error('Selecciona primero un expediente para asignar el avatar del cliente.');
+        const asset = await uploadMediaAsset({
+          blob,
+          mediaType: mode,
+          mediaRole: 'avatar',
+          mimeType,
+          fileName,
+          durationSeconds,
+          createdBy: currentUserId,
+          clientRef: selected.client.id,
+          caseRef: selected.id,
+          notes: notes || 'Fotografía de perfil del cliente.',
+          metadata: {
+            client_name: selected.client.name,
+            expediente_code: selected.code,
+            source_module: 'clientes'
+          }
+        });
+        const ref = data.clients.find(item => item.id === selected.client.id);
+        if (ref) {
+          ref.avatarUrl = asset.file_url;
+          ref.avatarMediaId = asset.id;
+          saveData(data);
+        }
+        renderAll();
+      }
+    });
 
     function applyAgendaOrCausaContext(data) {
       const origin = params.get('origen');
@@ -2147,6 +2250,9 @@
     }
 
     function renderIdentification(selected) {
+      const avatarMarkup = selected.client.avatarUrl
+        ? `<img src="${selected.client.avatarUrl}" alt="Avatar de ${selected.client.name}" />`
+        : `<span class="media-avatar-fallback">${getClientInitials(selected.client.name)}</span>`;
       return `
         <section class="tab-section">
           <div class="tab-grid identification-grid-shell">
@@ -2158,6 +2264,16 @@
                     <p class="small-note">Datos del cliente y del expediente reutilizables por Agenda y Causas.</p>
                   </div>
                   <span class="type-pill">Origen: ${selected.source}</span>
+                </div>
+                <div class="media-avatar-shell">
+                  <div class="media-avatar-preview">${avatarMarkup}</div>
+                  <div>
+                    <h4>Avatar y fotografía de perfil</h4>
+                    <p class="small-note">La fotografía queda separada de audio y video. Puedes tomar foto con cámara o subir una imagen manualmente para el perfil del cliente.</p>
+                    <div class="section-actions">
+                      <button class="btn-cta" data-workspace-action="avatar">Tomar / subir foto</button>
+                    </div>
+                  </div>
                 </div>
                 <h4>Datos del cliente</h4>
               </div>
@@ -2280,6 +2396,13 @@
             <article class="subcard">
               <h4>Documentos asociados</h4>
               <div class="container-grid stack-single">${files}</div>
+            </article>
+            <article class="subcard">
+              <h4>Registro multimedia asociado</h4>
+              <p class="small-note">Aquí aparecen fotografía, audio, video y audio + video asociados al cliente o expediente, con reproducción y descarga cuando corresponda.</p>
+              <div id="clientMediaAssetsShell" class="media-asset-grid">
+                <div class="media-empty-state">Cargando archivos multimedia vinculados al cliente o expediente…</div>
+              </div>
             </article>
           </div>
         </section>
@@ -2747,6 +2870,7 @@
       renderTabs();
       renderExpedientes();
       renderWorkspace();
+      refreshSelectedClientMedia();
     }
 
     document.addEventListener('click', (event) => {
@@ -2791,6 +2915,7 @@
             renderAll();
           }
         }
+        if (action === 'avatar' && selected) clientAvatarCaptureModal.open({ mode: 'photo', context: { clientId: selected.client.id } });
         if (action === 'edit' || action === 'save') {
           alert('Maqueta funcional: la edición visible puede conectarse al backend cuando se definan las tablas definitivas del módulo.');
         }

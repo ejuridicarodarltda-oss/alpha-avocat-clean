@@ -1841,6 +1841,7 @@
   <script type="module">
     import { supabase } from './app.js';
     import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, escapeHtml as escapeRectificationHtml } from './rectification.js';
+    import { formatDuration, listMediaAssets, MEDIA_ROLE_LABELS, MEDIA_TYPE_LABELS } from './media-assets.js';
     import {
       applyImportToDetail,
       applyManualSync,
@@ -4288,6 +4289,18 @@
             <article class="container-segment">
               <div class="segment-header">
                 <div>
+                  <h5 class="segment-title">Registro multimedia vinculado</h5>
+                  <p class="segment-copy">Fotografías, audio, video y audio + video asociados a la causa o expediente desde Agenda/Clientes.</p>
+                </div>
+                <span class="badge badge-active">Multimedia</span>
+              </div>
+              <div id="causeMediaAssetsShell" class="media-asset-grid">
+                <div class="media-empty-state">Cargando multimedia asociada a la causa…</div>
+              </div>
+            </article>
+            <article class="container-segment">
+              <div class="segment-header">
+                <div>
                   <h5 class="segment-title">3. Área de producción</h5>
                   <p class="segment-copy">Subespacio del contenedor que conecta antecedentes, estrategia y redacción del escrito.</p>
                 </div>
@@ -4298,6 +4311,52 @@
           </div>
         </section>
       `;
+    }
+
+    function buildCauseMediaAssetMarkup(asset){
+      const type = asset.media_type || 'photo';
+      const label = MEDIA_TYPE_LABELS[type] || type;
+      const role = MEDIA_ROLE_LABELS[asset.media_role || 'attachment'] || 'Adjunto';
+      const url = asset.file_url || '';
+      const preview = type === 'photo'
+        ? `<img class="media-asset-thumb" src="${url}" alt="${label} asociada a la causa." />`
+        : type === 'audio'
+          ? `<div class="media-asset-thumb media-asset-thumb--icon">🎙️</div><audio controls src="${url}"></audio>`
+          : `<video class="media-asset-thumb" controls playsinline src="${url}"></video>`;
+      return `
+        <article class="media-asset-card">
+          ${preview}
+          <div class="media-asset-meta">
+            <strong>${asset.file_name || 'Archivo multimedia'}</strong>
+            <span>${label} · ${role}</span>
+            <span>${asset.created_at ? new Date(asset.created_at).toLocaleString('es-CL') : 'Sin fecha'}</span>
+            ${(asset.duration_seconds || asset.durationSeconds) ? `<span>Duración: ${formatDuration(asset.duration_seconds || asset.durationSeconds)}</span>` : ''}
+            ${asset.notes ? `<span>Nota: ${asset.notes}</span>` : ''}
+          </div>
+          <div class="media-asset-actions">
+            <a class="btn-outline" href="${url}" target="_blank" rel="noopener">Abrir</a>
+            <a class="btn-save" href="${url}" download="${asset.file_name || 'media'}">Descargar</a>
+          </div>
+        </article>
+      `;
+    }
+
+    async function refreshCauseMedia(cause){
+      const shell = $('causeMediaAssetsShell');
+      if (!cause || !shell) return;
+      shell.innerHTML = '<div class="media-empty-state">Cargando multimedia asociada a la causa…</div>';
+      try {
+        const byCaseId = await listMediaAssets({ caseId: cause.id });
+        const byCaseRef = await listMediaAssets({ caseRef: cause.id });
+        const assets = [...byCaseId, ...byCaseRef.filter(item => !byCaseId.some(base => base.id === item.id))];
+        if (!assets.length) {
+          shell.innerHTML = '<div class="media-empty-state">No hay multimedia asociada todavía a esta causa.</div>';
+          return;
+        }
+        shell.innerHTML = assets.map(buildCauseMediaAssetMarkup).join('');
+      } catch (error) {
+        shell.innerHTML = `<div class="media-empty-state">No fue posible cargar la multimedia de la causa: ${error.message}</div>`;
+      }
     }
 
     function renderProduccion(cause){
@@ -4593,6 +4652,7 @@
       const activeRenderer = renderers[state.activeTab] || renderInformationPillar;
       $('detailContent').innerHTML = activeRenderer(cause) + renderCauseRectificationHistory(cause);
       renderCauseRectificationPanel();
+      refreshCauseMedia(cause);
     }
 
     function renderAll(){
