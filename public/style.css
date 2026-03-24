@@ -719,8 +719,30 @@ height:26px;
 body.tools-page .main{
 display:flex;
 flex-direction:column;
+overflow:hidden;
+}
+
+body.tools-page .tools-scroll-area{
+flex:1 1 auto;
+overflow-x:auto;
 overflow-y:auto;
-overflow-x:hidden;
+padding:0 0 8px;
+}
+
+body.tools-page .tools-shell{
+width:max-content;
+min-width:100%;
+margin:0;
+}
+
+body.tools-page .tools-grid-top{
+grid-template-columns:minmax(280px,360px) minmax(520px,1fr) minmax(280px,340px);
+min-width:1160px;
+}
+
+body.tools-page .tools-grid-devices{
+grid-template-columns:repeat(3,minmax(320px,1fr));
+min-width:1160px;
 }
 
 .search{
