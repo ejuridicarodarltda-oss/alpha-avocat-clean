@@ -6,12 +6,27 @@
   <title>Producción — Alpha Avocat</title>
   <link rel="stylesheet" href="./style.css" />
   <style>
-    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(180deg,#245f59,#2D7C74);color:#10211f;}
+    body{
+      margin:0;
+      font-family:Arial,sans-serif;
+      background:linear-gradient(180deg,#245f59,#2D7C74);
+      color:#10211f;
+      overflow-x:auto;
+      overflow-y:auto;
+    }
     .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#6f1728,#7A1E2C);}
     .brand{color:#fff;font-weight:800;font-size:22px}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
     .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#fff;color:#10211f;border-radius:14px;padding:9px 12px;font-weight:700;cursor:pointer;text-decoration:none}
-    .shell{padding:14px;display:grid;gap:12px;max-width:1400px;margin:0 auto}
+    .shell{
+      padding:14px;
+      display:grid;
+      gap:12px;
+      max-width:none;
+      width:100%;
+      min-width:1280px;
+      margin:0 auto;
+    }
     .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
     .hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
     .btn-primary{background:#163A5F;color:#fff;border-color:#163A5F}

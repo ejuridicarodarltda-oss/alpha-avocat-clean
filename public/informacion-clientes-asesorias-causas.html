@@ -18,12 +18,26 @@
       --iac-accent:#4aa9b5;
       --iac-critical:#7a1e2c;
     }
-    body.iac-page{ background:var(--iac-bg); color:var(--iac-text); min-height:100dvh; }
+    body.iac-page{
+      background:var(--iac-bg);
+      color:var(--iac-text);
+      min-height:100dvh;
+      overflow-x:auto;
+      overflow-y:auto;
+    }
     .iac-topbar{ position:sticky; top:0; z-index:10; padding:12px 18px; background:linear-gradient(180deg,#c41e3a,#8f1228); color:#fff; border-bottom:1px solid rgba(255,255,255,.16); display:flex; justify-content:space-between; gap:12px; align-items:center; }
     .iac-nav{ display:flex; gap:8px; flex-wrap:wrap; }
     .iac-nav a{ color:#fff; text-decoration:none; border:1px solid rgba(255,255,255,.3); border-radius:999px; padding:8px 12px; font-weight:700; background:rgba(255,255,255,.1); }
     .iac-nav a.active{ background:var(--iac-accent); border-color:var(--iac-accent); }
-    .iac-shell{ max-width:1280px; margin:0 auto; padding:20px; display:grid; gap:16px; }
+    .iac-shell{
+      max-width:none;
+      width:100%;
+      min-width:1200px;
+      margin:0 auto;
+      padding:20px;
+      display:grid;
+      gap:16px;
+    }
     .iac-card{ background:var(--iac-shell); border:1px solid var(--iac-border); border-radius:20px; box-shadow:0 12px 30px rgba(73,151,160,.12); padding:18px; }
     .iac-head{ display:flex; justify-content:space-between; gap:12px; flex-wrap:wrap; align-items:flex-start; }
     .iac-title{ margin:0; color:var(--iac-title); }
