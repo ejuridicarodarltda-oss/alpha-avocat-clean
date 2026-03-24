@@ -14,6 +14,7 @@ export const ALERT_CATEGORIES = [
 ]
 
 const CATEGORY_PRIORITY = new Map(ALERT_CATEGORIES.map((category, index) => [category, index]))
+const URGENCY_PRIORITY = new Map([['alta', 0], ['media', 1], ['baja', 2]])
 const DAY_MS = 24 * 60 * 60 * 1000
 
 function safeJsonParse(value, fallback = null) {
@@ -181,6 +182,7 @@ function buildAlertBase({
   return {
     id,
     module,
+    type: '',
     category,
     title,
     summary,
@@ -201,6 +203,20 @@ function buildAlertBase({
     metadata,
     sortAt: parsedDate ? parsedDate.getTime() : Number.MAX_SAFE_INTEGER
   }
+}
+
+function normalizeUrgencyFromLabel(value = '') {
+  const v = normalize(value)
+  if (!v) return 'media'
+  if (v.includes('venc') || v.includes('urg') || v.includes('alta') || v.includes('crit')) return 'alta'
+  if (v.includes('prox') || v.includes('media') || v.includes('pend')) return 'media'
+  return 'baja'
+}
+
+function parseCurrency(value) {
+  if (value == null) return ''
+  const text = String(value).trim()
+  return text || ''
 }
 
 function buildAgendaAlerts(appointments = [], now = new Date()) {
@@ -225,14 +241,15 @@ function buildAgendaAlerts(appointments = [], now = new Date()) {
     const dayDiff = Math.floor((startOfDay(startsAt).getTime() - startOfDay(now).getTime()) / DAY_MS)
     const isToday = dayDiff === 0
     const isTomorrow = dayDiff === 1
-    const normalizedEventType = normalize(appointment.event_type || state.event_type || eventName)
-    const isHearing = normalizedEventType.includes('audiencia')
-    const isInterview = normalizedEventType.includes('entrevista') || normalizedEventType.includes('consulta') || normalizedEventType.includes('atencion')
+    const normalizedType = normalize(appointment.event_type || state.event_type || eventName)
+    const isHearing = normalizedType.includes('audiencia')
+    const isInterview = ['entrevista', 'consulta', 'reunion', 'reunión', 'atencion', 'atención', 'videollamada'].some((term) => normalizedType.includes(normalize(term)))
     const category = isHearing
       ? 'Audiencias'
       : isInterview
         ? 'Entrevistas próximas'
         : (isToday ? 'Eventos de hoy' : 'Reuniones y atenciones')
+    const alertType = isInterview ? 'Entrevista próxima' : (isHearing ? 'Audiencia próxima' : 'Actividad de agenda')
 
     let summary = `${eventName} ${isToday ? 'hoy' : isTomorrow ? 'mañana' : 'el ' + formatDate(startsAt)} a las ${formatTime(startsAt)}.`
     if (diffMs > 0 && diffMs <= 30 * 60 * 1000) {
@@ -264,6 +281,7 @@ function buildAgendaAlerts(appointments = [], now = new Date()) {
       observation,
       metadata
     }))
+    items[items.length - 1].type = alertType
 
     const slotKey = `${responsible}::${startsAt.toISOString()}`
     const slotList = appointmentsBySlot.get(slotKey) || []
@@ -398,6 +416,48 @@ function collectDeadlineCandidates(cause = {}) {
   return candidates.sort((a, b) => a.date.getTime() - b.date.getTime())
 }
 
+function extractDeadlineEntries(item = {}) {
+  const entries = []
+  const list = Array.isArray(item.plazos) ? item.plazos : []
+  list.forEach((deadline, index) => {
+    const dueDate = toDate(deadline.vencimiento || deadline.dueDate || deadline.due_date)
+    if (!dueDate) return
+    entries.push({
+      id: `${item.id || 'case'}-deadline-${index}`,
+      dueDate,
+      type: deadline.tipo || 'Plazo judicial',
+      suggestedAction: deadline.escrito || deadline.gestion || deadline.management || '',
+      urgency: normalizeUrgencyFromLabel(deadline.alerta || deadline.urgencia || deadline.prioridad)
+    })
+  })
+
+  const directDueDate = toDate(item.deadline_date || item.deadlineDate || item.next_deadline || item.nextDeadline || item.proximo_plazo || item.proximoPlazo)
+  if (directDueDate) {
+    entries.push({
+      id: `${item.id || 'case'}-deadline-direct`,
+      dueDate: directDueDate,
+      type: item.deadline_type || 'Plazo judicial',
+      suggestedAction: item.suggested_action || item.gestion_sugerida || '',
+      urgency: normalizeUrgencyFromLabel(item.alert_level || item.alerta || item.urgency)
+    })
+  }
+
+  if (!entries.length) {
+    const fallback = collectDeadlineCandidates(item)
+    fallback.forEach((entry, index) => {
+      entries.push({
+        id: `${item.id || 'case'}-candidate-${index}`,
+        dueDate: entry.date,
+        type: entry.label || 'Plazo judicial',
+        suggestedAction: entry.suggestedAction || '',
+        urgency: normalizeUrgencyFromLabel(item.alert_level || item.alerta || item.urgency)
+      })
+    })
+  }
+
+  return entries
+}
+
 function getLastClientInteraction(expediente) {
   const historyDates = (expediente.history || [])
     .map((entry) => toDate(`${entry.date || ''}T${entry.time || '09:00'}`))
@@ -483,23 +543,34 @@ function buildClientAlerts(clientDataset = { clients: [] }, now = new Date()) {
       }
 
       if (expediente.feesPending) {
+        const fees = expediente.fees || {}
+        const dueDate = toDate(fees.dueDate || fees.due_date || fees.nextDueDate || fees.next_due_date)
+        const paymentUrgency = dueDate ? getUrgencyByDiff(dueDate.getTime() - now.getTime()) : normalizeUrgencyFromLabel(fees.response || expediente.status)
         items.push(buildAlertBase({
           id: `cliente-fees-${expediente.id}`,
           module: 'Clientes',
           category: 'Clientes con seguimiento pendiente',
-          title: 'Cliente con acción administrativa o jurídica pendiente',
-          summary: `${client.name} mantiene honorarios, documentación o validaciones por confirmar en ${expediente.code}.`,
-          date: lastInteraction || now,
+          title: 'Pago de cuota pendiente o próxima',
+          summary: `${client.name} registra cuota ${fees.installments || 'pendiente'} en ${expediente.code}.`,
+          date: dueDate || lastInteraction || now,
           person: client.name,
           association: expediente.code,
           responsible: expediente.responsibleLawyer || 'Por asignar',
-          modality: 'Gestión administrativa',
+          modality: fees.modality || 'Gestión administrativa',
           location: expediente.source || 'Clientes',
-          urgency: 'media',
+          urgency: paymentUrgency,
           href: './clientes.html',
           observation: expediente.issueNotes || '',
-          metadata: [...commonMeta, 'Acción pendiente: documentación / honorarios / respuesta del cliente']
+          metadata: [
+            ...commonMeta,
+            'Tipo: pago de cuota',
+            `Cuota: ${fees.installments || 'Pendiente por definir'}`,
+            `Vencimiento: ${dueDate ? formatDate(dueDate) : 'No informado'}`,
+            `Monto: ${parseCurrency(fees.invoice?.amount || fees.total || fees.base) || 'No informado'}`,
+            `Estado: ${fees.response || 'Pendiente'}`
+          ]
         }))
+        items[items.length - 1].type = 'Pago de cuota'
       }
 
       if (daysWithoutFollowUp != null && daysWithoutFollowUp >= 45 && normalize(expediente.status) !== 'cerrado') {
@@ -528,43 +599,47 @@ function buildClientAlerts(clientDataset = { clients: [] }, now = new Date()) {
 }
 
 export function buildCaseAlerts(cases = [], now = new Date()) {
-  return (cases || []).map((item) => {
-    const notes = item.notes || 'Sin notas cargadas.'
-    const deadlines = collectDeadlineCandidates(item)
-    const nearestDeadline = deadlines.find((entry) => entry.date.getTime() >= startOfDay(now).getTime()) || deadlines[0] || null
-    const referenceCode = item.rol_rit || item.pjud_rit || item.rol || item.pjud_ruc || item.ruc || 'Sin ROL / RIT / RUC'
+  const alerts = []
+  ;(cases || []).forEach((item) => {
+    const notes = item.notes || item.observaciones || 'Sin notas cargadas.'
     const caseName = item.pjud_caratulado || item.caratula || item.subject || 'Causa sin carátula'
-    const title = `Plazo judicial · ${referenceCode}`
-    const urgency = nearestDeadline ? getUrgencyByDiff(nearestDeadline.date.getTime() - now.getTime()) : (normalize(notes).includes('urgente') ? 'alta' : 'media')
-    const summary = nearestDeadline
-      ? `${caseName} registra ${nearestDeadline.label.toLowerCase()} para el ${formatDate(nearestDeadline.date)} (${nearestDeadline.source}).`
-      : `${referenceCode} en ${item.court || item.pjud_tribunal || 'tribunal por definir'} requiere seguimiento en Producción.`
+    const caseRef = item.rol_rit || item.pjud_rit || item.rol || item.rit || item.pjud_ruc || item.ruc || item.id || 'Sin referencia'
+    const deadlines = extractDeadlineEntries(item)
+    if (!deadlines.length) return
 
-    return buildAlertBase({
-      id: `causa-${item.id}`,
-      module: 'Causas',
-      category: 'Plazos judiciales',
-      title,
-      summary,
-      date: nearestDeadline?.date || item.created_at || new Date(),
-      person: item.client_name || 'Cliente vinculado a causa',
-      association: `${referenceCode} · ${caseName}`,
-      responsible: item.responsible || 'Por asignar',
-      modality: 'Gestión judicial',
-      location: item.court || item.pjud_tribunal || 'Tribunal por definir',
-      urgency,
-      href: './produccion.html',
-      observation: notes,
-      metadata: [
-        `Causa: ${caseName}`,
-        `ROL/RIT/RUC: ${referenceCode}`,
-        `Tribunal: ${item.court || item.pjud_tribunal || 'Por definir'}`,
-        `Estado procesal: ${item.pjud_estado_procesal || item.pjud_estado_causa || 'No informado'}`,
-        `Plazo en curso: ${nearestDeadline?.label || 'Sin plazo identificado en datos disponibles'}`,
-        `Gestión sugerida: ${nearestDeadline?.suggestedAction || 'Revisar expediente y definir estrategia'}`
-      ]
+    deadlines.forEach((deadline) => {
+      const diffMs = deadline.dueDate.getTime() - now.getTime()
+      const urgency = deadline.urgency || getUrgencyByDiff(diffMs)
+      const alert = buildAlertBase({
+        id: `causa-${deadline.id}`,
+        module: 'Causas / Producción',
+        category: 'Plazos judiciales',
+        title: 'Plazo judicial próximo',
+        summary: `${caseName} (${caseRef}) vence el ${formatDate(deadline.dueDate)}.`,
+        date: deadline.dueDate,
+        person: item.client_name || item.clientName || 'Cliente vinculado a causa',
+        association: caseRef,
+        responsible: item.responsible || 'Por asignar',
+        modality: 'Gestión judicial',
+        location: item.court || item.pjud_tribunal || 'Tribunal por definir',
+        urgency,
+        href: './produccion.html',
+        observation: notes,
+        metadata: [
+          `Tipo: ${deadline.type || 'plazo judicial'}`,
+          `Causa: ${caseName}`,
+          `ROL/RIT/RUC: ${caseRef}`,
+          `Carátula: ${caseName}`,
+          `Vencimiento: ${formatDate(deadline.dueDate)}`,
+          `Gestión sugerida: ${deadline.suggestedAction || 'No informada'}`,
+          `Urgencia: ${getUrgencyLabel(urgency)}`
+        ]
+      })
+      alert.type = 'Plazo judicial'
+      alerts.push(alert)
     })
   })
+  return alerts
 }
 
 export function buildFeesAlerts(clientDataset = { clients: [] }, now = new Date()) {
@@ -609,6 +684,8 @@ export function buildFeesAlerts(clientDataset = { clients: [] }, now = new Date(
 
 function sortAlerts(alerts = []) {
   return [...alerts].sort((a, b) => {
+    const urgencyDiff = (URGENCY_PRIORITY.get(a.urgency) ?? 99) - (URGENCY_PRIORITY.get(b.urgency) ?? 99)
+    if (urgencyDiff !== 0) return urgencyDiff
     const dateDiff = a.sortAt - b.sortAt
     if (dateDiff !== 0) return dateDiff
     const categoryDiff = (CATEGORY_PRIORITY.get(a.category) ?? 99) - (CATEGORY_PRIORITY.get(b.category) ?? 99)
@@ -665,6 +742,7 @@ export function renderAlertListItems(alerts = [], { emptyMessage = 'Sin alertas'
 
   return alerts.map((alert) => {
     const meta = [
+      `Tipo: ${alert.type || alert.category}`,
       `Origen: ${alert.module}`,
       `Referencia: ${alert.association}`,
       `Responsable: ${alert.responsible}`,
@@ -688,7 +766,7 @@ export function renderAlertListItems(alerts = [], { emptyMessage = 'Sin alertas'
           <span>${escapeHtml(alert.person)}</span>
         </div>
         ${showMeta ? `<ul class="panel-alert-tags">${meta.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')}</ul>` : ''}
-        ${alert.href ? `<a class="panel-alert-link" href="${escapeHtml(alert.href)}">Ir al registro</a>` : ''}
+        <a class="ui-button ui-button--secondary panel-alert-link" href="${escapeHtml(alert.href || './panel.html')}">Ir al módulo</a>
         ${alert.observation ? `<div class="panel-alert-note">Obs.: ${escapeHtml(alert.observation)}</div>` : ''}
       </li>
     `
