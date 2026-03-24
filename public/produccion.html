@@ -13,15 +13,38 @@
     .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#fff;color:#10211f;border-radius:14px;padding:9px 12px;font-weight:700;cursor:pointer;text-decoration:none}
     .shell{padding:14px;display:grid;gap:12px;max-width:1400px;margin:0 auto}
     .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
+    .hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
+    .btn-primary{background:#163A5F;color:#fff;border-color:#163A5F}
     .title{margin:0;color:#1f5a53}
     .subtitle{margin:6px 0 0;color:#1f3b37}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .item{background:#fff;border:1px solid #8ec7be;border-radius:16px;padding:12px}
     .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#1f5a53}
     .muted{color:#355652;font-size:13px}
+    .small{font-size:12px}
     .empty{background:#fff;border:1px dashed #8ec7be;border-radius:16px;padding:16px}
     .alerts-shell{list-style:none;padding:0;margin:0;display:grid;gap:10px}
+    .drafts-list{display:grid;gap:10px}
+    .draft-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;background:#e7f4f1;border:1px solid #8ec7be}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(16,33,31,.5);display:none;align-items:center;justify-content:center;padding:12px;z-index:40}
+    .modal-backdrop.open{display:flex}
+    .modal{width:min(980px,100%);max-height:92vh;overflow:auto;background:#f4fffd;border-radius:18px;padding:16px;border:1px solid #8ec7be}
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .field{display:grid;gap:5px}
+    .field.span-2{grid-column:1/-1}
+    .label{font-weight:700;color:#1f5a53;font-size:13px}
+    input,select,textarea{border:1px solid #8ec7be;border-radius:10px;padding:8px;font:inherit}
+    textarea{min-height:96px;resize:vertical}
+    .mode-toggle{display:flex;gap:8px;flex-wrap:wrap}
+    .mode-toggle .btn.active{background:#163A5F;color:#fff;border-color:#163A5F}
+    .sources{background:#fff;border:1px solid #8ec7be;border-radius:12px;padding:10px;max-height:180px;overflow:auto}
+    .source-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed #c2e4de}
+    .source-row:last-child{border-bottom:none}
+    .modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .hidden{display:none!important}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
+    @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -37,11 +60,23 @@
 
   <main class="shell">
     <section class="card">
-      <h2 class="title">PRODUCCIÓN</h2>
-      <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
+      <div class="hero">
+        <div>
+          <h2 class="title">PRODUCCIÓN</h2>
+          <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
+        </div>
+        <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+      </div>
     </section>
     <section class="card">
       <div class="grid" id="productionGrid"></div>
+    </section>
+    <section class="card">
+      <h3 class="title">Solicitudes y borradores en Producción</h3>
+      <p class="subtitle">Borradores Word editables y acciones para convertir a PDF o guardar en expediente.</p>
+      <div id="draftRequestsList" class="drafts-list">
+        <article class="empty">Todavía no hay solicitudes manuales de redacción.</article>
+      </div>
     </section>
     <section class="card">
       <h3 class="title">Alertas de plazos judiciales</h3>
@@ -52,13 +87,89 @@
     </section>
   </main>
 
+  <div id="draftModalBackdrop" class="modal-backdrop" aria-hidden="true">
+    <section class="modal">
+      <h3 class="title">REDACTAR ESCRITO</h3>
+      <p class="subtitle">Solicitud manual con insumos automáticos + antecedentes subidos por el usuario.</p>
+      <form id="draftRequestForm" class="form-grid">
+        <div class="field">
+          <label class="label" for="draftType">Tipo de escrito *</label>
+          <input id="draftType" name="draftType" list="draftTypeOptions" placeholder="Demanda, apelación, escrito simple…" required />
+          <datalist id="draftTypeOptions">
+            <option value="Demanda"></option><option value="Contestación"></option><option value="Réplica"></option><option value="Dúplica"></option>
+            <option value="Querella"></option><option value="Denuncia"></option><option value="Recurso de reposición"></option><option value="Apelación"></option>
+            <option value="Casación"></option><option value="Incidente"></option><option value="Medida prejudicial"></option><option value="Medida precautoria"></option>
+            <option value="Téngase presente"></option><option value="Cúmplase"></option><option value="Escrito simple"></option><option value="Otro"></option>
+          </datalist>
+        </div>
+        <div class="field">
+          <label class="label" for="draftClient">Cliente relacionado *</label>
+          <select id="draftClient" name="draftClient" required></select>
+        </div>
+        <div class="field span-2">
+          <span class="label">Modo de redacción *</span>
+          <div class="mode-toggle">
+            <button type="button" class="btn active" id="btnModeNoCause">Redactar sin causa previa</button>
+            <button type="button" class="btn" id="btnModeWithCause">VINCULAR A CAUSA PREEXISTENTE</button>
+          </div>
+        </div>
+        <div class="field span-2 hidden" id="causePickerField">
+          <label class="label" for="draftCause">Causa preexistente</label>
+          <select id="draftCause" name="draftCause"></select>
+          <div class="small muted">Al seleccionar una causa se cargan automáticamente escritos, ebook y antecedentes disponibles para reutilizar.</div>
+        </div>
+        <div class="field span-2 hidden" id="causeSourcesField">
+          <span class="label">Antecedentes disponibles de la causa</span>
+          <div id="causeSourcesList" class="sources">
+            <div class="muted">Selecciona una causa para ver antecedentes.</div>
+          </div>
+        </div>
+        <div class="field span-2">
+          <label class="label" for="manualFiles">SUBIR ANTECEDENTES</label>
+          <input id="manualFiles" type="file" multiple />
+          <div id="manualFilesSummary" class="small muted">Sin archivos cargados manualmente.</div>
+        </div>
+        <div class="field span-2">
+          <label class="label" for="extraInstructions">Instrucciones adicionales *</label>
+          <textarea id="extraInstructions" name="extraInstructions" placeholder="Objetivo del escrito, postura procesal, hechos relevantes, peticiones concretas, estrategia deseada y observaciones del abogado." required></textarea>
+        </div>
+        <div class="field span-2">
+          <label class="label" for="lawyerStyle">Estilo del abogado</label>
+          <textarea id="lawyerStyle" name="lawyerStyle"></textarea>
+        </div>
+        <div class="modal-actions field span-2">
+          <button type="submit" class="btn btn-primary">Redactar escrito</button>
+          <button type="button" id="btnCancelDraft" class="btn">Cancelar / cerrar</button>
+        </div>
+      </form>
+    </section>
+  </div>
+
   <script type="module">
     import { supabase, logout } from './app.js';
     import { buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from './alerts.js';
+    import { loadSettings } from './config-store.js';
 
     const grid = document.getElementById('productionGrid');
     const deadlinesList = document.getElementById('productionDeadlineAlerts');
+    const draftRequestsList = document.getElementById('draftRequestsList');
+    const modalBackdrop = document.getElementById('draftModalBackdrop');
+    const draftRequestForm = document.getElementById('draftRequestForm');
+    const draftClient = document.getElementById('draftClient');
+    const draftCause = document.getElementById('draftCause');
+    const causePickerField = document.getElementById('causePickerField');
+    const causeSourcesField = document.getElementById('causeSourcesField');
+    const causeSourcesList = document.getElementById('causeSourcesList');
+    const manualFilesInput = document.getElementById('manualFiles');
+    const manualFilesSummary = document.getElementById('manualFilesSummary');
+    const btnModeNoCause = document.getElementById('btnModeNoCause');
+    const btnModeWithCause = document.getElementById('btnModeWithCause');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
+    const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
+    let selectedMode = 'no-cause';
+    let casesCache = [];
+    let clientsCache = [];
+    let fileAttachmentCache = [];
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -76,6 +187,157 @@
       } catch (_error) {
         return [];
       }
+    }
+
+    function readRequests(){
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(REQUESTS_KEY) || '[]');
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function writeRequests(payload){
+      window.localStorage.setItem(REQUESTS_KEY, JSON.stringify(payload));
+    }
+
+    function buildCauseInputs(cause){
+      const escritos = toList(cause.production_documents || cause.escritos || []);
+      const ebook = cause.ebook ? [{ label: `ebook: ${cause.ebook}`, kind: 'ebook' }] : [];
+      const docs = toList(cause.documents || cause.documentos || []);
+      const resoluciones = toList(cause.resoluciones || cause.resolutions || []);
+      const actas = toList(cause.meetings || cause.actas || []);
+      const estrategia = toList(cause.production_milestones || cause.hitos_produccion || []);
+      const all = [
+        ...escritos.map((item, index) => ({ id: `escrito-${index}`, label: item.titulo || item.nombre || `Escrito ${index + 1}`, kind: 'escrito' })),
+        ...ebook.map((item, index) => ({ id: `ebook-${index}`, ...item })),
+        ...docs.map((item, index) => ({ id: `doc-${index}`, label: item.nombre || item.title || `Documento ${index + 1}`, kind: 'documento' })),
+        ...resoluciones.map((item, index) => ({ id: `res-${index}`, label: item.titulo || item.generador || `Resolución ${index + 1}`, kind: 'resolución' })),
+        ...actas.map((item, index) => ({ id: `acta-${index}`, label: item.titulo || item.acta || `Acta ${index + 1}`, kind: 'acta' })),
+        ...estrategia.map((item, index) => ({ id: `est-${index}`, label: item.hito || item.detalle || `Estrategia previa ${index + 1}`, kind: 'estrategia' })),
+      ];
+      return all.length ? all : [{ id: 'none', label: 'Sin antecedentes estructurados en la causa', kind: 'info', readonly: true }];
+    }
+
+    function downloadBlob(filename, content, mime){
+      const blob = new Blob([content], { type: mime });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }
+
+    async function persistRequestInCase(request){
+      if (!request.caseId) return;
+      const cause = casesCache.find((item) => String(item.id) === String(request.caseId));
+      if (!cause) return;
+      const currentDocs = toList(cause.production_documents || cause.escritos || []);
+      const updatedDocs = [
+        ...currentDocs,
+        {
+          id: request.id,
+          tipo: request.type,
+          titulo: request.title,
+          estado: request.status,
+          word: request.wordFilename,
+          pdf: request.pdfFilename || 'Pendiente',
+          fecha: request.createdAt,
+          cliente: request.clientName,
+          instrucciones: request.instructions
+        }
+      ];
+      const payload = {
+        production_documents: updatedDocs,
+        escritos: updatedDocs
+      };
+      const { error } = await supabase.from('cases').update(payload).eq('id', request.caseId);
+      if (error) console.error('[PRODUCCIÓN] No se pudo asociar borrador a causa', error);
+    }
+
+    function renderRequests(){
+      const requests = readRequests().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      if (!requests.length) {
+        draftRequestsList.innerHTML = '<article class="empty">Todavía no hay solicitudes manuales de redacción.</article>';
+        return;
+      }
+      draftRequestsList.innerHTML = requests.map((request) => `
+        <article class="item">
+          <div class="kicker">Solicitud manual</div>
+          <strong>${escapeHtml(request.title)}</strong>
+          <div class="muted">Tipo: ${escapeHtml(request.type)} · Cliente: ${escapeHtml(request.clientName)}</div>
+          <div class="muted">Modo: ${escapeHtml(request.modeLabel)}${request.caseTitle ? ` · Causa: ${escapeHtml(request.caseTitle)}` : ''}</div>
+          <div class="muted">Insumos: ${request.selectedCauseInputs.length} automáticos + ${request.manualFiles.length} manuales.</div>
+          <div class="muted small">Estado: <span class="pill">${escapeHtml(request.status)}</span> · ${new Date(request.createdAt).toLocaleString('es-CL')}</div>
+          <div class="draft-actions">
+            <button class="btn" data-action="word" data-id="${escapeHtml(request.id)}">Guardar borrador</button>
+            <button class="btn" data-action="edit" data-id="${escapeHtml(request.id)}">Editar</button>
+            <button class="btn" data-action="pdf" data-id="${escapeHtml(request.id)}">Convertir a PDF</button>
+            <button class="btn" data-action="send" data-id="${escapeHtml(request.id)}">Enviar / guardar en expediente</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function renderCauseSourceOptions(){
+      const selected = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const inputs = selected ? buildCauseInputs(selected) : [];
+      if (!inputs.length) {
+        causeSourcesList.innerHTML = '<div class="muted">Selecciona una causa para ver antecedentes.</div>';
+        return;
+      }
+      causeSourcesList.innerHTML = inputs.map((item) => `
+        <label class="source-row">
+          <span>${escapeHtml(item.label)} <span class="pill">${escapeHtml(item.kind)}</span></span>
+          <input type="checkbox" name="sourceInput" value="${escapeHtml(item.id)}" ${item.readonly ? 'disabled' : 'checked'}>
+        </label>
+      `).join('');
+    }
+
+    function applyMode(mode){
+      selectedMode = mode;
+      const withCause = mode === 'with-cause';
+      btnModeNoCause.classList.toggle('active', !withCause);
+      btnModeWithCause.classList.toggle('active', withCause);
+      causePickerField.classList.toggle('hidden', !withCause);
+      causeSourcesField.classList.toggle('hidden', !withCause);
+      if (!withCause) {
+        draftCause.value = '';
+        causeSourcesList.innerHTML = '<div class="muted">Selecciona una causa para ver antecedentes.</div>';
+      } else {
+        renderCauseSourceOptions();
+      }
+    }
+
+    function hydrateFormDefaults(){
+      const settings = loadSettings();
+      const style = settings?.estilo || {};
+      document.getElementById('lawyerStyle').value = [
+        style.nombreAbogado ? `Abogado redactor: ${style.nombreAbogado}` : '',
+        style.estiloRedaccion ? `Estilo: ${style.estiloRedaccion}` : '',
+        style.tonoArgumentativo ? `Tono: ${style.tonoArgumentativo}` : '',
+        style.estructuraUsual ? `Estructura usual: ${style.estructuraUsual}` : '',
+        style.formulasFrecuentes ? `Fórmulas frecuentes: ${style.formulasFrecuentes}` : '',
+        style.reglasPropias ? `Reglas propias: ${style.reglasPropias}` : '',
+      ].filter(Boolean).join('\n');
+    }
+
+    function openModal(){
+      applyMode('no-cause');
+      modalBackdrop.classList.add('open');
+      modalBackdrop.setAttribute('aria-hidden', 'false');
+      hydrateFormDefaults();
+    }
+
+    function closeModal(){
+      modalBackdrop.classList.remove('open');
+      modalBackdrop.setAttribute('aria-hidden', 'true');
+      draftRequestForm.reset();
+      fileAttachmentCache = [];
+      manualFilesSummary.textContent = 'Sin archivos cargados manualmente.';
+      applyMode('no-cause');
     }
 
     function buildProductionCards(cases, clientsMap){
@@ -121,10 +383,14 @@
         console.error('[PRODUCCIÓN] Error cargando clientes; se mostrará la producción sin nombres de cliente.', clientsError);
       }
       const clientsMap = new Map((clients || []).map((client) => [client.id, client.full_name || client.name || 'Cliente sin nombre']));
+      clientsCache = clients || [];
+      casesCache = causes || [];
       const cards = buildProductionCards(causes || [], clientsMap);
       grid.innerHTML = cards.length
         ? cards.join('')
         : '<article class="empty">No hay elementos de producción registrados todavía.</article>';
+      draftClient.innerHTML = `<option value="">Seleccionar cliente</option>${clientsCache.map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.full_name || client.name || 'Cliente sin nombre')}</option>`).join('')}`;
+      draftCause.innerHTML = `<option value="">Seleccionar causa</option>${casesCache.map((cause) => `<option value="${escapeHtml(cause.id)}">${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</option>`).join('')}`;
 
       const consolidated = buildConsolidatedAlerts({
         appointments: [],
@@ -139,7 +405,112 @@
         emptyMessage: 'No se detectaron plazos judiciales próximos en causas cargadas.',
         showMeta: true
       });
+      renderRequests();
     }
+
+    document.getElementById('btnOpenDraftModal').addEventListener('click', openModal);
+    document.getElementById('btnCancelDraft').addEventListener('click', closeModal);
+    modalBackdrop.addEventListener('click', (event) => {
+      if (event.target === modalBackdrop) closeModal();
+    });
+    btnModeNoCause.addEventListener('click', () => applyMode('no-cause'));
+    btnModeWithCause.addEventListener('click', () => applyMode('with-cause'));
+    draftCause.addEventListener('change', renderCauseSourceOptions);
+    manualFilesInput.addEventListener('change', (event) => {
+      fileAttachmentCache = Array.from(event.target.files || []);
+      manualFilesSummary.textContent = fileAttachmentCache.length
+        ? `${fileAttachmentCache.length} antecedente(s) listo(s): ${fileAttachmentCache.map((file) => file.name).join(', ')}`
+        : 'Sin archivos cargados manualmente.';
+    });
+
+    draftRequestForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      if (selectedMode === 'with-cause' && !draftCause.value) {
+        window.alert('Debes seleccionar una causa preexistente o cambiar a "Redactar sin causa previa".');
+        return;
+      }
+      const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
+      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
+      const requestId = `draft-${Date.now()}`;
+      const docBody = [
+        `Solicitud de redacción jurídica`,
+        `Tipo de escrito: ${draftRequestForm.draftType.value.trim()}`,
+        `Cliente: ${selectedClient?.full_name || selectedClient?.name || 'No definido'}`,
+        `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
+        selectedCase ? `Causa: ${selectedCase.caratula || selectedCase.rol || selectedCase.id}` : '',
+        `Insumos automáticos seleccionados: ${selectedInputs.length ? selectedInputs.join(', ') : 'Ninguno'}`,
+        `Insumos manuales: ${fileAttachmentCache.length ? fileAttachmentCache.map((file) => file.name).join(', ') : 'Ninguno'}`,
+        ``,
+        `Instrucciones adicionales`,
+        draftRequestForm.extraInstructions.value.trim(),
+        ``,
+        `Estilo del abogado`,
+        draftRequestForm.lawyerStyle.value.trim(),
+      ].filter(Boolean).join('\n');
+      const newRequest = {
+        id: requestId,
+        title: `${draftRequestForm.draftType.value.trim()} · ${selectedClient?.full_name || selectedClient?.name || 'Sin cliente'}`,
+        type: draftRequestForm.draftType.value.trim(),
+        clientId: selectedClient?.id || null,
+        clientName: selectedClient?.full_name || selectedClient?.name || 'Sin cliente',
+        mode: selectedMode,
+        modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
+        caseId: selectedCase?.id || null,
+        caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
+        selectedCauseInputs: selectedInputs,
+        manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
+        instructions: draftRequestForm.extraInstructions.value.trim(),
+        lawyerStyle: draftRequestForm.lawyerStyle.value.trim(),
+        status: 'Borrador Word generado',
+        wordFilename: `${requestId}.doc`,
+        pdfFilename: null,
+        body: docBody,
+        createdAt: new Date().toISOString(),
+      };
+      const requests = readRequests();
+      requests.push(newRequest);
+      writeRequests(requests);
+      await persistRequestInCase(newRequest);
+      renderRequests();
+      downloadBlob(newRequest.wordFilename, docBody, 'application/msword');
+      closeModal();
+      window.alert('Borrador Word generado y solicitud registrada en Producción.');
+    });
+
+    draftRequestsList.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const requestId = button.dataset.id;
+      const requests = readRequests();
+      const target = requests.find((item) => item.id === requestId);
+      if (!target) return;
+      if (action === 'word') {
+        downloadBlob(target.wordFilename, target.body, 'application/msword');
+      }
+      if (action === 'edit') {
+        openModal();
+        document.getElementById('draftType').value = target.type;
+        draftClient.value = target.clientId || '';
+        applyMode(target.mode || 'no-cause');
+        draftCause.value = target.caseId || '';
+        renderCauseSourceOptions();
+        document.getElementById('extraInstructions').value = target.instructions || '';
+        document.getElementById('lawyerStyle').value = target.lawyerStyle || '';
+      }
+      if (action === 'pdf') {
+        const pdfName = `${target.id}.pdf`;
+        downloadBlob(pdfName, target.body, 'application/pdf');
+        target.status = 'Convertido a PDF';
+        target.pdfFilename = pdfName;
+      }
+      if (action === 'send') {
+        target.status = target.caseId ? 'Guardado en expediente de la causa' : 'Guardado en Producción';
+      }
+      writeRequests(requests);
+      renderRequests();
+    });
 
     document.getElementById('btnLogout').addEventListener('click', logout);
 
