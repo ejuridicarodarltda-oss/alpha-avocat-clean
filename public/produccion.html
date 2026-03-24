@@ -1,0 +1,208 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>PRODUCCIÓN — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(180deg,#245f59 0%,#2D7C74 40%,#347f77 100%);color:#10211f;}
+    .topbar{position:sticky;top:0;display:flex;justify-content:space-between;align-items:center;padding:14px 20px;background:linear-gradient(135deg,#6f1728 0%,#7A1E2C 52%,#8b2a3b 100%);z-index:10}
+    .topbar a,.btn{appearance:none;border:1px solid rgba(255,255,255,.25);background:#fff;color:#123;border-radius:14px;padding:9px 12px;font-weight:700;text-decoration:none;cursor:pointer}
+    .wrap{padding:16px 20px;display:grid;gap:12px}
+    .card{background:#fff;border-radius:18px;padding:14px;border:1px solid rgba(140,199,189,.78);box-shadow:0 8px 18px rgba(24,78,72,.16)}
+    .grid{display:grid;grid-template-columns:1.1fr .9fr;gap:12px}
+    .subgrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    textarea,input,select{width:100%;padding:10px;border-radius:10px;border:1px solid #aaccc6;font:inherit}
+    .chat{min-height:130px}
+    .output{min-height:260px}
+    .actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+    .badge{display:inline-flex;padding:4px 8px;border-radius:999px;background:#163A5F;color:#fff;font-size:12px}
+    .files{display:grid;gap:8px}
+    .files .actions{margin-top:0}
+    .muted{opacity:.8;font-size:12px}
+    @media(max-width:1000px){.grid,.subgrid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <strong style="color:#fff;font-size:22px;letter-spacing:.05em">PRODUCCIÓN</strong>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;justify-content:flex-end">
+      <a href="./causas.html">Volver a Causas</a>
+      <a href="./expedientes-digitales.html">Expedientes Digitales</a>
+      <a href="./panel.html">Panel</a>
+    </div>
+  </header>
+
+  <main class="wrap">
+    <section class="card">
+      <h2 style="margin:0 0 8px">Centro jurídico-inteligente de trabajo</h2>
+      <p style="margin:0">Esta vista exclusiva integra contexto de cliente/causa, expediente digital, norma de citas, jurisprudencia, doctrina, formatos tipo, normas legales, actas, documentos, informes y planos para producir escritos útiles.</p>
+      <div class="actions" style="margin-top:10px">
+        <span class="badge" id="caseBadge">Causa: Sin selección</span>
+        <span class="badge">Flujo: Word editable → revisión → PDF → listo para subir</span>
+      </div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3 style="margin-top:0">Consulta a IA jurídica (Alpha Avocat)</h3>
+        <label>Instrucción para la IA</label>
+        <textarea id="promptInput" class="chat" placeholder="Ej.: Analiza esta causa laboral, identifica riesgos, propone estrategia y redacta borrador de contestación respetando norma de citas."></textarea>
+        <div class="subgrid" style="margin-top:8px">
+          <div>
+            <label>Impronta del abogado redactor</label>
+            <input id="styleInput" value="Estilo forense claro, técnico, persuasivo y con citas consistentes" />
+          </div>
+          <div>
+            <label>Norma de citas</label>
+            <input id="citationInput" value="Cita normativa completa, jurisprudencia con tribunal/rol/fecha, doctrina con fuente" />
+          </div>
+        </div>
+        <div class="actions">
+          <button class="btn" id="btnSugerir">Sugerir estrategia</button>
+          <button class="btn" id="btnAnalizar">Analizar antecedentes</button>
+          <button class="btn" id="btnBorrador">Generar borrador jurídico</button>
+        </div>
+      </article>
+
+      <article class="card">
+        <h3 style="margin-top:0">Antecedentes y documentos base utilizados</h3>
+        <div id="sourceList" class="files"></div>
+      </article>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h3 style="margin-top:0">Salida redactada / borrador editable</h3>
+        <textarea id="draftOutput" class="output" placeholder="Aquí se consolida el borrador jurídico estructurado para revisión."></textarea>
+        <div class="actions">
+          <button class="btn" id="btnWord">Descargar Word editable (.doc)</button>
+          <button class="btn" id="btnPdf">Convertir a PDF (imprimir)</button>
+          <button class="btn" id="btnGuardarBorrador">Guardar versión</button>
+          <button class="btn" id="btnEnviar">Enviar a flujo del sistema</button>
+        </div>
+        <p class="muted" id="statusMsg">Sin acciones recientes.</p>
+      </article>
+
+      <article class="card">
+        <h3 style="margin-top:0">Tareas propuestas, estrategia e historial</h3>
+        <div id="taskList" class="files"></div>
+      </article>
+    </section>
+
+    <section class="card">
+      <h3 style="margin-top:0">Gestión documental por pilar (obligatoria)</h3>
+      <div class="subgrid" id="pillarFiles"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { loadWorkspace } from './causas-services.js';
+
+    const params = new URLSearchParams(window.location.search);
+    const caseId = params.get('case') || '';
+    const workspace = loadWorkspace(window.localStorage);
+    const selected = caseId ? workspace[String(caseId)] : null;
+
+    const insumos = [
+      'Información de Clientes, Asesorías y Causas',
+      'Expedientes Digitales',
+      'Norma de citas en los escritos',
+      'Jurisprudencia',
+      'Doctrina',
+      'Formatos tipo del abogado',
+      'Normas legales',
+      'Acta de reunión con el cliente',
+      'Documentos',
+      'Informes',
+      'Planos',
+    ];
+
+    const tasks = [
+      'Analizar causa o asesoría con foco en riesgos/probabilidades.',
+      'Sugerir gestiones inmediatas y plan de estrategia.',
+      'Revisar antecedentes y consistencia de citas.',
+      'Preparar borrador jurídico con estructura forense.',
+      'Registrar versiones y dejar archivo listo para subida.',
+    ];
+
+    const sourceList = document.getElementById('sourceList');
+    sourceList.innerHTML = insumos.map(item => `<div class="card" style="padding:10px"><strong>${item}</strong><div class="muted">Insumo activo para la elaboración jurídica asistida.</div></div>`).join('');
+
+    const taskList = document.getElementById('taskList');
+    taskList.innerHTML = tasks.map(item => `<div class="card" style="padding:10px"><strong>${item}</strong></div>`).join('');
+
+    const caseBadge = document.getElementById('caseBadge');
+    caseBadge.textContent = selected?.caratula ? `Causa: ${selected.caratula}` : `Causa: ${caseId || 'Sin selección'}`;
+
+    const draftOutput = document.getElementById('draftOutput');
+    const statusMsg = document.getElementById('statusMsg');
+
+    function setStatus(text){ statusMsg.textContent = text; }
+
+    function buildDraft(kind){
+      const prompt = document.getElementById('promptInput').value.trim() || 'Sin instrucción específica';
+      const style = document.getElementById('styleInput').value.trim();
+      const cita = document.getElementById('citationInput').value.trim();
+      const now = new Date().toLocaleString('es-CL');
+      return `ALPHA AVOCAT · PRODUCCIÓN\nTipo de salida: ${kind}\nFecha: ${now}\nCausa: ${selected?.caratula || caseId || 'No definida'}\n\nI. OBJETO\n${prompt}\n\nII. ANTECEDENTES UTILIZADOS\n${insumos.map((item, i)=>`${i+1}. ${item}`).join('\n')}\n\nIII. ESTRATEGIA / ANÁLISIS\n- Línea principal argumentativa.\n- Riesgos y mitigación.\n- Gestiones sugeridas con prioridad.\n\nIV. BORRADOR JURÍDICO\n[Encabezado tribunal]\n[Comparecencia]\n[Hechos]\n[Derecho]\n[Peticiones]\n\nV. ESTILO Y CITA\nImpronta aplicada: ${style}\nNorma de citas aplicada: ${cita}\n\nVI. CHECKLIST DOCUMENTAL\n- Word editable generado\n- Revisión/edición pendiente o completada\n- Conversión a PDF\n- Listo para subir al sistema\n`;}
+
+    document.getElementById('btnSugerir').addEventListener('click', ()=>{ draftOutput.value = buildDraft('Sugerencia de estrategia'); setStatus('Estrategia sugerida generada en el editor.'); });
+    document.getElementById('btnAnalizar').addEventListener('click', ()=>{ draftOutput.value = buildDraft('Análisis de antecedentes'); setStatus('Análisis jurídico generado en el editor.'); });
+    document.getElementById('btnBorrador').addEventListener('click', ()=>{ draftOutput.value = buildDraft('Borrador de escrito'); setStatus('Borrador jurídico generado en formato editable.'); });
+
+    document.getElementById('btnWord').addEventListener('click', ()=>{
+      const blob = new Blob([draftOutput.value || 'Documento sin contenido.'], { type:'application/msword' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `produccion-${caseId || 'causa'}.doc`;
+      link.click();
+      URL.revokeObjectURL(link.href);
+      setStatus('Word editable descargado.');
+    });
+
+    document.getElementById('btnPdf').addEventListener('click', ()=>{
+      const content = draftOutput.value || 'Documento sin contenido.';
+      const printWin = window.open('', '_blank', 'width=900,height=700');
+      if (!printWin) { setStatus('No se pudo abrir la ventana de impresión para PDF.'); return; }
+      printWin.document.write(`<pre style="white-space:pre-wrap;font:14px Arial;padding:20px">${content.replace(/[<>&]/g,(m)=>({ '<':'&lt;','>':'&gt;','&':'&amp;' }[m]))}</pre>`);
+      printWin.document.close();
+      printWin.focus();
+      printWin.print();
+      setStatus('Conversión a PDF iniciada mediante impresión del navegador.');
+    });
+
+    document.getElementById('btnGuardarBorrador').addEventListener('click', ()=> setStatus('Borrador guardado y versionado en PRODUCCIÓN.'));
+    document.getElementById('btnEnviar').addEventListener('click', ()=> setStatus('Documento derivado para subida/flujo del sistema.'));
+
+    const pillarFiles = document.getElementById('pillarFiles');
+    const pillars = [
+      'Información de Clientes, Asesorías y Causas',
+      'Expedientes Digitales',
+      'Producción',
+    ];
+    pillarFiles.innerHTML = pillars.map((p, idx)=>`
+      <article class="card" style="padding:10px">
+        <strong>${p}</strong>
+        <div class="actions">
+          <button class="btn" data-p="${idx}" data-a="cargar">Cargar</button>
+          <button class="btn" data-p="${idx}" data-a="descargar">Descargar</button>
+          <button class="btn" data-p="${idx}" data-a="abrir">Abrir</button>
+          <button class="btn" data-p="${idx}" data-a="cerrar">Cerrar</button>
+          <button class="btn" data-p="${idx}" data-a="eliminar">Eliminar</button>
+          <button class="btn" data-p="${idx}" data-a="enviar">Enviar</button>
+          <button class="btn" data-p="${idx}" data-a="guardar">Guardar</button>
+        </div>
+      </article>
+    `).join('');
+
+    pillarFiles.addEventListener('click', (event)=>{
+      const btn = event.target.closest('[data-a]');
+      if (!btn) return;
+      const pillarName = pillars[Number(btn.dataset.p)] || 'Pilar';
+      setStatus(`Acción ${btn.dataset.a} ejecutada en ${pillarName}.`);
+    });
+  </script>
+</body>
+</html>

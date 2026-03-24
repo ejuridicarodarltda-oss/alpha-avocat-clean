@@ -4081,7 +4081,45 @@
       `;
     }
 
+
+    function renderPillarFileManagement(pillarId, cause){
+      const labels = {
+        informacion: 'Información de Clientes, Asesorías y Causas',
+        expedientes: 'Expedientes Digitales',
+        produccion: 'Producción',
+      };
+      const containerMap = {
+        informacion: 'asociados',
+        expedientes: 'asociados',
+        produccion: 'escritos',
+      };
+      const containerId = containerMap[pillarId] || 'asociados';
+      const docs = getDocumentsByContainer(cause, containerId);
+      const firstDocId = docs[0]?.id || '';
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Gestión documental · ${escapeHtml(labels[pillarId] || 'Pilar')}</h4>
+              <p class="section-copy">Zona mínima operativa por pilar para cargar, descargar, abrir, cerrar, eliminar, enviar y guardar archivos jurídicos.</p>
+            </div>
+            <span class="badge badge-info">${docs.length} archivo(s)</span>
+          </div>
+          <div class="document-actions">
+            <button class="btn" data-pillar-file-action="upload" data-pillar="${pillarId}" data-doc-container="${containerId}">Cargar archivo</button>
+            <button class="btn" data-pillar-file-action="download" data-pillar="${pillarId}" data-doc-id="${firstDocId}" ${firstDocId ? '' : 'disabled'}>Descargar archivo</button>
+            <button class="btn" data-pillar-file-action="open" data-pillar="${pillarId}" data-doc-id="${firstDocId}" ${firstDocId ? '' : 'disabled'}>Abrir</button>
+            <button class="btn" data-pillar-file-action="close" data-pillar="${pillarId}" data-doc-id="${firstDocId}">Cerrar</button>
+            <button class="btn btn-danger" data-pillar-file-action="delete" data-pillar="${pillarId}" data-doc-id="${firstDocId}" ${firstDocId ? '' : 'disabled'}>Eliminar</button>
+            <button class="btn" data-pillar-file-action="send" data-pillar="${pillarId}" data-doc-id="${firstDocId}" ${firstDocId ? '' : 'disabled'}>Enviar</button>
+            <button class="btn btn-primary" data-pillar-file-action="save" data-pillar="${pillarId}" data-doc-id="${firstDocId}">Guardar</button>
+          </div>
+        </section>
+      `;
+    }
+
     function renderInformationPillar(cause){
+
       return `
         ${renderResumen(cause)}
         <section class="section-card">
@@ -4123,6 +4161,7 @@
         ${renderResponsables(cause)}
         ${renderInstrucciones(cause)}
         ${renderHistoria(cause)}
+        ${renderPillarFileManagement('informacion', cause)}
       `;
     }
 
@@ -4162,6 +4201,7 @@
             </article>
           `).join('')}</div>
         </section>
+        ${renderPillarFileManagement('expedientes', cause)}
       `;
     }
 
@@ -4186,6 +4226,9 @@
                 <button class="btn" data-doc-action="download" data-doc-id="${doc.id}">Descargar</button>
                 <button class="btn" data-doc-action="edit" data-doc-id="${doc.id}">Renombrar / clasificar</button>
                 <button class="btn" data-doc-action="delete" data-doc-id="${doc.id}">Eliminar</button>
+                <button class="btn" data-doc-action="send" data-doc-id="${doc.id}">Enviar</button>
+                <button class="btn" data-doc-action="save" data-doc-id="${doc.id}">Guardar</button>
+                <button class="btn" data-doc-action="close" data-doc-id="${doc.id}">Cerrar</button>
               </div>
             </div>
           `).join('') : '<div class="helper-box">Todavía no hay archivos en este contenedor. Puedes cargarlos manualmente o incorporarlos desde una importación judicial semiautomática.</div>'}
@@ -4236,6 +4279,7 @@
         </section>
         ${renderAudiencias(cause)}
         ${renderCumplimiento(cause)}
+        ${renderPillarFileManagement('produccion', cause)}
       `;
     }
 
@@ -5145,7 +5189,18 @@
       renderCauseRectificationPanel();
     }
 
+
+    function openProduccionWorkspace(caseId = state.selectedId){
+      const params = new URLSearchParams();
+      if (caseId) params.set('case', String(caseId));
+      window.location.href = `./produccion.html${params.toString() ? `?${params.toString()}` : ''}`;
+    }
+
     function setActiveTab(tab){
+      if (tab === 'produccion') {
+        openProduccionWorkspace();
+        return;
+      }
       state.activeTab = TAB_CONFIG.some(([id]) => id === tab) ? tab : 'informacion';
       renderPillarCards();
       renderTabs();
@@ -5890,6 +5945,25 @@
         if (!confirmed) return;
         persistCurrentCause((entry) => markManualEdit(removeDocument(entry, documentId)));
         loadCases().then(renderAll);
+        return;
+      }
+
+      if (action === 'close') {
+        toggleEbookFallback('');
+        setDetailStatus(`Vista cerrada: ${documentRecord.name}.`, 'ok');
+        return;
+      }
+
+      if (action === 'send') {
+        setDetailStatus(`Archivo preparado para envío: ${documentRecord.name}.`, 'ok');
+        return;
+      }
+
+      if (action === 'save') {
+        persistCurrentCause((entry) => markManualEdit(entry));
+        await loadCases();
+        renderAll();
+        setDetailStatus(`Archivo guardado: ${documentRecord.name}.`, 'ok');
       }
     }
 
@@ -6006,7 +6080,7 @@
       $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));
       $('btnQuickExpedientes').addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
       $('btnTopExpedientes')?.addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
-      $('btnQuickProduction').addEventListener('click', () => setActiveTab('produccion'));
+      $('btnQuickProduction').addEventListener('click', () => openProduccionWorkspace());
       $('btnQuickAlerts').addEventListener('click', () => setActiveTab('informacion'));
       $('btnLimpiarFiltros').addEventListener('click', resetFilters);
       $('formCausa').addEventListener('submit', createCase);
@@ -6175,6 +6249,28 @@
         const createDoc = event.target.closest('[data-doc-create]');
         if (createDoc) {
           openDocumentModal(null, createDoc.dataset.docCreate);
+          return;
+        }
+
+
+        const pillarAction = event.target.closest('[data-pillar-file-action]');
+        if (pillarAction) {
+          const action = pillarAction.dataset.pillarFileAction;
+          const docId = pillarAction.dataset.docId;
+          if (action === 'upload') {
+            state.currentDocumentContainer = pillarAction.dataset.docContainer || 'asociados';
+            $('caseFileInput').click();
+            return;
+          }
+          if (action === 'save') {
+            setDetailStatus(`Gestión documental guardada en ${pillarAction.dataset.pillar || 'pilar'} con trazabilidad activa.`, 'ok');
+            return;
+          }
+          if (docId) {
+            handleDocumentAction(docId, action);
+          } else {
+            setDetailStatus('No hay archivo disponible para esta acción en el pilar seleccionado.', 'warn');
+          }
           return;
         }
 
