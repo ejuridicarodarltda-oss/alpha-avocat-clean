@@ -461,7 +461,7 @@
     }
 
     .filter-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-    .summary-metrics{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .summary-metrics{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .detail-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .grid-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .grid-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -571,6 +571,10 @@
       display:grid;
       align-content:start;
       gap:6px;
+    }
+
+    .causas-page .summary-metrics .metric.metric-wide{
+      grid-column:1 / -1;
     }
 
     .metric strong,
@@ -3807,9 +3811,9 @@
       $('summaryMetrics').innerHTML = [
         { label:'Información base', value:cases.length, helper:'Clientes, asesorías y causas activas dentro del módulo.' },
         { label:'Expedientes digitales', value:tribunalFolders, helper:'Archivadores tribunal activos dentro de Cliente.' },
-        { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.' },
+        { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.', fullWidth:true },
       ].map(item => `
-        <article class="metric">
+        <article class="metric ${item.fullWidth ? 'metric-wide' : ''}">
           <span class="mini-label">${escapeHtml(item.label)}</span>
           <strong>${escapeHtml(item.value)}</strong>
           <small>${escapeHtml(item.helper)}</small>
