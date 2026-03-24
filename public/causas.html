@@ -593,12 +593,71 @@
       padding-right:0;
     }
 
+    .causas-page .kardex-card{
+      border-radius:20px;
+      border:1px solid rgba(31,90,83,.3);
+      background:linear-gradient(180deg,#c6ddd8 0%, #b0cec8 100%);
+      box-shadow:0 14px 30px rgba(15,50,46,.18);
+      overflow:hidden;
+    }
+
+    .causas-page .kardex-header{
+      width:100%;
+      border:none;
+      background:linear-gradient(180deg,#688a86 0%, #4f716d 100%);
+      color:#f5fffe;
+      padding:12px 14px;
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      cursor:pointer;
+      text-align:left;
+    }
+
+    .causas-page .kardex-header .segment-title{ color:#f5fffe; }
+    .causas-page .kardex-header::after{
+      content:'▸';
+      margin-left:auto;
+      color:#d8ebe8;
+      font-size:14px;
+      transition:transform .16s ease;
+    }
+    .causas-page .kardex-card.open .kardex-header::after{ transform:rotate(90deg); }
+    .causas-page .kardex-body{
+      display:none;
+      padding:12px;
+      gap:10px;
+    }
+    .causas-page .kardex-card.open .kardex-body{ display:grid; }
+
     .causas-page .list-card{
       display:grid;
       gap:8px;
       cursor:pointer;
       transition:transform .18s ease, border-color .18s ease, background .18s ease;
       position:relative;
+    }
+
+    .causas-page .archivador-card{
+      border-radius:14px;
+      background:linear-gradient(180deg,#f2d9ac 0%, #e8c894 100%);
+      border-color:rgba(123,90,38,.28);
+      box-shadow:0 10px 18px rgba(90,65,28,.16);
+      padding-top:24px;
+    }
+    .causas-page .archivador-tab{
+      position:absolute;
+      top:7px;
+      left:14px;
+      padding:4px 10px;
+      border-radius:8px 8px 0 0;
+      background:#d8b06f;
+      border:1px solid rgba(123,90,38,.3);
+      border-bottom:none;
+      font-size:10px;
+      letter-spacing:.06em;
+      font-weight:800;
+      color:#4f3b1d;
     }
 
     .list-card::after,
@@ -1129,6 +1188,13 @@
       align-content:start;
     }
 
+    .causas-page .explorer-grid-view.folders-paired{
+      grid-template-columns:repeat(2, minmax(0, 1fr));
+    }
+    .causas-page .explorer-grid-view.folders-paired .explorer-card:last-child:nth-child(odd){
+      grid-column:1 / -1;
+    }
+
     .causas-page .explorer-card{
       display:grid;
       gap:12px;
@@ -1141,6 +1207,42 @@
       cursor:pointer;
       transition:transform .18s ease, box-shadow .18s ease, border-color .18s ease;
       position:relative;
+    }
+
+    .causas-page .explorer-portada{
+      position:absolute;
+      top:8px;
+      left:10px;
+      font-size:10px;
+      font-weight:800;
+      letter-spacing:.06em;
+      color:#314d49;
+      background:rgba(255,255,255,.66);
+      border:1px solid rgba(95,159,151,.28);
+      border-radius:999px;
+      padding:4px 8px;
+    }
+
+    .causas-page .explorer-card.is-kardex{
+      background:linear-gradient(180deg,#6f8c88 0%, #54726e 100%);
+      color:#f2fffc;
+      border-color:rgba(255,255,255,.24);
+    }
+    .causas-page .explorer-card.is-archivador{
+      background:linear-gradient(180deg,#efddb8 0%, #dfc08f 100%);
+      border-color:rgba(123,90,38,.3);
+    }
+    .causas-page .explorer-card.is-folder{
+      background:linear-gradient(180deg,#f2e0b7 0%, #e9cf98 100%);
+      border-color:rgba(136,99,45,.32);
+    }
+    .causas-page .explorer-card.is-book{
+      background:linear-gradient(180deg,#d9e4ff 0%, #b7c8ef 100%);
+      border-color:rgba(47,77,143,.3);
+    }
+    .causas-page .explorer-card.is-booklet{
+      background:linear-gradient(180deg,#f5f8ff 0%, #dbe6ff 100%);
+      border-color:rgba(56,84,145,.26);
     }
 
     .causas-page .explorer-card:hover{
@@ -2031,10 +2133,22 @@
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
       },
+      openKardexByTribunal: {},
       rectificationOpen: false,
       rectificationScope: 'general',
       rectificationValidation: null
     };
+
+    const KARDEX_GROUPS = [
+      'Causas Juzgados Civiles',
+      'Causas Juzgado de Familia',
+      'Causas Juzgado del Trabajo',
+      'Causas Juzgado de Cobranza',
+      'Causas Juzgado de Garantía',
+      'Tribunal Oral en lo Penal',
+      'Juzgado de Policía Local',
+      'Otros Tribunales'
+    ];
 
     const detailActions = [
       { id:'editar', label:'Editar', action:() => openModal() },
@@ -2863,14 +2977,55 @@
 
     function explorerNodeIcon(type){
       return ({
+        kardex: '🗂️',
         archivador: '🗃️',
         folder: '📁',
+        book: '📚',
+        'book-doctrina': '📙',
+        'book-jurisprudencia': '📗',
+        'booklet-acta': '📒',
+        'booklet-informe': '📓',
+        'booklet-escrito': '📔',
+        'booklet-certificado': '📑',
+        'booklet-declaracion': '📘',
+        'booklet-peritaje': '📕',
         pdf: '📕',
         word: '📘',
         image: '🖼️',
         zip: '🗜️',
         file: '📄',
       })[type] || '📄';
+    }
+
+    function explorerTypeLabel(type){
+      return ({
+        kardex: 'Kardex',
+        archivador: 'Archivador',
+        folder: 'Carpeta',
+        book: 'Ebook',
+        'book-doctrina': 'Doctrina',
+        'book-jurisprudencia': 'Jurisprudencia',
+        'booklet-acta': 'Acta',
+        'booklet-informe': 'Informe',
+        'booklet-escrito': 'Escrito',
+        'booklet-certificado': 'Certificado',
+        'booklet-declaracion': 'Declaración',
+        'booklet-peritaje': 'Peritaje',
+        pdf: 'PDF',
+        word: 'Word',
+        image: 'Foto',
+        zip: 'ZIP',
+        file: 'Documento',
+      })[type] || 'Archivo';
+    }
+
+    function explorerVisualClass(node){
+      if (!node) return '';
+      if (node.type === 'kardex') return 'is-kardex';
+      if (node.type === 'archivador') return 'is-archivador';
+      if (node.type.startsWith('book')) return 'is-book';
+      if (node.type.startsWith('booklet') || ['pdf', 'word', 'file', 'image', 'zip'].includes(node.type)) return 'is-booklet';
+      return 'is-folder';
     }
 
     function formatExplorerSize(bytes){
@@ -2956,14 +3111,15 @@
     }
 
     function renderExplorerItem(node){
-      const isFolderLike = ['archivador','folder'].includes(node.type);
+      const isFolderLike = ['kardex','archivador','folder'].includes(node.type);
       const meta = [
-        node.extension ? `.${node.extension}` : (node.type === 'archivador' ? 'Archivador' : (node.type === 'folder' ? 'Carpeta' : 'Archivo')),
+        node.extension ? `.${node.extension}` : explorerTypeLabel(node.type),
         node.updatedAt ? formatDate(node.updatedAt) : '',
         !isFolderLike ? formatExplorerSize(node.size) : `${node.children?.length || 0} elemento(s)`,
       ].filter(Boolean);
       return `
-        <article class="explorer-card ${isFolderLike ? 'folder' : 'file'}" data-explorer-node="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(node.name)}">
+        <article class="explorer-card ${isFolderLike ? 'folder' : 'file'} ${explorerVisualClass(node)}" data-explorer-node="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(node.name)}">
+          <div class="explorer-portada">${escapeHtml(explorerTypeLabel(node.type).toUpperCase())}</div>
           <div class="explorer-card-icon" aria-hidden="true">${node.thumbnailUrl && node.type === 'image'
             ? `<img src="${escapeHtml(node.thumbnailUrl)}" alt="">`
             : explorerNodeIcon(node.type)}</div>
@@ -2977,21 +3133,13 @@
     }
 
     function renderExplorerListRow(node){
-      const kind = ({
-        archivador:'Archivador',
-        folder:'Carpeta',
-        pdf:'PDF',
-        word:'Word',
-        image:'Imagen',
-        zip:'ZIP',
-        file:'Archivo',
-      })[node.type] || 'Archivo';
+      const kind = explorerTypeLabel(node.type);
       return `
         <tr data-explorer-node="${node.id}">
           <td><span class="explorer-list-name"><span aria-hidden="true">${explorerNodeIcon(node.type)}</span>${escapeHtml(node.name)}</span></td>
           <td>${escapeHtml(kind)}</td>
           <td>${escapeHtml(node.updatedAt ? formatDate(node.updatedAt) : '—')}</td>
-          <td>${escapeHtml(['archivador','folder'].includes(node.type) ? `${node.children?.length || 0} elemento(s)` : formatExplorerSize(node.size))}</td>
+          <td>${escapeHtml(['kardex','archivador','folder'].includes(node.type) ? `${node.children?.length || 0} elemento(s)` : formatExplorerSize(node.size))}</td>
         </tr>
       `;
     }
@@ -3000,21 +3148,13 @@
       if (!node) {
         return '<div class="helper-box">Selecciona un archivador, carpeta o archivo para revisar su contexto documental.</div>';
       }
-      const isFile = !['archivador','folder'].includes(node.type);
+      const isFile = !['kardex','archivador','folder'].includes(node.type);
       const breadcrumbs = (node.path || '').split(' / ').filter(Boolean).join(' / ');
       return `
         <div class="explorer-preview-card">
           <div class="case-top">
             <strong>${escapeHtml(node.name)}</strong>
-            <span class="badge badge-info">${escapeHtml(({
-              archivador:'Archivador',
-              folder:'Carpeta',
-              pdf:'PDF',
-              word:'Word',
-              image:'Imagen',
-              zip:'ZIP',
-              file:'Archivo',
-            })[node.type] || 'Archivo')}</span>
+            <span class="badge badge-info">${escapeHtml(explorerTypeLabel(node.type))}</span>
           </div>
           <div class="timeline-meta">${escapeHtml(breadcrumbs || `Cliente / ${cause.caratula || cause.rol || 'Causa'}`)}</div>
           <div class="micro-grid">
@@ -3045,6 +3185,7 @@
         return '<div class="explorer-state">Esta causa aún no contiene archivos en Expedientes Digitales.</div>';
       }
       const currentNode = explorer.currentNode || explorer.model.nodeMap[explorer.model.rootId];
+      const pairedFolders = explorer.items.length > 0 && explorer.items.every((item) => ['folder'].includes(item.type));
       const itemsMarkup = state.explorer.viewMode === 'list'
         ? `
           <div class="explorer-list-wrap">
@@ -3055,7 +3196,7 @@
           </div>
         `
         : `
-          <div class="explorer-grid-view">
+          <div class="explorer-grid-view ${pairedFolders ? 'folders-paired' : ''}">
             ${explorer.items.map(renderExplorerItem).join('') || '<div class="helper-box">No hay elementos visibles en este nivel del expediente digital.</div>'}
           </div>
         `;
@@ -3626,40 +3767,74 @@
         return;
       }
       if (!state.selectedId || !list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
+      const inferKardexLabel = (tribunal = '') => {
+        const lower = String(tribunal || '').toLowerCase();
+        if (lower.includes('civil')) return 'Causas Juzgados Civiles';
+        if (lower.includes('familia')) return 'Causas Juzgado de Familia';
+        if (lower.includes('trabajo') || lower.includes('laboral')) return 'Causas Juzgado del Trabajo';
+        if (lower.includes('cobranza')) return 'Causas Juzgado de Cobranza';
+        if (lower.includes('garant')) return 'Causas Juzgado de Garantía';
+        if (lower.includes('oral') && lower.includes('penal')) return 'Tribunal Oral en lo Penal';
+        if (lower.includes('polic') && lower.includes('local')) return 'Juzgado de Policía Local';
+        return 'Otros Tribunales';
+      };
+      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
+      list.forEach((item) => grouped.get(inferKardexLabel(item.tribunal)).push(item));
+      KARDEX_GROUPS.forEach((label) => {
+        if (state.openKardexByTribunal[label] == null) state.openKardexByTribunal[label] = false;
+      });
+      const selectedCase = list.find((item) => item.id === state.selectedId);
+      if (selectedCase) state.openKardexByTribunal[inferKardexLabel(selectedCase.tribunal)] = true;
 
-      $('casesList').innerHTML = list.map(item => {
-        const days = daysBetween(item.proximoPlazo);
-        const selected = item.id === state.selectedId ? 'selected' : '';
-        return `
-          <article class="list-card ${selected}" data-select="${item.id}">
-            <div class="case-top">
-              <div>
-                <div class="case-kicker">${escapeHtml(item.rol)} · ${escapeHtml(item.rit || 'Sin RIT')} · ${escapeHtml(item.ruc || 'Sin RUC')}</div>
-                <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
+      $('casesList').innerHTML = KARDEX_GROUPS
+        .filter((label) => (grouped.get(label) || []).length)
+        .map((label) => {
+          const items = grouped.get(label) || [];
+          const isOpen = Boolean(state.openKardexByTribunal[label]);
+          return `
+            <section class="kardex-card ${isOpen ? 'open' : ''}">
+              <button class="kardex-header" data-kardex-toggle="${escapeHtml(label)}" aria-expanded="${isOpen ? 'true' : 'false'}">
+                <div>
+                  <div class="case-kicker">KÁRDEX TRIBUNAL</div>
+                  <h4 class="segment-title">${escapeHtml(label)}</h4>
+                </div>
+                <span class="badge badge-info">${items.length} causa(s)</span>
+              </button>
+              <div class="kardex-body">
+                ${items.map((item) => {
+                  const days = daysBetween(item.proximoPlazo);
+                  const selected = item.id === state.selectedId ? 'selected' : '';
+                  return `
+                    <article class="list-card archivador-card ${selected}" data-select="${item.id}">
+                      <div class="archivador-tab">ARCHIVADOR CAUSA</div>
+                      <div class="case-top">
+                        <div>
+                          <div class="case-kicker">${escapeHtml(item.rol)} · ${escapeHtml(item.rit || 'Sin RIT')} · ${escapeHtml(item.ruc || 'Sin RUC')}</div>
+                          <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
+                        </div>
+                        <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
+                      </div>
+                      <div class="detail-grid">
+                        <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
+                        <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
+                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
+                        <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
+                      </div>
+                      <div class="case-footer">
+                        <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
+                        <div class="case-actions">
+                          <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
+                          <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
+                          <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
+                        </div>
+                      </div>
+                    </article>
+                  `;
+                }).join('')}
               </div>
-              <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
-            </div>
-            <div class="detail-grid">
-              <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
-              <div><span class="mini-label">Asesorías</span><div class="case-meta">${escapeHtml((item.asesorias || []).length)} vinculada(s)</div></div>
-              <div><span class="mini-label">Materia</span><div class="case-meta">${escapeHtml(item.materia)}</div></div>
-              <div><span class="mini-label">Estado procesal</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
-              <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
-              <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
-              <div><span class="mini-label">Última gestión</span><div class="case-meta">${escapeHtml(formatDate(item.ultimaGestion))}</div></div>
-              <div><span class="mini-label">Abogado responsable</span><div class="case-meta">${escapeHtml(item.responsable)}</div></div>
-            </div>
-            <div class="case-footer">
-              <div class="case-meta">Cliente: ${escapeHtml(item.cliente)}</div>
-              <div class="case-actions">
-                <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
-                <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
-                <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
-              </div>
-            </div>
-          </article>
-        `;
-      }).join('');
+            </section>
+          `;
+        }).join('');
     }
 
     function renderTabs(){
@@ -5715,6 +5890,13 @@
       });
 
       $('casesList').addEventListener('click', event => {
+        const kardexToggle = event.target.closest('[data-kardex-toggle]');
+        if (kardexToggle) {
+          const label = kardexToggle.dataset.kardexToggle;
+          state.openKardexByTribunal[label] = !state.openKardexByTribunal[label];
+          renderList();
+          return;
+        }
         const jump = event.target.closest('[data-jump]');
         if (jump) {
           state.selectedId = jump.dataset.case;
@@ -5782,7 +5964,7 @@
           const node = explorer.model?.nodeMap?.[explorerNode.dataset.explorerNode];
           if (node) {
             state.explorer.selectedNodeId = node.id;
-            if (['archivador','folder'].includes(node.type)) {
+            if (['kardex','archivador','folder'].includes(node.type)) {
               const expanded = new Set(state.explorer.expandedNodeIds || []);
               expanded.add(node.id);
               state.explorer.expandedNodeIds = Array.from(expanded);
