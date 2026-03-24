@@ -1585,9 +1585,9 @@
           <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
         </div>
         <div class="screen-actions">
-          <button class="btn" id="btnQuickInfo">Ir a información base</button>
-          <button class="btn" id="btnQuickExpedientes">Abrir Expedientes Digitales</button>
-          <button class="btn" id="btnQuickProduction">Ir a producción</button>
+          <button class="btn" id="btnQuickInfo">Información de Clientes, Asesorías y Causas</button>
+          <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
+          <button class="btn" id="btnQuickProduction">Producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
       </div>
@@ -2129,6 +2129,21 @@
       ['produccion', 'Producción'],
     ];
 
+    const BRANCH_DESTINATIONS = {
+      informacion: {
+        label: 'Información de Clientes, Asesorías y Causas',
+        href: './clientes.html',
+      },
+      expedientes: {
+        label: 'Expedientes Digitales',
+        href: './expedientes-digitales.html',
+      },
+      produccion: {
+        label: 'Producción',
+        href: './produccion.html',
+      },
+    };
+
     const $ = (id) => document.getElementById(id);
     const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
     const shortDate = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeZone: 'UTC' });
@@ -2201,6 +2216,50 @@
 
     function escapeHtml(value=''){
       return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[char]));
+    }
+
+    function openBranchScreen(branch, origin = 'unknown'){
+      const destination = BRANCH_DESTINATIONS[branch];
+      if (!destination?.href) {
+        console.error(`[CAUSAS][NAVEGACIÓN] No existe destino configurado para "${branch}".`, { origin, branch, destination });
+        return;
+      }
+      try {
+        const url = new URL(destination.href, window.location.href);
+        console.info(`[CAUSAS][NAVEGACIÓN] Abriendo "${destination.label}" desde ${origin}.`, { origin, branch, href: url.toString() });
+        window.location.href = url.toString();
+      } catch (error) {
+        console.error(`[CAUSAS][NAVEGACIÓN] URL inválida para "${destination.label}".`, { origin, branch, destination, error });
+      }
+    }
+
+    function diagnoseBranchButton(buttonId, expectedBranch){
+      const button = $(buttonId);
+      if (!button) {
+        console.error(`[CAUSAS][DIAGNÓSTICO] No se encontró el botón #${buttonId}.`);
+        return;
+      }
+      const computed = window.getComputedStyle(button);
+      const disabled = button.disabled || button.getAttribute('aria-disabled') === 'true';
+      const centerX = button.offsetWidth ? (button.getBoundingClientRect().left + button.getBoundingClientRect().width / 2) : null;
+      const centerY = button.offsetHeight ? (button.getBoundingClientRect().top + button.getBoundingClientRect().height / 2) : null;
+      const topElement = centerX != null && centerY != null ? document.elementFromPoint(centerX, centerY) : null;
+      const visuallyBlocked = topElement ? !button.contains(topElement) && !topElement.contains(button) : false;
+      if (disabled || computed.pointerEvents === 'none' || computed.visibility === 'hidden' || computed.display === 'none' || visuallyBlocked) {
+        console.warn('[CAUSAS][DIAGNÓSTICO] Riesgo de botón no clickeable detectado.', {
+          buttonId,
+          expectedBranch,
+          disabled,
+          pointerEvents: computed.pointerEvents,
+          visibility: computed.visibility,
+          display: computed.display,
+          visuallyBlocked,
+          topElementTag: topElement?.tagName || null,
+          topElementClass: topElement?.className || null,
+        });
+        return;
+      }
+      console.info('[CAUSAS][DIAGNÓSTICO] Botón operativo detectado.', { buttonId, expectedBranch });
     }
 
     function formatDate(value){
@@ -3823,8 +3882,8 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:selected ? `${selected.cliente}` : 'Base general', button:'Abrir Información' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes' },
+        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:selected ? `${selected.cliente}` : 'Base general', button:'Abrir Información de Clientes, Asesorías y Causas' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes Digitales' },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
@@ -6003,11 +6062,14 @@
       });
       $('btnCalendario').addEventListener('click', () => window.location.href = './agenda.html');
       $('btnActualizarEstado').addEventListener('click', openSyncModal);
-      $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));
-      $('btnQuickExpedientes').addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
-      $('btnTopExpedientes')?.addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
-      $('btnQuickProduction').addEventListener('click', () => setActiveTab('produccion'));
+      $('btnQuickInfo').addEventListener('click', () => openBranchScreen('informacion', 'btnQuickInfo'));
+      $('btnQuickExpedientes').addEventListener('click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'));
+      $('btnTopExpedientes')?.addEventListener('click', () => openBranchScreen('expedientes', 'btnTopExpedientes'));
+      $('btnQuickProduction').addEventListener('click', () => openBranchScreen('produccion', 'btnQuickProduction'));
       $('btnQuickAlerts').addEventListener('click', () => setActiveTab('informacion'));
+      diagnoseBranchButton('btnQuickInfo', 'informacion');
+      diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
+      diagnoseBranchButton('btnQuickProduction', 'produccion');
       $('btnLimpiarFiltros').addEventListener('click', resetFilters);
       $('formCausa').addEventListener('submit', createCase);
       $('formImportacion').addEventListener('submit', createOrUpdateImportedCase);
@@ -6098,6 +6160,10 @@
       $('pillarGrid').addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
+        if (event.target.closest('[data-open-block]')) {
+          openBranchScreen(tab.dataset.tab, `pillarGrid:${tab.dataset.tab}`);
+          return;
+        }
         setActiveTab(tab.dataset.tab);
       });
 

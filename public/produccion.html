@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Producción — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(180deg,#245f59,#2D7C74);color:#10211f;}
+    .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#6f1728,#7A1E2C);}
+    .brand{color:#fff;font-weight:800;font-size:22px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#fff;color:#10211f;border-radius:14px;padding:9px 12px;font-weight:700;cursor:pointer;text-decoration:none}
+    .shell{padding:14px;display:grid;gap:12px;max-width:1400px;margin:0 auto}
+    .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
+    .title{margin:0;color:#1f5a53}
+    .subtitle{margin:6px 0 0;color:#1f3b37}
+    .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+    .item{background:#fff;border:1px solid #8ec7be;border-radius:16px;padding:12px}
+    .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#1f5a53}
+    .muted{color:#355652;font-size:13px}
+    .empty{background:#fff;border:1px dashed #8ec7be;border-radius:16px;padding:16px}
+    @media (max-width:900px){.grid{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Alpha Avocat · Producción</div>
+    <div class="actions">
+      <a class="btn" href="./causas.html">Volver a Causas</a>
+      <a class="btn" href="./agenda.html">Agenda</a>
+      <a class="btn" href="./clientes.html">Clientes</a>
+      <button id="btnLogout" class="btn">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="card">
+      <h2 class="title">PRODUCCIÓN</h2>
+      <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
+    </section>
+    <section class="card">
+      <div class="grid" id="productionGrid"></div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { supabase, logout } from './app.js';
+
+    const grid = document.getElementById('productionGrid');
+    const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
+
+    async function ensureAuth(){
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session) {
+        window.location.href = './login.html';
+      }
+    }
+
+    function toList(value){
+      if (Array.isArray(value)) return value;
+      if (!value) return [];
+      try {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return Array.isArray(parsed) ? parsed : [];
+      } catch (_error) {
+        return [];
+      }
+    }
+
+    function buildProductionCards(cases, clientsMap){
+      const cards = [];
+      (cases || []).forEach((cause) => {
+        const escritos = toList(cause.production_documents || cause.escritos || []);
+        const hitos = toList(cause.production_milestones || cause.hitos_produccion || []);
+        const total = escritos.length + hitos.length;
+        if (!total) return;
+        cards.push(`
+          <article class="item">
+            <div class="kicker">Causa</div>
+            <strong>${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</strong>
+            <div class="muted">Cliente: ${escapeHtml(clientsMap.get(cause.client_id) || 'Sin cliente asociado')}</div>
+            <div class="muted">Producción asociada: ${total} elemento(s).</div>
+            <div class="muted">Escritos: ${escritos.length} · Hitos: ${hitos.length}</div>
+          </article>
+        `);
+      });
+      return cards;
+    }
+
+    async function loadProduction(){
+      const [{ data: clients }, { data: causes, error }] = await Promise.all([
+        supabase.from('clients').select('id,full_name,name'),
+        supabase.from('cases').select('*').order('updated_at', { ascending: false }),
+      ]);
+      if (error) {
+        console.error('[PRODUCCIÓN] Error cargando causas', error);
+        grid.innerHTML = `<article class="empty">No fue posible cargar la producción: ${escapeHtml(error.message)}</article>`;
+        return;
+      }
+      const clientsMap = new Map((clients || []).map((client) => [client.id, client.full_name || client.name || 'Cliente sin nombre']));
+      const cards = buildProductionCards(causes || [], clientsMap);
+      grid.innerHTML = cards.length
+        ? cards.join('')
+        : '<article class="empty">No hay elementos de producción registrados todavía.</article>';
+    }
+
+    document.getElementById('btnLogout').addEventListener('click', logout);
+
+    ensureAuth().then(loadProduction);
+  </script>
+</body>
+</html>
