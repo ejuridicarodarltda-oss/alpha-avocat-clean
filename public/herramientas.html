@@ -1,0 +1,424 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Herramientas — Alpha Avocat</title>
+<link rel="stylesheet" href="style.css?v=46">
+<link rel="icon" type="image/png" sizes="192x192" href="./img/alpha_icon_192.png">
+<link rel="icon" type="image/png" sizes="512x512" href="./img/alpha_icon_512.png">
+<link rel="apple-touch-icon" href="./img/apple_dash_icon.png">
+<link rel="manifest" href="./site.webmanifest">
+</head>
+<body class="panel-page tools-page">
+<div class="mobile-stage">
+<div class="layout" id="appLayout">
+<aside class="sidebar">
+<div class="logo">
+<img src="img/logo-alpha-avocat.png" class="logo-spin" alt="Alpha Avocat Logo">
+<div class="logo-texto">
+<h1>ALPHA AVOCAT</h1>
+<p>Sistema de Gestión Jurídica Inteligente</p>
+<p class="autor">Mario Javier Rodríguez Ardiles</p>
+</div>
+</div>
+<nav class="menu">
+<a class="inicio" href="panel.html"><span class="icon icon-home">🏠</span>Inicio</a>
+<a class="clientes" href="clientes.html"><span class="icon icon-clientes">👥</span>Clientes</a>
+<a class="causas" href="causas.html"><span class="icon icon-causas">📂</span>Causas</a>
+<a class="agenda" href="agenda.html"><span class="icon icon-agenda">📅</span>Agenda</a>
+<a class="herramientas active" href="herramientas.html"><span class="icon icon-herramientas">🧰</span>Herramientas</a>
+<a class="config" href="configuracion.html"><span class="icon icon-config">⚙</span>Configuración</a>
+</nav>
+<div class="user-status">Usuario conectado</div>
+</aside>
+<main class="main">
+<header class="topbar">
+<div class="topbar-left">
+<input id="panelSearch" class="search" placeholder="Buscar herramienta" aria-label="Buscar en herramientas">
+<nav class="topbar-nav" aria-label="Navegación principal">
+<a class="topbar-nav-link" href="panel.html">Panel</a>
+<a class="topbar-nav-link" href="clientes.html">Clientes</a>
+<a class="topbar-nav-link" href="causas.html">Causas</a>
+<a class="topbar-nav-link" href="carga.html">Carga</a>
+<a class="topbar-nav-link" href="agenda.html">Agenda</a>
+<a class="topbar-nav-link active" href="herramientas.html">Herramientas</a>
+<a class="topbar-nav-link" href="configuracion.html">Configuración</a>
+</nav>
+</div>
+<div class="top-info">
+<button id="modo-toggle" class="modo-btn" aria-label="Cambiar modo">🌙</button>
+<span id="fecha"></span>
+<div class="usuario">
+<img src="avatars/usuario.jpg" onerror="this.src='avatars/default-avatar.png'" class="avatar" alt="Usuario">
+<span>Usuario Activo</span>
+</div>
+<button id="cerrar-sesion-btn" class="cerrar-sesion-btn">Cerrar sesión</button>
+</div>
+</header>
+
+<section class="tools-shell">
+<section class="tools-hero">
+<h2>HERRAMIENTAS</h2>
+<p>Utilidades operativas del estudio: reloj ejecutivo, calendario mensual, calculadora y configuración inicial de impresoras, escáneres y cámaras.</p>
+</section>
+
+<section class="tools-grid-top">
+<article class="tool-card">
+<h3>Reloj clásico</h3>
+<div class="tool-clock-wrap">
+<canvas id="classicClock" class="tool-clock-canvas" width="320" height="320" aria-label="Reloj clásico analógico"></canvas>
+<div id="clockDigital" class="tool-clock-time">--:--:--</div>
+<div id="clockDate" class="tool-clock-date">--</div>
+</div>
+</article>
+
+<article class="tool-card">
+<h3>Calendario mensual</h3>
+<div class="tool-calendar-head">
+<button id="calendarPrev" class="tool-calendar-nav" type="button" aria-label="Mes anterior">◀</button>
+<strong id="calendarTitle">Mes</strong>
+<button id="calendarNext" class="tool-calendar-nav" type="button" aria-label="Mes siguiente">▶</button>
+</div>
+<div id="calendarGrid" class="tool-calendar-grid" aria-live="polite"></div>
+</article>
+
+<article class="tool-card">
+<h3>Calculadora</h3>
+<div class="tool-calculator">
+<input id="calcDisplay" class="tool-calculator-display" type="text" value="0" readonly aria-label="Resultado calculadora">
+<div class="tool-calculator-keys" id="calcKeys">
+<button type="button" data-action="clear" class="is-op">C</button>
+<button type="button" data-action="delete" class="is-op">⌫</button>
+<button type="button" data-value="/" class="is-op">÷</button>
+<button type="button" data-value="*" class="is-op">×</button>
+<button type="button" data-value="7">7</button>
+<button type="button" data-value="8">8</button>
+<button type="button" data-value="9">9</button>
+<button type="button" data-value="-" class="is-op">−</button>
+<button type="button" data-value="4">4</button>
+<button type="button" data-value="5">5</button>
+<button type="button" data-value="6">6</button>
+<button type="button" data-value="+" class="is-op">+</button>
+<button type="button" data-value="1">1</button>
+<button type="button" data-value="2">2</button>
+<button type="button" data-value="3">3</button>
+<button type="button" data-action="equals" class="is-primary">=</button>
+<button type="button" data-value="0" style="grid-column:span 2;">0</button>
+<button type="button" data-value=".">.</button>
+<button type="button" data-action="equals" class="is-primary">Resultado</button>
+</div>
+</div>
+</article>
+</section>
+
+<section class="tools-grid-devices">
+<article class="tool-card">
+<h3>Impresoras (2)</h3>
+<div class="tool-device-list">
+<div class="tool-device">
+<h4>Impresora 1</h4>
+<label>Nombre<input type="text" value="Impresora 1"></label>
+<label>Dispositivo<select><option>Seleccionar dispositivo</option><option>Red - Oficina Central</option><option>USB local</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+<div class="tool-device">
+<h4>Impresora 2</h4>
+<label>Nombre<input type="text" value="Impresora 2"></label>
+<label>Dispositivo<select><option>Seleccionar dispositivo</option><option>Red - Sala reuniones</option><option>USB local</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+</div>
+</article>
+
+<article class="tool-card">
+<h3>Escáneres (2)</h3>
+<div class="tool-device-list">
+<div class="tool-device">
+<h4>Escáner 1</h4>
+<label>Nombre<input type="text" value="Escáner 1"></label>
+<label>Dispositivo<select><option>Seleccionar dispositivo</option><option>Escáner de escritorio</option><option>Multifunción principal</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+<div class="tool-device">
+<h4>Escáner 2</h4>
+<label>Nombre<input type="text" value="Escáner 2"></label>
+<label>Dispositivo<select><option>Seleccionar dispositivo</option><option>Escáner portátil</option><option>Multifunción secundaria</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+</div>
+</article>
+
+<article class="tool-card">
+<h3>Cámaras (audio y video)</h3>
+<div class="tool-device-list">
+<div class="tool-device">
+<h4>Cámara del PC</h4>
+<label>Video<select><option>Seleccionar cámara</option><option>Webcam integrada</option><option>Virtual camera</option></select></label>
+<label>Audio<select><option>Seleccionar micrófono</option><option>Micrófono integrado</option><option>Micrófono USB</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+<div class="tool-device">
+<h4>Cámara externa</h4>
+<label>Video<select><option>Seleccionar cámara</option><option>Cámara USB externa</option><option>Capturadora HDMI</option></select></label>
+<label>Audio<select><option>Seleccionar micrófono</option><option>Micrófono de sala</option><option>Interfaz de audio</option></select></label>
+<label>Estado<select><option>Por configurar</option><option>Disponible</option><option>No disponible</option></select></label>
+</div>
+</div>
+</article>
+</section>
+</section>
+
+<footer class="footer">
+Alpha Avocat — Sistema de Gestión Jurídica Inteligente<br>
+Mario Javier Rodríguez Ardiles<br>
+Todos los derechos reservados
+</footer>
+</main>
+</div>
+</div>
+
+<script>
+const fecha = new Date();
+document.getElementById('fecha').innerText = fecha.toLocaleDateString('es-CL', { day: '2-digit', month: '2-digit', year: 'numeric' });
+
+const botonModo = document.getElementById('modo-toggle');
+botonModo.onclick = function () {
+  document.body.classList.toggle('dark-mode');
+  if (document.body.classList.contains('dark-mode')) {
+    localStorage.setItem('modo', 'oscuro');
+    botonModo.innerText = '☀️';
+  } else {
+    localStorage.setItem('modo', 'claro');
+    botonModo.innerText = '🌙';
+  }
+};
+if (localStorage.getItem('modo') === 'oscuro') {
+  document.body.classList.add('dark-mode');
+  botonModo.innerText = '☀️';
+}
+
+function ajustarVistaMovil() {
+  const layout = document.getElementById('appLayout');
+  const mobileStage = document.querySelector('.mobile-stage');
+  if (!layout) return;
+  layout.style.width = '';
+  layout.style.transform = '';
+  layout.style.transformOrigin = '';
+  layout.style.position = '';
+  layout.style.left = '';
+  layout.style.top = '';
+  if (!mobileStage) return;
+  mobileStage.style.overflow = '';
+  mobileStage.style.overflowX = '';
+  mobileStage.style.overflowY = '';
+  mobileStage.style.minHeight = '';
+  if (window.innerWidth <= 768) {
+    layout.style.transform = 'none';
+    layout.style.position = 'static';
+    layout.style.left = 'auto';
+    layout.style.top = 'auto';
+    mobileStage.style.overflow = 'auto';
+    if (window.innerWidth <= 480) {
+      mobileStage.style.overflowX = 'auto';
+      mobileStage.style.overflowY = 'auto';
+      mobileStage.style.minHeight = '100dvh';
+    }
+  }
+}
+ajustarVistaMovil();
+window.addEventListener('resize', ajustarVistaMovil);
+window.addEventListener('orientationchange', ajustarVistaMovil);
+
+const clockCanvas = document.getElementById('classicClock');
+const clockCtx = clockCanvas.getContext('2d');
+const clockDigital = document.getElementById('clockDigital');
+const clockDate = document.getElementById('clockDate');
+
+function drawClock(date) {
+  const radius = clockCanvas.width / 2;
+  clockCtx.clearRect(0, 0, clockCanvas.width, clockCanvas.height);
+  clockCtx.save();
+  clockCtx.translate(radius, radius);
+
+  clockCtx.beginPath();
+  clockCtx.arc(0, 0, radius - 6, 0, Math.PI * 2);
+  clockCtx.fillStyle = '#ffffff';
+  clockCtx.fill();
+  clockCtx.lineWidth = 8;
+  clockCtx.strokeStyle = '#243f5a';
+  clockCtx.stroke();
+
+  for (let i = 0; i < 60; i += 1) {
+    const isHour = i % 5 === 0;
+    const angle = (Math.PI / 30) * i;
+    const inner = isHour ? radius - 34 : radius - 24;
+    const outer = radius - 14;
+    clockCtx.beginPath();
+    clockCtx.lineWidth = isHour ? 4 : 2;
+    clockCtx.strokeStyle = '#24405c';
+    clockCtx.moveTo(Math.cos(angle) * inner, Math.sin(angle) * inner);
+    clockCtx.lineTo(Math.cos(angle) * outer, Math.sin(angle) * outer);
+    clockCtx.stroke();
+  }
+
+  const second = date.getSeconds();
+  const minute = date.getMinutes();
+  const hour = date.getHours();
+
+  const secondAngle = (Math.PI / 30) * second;
+  const minuteAngle = (Math.PI / 30) * minute + secondAngle / 60;
+  const hourAngle = (Math.PI / 6) * (hour % 12) + minuteAngle / 12;
+
+  function drawHand(angle, length, width, color) {
+    clockCtx.beginPath();
+    clockCtx.lineWidth = width;
+    clockCtx.lineCap = 'round';
+    clockCtx.strokeStyle = color;
+    clockCtx.moveTo(0, 0);
+    clockCtx.lineTo(Math.cos(angle - Math.PI / 2) * length, Math.sin(angle - Math.PI / 2) * length);
+    clockCtx.stroke();
+  }
+
+  drawHand(hourAngle, radius * 0.45, 8, '#17324e');
+  drawHand(minuteAngle, radius * 0.65, 6, '#1f3f68');
+  drawHand(secondAngle, radius * 0.72, 3, '#c41e3a');
+
+  clockCtx.beginPath();
+  clockCtx.arc(0, 0, 6, 0, Math.PI * 2);
+  clockCtx.fillStyle = '#17324e';
+  clockCtx.fill();
+  clockCtx.restore();
+}
+
+function updateClock() {
+  const now = new Date();
+  drawClock(now);
+  clockDigital.textContent = now.toLocaleTimeString('es-CL', { hour12: false });
+  clockDate.textContent = now.toLocaleDateString('es-CL', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
+}
+updateClock();
+setInterval(updateClock, 1000);
+
+const calendarTitle = document.getElementById('calendarTitle');
+const calendarGrid = document.getElementById('calendarGrid');
+const calendarPrev = document.getElementById('calendarPrev');
+const calendarNext = document.getElementById('calendarNext');
+let calendarDate = new Date();
+calendarDate.setDate(1);
+
+function renderCalendar() {
+  const year = calendarDate.getFullYear();
+  const month = calendarDate.getMonth();
+  const today = new Date();
+  const firstWeekDay = new Date(year, month, 1).getDay();
+  const monthDays = new Date(year, month + 1, 0).getDate();
+  const weekDayNames = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+
+  calendarTitle.textContent = calendarDate.toLocaleDateString('es-CL', { month: 'long', year: 'numeric' });
+  calendarGrid.innerHTML = weekDayNames.map((name) => `<div class="tool-calendar-day-name">${name}</div>`).join('');
+
+  for (let i = 0; i < firstWeekDay; i += 1) {
+    calendarGrid.insertAdjacentHTML('beforeend', '<div></div>');
+  }
+
+  for (let day = 1; day <= monthDays; day += 1) {
+    const isToday = day === today.getDate() && month === today.getMonth() && year === today.getFullYear();
+    const classes = isToday ? 'tool-calendar-day is-today' : 'tool-calendar-day';
+    calendarGrid.insertAdjacentHTML('beforeend', `<div class="${classes}">${day}</div>`);
+  }
+}
+calendarPrev.addEventListener('click', () => {
+  calendarDate.setMonth(calendarDate.getMonth() - 1);
+  renderCalendar();
+});
+calendarNext.addEventListener('click', () => {
+  calendarDate.setMonth(calendarDate.getMonth() + 1);
+  renderCalendar();
+});
+renderCalendar();
+
+const calcDisplay = document.getElementById('calcDisplay');
+const calcKeys = document.getElementById('calcKeys');
+let calcExpression = '0';
+
+function refreshDisplay() {
+  calcDisplay.value = calcExpression;
+}
+
+calcKeys.addEventListener('click', (event) => {
+  const button = event.target.closest('button');
+  if (!button) return;
+  const value = button.dataset.value;
+  const action = button.dataset.action;
+
+  if (action === 'clear') {
+    calcExpression = '0';
+    refreshDisplay();
+    return;
+  }
+
+  if (action === 'delete') {
+    calcExpression = calcExpression.length > 1 ? calcExpression.slice(0, -1) : '0';
+    refreshDisplay();
+    return;
+  }
+
+  if (action === 'equals') {
+    try {
+      const result = Function(`"use strict"; return (${calcExpression})`)();
+      calcExpression = Number.isFinite(result) ? String(result) : '0';
+    } catch (_) {
+      calcExpression = 'Error';
+      setTimeout(() => {
+        calcExpression = '0';
+        refreshDisplay();
+      }, 900);
+    }
+    refreshDisplay();
+    return;
+  }
+
+  if (!value) return;
+  if (calcExpression === '0' || calcExpression === 'Error') {
+    calcExpression = value;
+  } else {
+    calcExpression += value;
+  }
+  refreshDisplay();
+});
+</script>
+
+<script type="module">
+import { supabase, requireAuth } from './app.js';
+
+await requireAuth();
+
+const cerrarSesionBtn = document.getElementById('cerrar-sesion-btn');
+if (cerrarSesionBtn) {
+  cerrarSesionBtn.addEventListener('click', async () => {
+    cerrarSesionBtn.disabled = true;
+    cerrarSesionBtn.textContent = 'Cerrando...';
+    const { error } = await supabase.auth.signOut();
+    if (error) {
+      alert('No fue posible cerrar sesión.');
+      cerrarSesionBtn.disabled = false;
+      cerrarSesionBtn.textContent = 'Cerrar sesión';
+      return;
+    }
+    window.location.href = './login.html';
+  });
+}
+
+const panelSearch = document.getElementById('panelSearch');
+const searchItems = Array.from(document.querySelectorAll('.tool-card, .tool-device'));
+panelSearch?.addEventListener('input', () => {
+  const q = panelSearch.value.trim().toLowerCase();
+  searchItems.forEach((item) => {
+    const text = item.textContent?.toLowerCase() || '';
+    item.style.outline = q && text.includes(q) ? '2px solid #1f3f68' : '';
+  });
+});
+</script>
+</body>
+</html>
