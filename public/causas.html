@@ -230,9 +230,9 @@
     }
 
     .causas-shell{
-      padding:24px;
+      padding:18px 24px 24px;
       display:grid;
-      gap:20px;
+      gap:14px;
     }
 
     .causas-page .screen-card,
@@ -248,7 +248,7 @@
 
     .causas-page .screen-card{
       background:linear-gradient(180deg, color-mix(in srgb, #67a89f 88%, white), var(--causas-surface));
-      padding:22px;
+      padding:16px 18px;
       color:var(--causas-text-on-dark);
       border-color:rgba(255,255,255,.12);
     }
@@ -273,13 +273,15 @@
     .causas-page .screen-title{
       margin:0;
       color:var(--causas-text-on-dark);
-      font-size:34px;
+      font-size:28px;
       line-height:1;
     }
 
     .causas-page .screen-subtitle{
-      margin:8px 0 0;
+      margin:6px 0 0;
       color:rgba(247,255,253,.82);
+      max-width:78ch;
+      font-size:14px;
     }
 
     .causas-page .muted{
@@ -400,24 +402,26 @@
 
     .causas-page .screen-actions{
       display:flex;
-      gap:10px;
+      gap:8px;
       flex-wrap:wrap;
       justify-content:flex-end;
     }
 
     .causas-page .screen-grid{
       display:grid;
-      grid-template-columns:minmax(340px,440px) minmax(0,1fr);
-      gap:20px;
-      align-items:start;
+      grid-template-columns:minmax(340px,38fr) minmax(0,62fr);
+      gap:14px;
+      align-items:stretch;
     }
 
     .causas-page .panel-card{
       background:linear-gradient(180deg,#9acdc5 0%,var(--causas-block) 100%);
       padding:18px;
-      display:grid;
-      gap:16px;
+      display:flex;
+      flex-direction:column;
+      gap:10px;
       border-color:rgba(36,95,89,.16);
+      min-height:0;
     }
 
     .causas-page .panel-title{
@@ -453,7 +457,7 @@
     }
 
     .filter-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
-    .summary-metrics{ grid-template-columns:repeat(4,minmax(0,1fr)); }
+    .summary-metrics{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     .detail-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .grid-2{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .grid-3{ grid-template-columns:repeat(3,minmax(0,1fr)); }
@@ -494,8 +498,8 @@
 
     .causas-page .field{
       display:grid;
-      gap:8px;
-      padding:12px 14px;
+      gap:6px;
+      padding:10px 12px;
     }
 
     .field label,
@@ -582,8 +586,9 @@
 
     .causas-page .list-wrap{
       display:grid;
-      gap:14px;
-      max-height:calc(100dvh - 320px);
+      gap:12px;
+      flex:1 1 auto;
+      min-height:0;
       overflow:auto;
       padding-right:4px;
     }
@@ -698,9 +703,10 @@
     .causas-page .detail-panel{
       background:linear-gradient(180deg,#a5d3cb 0%,var(--causas-block) 100%);
       padding:18px;
-      display:grid;
-      gap:16px;
-      min-height:calc(100dvh - 240px);
+      display:flex;
+      flex-direction:column;
+      gap:12px;
+      min-height:0;
       border-radius:24px;
       border:1px solid rgba(36,95,89,.16);
       box-shadow:var(--causas-shadow);
@@ -806,6 +812,74 @@
     }
 
     .assistant-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
+
+    .causas-page .top-overview{
+      display:grid;
+      gap:12px;
+    }
+
+    .causas-page .top-overview .metric,
+    .causas-page .top-overview .pillar-card{
+      min-height:132px;
+    }
+
+    .causas-page .panel-search{ margin-top:2px; }
+    .causas-page .filters-block{ display:grid; gap:10px; }
+
+    .causas-page .actions-bar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      flex-wrap:wrap;
+      gap:10px;
+      padding:8px 10px;
+      border-radius:18px;
+      background:rgba(255,255,255,.45);
+      border:1px solid rgba(95,159,151,.26);
+    }
+
+    .causas-page .action-group{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      align-items:center;
+    }
+
+    .causas-page .action-group.secondary{
+      padding-left:10px;
+      border-left:1px solid rgba(95,159,151,.28);
+    }
+
+    .causas-page #detailContent{
+      flex:1 1 auto;
+      min-height:0;
+      overflow:auto;
+      padding-right:4px;
+      display:grid;
+      gap:12px;
+      align-content:start;
+    }
+
+    .causas-page .panel-card,
+    .causas-page .detail-panel{
+      max-height:calc(100dvh - 292px);
+      height:calc(100dvh - 292px);
+      min-height:540px;
+    }
+
+    .causas-page .uniform-grid{
+      grid-template-columns:repeat(2,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .causas-page .info-card,
+    .causas-page .source-item,
+    .causas-page .timeline-item,
+    .causas-page .resolution-item,
+    .causas-page .deadline-item{
+      min-height:92px;
+    }
+
 
     .causas-page .assistant-action{
       min-height:124px;
@@ -1265,7 +1339,12 @@
     @media (max-width: 1280px){
       .screen-grid{ grid-template-columns:1fr; }
       .list-wrap{ max-height:none; }
-      .detail-panel{ min-height:auto; }
+      .panel-card,
+      .detail-panel{
+        max-height:none;
+        height:auto;
+        min-height:auto;
+      }
       .container-layout,
       .documents-layout,
       .source-grid,
@@ -1308,6 +1387,7 @@
       .causas-shell{ padding:16px; }
       .filter-grid,
       .detail-grid,
+      .uniform-grid,
       .grid-2,
       .grid-3,
       .assistant-grid,
@@ -1330,6 +1410,14 @@
       .document-explorer-panel{ min-height:auto; }
       .explorer-tree-scroll,
       .explorer-content-scroll{ max-height:none; }
+      .actions-bar{ align-items:stretch; }
+      .action-group.secondary{
+        border-left:none;
+        border-top:1px solid rgba(95,159,151,.28);
+        padding-left:0;
+        padding-top:8px;
+        width:100%;
+      }
     }
   </style>
 </head>
@@ -1374,11 +1462,8 @@
       </div>
     </section>
 
-    <section class="screen-card">
+    <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
-    </section>
-
-    <section class="screen-card">
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
@@ -1389,15 +1474,17 @@
           <p class="panel-subtitle">Filtra por estado procesal, tribunal, materia, procedimiento, abogado responsable, urgencia, audiencia próxima y plazo próximo.</p>
         </div>
 
-        <div class="filter-grid">
-          <div class="field">
-            <label for="searchCausas">Buscador general</label>
-            <input id="searchCausas" class="input" type="search" placeholder="Buscar por carátula, rol, RIT, RUC o cliente" />
-          </div>
-          <div class="field">
-            <label for="filterEstado">Estado procesal</label>
-            <select id="filterEstado" class="input"></select>
-          </div>
+        <div class="field panel-search">
+          <label for="searchCausas">Buscador general</label>
+          <input id="searchCausas" class="input" type="search" placeholder="Buscar por carátula, rol, RIT, RUC o cliente" />
+        </div>
+
+        <div class="filters-block">
+          <div class="filter-grid">
+            <div class="field">
+              <label for="filterEstado">Estado procesal</label>
+              <select id="filterEstado" class="input"></select>
+            </div>
           <div class="field">
             <label for="filterTribunal">Tribunal</label>
             <select id="filterTribunal" class="input"></select>
@@ -1426,24 +1513,25 @@
             <label for="filterPlazo">Plazo próximo</label>
             <select id="filterPlazo" class="input"></select>
           </div>
-          <div class="field">
-            <label for="sortBy">Orden</label>
-            <select id="sortBy" class="input">
-              <option value="updated">Última gestión</option>
-              <option value="deadline">Próximo plazo</option>
-              <option value="hearing">Próxima audiencia</option>
-              <option value="alert">Mayor alerta</option>
-              <option value="name">Carátula</option>
-            </select>
+            <div class="field">
+              <label for="sortBy">Orden</label>
+              <select id="sortBy" class="input">
+                <option value="updated">Última gestión</option>
+                <option value="deadline">Próximo plazo</option>
+                <option value="hearing">Próxima audiencia</option>
+                <option value="alert">Mayor alerta</option>
+                <option value="name">Carátula</option>
+              </select>
+            </div>
           </div>
-        </div>
 
-        <div class="filter-actions">
+          <div class="filter-actions">
           <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
           <span class="muted" id="countLabel">0 causas</span>
         </div>
 
         <div class="list-wrap" id="casesList"></div>
+        </div>
       </aside>
 
       <section class="detail-panel">
@@ -1453,9 +1541,9 @@
             <h3 class="detail-title" id="detailTitle">Selecciona una causa</h3>
             <div class="detail-meta" id="detailMeta">La ficha mostrará el resumen, contenedor, producción y control procesal completo.</div>
           </div>
-          <div class="detail-actions" id="detailActions"></div>
         </div>
 
+        <div class="actions-bar" id="detailActions"></div>
         <div id="detailStatusMsg" class="msg" aria-live="polite"></div>
         <section id="causeRectificationPanel" class="rectification-panel" hidden>
           <div class="section-head">
@@ -3487,13 +3575,11 @@
 
     function renderSummaryMetrics(){
       const cases = getAllCases();
-      const urgent = cases.filter(item => ['Urgente','Vencido'].includes(item.alerta)).length;
       const asesorias = cases.reduce((acc, item) => acc + ((item.asesorias || []).length), 0);
       const tribunalFolders = cases.reduce((acc, item) => acc + ((item.expedienteDigital?.cliente?.tribunal?.carpetas || []).length), 0);
       const inProduction = cases.reduce((acc, item) => acc + (item.escritos || []).filter(w => String(w.estado).toLowerCase().includes('revisión') || String(w.estado).toLowerCase().includes('borrador') || String(w.estado).toLowerCase().includes('redacción')).length, 0);
       $('summaryMetrics').innerHTML = [
         { label:'Información base', value:cases.length, helper:'Clientes, asesorías y causas activas dentro del módulo.' },
-        { label:'Alertas y plazos', value:urgent, helper:'Alertas críticas o próximas vinculadas a resoluciones.' },
         { label:'Expedientes digitales', value:tribunalFolders, helper:'Archivadores tribunal activos dentro de Cliente.' },
         { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.' },
       ].map(item => `
@@ -3586,11 +3672,19 @@
     }
 
     function renderDetailActions(){
-      $('detailActions').innerHTML = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin).map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+      const visibleActions = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin);
+      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'editar', 'rectificar']);
+      const primary = visibleActions.filter((item) => primaryIds.has(item.id));
+      const secondary = visibleActions.filter((item) => !primaryIds.has(item.id));
+      const renderButtons = (items) => items.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+      $('detailActions').innerHTML = `
+        <div class="action-group primary">${renderButtons(primary)}</div>
+        <div class="action-group secondary">${renderButtons(secondary)}</div>
+      `;
     }
 
     function buildKeyValueGrid(entries){
-      return `<div class="grid-4">${entries.map(([label, value]) => `
+      return `<div class="detail-grid uniform-grid">${entries.map(([label, value]) => `
         <div class="info-card">
           <div class="mini-label">${escapeHtml(label)}</div>
           <div class="case-meta">${escapeHtml(value || '—')}</div>
@@ -3650,11 +3744,12 @@
 
     function renderInformationPillar(cause){
       return `
+        ${renderResumen(cause)}
         <section class="section-card">
           <div class="section-head">
             <div>
               <h4 class="section-title">Información de clientes, asesorías y causas</h4>
-              <p class="section-copy">Este pilar concentra toda la información base del asunto: cliente, asesorías, causa, historia, instrucciones, alertas, plazos y responsables.</p>
+              <p class="section-copy">Detalle jurídico del cliente, identificación interna del asunto, coordinación operativa y vínculos con asesorías y gestión diaria.</p>
             </div>
             <div class="toolbar">
               <span class="badge badge-active">Cliente vinculado</span>
@@ -3663,31 +3758,32 @@
           </div>
           ${buildKeyValueGrid([
             ['Cliente', cause.cliente],
-            ['Carátula', cause.caratula],
-            ['Rol', cause.rol],
-            ['Tribunal', cause.tribunal],
-            ['Materia', cause.materia],
-            ['Procedimiento', cause.procedimiento],
-            ['Estado procesal', cause.estadoProcesal],
+            ['Tipo de causa', cause.tipoCausa],
+            ['Submateria', cause.submateria],
+            ['Fecha de inicio', formatDate(cause.fechaInicio)],
+            ['Fecha de notificación', formatDate(cause.fechaNotificacion)],
+            ['Causa principal / relacionada', cause.causaRelacionada],
+            ['Observaciones generales', cause.observaciones],
+            ['Procurador asignado', cause.procurador],
+            ['Honorarios pactados', cause.honorarios],
             ['Demandante', cause.partes?.[0]?.nombre || cause.cliente],
             ['Demandado', cause.partes?.[1]?.nombre || 'Por definir'],
             ['Abogado responsable', cause.responsable],
-            ['Hitos relevantes', `${(cause.historia || []).length} registro(s)`],
-            ['Plazos vinculados', `${(cause.plazos || []).length} activo(s)`],
-            ['Expediente digital', cause.expediente],
-            ['Producción relacionada', `${(cause.escritos || []).length} documento(s)`],
+            ['Equipo responsable', `${(cause.responsables || []).length} integrante(s)`],
+            ['Instrucciones activas', `${(cause.instrucciones || []).length} registro(s)`],
+            ['Asesorías vinculadas', `${(cause.asesorias || []).length} vinculada(s)`],
+            ['Expediente relacionado', cause.expediente],
           ])}
         </section>
-        ${renderResumen(cause)}
-        ${renderPartes(cause)}
         ${renderEstadoProcesal(cause)}
+        ${renderPartes(cause)}
         ${renderTribunal(cause)}
         ${renderAdvisories(cause)}
-        ${renderHistoria(cause)}
         ${renderResoluciones(cause)}
         ${renderPlazos(cause)}
         ${renderResponsables(cause)}
         ${renderInstrucciones(cause)}
+        ${renderHistoria(cause)}
       `;
     }
 
