@@ -414,6 +414,10 @@
       align-items:stretch;
     }
 
+    .causas-page.landing-mode .screen-grid{
+      display:none;
+    }
+
     .causas-page .panel-card{
       background:linear-gradient(180deg,#9acdc5 0%,var(--causas-block) 100%);
       padding:14px;
@@ -1544,7 +1548,7 @@
     }
   </style>
 </head>
-<body class="causas-page">
+<body class="causas-page landing-mode">
   <header class="causas-topbar">
     <div class="causas-brand">
       <div class="causas-module-brand" aria-label="Marca institucional">Alpha Avocat</div>
@@ -1563,6 +1567,7 @@
         <button id="btnImportar" class="btn">Importar causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
+        <button id="btnTopExpedientes" class="btn">Expedientes Digitales</button>
         <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
       </div>
     </div>
@@ -1574,11 +1579,11 @@
         <div>
           <p class="eyebrow">Núcleo CAUSAS</p>
           <h2 class="screen-title">BLOQUE DE CAUSAS</h2>
-          <p class="screen-subtitle">Portada de acceso jerárquico para Información base, Expedientes digitales y Producción en curso, manteniendo la lógica visual y operativa del sistema.</p>
+          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Ir a información base</button>
-          <button class="btn" id="btnQuickExpedientes">Ir a expedientes digitales</button>
+          <button class="btn" id="btnQuickExpedientes">Abrir Expedientes Digitales</button>
           <button class="btn" id="btnQuickProduction">Ir a producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
@@ -5996,7 +6001,8 @@
       $('btnCalendario').addEventListener('click', () => window.location.href = './agenda.html');
       $('btnActualizarEstado').addEventListener('click', openSyncModal);
       $('btnQuickInfo').addEventListener('click', () => setActiveTab('informacion'));
-      $('btnQuickExpedientes').addEventListener('click', () => setActiveTab('expedientes'));
+      $('btnQuickExpedientes').addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
+      $('btnTopExpedientes')?.addEventListener('click', () => { window.location.href = './expedientes-digitales.html'; });
       $('btnQuickProduction').addEventListener('click', () => setActiveTab('produccion'));
       $('btnQuickAlerts').addEventListener('click', () => setActiveTab('informacion'));
       $('btnLimpiarFiltros').addEventListener('click', resetFilters);

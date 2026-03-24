@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Expedientes Digitales — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    body{margin:0;font-family:Arial,sans-serif;background:linear-gradient(180deg,#245f59,#2D7C74);color:#10211f;}
+    .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#6f1728,#7A1E2C);}
+    .brand{color:#fff;font-weight:800;font-size:22px}
+    .actions{display:flex;gap:8px;flex-wrap:wrap}
+    .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#fff;color:#10211f;border-radius:14px;padding:9px 12px;font-weight:700;cursor:pointer;text-decoration:none}
+    .shell{padding:14px;display:grid;gap:12px;max-width:1400px;margin:0 auto}
+    .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
+    .title{margin:0;color:#1f5a53}
+    .subtitle{margin:6px 0 0;color:#1f3b37}
+    .kardex{background:#fff;border-radius:18px;border:1px solid #8ec7be;padding:14px}
+    .kardex-head{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
+    .icon-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:12px}
+    .icon-card{background:#f8fffd;border:1px solid #8ec7be;border-radius:16px;padding:12px}
+    .span-full{grid-column:1 / -1}
+    .line{display:flex;gap:8px;align-items:flex-start}
+    .icon{font-size:26px;line-height:1}
+    .tag{display:inline-block;font-size:11px;text-transform:uppercase;letter-spacing:.04em;font-weight:800;background:#163A5F;color:#fff;border-radius:999px;padding:4px 8px;margin-top:8px}
+    .muted{color:#355652;font-size:13px}
+    .list{display:grid;gap:8px;margin-top:8px}
+    .folder{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px}
+    .folder h5{margin:0 0 6px}
+    .subfolders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .subfolders .folder:last-child:nth-child(odd){grid-column:1 / -1}
+    .toggle{background:#163A5F;color:#fff;border:none;border-radius:10px;padding:7px 10px;cursor:pointer;font-weight:700}
+    @media (max-width:900px){.icon-grid,.subfolders{grid-template-columns:1fr}}
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">Alpha Avocat · Expedientes Digitales</div>
+    <div class="actions">
+      <a class="btn" href="./causas.html">Volver a Causas</a>
+      <a class="btn" href="./agenda.html">Agenda</a>
+      <a class="btn" href="./clientes.html">Clientes</a>
+      <button id="btnLogout" class="btn">Cerrar sesión</button>
+    </div>
+  </header>
+
+  <main class="shell">
+    <section class="card">
+      <h2 class="title">EXPEDIENTES DIGITALES</h2>
+      <p class="subtitle">Pantalla exclusiva con visualización por iconos: Kárdex, archivadores, subarchivadores, carpetas y subcarpetas internas.</p>
+      <p class="muted">Fuentes integradas: Clientes, Agenda (actas/grabaciones) y Poder Judicial (OJV · Mis causas).</p>
+    </section>
+
+    <section class="kardex">
+      <div class="kardex-head">
+        <div class="line"><span class="icon">🗃️</span><div><strong>KÁRDEX · EXPEDIENTES DIGITALES</strong><div class="muted">Contenedor principal de asesorías y juicios.</div></div></div>
+      </div>
+
+      <div class="icon-grid">
+        <article class="icon-card" id="archAsesorias">
+          <div class="line"><span class="icon">🗄️</span><div><strong>EXPEDIENTES DIGITALES DE ASESORÍAS</strong><div class="muted">Casos que no son juicios.</div></div></div>
+          <span class="tag">Archivador</span>
+          <div class="icon-grid" style="margin-top:10px">
+            <article class="icon-card">
+              <div class="line"><span class="icon">🧰</span><div><strong>ASESORÍAS A PERSONAS NATURALES</strong></div></div>
+              <span class="tag">Subarchivador</span>
+              <div class="list" id="naturalFolders"></div>
+            </article>
+            <article class="icon-card">
+              <div class="line"><span class="icon">🏢</span><div><strong>ASESORÍAS A PERSONAS JURÍDICAS</strong></div></div>
+              <span class="tag">Subarchivador</span>
+              <div class="list" id="legalFolders"></div>
+            </article>
+          </div>
+        </article>
+
+        <article class="icon-card" id="archJuicios">
+          <div class="line"><span class="icon">🏛️</span><div><strong>EXPEDIENTES DIGITALES DE JUICIOS</strong><div class="muted">Un archivador por tribunal con carpeta por causa.</div></div></div>
+          <span class="tag">Archivador</span>
+          <button class="toggle" id="toggleTribunales">Abrir archivadores por tribunal</button>
+          <div class="list" id="tribunalFolders" hidden></div>
+        </article>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { supabase, logout } from './app.js';
+
+    const C = {
+      cId:'id', cName:'name',
+      kId:'id', kClientId:'client_id', kCaratula:'caratula', kRol:'rol', kCourt:'court',
+      kRit:'pjud_rit', kRuc:'pjud_ruc', kTrib:'pjud_tribunal'
+    };
+
+    const SUBFOLDERS = [
+      'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
+      'Documentos','Grabación y Acta de reunión (viene de Agenda)','Jurisprudencia','Doctrina en Biblioteca','Absolución de posiciones','Informe de perito','Declaración de testigos','Ebook de juicios relacionados','Informes y estrategias de trabajo','Escritos sueltos','Incidentes','Certificado de envío de documentos al PJUD','ChatGPT','Trazabilidad'
+    ];
+
+    function isLegalEntity(name=''){
+      const v = String(name).toLowerCase();
+      return ['spa','s.a','ltda','eirl','sociedad','inmobiliaria','holding','limitada'].some(t => v.includes(t));
+    }
+
+    function escapeHtml(value=''){
+      return String(value).replace(/[&<>'"]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch] || ch));
+    }
+
+    async function ensureAuth(){
+      const { data } = await supabase.auth.getSession();
+      if (!data?.session) window.location.href = './login.html';
+    }
+
+    async function loadData(){
+      const [{ data: clients }, { data: cases }] = await Promise.all([
+        supabase.from('clients').select('id,name'),
+        supabase.from('cases').select('*').order('created_at', { ascending:false }),
+      ]);
+
+      const clientMap = new Map((clients || []).map(c => [c[C.cId], c[C.cName]]));
+      const naturals = [];
+      const legals = [];
+      (clients || []).forEach(c => (isLegalEntity(c[C.cName]) ? legals : naturals).push(c[C.cName]));
+
+      document.getElementById('naturalFolders').innerHTML = (naturals.length ? naturals : ['Sin asesorías registradas']).map((name, i, arr) => `<div class="folder ${arr.length % 2 === 1 && i === arr.length - 1 ? 'span-full':''}">📁 ${escapeHtml(name)}</div>`).join('');
+      document.getElementById('legalFolders').innerHTML = (legals.length ? legals : ['Sin asesorías registradas']).map((name, i, arr) => `<div class="folder ${arr.length % 2 === 1 && i === arr.length - 1 ? 'span-full':''}">📁 ${escapeHtml(name)}</div>`).join('');
+
+      const grouped = new Map();
+      (cases || []).forEach(k => {
+        const tribunal = k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar';
+        const list = grouped.get(tribunal) || [];
+        const id = k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`;
+        list.push({
+          identificador:id,
+          caratula:k[C.kCaratula] || 'Carátula pendiente',
+          cliente:clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo',
+        });
+        grouped.set(tribunal, list);
+      });
+
+      const tribunales = [...grouped.entries()];
+      document.getElementById('tribunalFolders').innerHTML = tribunales.length
+        ? tribunales.map(([tribunal, folders], idx, arr) => `
+          <article class="icon-card ${arr.length % 2 === 1 && idx === arr.length - 1 ? 'span-full' : ''}">
+            <div class="line"><span class="icon">🗄️</span><div><strong>${escapeHtml(tribunal)}</strong><div class="muted">Archivador de tribunal</div></div></div>
+            <div class="list">
+              ${folders.map(cause => `
+                <div class="folder">
+                  <h5>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h5>
+                  <div class="muted">Cliente: ${escapeHtml(cause.cliente)}</div>
+                  <div class="subfolders">
+                    ${SUBFOLDERS.map((name, j, jarr) => `<div class="folder ${jarr.length % 2 === 1 && j === jarr.length - 1 ? 'span-full' : ''}">📘 ${escapeHtml(name)}</div>`).join('')}
+                  </div>
+                </div>
+              `).join('')}
+            </div>
+          </article>
+        `).join('')
+        : '<div class="folder">No hay causas importadas/proyectadas desde OJV (Mis causas) para mostrar archivadores.</div>';
+    }
+
+    document.getElementById('toggleTribunales').addEventListener('click', () => {
+      const wrap = document.getElementById('tribunalFolders');
+      wrap.hidden = !wrap.hidden;
+      document.getElementById('toggleTribunales').textContent = wrap.hidden ? 'Abrir archivadores por tribunal' : 'Cerrar archivadores por tribunal';
+    });
+
+    document.getElementById('btnLogout').addEventListener('click', logout);
+
+    ensureAuth().then(loadData);
+  </script>
+</body>
+</html>
