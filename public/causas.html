@@ -34,7 +34,7 @@
 
     *{ box-sizing:border-box; }
 
-    html,body{
+    body.causas-page{
       margin:0;
       min-height:100%;
       font-family:Arial,sans-serif;
@@ -42,7 +42,7 @@
       color:var(--causas-text);
     }
 
-    body{
+    body.causas-page{
       overflow:auto;
     }
 
@@ -117,13 +117,13 @@
       flex:1 1 auto;
     }
 
-    .causas-nav a,
-    .causas-nav button,
-    .btn,
-    .chip-btn,
-    .quick-btn,
-    .tab-btn,
-    .icon-btn{
+    .causas-page .causas-nav a,
+    .causas-page .causas-nav button,
+    .causas-page .btn,
+    .causas-page .chip-btn,
+    .causas-page .quick-btn,
+    .causas-page .tab-btn,
+    .causas-page .icon-btn{
       appearance:none;
       border:1px solid rgba(255,255,255,.22);
       background:linear-gradient(135deg, color-mix(in srgb, var(--causas-card) 96%, white), color-mix(in srgb, var(--causas-subblock) 62%, white));
@@ -143,87 +143,87 @@
       position:relative;
     }
 
-    .causas-nav a:hover,
-    .causas-nav button:hover,
-    .btn:hover,
-    .chip-btn:hover,
-    .quick-btn:hover,
-    .tab-btn:hover,
-    .icon-btn:hover{
+    .causas-page .causas-nav a:hover,
+    .causas-page .causas-nav button:hover,
+    .causas-page .btn:hover,
+    .causas-page .chip-btn:hover,
+    .causas-page .quick-btn:hover,
+    .causas-page .tab-btn:hover,
+    .causas-page .icon-btn:hover{
       transform:translateY(-2px);
       box-shadow:var(--causas-button-glow-hover);
       border-color:var(--causas-active);
       filter:brightness(1.02);
     }
 
-    .causas-nav a:active,
-    .causas-nav button:active,
-    .btn:active,
-    .chip-btn:active,
-    .quick-btn:active,
-    .tab-btn:active,
-    .icon-btn:active{
+    .causas-page .causas-nav a:active,
+    .causas-page .causas-nav button:active,
+    .causas-page .btn:active,
+    .causas-page .chip-btn:active,
+    .causas-page .quick-btn:active,
+    .causas-page .tab-btn:active,
+    .causas-page .icon-btn:active{
       transform:translateY(0) scale(.985);
       box-shadow:var(--causas-button-glow-active);
     }
 
-    .causas-nav a:focus-visible,
-    .causas-nav button:focus-visible,
-    .btn:focus-visible,
-    .chip-btn:focus-visible,
-    .quick-btn:focus-visible,
-    .tab-btn:focus-visible,
-    .icon-btn:focus-visible{
+    .causas-page .causas-nav a:focus-visible,
+    .causas-page .causas-nav button:focus-visible,
+    .causas-page .btn:focus-visible,
+    .causas-page .chip-btn:focus-visible,
+    .causas-page .quick-btn:focus-visible,
+    .causas-page .tab-btn:focus-visible,
+    .causas-page .icon-btn:focus-visible{
       outline:none;
       box-shadow:0 0 0 3px rgba(255,255,255,.26), 0 0 0 6px rgba(22,58,95,.22), var(--causas-button-glow-hover);
     }
 
-    .btn:disabled,
-    .chip-btn:disabled,
-    .quick-btn:disabled,
-    .tab-btn:disabled,
-    .icon-btn:disabled,
-    .btn[aria-disabled="true"],
-    .chip-btn[aria-disabled="true"],
-    .quick-btn[aria-disabled="true"],
-    .tab-btn[aria-disabled="true"],
-    .icon-btn[aria-disabled="true"]{
+    .causas-page .btn:disabled,
+    .causas-page .chip-btn:disabled,
+    .causas-page .quick-btn:disabled,
+    .causas-page .tab-btn:disabled,
+    .causas-page .icon-btn:disabled,
+    .causas-page .btn[aria-disabled="true"],
+    .causas-page .chip-btn[aria-disabled="true"],
+    .causas-page .quick-btn[aria-disabled="true"],
+    .causas-page .tab-btn[aria-disabled="true"],
+    .causas-page .icon-btn[aria-disabled="true"]{
       opacity:.62;
       cursor:not-allowed;
       filter:saturate(.72);
       box-shadow:0 6px 14px rgba(24,78,72,.10);
     }
 
-    .causas-nav .active,
-    .btn.active,
-    .chip-btn.active,
-    .quick-btn.active,
-    .tab-btn.active,
-    .btn-primary,
-    .quick-btn-primary{
+    .causas-page .causas-nav .active,
+    .causas-page .btn.active,
+    .causas-page .chip-btn.active,
+    .causas-page .quick-btn.active,
+    .causas-page .tab-btn.active,
+    .causas-page .btn-primary,
+    .causas-page .quick-btn-primary{
       background:var(--causas-active);
       color:var(--causas-white);
       border-color:var(--causas-active);
     }
 
-    .btn-danger,
-    .quick-btn-danger,
-    .critical,
-    .badge-critical,
-    .alert-vencido,
-    .alert-urgente{
+    .causas-page .btn-danger,
+    .causas-page .quick-btn-danger,
+    .causas-page .critical,
+    .causas-page .badge-critical,
+    .causas-page .alert-vencido,
+    .causas-page .alert-urgente{
       background:var(--causas-critical);
       color:var(--causas-white);
       border-color:var(--causas-critical);
     }
 
-    .btn-secondary{
+    .causas-page .btn-secondary{
       background:var(--causas-subblock);
       color:var(--causas-text);
       border-color:var(--causas-border-soft);
     }
 
-    .btn-ghost{
+    .causas-page .btn-ghost{
       background:rgba(255,255,255,.74);
       color:var(--causas-text);
     }
@@ -517,11 +517,11 @@
       color:var(--causas-title-dark);
     }
 
-    .input,
-    .textarea,
-    select,
-    input,
-    textarea{
+    .causas-page .input,
+    .causas-page .textarea,
+    .causas-page select,
+    .causas-page input,
+    .causas-page textarea{
       width:100%;
       border:1px solid rgba(140,199,189,.95);
       background:#fcfffe;
@@ -531,17 +531,17 @@
       font:inherit;
     }
 
-    .input:focus,
-    .textarea:focus,
-    select:focus,
-    input:focus,
-    textarea:focus{
+    .causas-page .input:focus,
+    .causas-page .textarea:focus,
+    .causas-page select:focus,
+    .causas-page input:focus,
+    .causas-page textarea:focus{
       outline:2px solid rgba(22,58,95,.18);
       border-color:var(--causas-active);
       background:#fff;
     }
 
-    .textarea{ min-height:100px; resize:vertical; }
+    .causas-page .textarea{ min-height:100px; resize:vertical; }
 
     .filter-actions,
     .toolbar,
@@ -687,7 +687,7 @@
       flex-wrap:nowrap;
     }
 
-    .tab-btn{
+    .causas-page .tab-btn{
       white-space:nowrap;
       box-shadow:none;
       padding:10px 13px;
@@ -1189,7 +1189,7 @@
       margin-bottom:18px;
     }
 
-    .icon-btn{
+    .causas-page .icon-btn{
       width:42px;
       height:42px;
       display:grid;
@@ -5118,6 +5118,61 @@
         return;
       }
       setMessage('importMsg', `Lote manual analizado: ${items.length} causa(s) lista(s) para transferencia automática.`, 'ok');
+    }
+
+    function analyzeImport(){
+      const importUrl = $('import_url')?.value || '';
+      const importRol = $('import_rol')?.value || '';
+      const importRit = $('import_rit')?.value || '';
+      const importTribunal = $('import_tribunal')?.value || '';
+      const importRaw = $('import_raw')?.value || '';
+      const hasPayload = [importUrl, importRol, importRit, importTribunal, importRaw].some((value) => String(value || '').trim());
+
+      if (!hasPayload) {
+        state.pendingImport = null;
+        renderImportPreview(null);
+        setMessage('importMsg', 'Debes ingresar al menos una referencia judicial para analizar.', 'warn');
+        return null;
+      }
+
+      try {
+        const importData = parseJudicialImportInput({
+          url: importUrl,
+          rol: importRol,
+          rit: importRit,
+          tribunal: importTribunal,
+          rawText: importRaw,
+        });
+
+        const hasMinimumIdentity = Boolean(
+          importData.basic?.rol ||
+          importData.basic?.rit ||
+          importData.basic?.caratula ||
+          importData.basic?.tribunal ||
+          importData.sourceUrl
+        );
+        if (!hasMinimumIdentity) {
+          state.pendingImport = null;
+          renderImportPreview(null);
+          setMessage('importMsg', 'No se pudieron extraer datos mínimos de la causa. Revisa los campos ingresados y vuelve a analizar.', 'warn');
+          return null;
+        }
+
+        state.pendingImport = importData;
+        renderImportPreview(importData);
+        setMessage(
+          'importMsg',
+          `Análisis listo: carátula ${importData.basic?.caratula || 'pendiente'} · rol ${importData.basic?.rol || 'pendiente'} · tribunal ${importData.basic?.tribunal || 'pendiente'}.`,
+          'ok'
+        );
+        return importData;
+      } catch (error) {
+        console.error('[Alpha Avocat][causas-import] analyzeImport falló.', error);
+        state.pendingImport = null;
+        renderImportPreview(null);
+        setMessage('importMsg', `No fue posible analizar la importación: ${buildLoadError('la referencia judicial', error).message}`, 'error');
+        return null;
+      }
     }
 
     function openImportModal(){
