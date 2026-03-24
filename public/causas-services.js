@@ -277,6 +277,17 @@ export function downloadDocument(documentRecord = {}) {
 function classifyDocumentNode(documentRecord = {}) {
   const extension = String(documentRecord.extension || documentRecord.name?.split('.').pop() || '').toLowerCase()
   const mime = String(documentRecord.type || '').toLowerCase()
+  const category = String(documentRecord.category || '').toLowerCase()
+  const name = String(documentRecord.name || '').toLowerCase()
+  if (category.includes('ebook') || name.includes('ebook')) return 'book'
+  if (category.includes('doctrina')) return 'book-doctrina'
+  if (category.includes('jurisprudencia')) return 'book-jurisprudencia'
+  if (category.includes('acta') || name.includes('acta')) return 'booklet-acta'
+  if (category.includes('informe') || name.includes('informe')) return 'booklet-informe'
+  if (category.includes('escrito') || name.includes('escrito')) return 'booklet-escrito'
+  if (category.includes('certificado') || name.includes('certificado')) return 'booklet-certificado'
+  if (category.includes('declar') || name.includes('declar')) return 'booklet-declaracion'
+  if (category.includes('perit') || name.includes('perit')) return 'booklet-peritaje'
   if (mime.includes('pdf') || extension === 'pdf') return 'pdf'
   if (mime.includes('word') || ['doc', 'docx'].includes(extension)) return 'word'
   if (mime.startsWith('image/') || ['jpg', 'jpeg', 'png', 'gif', 'webp', 'bmp', 'svg'].includes(extension)) return 'image'
@@ -369,12 +380,30 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
 
   const tribunalBranch = createNode({
     id: 'archivador-cliente-tribunal',
-    name: 'Tribunal',
-    type: 'folder',
+    name: 'Kardex de tribunales',
+    type: 'kardex',
     parentId: clientArchive.id,
     isExpandable: true,
     path: `${clientArchive.path} / Tribunal`,
   })
+
+  const legalArchiveFolders = [
+    'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos',
+    'Documentos',
+    'Grabación y Acta de reunión',
+    'Jurisprudencia',
+    'Doctrina en Biblioteca',
+    'Absolución de posiciones',
+    'Informe de perito',
+    'Declaración de testigos',
+    'Ebook de juicios relacionados',
+    'Informes y estrategias de trabajo',
+    'Escritos sueltos',
+    'Incidentes',
+    'Certificado de envío de documentos al PJUD',
+    'ChatGPT',
+    'Trazabilidad',
+  ]
 
   const advisoryBranch = createNode({
     id: 'archivador-cliente-asesoria',
@@ -419,7 +448,7 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
     const tribunalFolder = createNode({
       id: `tribunal-${folderIndex}-${folder.tribunal || cause.tribunal || 'tribunal'}`,
       name: folder.tribunal || cause.tribunal || 'Tribunal',
-      type: 'folder',
+      type: 'kardex',
       parentId: tribunalBranch.id,
       isExpandable: true,
       path: `${tribunalBranch.path} / ${folder.tribunal || cause.tribunal || 'Tribunal'}`,
@@ -429,14 +458,15 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
       const causeFolder = createNode({
         id: `tribunal-causa-${folderIndex}-${caseIndex}-${caseFolder.nombre || cause.caratula || 'causa'}`,
         name: caseFolder.nombre || cause.caratula || 'Causa',
-        type: 'folder',
+        type: 'archivador',
         parentId: tribunalFolder.id,
         isExpandable: true,
         path: `${tribunalFolder.path} / ${caseFolder.nombre || cause.caratula || 'Causa'}`,
       })
 
       const knownFolders = new Map()
-      ;(caseFolder.subcarpetas || []).forEach((subfolder, subIndex) => {
+      const normalizedSubfolders = legalArchiveFolders.length ? legalArchiveFolders : (caseFolder.subcarpetas || [])
+      normalizedSubfolders.forEach((subfolder, subIndex) => {
         const node = createNode({
           id: `tribunal-subcarpeta-${folderIndex}-${caseIndex}-${subIndex}-${subfolder}`,
           name: subfolder,
@@ -449,12 +479,12 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
       })
 
       const containerMappings = [
-        ['ebook', ['ebook']],
-        ['asociados', ['carpeta-digital', 'documentos']],
-        ['escritos', ['borradores-de-escritos', 'escritos']],
-        ['resoluciones', ['resoluciones']],
-        ['notificaciones', ['notificaciones']],
-        ['antecedentes', ['otros-antecedentes-relacionados-con-la-asesoria', 'estrategia-juridica-para-el-caso']],
+        ['ebook', ['ebook-primera-instancia-expediente-de-corte-de-apelaciones-expediente-corte-suprema-y-exhortos', 'ebook-de-juicios-relacionados']],
+        ['asociados', ['documentos', 'grabacion-y-acta-de-reunion', 'incidentes']],
+        ['escritos', ['escritos-sueltos', 'chatgpt']],
+        ['resoluciones', ['jurisprudencia', 'doctrina-en-biblioteca']],
+        ['notificaciones', ['certificado-de-envio-de-documentos-al-pjud', 'trazabilidad']],
+        ['antecedentes', ['informes-y-estrategias-de-trabajo', 'absolucion-de-posiciones', 'informe-de-perito', 'declaracion-de-testigos']],
       ]
 
       containerMappings.forEach(([containerId, aliases]) => {
@@ -513,7 +543,7 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
     rootId: root.id,
     nodes,
     nodeMap: Object.fromEntries(nodes.map((node) => [node.id, node])),
-    hasFiles: nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file'].includes(node.type)),
+    hasFiles: nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file', 'book', 'book-doctrina', 'book-jurisprudencia', 'booklet-acta', 'booklet-informe', 'booklet-escrito', 'booklet-certificado', 'booklet-declaracion', 'booklet-peritaje'].includes(node.type)),
     hasContent: nodes.length > 1,
   }
 }
