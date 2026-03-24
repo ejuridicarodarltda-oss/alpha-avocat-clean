@@ -880,6 +880,31 @@
 
     .assistant-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
 
+    .production-hub-grid{
+      display:grid;
+      gap:12px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .production-hub-card{
+      background:#f7fffd;
+      border:1px solid rgba(95,159,151,.24);
+      border-radius:16px;
+      padding:12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .production-hub-list{
+      margin:0;
+      padding-left:18px;
+      color:var(--causas-text);
+      line-height:1.45;
+      display:grid;
+      gap:6px;
+      font-size:13px;
+    }
+
     .causas-page .top-overview{
       display:grid;
       gap:8px;
@@ -1478,6 +1503,7 @@
       .container-layout,
       .documents-layout,
       .source-grid,
+      .production-hub-grid,
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
@@ -1525,6 +1551,7 @@
       .container-layout,
       .documents-layout,
       .source-grid,
+      .production-hub-grid,
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
@@ -3625,6 +3652,41 @@
             { fecha:'2026-03-20', hito:'Preparado para migrar a carpeta digital', detalle:'La producción final podrá pasar a Carpeta digital y quedar conectada con cliente, causa y asesoría.' },
           ]
         },
+        produccionHub:{
+          ia:{
+            motor:'Motor IA jurídica Alpha Avocat',
+            estadoProcesal:`${state} · ${stage}`,
+            fuentes:['Expediente digital', 'Resoluciones', 'Agenda', 'Cliente', 'Importación PJUD/OJV', 'Historial interno'],
+            hallazgos:[
+              'Detección de actuaciones recientes y su impacto procesal inmediato.',
+              'Recomendación de próximos pasos jurídicos con foco en utilidad real para la causa.',
+              'Sugerencia de documentos, borradores y gestiones para evitar preclusión.'
+            ]
+          },
+          jurisprudencia:[
+            { criterio:'Corte Suprema · recurso', referencia:'Fallos comparables sobre admisibilidad y fundamentación del recurso.', uso:'Estrategia recursiva principal' },
+            { criterio:'Corte de Apelaciones · traslado', referencia:'Criterio sobre evacuación oportuna de traslado y suficiencia argumentativa.', uso:'Escrito en preparación' },
+          ],
+          doctrina:[
+            { tema:'Carga probatoria y estándar de convicción', apoyo:'Doctrina mayoritaria para reforzar tesis principal.', uso:'Capítulo de fundamentos' },
+            { tema:'Buena fe procesal y congruencia', apoyo:'Doctrina útil para encuadrar conducta procesal de la contraparte.', uso:'Riesgos y oportunidades' },
+          ],
+          cronograma:{
+            procedimiento,
+            hitos:[
+              { fase:'Inicio', acto:'Demanda / presentación inicial', secuencia:'1', estado:'Cumplido' },
+              { fase:'Discusión', acto:'Traslado y contestación', secuencia:'2', estado:'En curso' },
+              { fase:'Prueba', acto:'Preparación y rendición probatoria', secuencia:'3', estado:'Pendiente' },
+              { fase:'Decisión', acto:'Citación para oír sentencia / sentencia', secuencia:'4', estado:'Pendiente' },
+            ]
+          },
+          citas:{
+            norma:'Citar norma por cuerpo legal, artículo y vínculo con hecho probado.',
+            jurisprudencia:'Citar tribunal, rol/causa, fecha y ratio aplicable al caso concreto.',
+            doctrina:'Citar autor, obra/fuente, edición o año y tesis relevante.',
+            control:'El borrador valida consistencia entre citas, hechos y peticiones.'
+          }
+        },
         escritos:[
           { fecha:'2026-03-16', tipo:'Borrador', titulo:'Respuesta estratégica al traslado', folio:'—', responsable, word:'Borrador_v03.docx', pdf:'—', estado:'En revisión', vinculo:'Plazo de traslado / Resolución 15-03-2026' },
           { fecha:'2026-03-12', tipo:'Minuta', titulo:'Minuta de antecedentes y plan de trabajo', folio:'Interno', responsable:'Equipo de litigación', word:'Minuta_causa.docx', pdf:'Minuta_causa.pdf', estado:'Aprobado', vinculo:'Historia procesal' },
@@ -4274,6 +4336,7 @@
           </div>
           <div class="linked-note">Todo documento generado desde PRODUCCIÓN puede quedar vinculado a la causa, al cliente, a una asesoría y al expediente digital del asunto.</div>
         </section>
+        ${renderProductionHub(cause)}
         ${renderProduccion(cause)}
         ${renderEscritos(cause)}
         ${renderAnalisis(cause)}
@@ -4891,6 +4954,122 @@
       } catch (error) {
         shell.innerHTML = `<div class="media-empty-state">No fue posible cargar la multimedia de la causa: ${error.message}</div>`;
       }
+    }
+
+    function deriveProductionInsights(cause){
+      const plazosActivos = (cause.plazos || []).map((item) => {
+        const dias = daysBetween(item.vencimiento);
+        let urgencia = 'Normal';
+        if (dias != null && dias < 0) urgencia = 'Vencido';
+        else if (dias != null && dias <= 1) urgencia = 'Urgente';
+        else if (dias != null && dias <= 3) urgencia = 'Próximo a vencer';
+        return {
+          ...item,
+          diasRestantes: dias,
+          urgencia,
+        };
+      }).sort((a,b) => (a.diasRestantes ?? 9999) - (b.diasRestantes ?? 9999));
+
+      const alertas = [
+        ...plazosActivos.map((item, index) => ({
+          id: `plazo-${index}`,
+          titulo: `Plazo ${item.tipo || 'procesal'} en curso`,
+          detalle: `${item.escrito || 'Gestión procesal'} · vence ${formatDate(item.vencimiento)} (${item.diasRestantes == null ? 'sin cálculo' : `${item.diasRestantes} día(s)`}).`,
+          nivel: item.urgencia,
+          panel: 'Panel + Causa + Producción'
+        })),
+        ...(cause.audiencias || []).slice(0, 2).map((item, index) => ({
+          id: `audiencia-${index}`,
+          titulo:'Audiencia vinculada',
+          detalle:`${item.tipo} el ${formatDate(item.fecha)} a las ${item.hora || 'hora por definir'}.`,
+          nivel: daysBetween(item.fecha) <= 2 ? 'Urgente' : 'Normal',
+          panel: 'Panel + Agenda + Causa'
+        }))
+      ].slice(0, 6);
+
+      const propuestas = [
+        ...plazosActivos.slice(0, 3).map((item) => `Redactar y cerrar "${item.escrito || item.tipo}" antes de ${formatDate(item.vencimiento)}.`),
+        'Vincular jurisprudencia y doctrina útil al borrador activo.',
+        'Registrar gestión crítica en Agenda para control de ejecución.',
+        'Actualizar estrategia jurídica con hechos, prueba y riesgo residual.'
+      ].slice(0, 6);
+
+      const borradores = (cause.escritos || []).filter((item) => String(item.tipo || '').toLowerCase().includes('borrador') || String(item.estado || '').toLowerCase().includes('revisi'));
+
+      return { plazosActivos, alertas, propuestas, borradores };
+    }
+
+    function renderProductionHub(cause){
+      const hub = cause.produccionHub || {};
+      const insights = deriveProductionInsights(cause);
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Centro de trabajo PRODUCCIÓN</h4>
+              <p class="section-copy">Núcleo inteligente conectado con expediente, cliente, agenda, panel y documentos para ejecutar trabajo jurídico real por causa.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge badge-active">IA jurídica conectada</span>
+              <span class="badge badge-ok">${insights.plazosActivos.length} plazos analizados</span>
+            </div>
+          </div>
+          <div class="production-hub-grid">
+            <article class="production-hub-card">
+              <strong>1) IA Jurídica</strong>
+              <div class="case-meta">${escapeHtml(hub.ia?.motor || 'Motor IA jurídica Alpha Avocat')} · ${escapeHtml(hub.ia?.estadoProcesal || cause.estadoProcesal)}</div>
+              <ul class="production-hub-list">${(hub.ia?.hallazgos || []).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+              <div class="timeline-meta">Fuentes: ${(hub.ia?.fuentes || []).map(escapeHtml).join(' · ') || 'Expediente, agenda y documentos'}.</div>
+            </article>
+            <article class="production-hub-card">
+              <strong>2) Jurisprudencia</strong>
+              <ul class="production-hub-list">${(hub.jurisprudencia || []).map((item) => `<li><strong>${escapeHtml(item.criterio)}</strong>: ${escapeHtml(item.referencia)} (${escapeHtml(item.uso)})</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>3) Doctrina</strong>
+              <ul class="production-hub-list">${(hub.doctrina || []).map((item) => `<li><strong>${escapeHtml(item.tema)}</strong>: ${escapeHtml(item.apoyo)} (${escapeHtml(item.uso)})</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>4) Cronograma procesal</strong>
+              <div class="case-meta">${escapeHtml(hub.cronograma?.procedimiento || cause.procedimiento)}</div>
+              <ul class="production-hub-list">${(hub.cronograma?.hitos || []).map((hito) => `<li>${escapeHtml(hito.secuencia)}. ${escapeHtml(hito.fase)} · ${escapeHtml(hito.acto)} (${escapeHtml(hito.estado)})</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>5) Plazos judiciales corriendo</strong>
+              <ul class="production-hub-list">${insights.plazosActivos.map((item) => `<li>${escapeHtml(item.tipo)} · ${escapeHtml(item.escrito)} · ${escapeHtml(formatDate(item.vencimiento))} · ${escapeHtml(item.urgencia)}</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>6) Alertas jurídicas (Panel)</strong>
+              <ul class="production-hub-list">${insights.alertas.map((item) => `<li>${escapeHtml(item.titulo)}: ${escapeHtml(item.detalle)} <em>${escapeHtml(item.nivel)}</em> · ${escapeHtml(item.panel)}</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>7) Propuestas de gestión</strong>
+              <ul class="production-hub-list">${insights.propuestas.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>8) Borradores de escritos</strong>
+              <ul class="production-hub-list">${insights.borradores.map((item) => `<li>${escapeHtml(item.titulo)} · ${escapeHtml(item.estado)} · ${escapeHtml(item.responsable)}</li>`).join('') || '<li>Sin borradores activos.</li>'}</ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>9) Estrategia jurídica</strong>
+              <ul class="production-hub-list">
+                <li><strong>Objetivo:</strong> ${escapeHtml(cause.produccion?.estrategia?.objetivoJuridico || 'No definido')}</li>
+                <li><strong>Riesgo:</strong> ${escapeHtml(cause.produccion?.estrategia?.riesgo || 'Sin riesgo crítico')}</li>
+                <li><strong>Siguiente paso:</strong> ${escapeHtml(cause.produccion?.estrategia?.accion || 'Sin acción definida')}</li>
+              </ul>
+            </article>
+            <article class="production-hub-card">
+              <strong>10) Norma de citas en escritos</strong>
+              <ul class="production-hub-list">
+                <li>${escapeHtml(hub.citas?.norma || 'Cita normativa con artículo y pertinencia al caso.')}</li>
+                <li>${escapeHtml(hub.citas?.jurisprudencia || 'Cita jurisprudencial con tribunal, rol y ratio decidendi.')}</li>
+                <li>${escapeHtml(hub.citas?.doctrina || 'Cita doctrinal con autor, obra y tesis aplicable.')}</li>
+                <li>${escapeHtml(hub.citas?.control || 'Control de consistencia de citas al redactar borradores.')}</li>
+              </ul>
+            </article>
+          </div>
+        </section>
+      `;
     }
 
     function renderProduccion(cause){
