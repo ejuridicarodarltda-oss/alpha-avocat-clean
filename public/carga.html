@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alpha Avocat | Carga</title>
+  <link rel="stylesheet" href="./style.css?v=45">
+  <link rel="icon" type="image/png" sizes="192x192" href="./img/alpha_icon_192.png">
+  <link rel="icon" type="image/png" sizes="512x512" href="./img/alpha_icon_512.png">
+  <link rel="apple-touch-icon" href="./img/apple_dash_icon.png">
+  <link rel="manifest" href="./site.webmanifest">
+</head>
+<body class="app-shell">
+  <header class="topbar">
+    <div class="brand">
+      <div class="brand-mark">A</div>
+      <div class="brand-text">
+        <div class="brand-title">ALPHA AVOCAT</div>
+        <div class="brand-sub">Sistema de Gestión Jurídica Inteligente</div>
+      </div>
+    </div>
+    <nav class="topbar-nav" aria-label="Navegación principal">
+      <a class="topbar-nav-link" href="./panel.html">Panel</a>
+      <a class="topbar-nav-link" href="./clientes.html">Clientes</a>
+      <a class="topbar-nav-link" href="./causas.html">Causas</a>
+      <a class="topbar-nav-link" href="./agenda.html">Agenda</a>
+      <a class="topbar-nav-link active" href="./carga.html">Carga</a>
+    </nav>
+  </header>
+
+  <main class="main" id="cargaModuleRoot" aria-live="polite">
+    <section class="card" style="max-width:920px;margin:0 auto;">
+      <p class="muted">Inicializando módulo Carga…</p>
+    </section>
+  </main>
+
+  <script type="module">
+    import { supabase } from './app.js'
+    import cargaModule, { init as initCarga, mountCargaModule } from './carga.js'
+
+    async function bootstrapCargaModule() {
+      const { data, error } = await supabase.auth.getSession()
+      if (error || !data?.session) {
+        console.error('[Alpha Avocat][carga] Sesión inválida al abrir Carga.', {
+          reason: 'invalid-session',
+          error
+        })
+        window.location.href = './login.html'
+        return
+      }
+
+      const result = initCarga({
+        context: {
+          source: new URLSearchParams(window.location.search).get('source') || 'direct-link'
+        }
+      })
+
+      if (!result?.ok) {
+        console.error('[Alpha Avocat][carga] Falló init(), se intentará mountCargaModule() como respaldo.', result?.error)
+        mountCargaModule({
+          context: {
+            source: 'fallback-init'
+          }
+        })
+      }
+
+      if (!cargaModule?.id) {
+        console.error('[Alpha Avocat][carga] Export inválido en carga.js: no se encontró id del módulo.', {
+          expected: 'default export con { id, init/mount }'
+        })
+      }
+    }
+
+    bootstrapCargaModule().catch((error) => {
+      console.error('[Alpha Avocat][carga] Excepción no controlada al inicializar el módulo.', {
+        reason: 'bootstrap-exception',
+        error
+      })
+      const root = document.getElementById('cargaModuleRoot')
+      if (root) {
+        root.innerHTML = '<section class="card"><div class="empty-state">No pudo cargar el módulo Carga. Revise la consola para el detalle técnico.</div></section>'
+      }
+    })
+  </script>
+</body>
+</html>
