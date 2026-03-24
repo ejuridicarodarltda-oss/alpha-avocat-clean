@@ -1382,6 +1382,7 @@
 
   <script type="module">
     import { supabase } from './app.js';
+    import { buildConsolidatedAlerts, renderAlertListItems } from './alerts.js';
     import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js';
     import { MultimediaCaptureModal } from './media-capture.js';
     import { listMediaAssets, MEDIA_ROLE_LABELS, MEDIA_TYPE_LABELS, uploadMediaAsset } from './media-assets.js';
@@ -2528,9 +2529,15 @@
       const fees = selected.fees;
       const monthlyVisible = normalize(fees.modality).includes('mensual');
       const taxMode = normalize(selected.client.notes).includes('juridica') ? 'juridica' : 'natural';
+      const honorariosAlerts = renderHonorariosAlerts(selected);
       return `
         <section class="tab-section">
           ${!isAdminHonorarios ? '<div class="admin-banner"><strong>Acceso restringido.</strong> Se mantiene la lógica actual: Honorarios sigue protegido para el administrador, pero la pestaña permanece visible en la estructura del expediente.</div>' : ''}
+          <article class="fee-card" style="margin-bottom:14px;">
+            <span class="mini-label">Alertas de cuota y cobro</span>
+            <strong>Clientes &gt; Honorarios</strong>
+            <ul class="panel-alert-group">${honorariosAlerts}</ul>
+          </article>
           <div class="fees-grid">
             <article class="fee-card">
               <div class="fee-head">
@@ -2604,6 +2611,22 @@
           </div>
         </section>
       `;
+    }
+
+    function renderHonorariosAlerts(selected) {
+      const consolidated = buildConsolidatedAlerts({
+        appointments: [],
+        cases: [],
+        clientDataset: state,
+        now: new Date()
+      });
+      const scopedAlerts = consolidated.alerts
+        .filter((alert) => alert.category === 'Honorarios por cobrar' && String(alert.association || '').includes(selected.code))
+        .slice(0, 4);
+      return renderAlertListItems(scopedAlerts, {
+        emptyMessage: 'No hay cuotas pendientes o próximas para este expediente.',
+        showMeta: true
+      });
     }
 
     function renderInstructions(selected) {

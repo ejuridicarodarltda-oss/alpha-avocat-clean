@@ -437,7 +437,7 @@ function renderGroupedAlerts(summary, query = '') {
     { emptyMessage: 'Sin actividad reciente para mostrar.' }
   )
   document.getElementById('panelAgendaProxima').innerHTML = renderAlertListItems(
-    filtered.filter((alert) => ['Agenda', 'Clientes'].includes(alert.module) && ['Audiencias', 'Eventos de hoy', 'Próximas actividades', 'Reuniones y atenciones'].includes(alert.category)).slice(0, 5),
+    filtered.filter((alert) => ['Agenda', 'Clientes'].includes(alert.module) && ['Audiencias', 'Eventos de hoy', 'Próximas actividades', 'Reuniones y atenciones', 'Entrevistas próximas', 'Honorarios por cobrar'].includes(alert.category)).slice(0, 5),
     { emptyMessage: 'Sin eventos próximos cargados.' }
   )
   renderCasePanel(summary.activeCases, filtered)

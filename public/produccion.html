@@ -20,6 +20,7 @@
     .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#1f5a53}
     .muted{color:#355652;font-size:13px}
     .empty{background:#fff;border:1px dashed #8ec7be;border-radius:16px;padding:16px}
+    .alerts-shell{list-style:none;padding:0;margin:0;display:grid;gap:10px}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
@@ -42,12 +43,21 @@
     <section class="card">
       <div class="grid" id="productionGrid"></div>
     </section>
+    <section class="card">
+      <h3 class="title">Alertas de plazos judiciales</h3>
+      <p class="subtitle">Alertas generadas desde antecedentes de causa, expediente digital, importaciones PJUD y datos de Producción.</p>
+      <ul id="productionDeadlineAlerts" class="alerts-shell">
+        <li class="empty">Cargando alertas de plazos judiciales…</li>
+      </ul>
+    </section>
   </main>
 
   <script type="module">
     import { supabase, logout } from './app.js';
+    import { buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from './alerts.js';
 
     const grid = document.getElementById('productionGrid');
+    const deadlinesList = document.getElementById('productionDeadlineAlerts');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
 
     async function ensureAuth(){
@@ -115,6 +125,20 @@
       grid.innerHTML = cards.length
         ? cards.join('')
         : '<article class="empty">No hay elementos de producción registrados todavía.</article>';
+
+      const consolidated = buildConsolidatedAlerts({
+        appointments: [],
+        cases: causes || [],
+        clientDataset: loadClientDatasetFromStorage(window.localStorage),
+        now: new Date()
+      });
+      const deadlineAlerts = consolidated.alerts
+        .filter((item) => item.module === 'Causas' && item.category === 'Plazos judiciales')
+        .slice(0, 8);
+      deadlinesList.innerHTML = renderAlertListItems(deadlineAlerts, {
+        emptyMessage: 'No se detectaron plazos judiciales próximos en causas cargadas.',
+        showMeta: true
+      });
     }
 
     document.getElementById('btnLogout').addEventListener('click', logout);
