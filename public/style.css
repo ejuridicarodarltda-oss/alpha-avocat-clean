@@ -192,14 +192,14 @@ box-shadow:4px 0 18px rgba(0,0,0,.35);
 flex-shrink:0;
 }
 
-.logo{
+body.panel-page .logo{
 display:flex;
 flex-direction:column;
 align-items:center;
 justify-content:center;
 text-align:center;
-margin-top:37px;
-margin-bottom:20px;
+margin:24px 0 16px;
+padding-inline:4px;
 }
 
 .logo-texto{
@@ -208,7 +208,7 @@ padding:0;
 border-radius:0;
 }
 
-.logo img{
+body.panel-page .logo img{
 width:200px;
 margin-bottom:6px;
 filter:drop-shadow(0 18px 40px rgba(0,0,0,.95));
@@ -236,7 +236,7 @@ transform-style:preserve-3d;
 100%{transform:rotateY(360deg);}
 }
 
-.logo h1{
+body.panel-page .logo h1{
 font-size:28px;
 letter-spacing:3px;
 margin:0;
@@ -244,7 +244,7 @@ color:var(--brand-gold);
 line-height:1.1;
 }
 
-.logo p{
+body.panel-page .logo p{
 font-size:13px;
 opacity:.95;
 margin:2px 0 0 0;
@@ -263,18 +263,17 @@ font-size:12px;
 margin-top:4px;
 }
 
-.menu{
+body.panel-page .menu{
 margin-top:24px;
 display:flex;
 flex-direction:column;
-gap:8px;
+gap:10px;
+padding-right:2px;
 }
 
-body.panel-page .menu{
-margin-top:20px;
-}
-
-.menu a{
+body.panel-page .menu a{
+width:100%;
+box-sizing:border-box;
 padding:9px 12px;
 border-radius:12px;
 cursor:pointer;
@@ -289,10 +288,12 @@ font-weight:600;
 box-shadow:4px 4px 12px rgba(0,0,0,.45);
 text-decoration:none;
 line-height:1.2;
+overflow:hidden;
 }
 
-.menu a:hover{
-transform:translateX(6px);
+body.panel-page .menu a:hover{
+transform:none;
+filter:brightness(1.06);
 }
 
 .menu .inicio{background:linear-gradient(145deg,#ff2647,#c41e3a);}
