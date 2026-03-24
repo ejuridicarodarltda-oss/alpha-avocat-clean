@@ -1458,6 +1458,13 @@
       gap:12px;
     }
 
+    .causas-page .chip-row{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-top:10px;
+    }
+
     .selection-card,
     .document-row,
     .causas-page .sync-row{
@@ -2181,6 +2188,7 @@
       supabaseCases: [],
       caseMap: new Map(),
       selectedId: null,
+      selectedAssociationClientId: null,
       activeTab: 'informacion',
       pendingImport: null,
       pendingBatchImports: [],
@@ -2243,6 +2251,73 @@
 
     function escapeHtml(value=''){
       return String(value).replace(/[&<>"']/g, char => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[char]));
+    }
+
+    function normalizeTextForMatch(value = ''){
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function normalizeRutForMatch(value = ''){
+      return String(value || '')
+        .toUpperCase()
+        .replace(/[^0-9K]/gi, '');
+    }
+
+    function getClientRutValue(client = {}){
+      return (
+        client.rut ||
+        client.rut_cliente ||
+        client.client_rut ||
+        client.tax_id ||
+        client.document ||
+        ''
+      );
+    }
+
+    function collectCauseClientReferences(cause){
+      return [
+        cause?.clientId,
+        cause?.cliente,
+        cause?.clientePrincipal,
+        cause?.demandante,
+        cause?.expediente,
+        cause?.notes,
+      ]
+        .filter(Boolean)
+        .map(value => String(value));
+    }
+
+    function resolveAssociatedCausesForClient(client){
+      if (!client) return [];
+      const targetId = String(client[C.c_id] || '');
+      const targetName = normalizeTextForMatch(getClientDisplayName(client));
+      const targetRut = normalizeRutForMatch(getClientRutValue(client));
+      const allCases = getAllCases();
+
+      return allCases.filter((cause) => {
+        const causeClientId = String(cause.clientId || '');
+        if (targetId && causeClientId && targetId === causeClientId) return true;
+
+        const refs = collectCauseClientReferences(cause);
+        if (!refs.length) return false;
+
+        if (targetRut) {
+          const rutMatched = refs.some(ref => normalizeRutForMatch(ref) === targetRut);
+          if (rutMatched) return true;
+        }
+
+        if (targetName) {
+          const nameMatched = refs.some(ref => normalizeTextForMatch(ref).includes(targetName));
+          if (nameMatched) return true;
+        }
+
+        return false;
+      });
     }
 
     function openBranchScreen(branch, origin = 'unknown'){
@@ -3820,7 +3895,7 @@
     async function loadClients(){
       const { data, error } = await supabase
         .from(T_CLIENTS)
-        .select(`${C.c_id}, ${C.c_name}`)
+        .select('*')
         .order(C.c_name, { ascending:true });
       if (error) throw buildLoadError('los clientes asociados a CAUSAS', error);
       state.clients = (data || []).map(client => ({ ...client, display_name: getClientDisplayName(client) }));
@@ -4202,6 +4277,71 @@
       `;
     }
 
+    function renderClientCauseAssociationBlock(cause){
+      const sortedClients = [...state.clients].sort((a, b) => getClientDisplayName(a).localeCompare(getClientDisplayName(b), 'es'));
+      const selectedClientId = state.selectedAssociationClientId || cause.clientId || sortedClients[0]?.[C.c_id] || null;
+      const selectedClient = sortedClients.find((client) => String(client[C.c_id]) === String(selectedClientId)) || null;
+      const relatedCauses = resolveAssociatedCausesForClient(selectedClient);
+      const selectedClientName = selectedClient ? getClientDisplayName(selectedClient) : SAFE_CLIENT_LABEL;
+      const selectedClientRut = selectedClient ? getClientRutValue(selectedClient) : '';
+      const causesTotal = getAllCases().length;
+
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">CAUSAS ASOCIADAS AL CLIENTE</h4>
+              <p class="section-copy">Bloque de cruce entre CLIENTES, CAUSAS y EXPEDIENTES DIGITALES para identificar de inmediato qué causa(s) corresponde(n) a cada cliente.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge badge-active">Cliente: ${escapeHtml(selectedClientName)}</span>
+              <span class="badge ${relatedCauses.length ? 'badge-ok' : 'badge-warning'}">${relatedCauses.length} causa(s) vinculada(s)</span>
+            </div>
+          </div>
+          <div class="selection-grid">
+            <article class="selection-card">
+              <strong>1) Listado de clientes</strong>
+              <div class="timeline-meta">Selecciona un cliente para analizar su vínculo jurídico con las causas activas.</div>
+              <div class="chip-row">
+                ${sortedClients.map((client) => `
+                  <button
+                    type="button"
+                    class="chip-btn ${String(client[C.c_id]) === String(selectedClientId) ? 'active' : ''}"
+                    data-select-associated-client="${escapeHtml(String(client[C.c_id]))}"
+                    title="Cargar causas vinculadas"
+                  >${escapeHtml(getClientDisplayName(client))}</button>
+                `).join('') || '<span class="small-note">No hay clientes cargados.</span>'}
+              </div>
+              <div class="timeline-meta">${selectedClientRut ? `RUT cliente: ${escapeHtml(selectedClientRut)}.` : 'RUT no disponible para este cliente.'}</div>
+            </article>
+            <article class="selection-card">
+              <strong>2) Listado de causas</strong>
+              <div class="timeline-meta">Causas disponibles en el módulo para cruzar con cliente, identificadores judiciales y expediente digital.</div>
+              <div class="timeline-meta">Total causas visibles: ${escapeHtml(causesTotal)}.</div>
+              <div class="timeline">${getAllCases().slice(0, 6).map(item => `
+                <article class="timeline-item">
+                  <strong>${escapeHtml(item.caratula || 'Sin carátula')}</strong>
+                  <div class="timeline-meta">Cliente: ${escapeHtml(item.cliente || SAFE_CLIENT_LABEL)} · Rol: ${escapeHtml(item.rol || 'Sin rol')} · RIT: ${escapeHtml(item.rit || 'Sin RIT')} · RUC: ${escapeHtml(item.ruc || 'Sin RUC')}</div>
+                </article>
+              `).join('') || '<div class="helper-box">No hay causas registradas en este momento.</div>'}</div>
+            </article>
+            <article class="selection-card">
+              <strong>3) Causas asociadas al cliente</strong>
+              <div class="timeline-meta">Resultado del análisis por client_id, nombre, RUT, referencias de cliente y vínculos existentes en causa/expediente.</div>
+              ${relatedCauses.length ? `<div class="timeline">${relatedCauses.map(item => `
+                <article class="timeline-item">
+                  <strong>${escapeHtml(item.caratula || 'Sin carátula')}</strong>
+                  <div class="timeline-meta">Rol: ${escapeHtml(item.rol || 'Sin rol')} · RIT: ${escapeHtml(item.rit || 'Sin RIT')} · RUC: ${escapeHtml(item.ruc || 'Sin RUC')} · ID: ${escapeHtml(item.id || 'Sin ID')}</div>
+                  <div class="timeline-meta">Tribunal: ${escapeHtml(item.tribunal || 'No informado')} · Calidad cliente: ${escapeHtml(item.partes?.[0]?.calidad || 'No informada')}</div>
+                  <div class="timeline-meta">Acción: ${escapeHtml(item.tipoCausa || item.causaRelacionada || 'No informada')} · Procedimiento: ${escapeHtml(item.procedimiento || 'No informado')} · Materia: ${escapeHtml(item.materia || 'No informada')}</div>
+                </article>
+              `).join('')}</div>` : `<div class="helper-box">El cliente seleccionado no tiene causas asociadas actualmente. Puedes vincular una causa desde el formulario principal sin romper esta pantalla.</div>`}
+            </article>
+          </div>
+        </section>
+      `;
+    }
+
     function renderInformationPillar(cause){
       return `
         ${renderResumen(cause)}
@@ -4235,6 +4375,7 @@
             ['Expediente relacionado', cause.expediente],
           ])}
         </section>
+        ${renderClientCauseAssociationBlock(cause)}
         ${renderEstadoProcesal(cause)}
         ${renderPartes(cause)}
         ${renderTribunal(cause)}
@@ -5350,6 +5491,9 @@
         $('detailContent').innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
         return;
       }
+      if (!state.selectedAssociationClientId || !state.clients.some(client => String(client[C.c_id]) === String(state.selectedAssociationClientId))) {
+        state.selectedAssociationClientId = cause.clientId || state.clients[0]?.[C.c_id] || null;
+      }
       if (state.rectificationValidation?.causeId && state.rectificationValidation.causeId !== cause.id) {
         state.rectificationValidation = null;
       }
@@ -6354,6 +6498,13 @@
       });
 
       $('detailContent').addEventListener('click', (event) => {
+        const associationClient = event.target.closest('[data-select-associated-client]');
+        if (associationClient) {
+          state.selectedAssociationClientId = associationClient.dataset.selectAssociatedClient || null;
+          renderCurrentTab();
+          return;
+        }
+
         const rectifyScope = event.target.closest('[data-rectify-scope]');
         if (rectifyScope) {
           openCauseRectification(rectifyScope.dataset.rectifyScope || 'general');
