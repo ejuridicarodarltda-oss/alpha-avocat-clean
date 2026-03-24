@@ -4019,7 +4019,7 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:selected ? `${selected.cliente}` : 'Base general', button:'Abrir Información de Clientes, Asesorías y Causas' },
+        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
         { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes Digitales' },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
