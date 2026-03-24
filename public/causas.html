@@ -466,7 +466,7 @@
     .production-grid{ grid-template-columns:1.2fr .8fr; }
     .diagnostic-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     .source-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
-    .pillar-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
+    .pillar-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .branch-grid{ grid-template-columns:repeat(2,minmax(0,1fr)); }
     .folder-grid{ grid-template-columns:repeat(3,minmax(0,1fr)); }
     .archive-grid{ grid-template-columns:1.3fr .7fr; }
@@ -914,6 +914,26 @@
       background:#e7f5f2;
     }
 
+    .causas-page .pillar-card.full-width{
+      grid-column:1 / -1;
+    }
+
+    .causas-page .card-action-wrap{
+      margin-top:auto;
+      display:flex;
+      justify-content:flex-start;
+    }
+
+    .causas-page .paired-grid{
+      display:grid;
+      gap:12px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+
+    .causas-page .paired-grid > .span-full{
+      grid-column:1 / -1;
+    }
+
     .pillar-icon,
     .causas-page .folder-icon{
       width:40px;
@@ -1354,6 +1374,7 @@
       .micro-grid,
       .grid-4,
       .pillar-grid,
+      .paired-grid,
       .folder-grid,
       .branch-grid,
       .archive-grid,
@@ -1450,8 +1471,8 @@
       <div class="screen-header">
         <div>
           <p class="eyebrow">Núcleo CAUSAS</p>
-          <h2 class="screen-title">CAUSAS estructurado en 3 pilares</h2>
-          <p class="screen-subtitle">La navegación principal del módulo se reorganiza en Información de clientes, asesorías y causas; Expedientes digitales; y Producción, manteniendo la lógica visual y operativa ya usada por el sistema.</p>
+          <h2 class="screen-title">BLOQUE DE CAUSAS</h2>
+          <p class="screen-subtitle">Portada de acceso jerárquico para Información base, Expedientes digitales y Producción en curso, manteniendo la lógica visual y operativa del sistema.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Ir a información base</button>
@@ -3254,19 +3275,39 @@
               editable:true,
               nuevo:true,
               carpetas:[
-                {
-                  tribunal:base.tribunal || 'Tribunal pendiente',
-                  editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
-                  causas:[
-                    {
-                      nombre:`${caratula}, Rol ${rol}`,
-                      subcarpetas:[
-                        'Ebook','Carpeta digital','Documentos','Borradores de escritos','Absolución de posiciones','Informe de perito','Testifical','Estrategia jurídica para el caso','Reuniones'
-                      ]
-                    }
-                  ]
-                }
-              ]
+                'Causas Juzgados Civiles',
+                'Causas Juzgado de Familia',
+                'Causas Juzgado del Trabajo',
+                'Causas Juzgado de Cobranza',
+                'Causas Juzgado de Garantía',
+                'Tribunal Oral en lo Penal',
+                'Juzgado de Policía Local',
+              ].map((tribunalNombre) => ({
+                tribunal:tribunalNombre,
+                editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
+                causas:[
+                  {
+                    nombre:`${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'} · ${caratula}`,
+                    subcarpetas:[
+                      'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
+                      'Documentos',
+                      'Grabación y Acta de reunión (viene de Agenda)',
+                      'Jurisprudencia',
+                      'Doctrina en Biblioteca',
+                      'Absolución de posiciones',
+                      'Informe de perito',
+                      'Declaración de testigos',
+                      'Ebook de juicios relacionados',
+                      'Informes y estrategias de trabajo',
+                      'Escritos sueltos',
+                      'Incidentes',
+                      'Certificado de envío de documentos al PJUD',
+                      'ChatGPT',
+                      'Trazabilidad'
+                    ]
+                  }
+                ]
+              }))
             },
             asesoria:{
               carpetas:[
@@ -3594,12 +3635,12 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información de clientes, asesorías y causas', copy:'Concentra cliente, asesorías, causa, cronología, instrucciones, alertas y responsables.', badge:selected ? `${selected.cliente}` : 'Base general' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes digitales', copy:'Organiza Archivador Cliente con ramas Tribunal y Asesoría, más Biblioteca documental.', badge:'Cliente + Biblioteca' },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Reúne redacción, plantillas, borradores, documentos finales, prueba y asistente jurídico IA.', badge:'Producción jurídica' },
+        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:selected ? `${selected.cliente}` : 'Base general', button:'Abrir Información' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes' },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
-        <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''}" data-tab="${card.id}">
+        <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
           <div class="case-top">
             <div class="pillar-icon" aria-hidden="true">${card.icon}</div>
             <span class="badge ${state.activeTab === card.id ? 'badge-active' : 'badge-info'}">${escapeHtml(card.badge)}</span>
@@ -3608,7 +3649,10 @@
             <h3 class="segment-title">${escapeHtml(card.title)}</h3>
             <p class="segment-copy">${escapeHtml(card.copy)}</p>
           </div>
-          <div class="linked-note">Abrir este pilar mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
+          <div class="card-action-wrap">
+            <button class="btn ${state.activeTab === card.id ? 'btn-primary' : ''}" data-tab="${card.id}" data-open-block="true">${escapeHtml(card.button)}</button>
+          </div>
+          <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
       `).join('');
     }
@@ -3742,13 +3786,84 @@
       `;
     }
 
+    function buildPairedCards(items, renderer){
+      return `<div class="paired-grid">${items.map((item, index) => {
+        const isOddTail = items.length % 2 === 1 && index === items.length - 1;
+        return renderer(item, isOddTail);
+      }).join('')}</div>`;
+    }
+
+    function getExpedienteTribunalArchivadores(cause){
+      const tribunalNames = [
+        'Causas Juzgados Civiles',
+        'Causas Juzgado de Familia',
+        'Causas Juzgado del Trabajo',
+        'Causas Juzgado de Cobranza',
+        'Causas Juzgado de Garantía',
+        'Tribunal Oral en lo Penal',
+        'Juzgado de Policía Local',
+      ];
+      const causeFolderName = `${cause.rol || 'Sin rol'} / ${cause.rit || 'Sin RIT'} / ${cause.ruc || 'Sin RUC'} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
+      const causeSubfolders = [
+        'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
+        'Documentos',
+        'Grabación y Acta de reunión (viene de Agenda)',
+        'Jurisprudencia',
+        'Doctrina en Biblioteca',
+        'Absolución de posiciones',
+        'Informe de perito',
+        'Declaración de testigos',
+        'Ebook de juicios relacionados',
+        'Informes y estrategias de trabajo',
+        'Escritos sueltos',
+        'Incidentes',
+        'Certificado de envío de documentos al PJUD',
+        'ChatGPT',
+        'Trazabilidad',
+      ];
+      return tribunalNames.map(name => ({
+        name,
+        causeFolderName,
+        causeSubfolders,
+      }));
+    }
+
+    function renderExpedienteArchivadores(cause){
+      const archivadores = getExpedienteTribunalArchivadores(cause);
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Archivadores por tribunal</h4>
+              <p class="section-copy">Cada archivador funciona como contenedor principal por materia o tribunal. Dentro de cada uno se muestra una carpeta individual por causa con sus subcarpetas jurídicas.</p>
+            </div>
+          </div>
+          ${buildPairedCards(archivadores, (archivador, isOddTail) => `
+            <article class="folder-card ${isOddTail ? 'span-full' : ''}">
+              <div class="case-top">
+                <strong>${escapeHtml(archivador.name)}</strong>
+                <span class="badge badge-info">Archivador principal</span>
+              </div>
+              <div class="case-meta">${escapeHtml(archivador.causeFolderName)}</div>
+              ${buildPairedCards(archivador.causeSubfolders, (subfolder, isSubOddTail) => `
+                <div class="info-card ${isSubOddTail ? 'span-full' : ''}">
+                  <div class="mini-label">Carpeta interna</div>
+                  <div class="case-meta">${escapeHtml(subfolder)}</div>
+                </div>
+              `)}
+            </article>
+          `)}
+        </section>
+      `;
+    }
+
     function renderInformationPillar(cause){
       return `
         ${renderResumen(cause)}
         <section class="section-card">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Información de clientes, asesorías y causas</h4>
+              <h4 class="section-title">INFORMACIÓN DE CLIENTES, ASESORÍAS Y CAUSAS</h4>
               <p class="section-copy">Detalle jurídico del cliente, identificación interna del asunto, coordinación operativa y vínculos con asesorías y gestión diaria.</p>
             </div>
             <div class="toolbar">
@@ -3792,7 +3907,7 @@
         <section class="section-card">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Expedientes digitales</h4>
+              <h4 class="section-title">EXPEDIENTES DIGITALES</h4>
               <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
             </div>
             <div class="toolbar">
@@ -3803,6 +3918,7 @@
           </div>
           ${renderDocumentExplorer(cause)}
         </section>
+        ${renderExpedienteArchivadores(cause)}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
         ${renderSyncHistory(cause)}
@@ -3858,7 +3974,7 @@
         <section class="section-card">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Producción</h4>
+              <h4 class="section-title">PRODUCCIÓN</h4>
               <p class="section-copy">Pilar de creación jurídica con redacción de escritos, plantillas, borradores, finales, prueba, asistente IA e historial.</p>
             </div>
             <div class="toolbar">
@@ -4771,8 +4887,13 @@
       if (state.rectificationValidation?.causeId && state.rectificationValidation.causeId !== cause.id) {
         state.rectificationValidation = null;
       }
-      $('detailTitle').textContent = cause.caratula;
-      $('detailMeta').textContent = `${cause.rol} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
+      const tabTitles = {
+        informacion: 'INFORMACIÓN DE CLIENTES, ASESORÍAS Y CAUSAS',
+        expedientes: 'EXPEDIENTES DIGITALES',
+        produccion: 'PRODUCCIÓN',
+      };
+      $('detailTitle').textContent = tabTitles[state.activeTab] || tabTitles.informacion;
+      $('detailMeta').textContent = `${cause.caratula} · ${cause.rol} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
       renderDetailActions();
 
       const renderers = {
