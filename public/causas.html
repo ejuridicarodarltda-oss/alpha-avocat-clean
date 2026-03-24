@@ -3488,6 +3488,27 @@
       return new Error(`No fue posible cargar ${scope}. ${detail}`);
     }
 
+    function isSchemaCacheMissingTableError(error, tableName){
+      const message = String(error?.message || '').toLowerCase();
+      if (!message) return false;
+      return (
+        message.includes('schema cache')
+        && message.includes('could not find the table')
+        && message.includes(String(tableName || '').toLowerCase())
+      );
+    }
+
+    function buildPjudInfrastructureError(error){
+      if (!error) return null;
+      if (isSchemaCacheMissingTableError(error, `public.${T_PJUD_IMPORT_BATCHES}`) || isSchemaCacheMissingTableError(error, T_PJUD_IMPORT_BATCHES)) {
+        return new Error('No fue posible cargar la importación PJUD. Falta la tabla crítica public.pjud_import_batches en Supabase (o no está visible para el rol autenticado). Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      if (isSchemaCacheMissingTableError(error, `public.${T_PJUD_IMPORT_ROWS}`) || isSchemaCacheMissingTableError(error, T_PJUD_IMPORT_ROWS)) {
+        return new Error('No fue posible cargar la importación PJUD. Falta la tabla crítica public.pjud_import_rows en Supabase (o no está visible para el rol autenticado). Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      return null;
+    }
+
     function loadWorkspace(){
       return loadWorkspaceState(window.localStorage);
     }
@@ -5862,7 +5883,7 @@
         },
       };
       const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
-      if (batchError) throw batchError;
+      if (batchError) throw buildPjudInfrastructureError(batchError) || batchError;
 
       const rowPayloads = (summary.rawRows || []).map((row) => ({
         batch_id: batch.id,
@@ -5879,7 +5900,7 @@
         const slice = rowPayloads.slice(index, index + 250);
         if (!slice.length) continue;
         const { error } = await supabase.from(T_PJUD_IMPORT_ROWS).insert(slice);
-        if (error) throw error;
+        if (error) throw buildPjudInfrastructureError(error) || error;
       }
       return batch;
     }
@@ -6082,7 +6103,8 @@
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
-          setMessage('importMsg', `No fue posible importar el lote PJUD: ${buildLoadError('la importación PJUD', error).message}`, 'error');
+          const normalizedError = buildPjudInfrastructureError(error) || error;
+          setMessage('importMsg', `No fue posible importar el lote PJUD: ${buildLoadError('la importación PJUD', normalizedError).message}`, 'error');
           return;
         }
       }
