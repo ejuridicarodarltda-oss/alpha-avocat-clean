@@ -193,7 +193,7 @@ flex-shrink:0;
 }
 
 body.panel-page .sidebar{
---panel-menu-offset:84px;
+--panel-menu-offset:37px;
 }
 
 .logo{
@@ -1088,7 +1088,7 @@ width:300px;
 height:100dvh;
 padding:18px 20px 12px;
 box-shadow:4px 0 18px rgba(0,0,0,.35);
---panel-menu-offset:78px;
+--panel-menu-offset:37px;
 }
 
 body.panel-page .logo{
