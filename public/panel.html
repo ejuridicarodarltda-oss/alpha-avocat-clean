@@ -191,7 +191,7 @@ Cerrar sesión
 </div>
 
 <div class="panel alertas">
-<h3>Alertas consolidadas del panel principal</h3>
+<h3>ALERTAS CONSOLIDADAS</h3>
 <div id="panelAlertasConsolidadas" class="panel-alert-groups">
 <div class="panel-list-empty">Cargando alertas…</div>
 </div>
@@ -415,21 +415,18 @@ function renderCasePanel(cases = [], filteredAlerts = []) {
 function renderGroupedAlerts(summary, query = '') {
   const groupsContainer = document.getElementById('panelAlertasConsolidadas')
   const filtered = filterAlertsByQuery(summary.alerts, query)
-  const grouped = summary.groupedAlerts
-    .map((group) => ({ ...group, items: filterAlertsByQuery(group.items, query) }))
-    .filter((group) => group.items.length)
+    .sort((a, b) => a.sortAt - b.sortAt)
 
-  if (!grouped.length) {
+  if (!filtered.length) {
     groupsContainer.innerHTML = '<div class="panel-list-empty">No hay alertas que coincidan con la búsqueda.</div>'
   } else {
-    groupsContainer.innerHTML = grouped.map((group) => `
+    groupsContainer.innerHTML = `
       <section class="panel-alert-group">
-        <h4>${escapeHtml(group.category)}</h4>
         <ul>
-          ${renderAlertListItems(group.items, { showMeta: true })}
+          ${renderAlertListItems(filtered, { showMeta: true })}
         </ul>
       </section>
-    `).join('')
+    `
   }
 
   document.getElementById('panelActividadReciente').innerHTML = renderAlertListItems(
@@ -458,14 +455,15 @@ async function loadPanelData() {
 
   const clientsData = loadClientDatasetFromStorage(window.localStorage)
   const cases = (casesData || []).map((item) => ({
-    id: item[C.k_id],
-    client_id: item[C.k_client_id],
-    court: item[C.k_court],
-    rol_rit: item[C.k_rol],
-    subject: item[C.k_subject],
-    responsible: item[C.k_responsible],
-    notes: item[C.k_notes],
-    created_at: item[C.k_created]
+    ...item,
+    id: item[C.k_id] ?? item.id,
+    client_id: item[C.k_client_id] ?? item.client_id,
+    court: item[C.k_court] ?? item.court,
+    rol_rit: item[C.k_rol] ?? item.rol_rit,
+    subject: item[C.k_subject] ?? item.subject,
+    responsible: item[C.k_responsible] ?? item.responsible,
+    notes: item[C.k_notes] ?? item.notes,
+    created_at: item[C.k_created] ?? item.created_at
   }))
 
   consolidatedState = buildConsolidatedAlerts({
