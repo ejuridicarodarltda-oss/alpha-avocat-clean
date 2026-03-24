@@ -712,11 +712,38 @@ function resolveHeaderName(headerLookup = new Map(), aliases = []) {
   return ''
 }
 
-function toSheetJsonRows(XLSX, sheet) {
+function toSheetMatrix(XLSX, sheet) {
+  return XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    raw: false,
+    blankrows: false,
+    defval: '',
+  })
+}
+
+function detectHeaderRow(sheetMatrix = [], aliases = {}) {
+  const expectedAliases = Object.values(aliases || {}).flat().map((alias) => normalizeForComparison(alias))
+  let bestIndex = -1
+  let bestScore = -1
+  sheetMatrix.forEach((row, index) => {
+    const normalizedCells = (row || []).map((cell) => normalizeForComparison(cell))
+    const hits = expectedAliases.filter((alias) => normalizedCells.includes(alias)).length
+    if (hits > bestScore) {
+      bestScore = hits
+      bestIndex = index
+    }
+  })
+  return bestScore > 0 ? bestIndex : 0
+}
+
+function toSheetRowsFromHeader(XLSX, sheet, headerRowIndex = 0) {
+  const range = XLSX.utils.decode_range(sheet['!ref'] || 'A1:A1')
+  range.s.r = Math.max(0, headerRowIndex)
   return XLSX.utils.sheet_to_json(sheet, {
     defval: '',
     raw: false,
     blankrows: false,
+    range,
   })
 }
 
@@ -848,21 +875,23 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
     const sheet = workbook.Sheets[sheetName]
     if (!config || !sheet) return
 
-    detectedSheets.push(canonical)
-    const rows = toSheetJsonRows(XLSX, sheet)
+    if (!detectedSheets.includes(canonical)) detectedSheets.push(canonical)
+    const matrix = toSheetMatrix(XLSX, sheet)
+    const headerRowIndex = detectHeaderRow(matrix, config.aliases)
+    const rows = toSheetRowsFromHeader(XLSX, sheet, headerRowIndex)
     const headerLookup = buildHeaderLookup(Object.keys(rows[0] || {}))
-    countsBySheet[canonical] = rows.length
+    countsBySheet[canonical] = (countsBySheet[canonical] || 0) + rows.length
 
     rows.forEach((rawRow, index) => {
       const mapped = mapPjudSheetRow(rawRow, config, headerLookup)
       if (!isStructurallyValidPjudRow(mapped, config)) {
-        invalidRows.push({ sheetName: canonical, rowNumber: index + 2, raw: rawRow })
+        invalidRows.push({ sheetName: canonical, rowNumber: index + headerRowIndex + 2, raw: rawRow })
         return
       }
       rawRows.push({
         ...mapped,
         sheetName: canonical,
-        rowNumber: index + 2,
+        rowNumber: index + headerRowIndex + 2,
         dedupeKey: config.dedupeKey(mapped),
         rowSignature: buildComparableRowSignature(mapped),
         raw: rawRow,
