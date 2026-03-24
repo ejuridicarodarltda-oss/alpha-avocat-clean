@@ -5002,7 +5002,7 @@
       const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
       if (batchError) throw batchError;
 
-      const rowPayloads = (summary.rawRows || []).map((row) => ({
+      const validRowPayloads = (summary.rawRows || []).map((row) => ({
         batch_id: batch.id,
         owner_user_id: authenticatedUser.id,
         materia: row.materia,
@@ -5013,6 +5013,18 @@
         is_valid: true,
         payload: row,
       }));
+      const invalidRowPayloads = (summary.invalidRowDetails || []).map((row) => ({
+        batch_id: batch.id,
+        owner_user_id: authenticatedUser.id,
+        materia: row.sheetName,
+        sheet_name: row.sheetName,
+        row_number: row.rowNumber,
+        dedupe_key: null,
+        row_signature: null,
+        is_valid: false,
+        payload: row.raw || {},
+      }));
+      const rowPayloads = [...validRowPayloads, ...invalidRowPayloads];
       for (let index = 0; index < rowPayloads.length; index += 250) {
         const slice = rowPayloads.slice(index, index + 250);
         if (!slice.length) continue;
@@ -5241,7 +5253,11 @@
           const { batch } = await upsertImportedWorkbookCases(state.pendingPjudWorkbook);
           const rowsProcessed = state.pendingPjudWorkbook.rowsProcessed || 0;
           const consolidated = state.pendingPjudWorkbook.consolidatedCount || 0;
-          setMessage('importMsg', `Importación PJUD completada. Batch ${batch.id}: ${rowsProcessed} filas válidas procesadas, ${consolidated} causas consolidadas y listado general actualizado.`, 'ok');
+          const byMateria = Object.entries(state.pendingPjudWorkbook.countsByMateria || {})
+            .sort((a, b) => a[0].localeCompare(b[0], 'es'))
+            .map(([materia, count]) => `${materia}: ${count}`)
+            .join(' · ');
+          setMessage('importMsg', `Importación PJUD completada. Batch ${batch.id}: ${rowsProcessed} filas válidas procesadas, ${consolidated} causas consolidadas y listado general actualizado. ${byMateria}`, 'ok');
           closeManagedModal('modalImportacion');
           return;
         } catch (error) {
