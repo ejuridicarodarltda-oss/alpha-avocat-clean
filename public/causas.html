@@ -2157,7 +2157,8 @@
       openKardexByTribunal: {},
       rectificationOpen: false,
       rectificationScope: 'general',
-      rectificationValidation: null
+      rectificationValidation: null,
+      missingIdentifierWarnings: new Set()
     };
 
     const KARDEX_GROUPS = [
@@ -2241,6 +2242,42 @@
 
     function getCurrentCause(){
       return state.caseMap.get(state.selectedId) || null;
+    }
+
+    function normalizeIdentifierValue(value){
+      return typeof value === 'string' ? value.trim() : (value == null ? '' : String(value).trim());
+    }
+
+    function getCauseIdentifier(cause){
+      const rol = normalizeIdentifierValue(cause?.rol);
+      const rit = normalizeIdentifierValue(cause?.rit);
+      const ruc = normalizeIdentifierValue(cause?.ruc);
+      const internalId = normalizeIdentifierValue(cause?.id);
+      const candidates = [
+        { label:'Rol', value:rol },
+        { label:'RIT', value:rit },
+        { label:'RUC', value:ruc },
+        { label:'ID', value:internalId },
+      ];
+      const principal = candidates.find((item) => item.value) || { label:'Identificador', value:'sin rol/RIT' };
+      const secondary = [];
+      if (rol && principal.label !== 'Rol') secondary.push(`Rol: ${rol}`);
+      if (rit && principal.label !== 'RIT') secondary.push(`RIT: ${rit}`);
+      if (ruc && principal.label !== 'RUC') secondary.push(`RUC: ${ruc}`);
+      if (!rol && !rit && !ruc && internalId) secondary.push(`ID interno: ${internalId}`);
+      if (!rol && !rit && !ruc && !internalId) {
+        const key = cause?.id ? String(cause.id) : 'fallback-without-id';
+        if (!state.missingIdentifierWarnings.has(key)) {
+          state.missingIdentifierWarnings.add(key);
+          console.warn('[CAUSAS] Causa sin rol, RIT ni RUC: se aplica fallback seguro.', { causeId: cause?.id || null });
+        }
+      }
+      return {
+        label: principal.label,
+        value: principal.value,
+        display: `${principal.label}: ${principal.value}`,
+        secondary,
+      };
     }
 
     function updateWorkspaceEntry(causeId, updater){
@@ -3292,6 +3329,8 @@
 
     function createSeedDetail(base){
       const rol = base.rol || 'Rol pendiente';
+      const rit = base.rit || '';
+      const ruc = base.ruc || '';
       const caratula = base.caratula || rol;
       const materia = base.materia || 'Materia por clasificar';
       const procedimiento = base.procedimiento || 'Procedimiento por definir';
@@ -3308,8 +3347,8 @@
       return ensureCauseStorage({
         caratula,
         rol,
-        rit: base.rit || 'RIT pendiente',
-        ruc: base.ruc || 'RUC pendiente',
+        rit: base.rit || '',
+        ruc: base.ruc || '',
         era: base.era || '',
         corte: base.corte || '',
         tribunal: base.tribunal || 'Tribunal pendiente',
@@ -3848,12 +3887,13 @@
                 ${items.map((item) => {
                   const days = daysBetween(item.proximoPlazo);
                   const selected = item.id === state.selectedId ? 'selected' : '';
+                  const identity = getCauseIdentifier(item);
                   return `
                     <article class="list-card archivador-card ${selected}" data-select="${item.id}">
                       <div class="archivador-tab">ARCHIVADOR CAUSA</div>
                       <div class="case-top">
                         <div>
-                          <div class="case-kicker">${escapeHtml(item.rol)} · ${escapeHtml(item.rit || 'Sin RIT')} · ${escapeHtml(item.ruc || 'Sin RUC')}</div>
+                          <div class="case-kicker">${escapeHtml(identity.display)}${identity.secondary.length ? ` · ${escapeHtml(identity.secondary.join(' · '))}` : ''}</div>
                           <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
                         </div>
                         <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
@@ -3978,7 +4018,8 @@
         'Tribunal Oral en lo Penal',
         'Juzgado de Policía Local',
       ];
-      const causeFolderName = `${cause.rol || 'Sin rol'} / ${cause.rit || 'Sin RIT'} / ${cause.ruc || 'Sin RUC'} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
+      const identity = getCauseIdentifier(cause);
+      const causeFolderName = `${identity.display}${identity.secondary.length ? ` / ${identity.secondary.join(' / ')}` : ''} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
       const causeSubfolders = [
         'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
         'Documentos',
@@ -4191,6 +4232,7 @@
     }
 
     function renderResumen(cause){
+      const identity = getCauseIdentifier(cause);
       return `
         <section class="section-card">
           <div class="section-head">
@@ -4206,7 +4248,8 @@
           </div>
           ${buildKeyValueGrid([
             ['Carátula', cause.caratula],
-            ['Rol / RIT / RUC', `${cause.rol} · ${cause.rit} · ${cause.ruc}`],
+            ['Identificador principal', identity.display],
+            ['Identificadores complementarios', identity.secondary.join(' · ') || '—'],
             ['Tribunal', cause.tribunal],
             ['Procedimiento', cause.procedimiento],
             ['Materia', cause.materia],
@@ -4252,6 +4295,7 @@
     }
 
     function renderIdentificacion(cause){
+      const identity = getCauseIdentifier(cause);
       return `
         <section class="section-card">
           <div class="section-head">
@@ -4263,6 +4307,7 @@
           ${buildKeyValueGrid([
             ['Número interno', cause.id],
             ['Carátula', cause.caratula],
+            ['Identificador principal', identity.display],
             ['Rol', cause.rol],
             ['RIT', cause.rit],
             ['RUC', cause.ruc],
@@ -5067,8 +5112,9 @@
         expedientes: 'EXPEDIENTES DIGITALES',
         produccion: 'PRODUCCIÓN',
       };
+      const identity = getCauseIdentifier(cause);
       $('detailTitle').textContent = tabTitles[state.activeTab] || tabTitles.informacion;
-      $('detailMeta').textContent = `${cause.caratula} · ${cause.rol} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
+      $('detailMeta').textContent = `${cause.caratula} · ${identity.display} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
       renderDetailActions();
 
       const renderers = {
@@ -5142,8 +5188,8 @@
         cliente: state.clientMap.get(clientId) || SAFE_CLIENT_LABEL,
         caratula: normalizeCaratula($('k_caratula').value.trim()),
         rol: $('k_rol').value.trim() || 'Sin rol',
-        rit: $('k_rit').value.trim() || 'RIT pendiente',
-        ruc: $('k_ruc').value.trim() || 'RUC pendiente',
+        rit: $('k_rit').value.trim(),
+        ruc: $('k_ruc').value.trim(),
         tribunal: $('k_court').value.trim() || 'Tribunal pendiente',
         procedimiento: $('k_procedure').value.trim() || 'Procedimiento por definir',
         materia: $('k_subject').value.trim() || 'Materia por definir',
@@ -6224,6 +6270,7 @@
     }
 
     async function init(){
+      console.info('[CAUSAS] Corrección activa: identificador genérico habilitado (Rol > RIT > RUC > ID).');
       try {
         await initFatalPhase();
       } catch (error) {
