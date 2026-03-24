@@ -34,19 +34,16 @@
 
     *{ box-sizing:border-box; }
 
-    html,body{
+    body.causas-page{
       margin:0;
       min-height:100%;
       font-family:Arial,sans-serif;
       background:var(--causas-bg);
       color:var(--causas-text);
-    }
-
-    body{
       overflow:auto;
     }
 
-    .causas-page{
+    body.causas-page{
       min-height:100dvh;
       background:linear-gradient(180deg,var(--causas-bg-deep) 0%,var(--causas-bg) 22%,#347f77 100%);
       color:var(--causas-text);
@@ -119,11 +116,11 @@
 
     .causas-nav a,
     .causas-nav button,
-    .btn,
-    .chip-btn,
-    .quick-btn,
-    .tab-btn,
-    .icon-btn{
+    .causas-page .btn,
+    .causas-page .chip-btn,
+    .causas-page .quick-btn,
+    .causas-page .tab-btn,
+    .causas-page .icon-btn{
       appearance:none;
       border:1px solid rgba(255,255,255,.22);
       background:linear-gradient(135deg, color-mix(in srgb, var(--causas-card) 96%, white), color-mix(in srgb, var(--causas-subblock) 62%, white));
@@ -145,11 +142,11 @@
 
     .causas-nav a:hover,
     .causas-nav button:hover,
-    .btn:hover,
-    .chip-btn:hover,
-    .quick-btn:hover,
-    .tab-btn:hover,
-    .icon-btn:hover{
+    .causas-page .btn:hover,
+    .causas-page .chip-btn:hover,
+    .causas-page .quick-btn:hover,
+    .causas-page .tab-btn:hover,
+    .causas-page .icon-btn:hover{
       transform:translateY(-2px);
       box-shadow:var(--causas-button-glow-hover);
       border-color:var(--causas-active);
@@ -158,36 +155,36 @@
 
     .causas-nav a:active,
     .causas-nav button:active,
-    .btn:active,
-    .chip-btn:active,
-    .quick-btn:active,
-    .tab-btn:active,
-    .icon-btn:active{
+    .causas-page .btn:active,
+    .causas-page .chip-btn:active,
+    .causas-page .quick-btn:active,
+    .causas-page .tab-btn:active,
+    .causas-page .icon-btn:active{
       transform:translateY(0) scale(.985);
       box-shadow:var(--causas-button-glow-active);
     }
 
     .causas-nav a:focus-visible,
     .causas-nav button:focus-visible,
-    .btn:focus-visible,
-    .chip-btn:focus-visible,
-    .quick-btn:focus-visible,
-    .tab-btn:focus-visible,
-    .icon-btn:focus-visible{
+    .causas-page .btn:focus-visible,
+    .causas-page .chip-btn:focus-visible,
+    .causas-page .quick-btn:focus-visible,
+    .causas-page .tab-btn:focus-visible,
+    .causas-page .icon-btn:focus-visible{
       outline:none;
       box-shadow:0 0 0 3px rgba(255,255,255,.26), 0 0 0 6px rgba(22,58,95,.22), var(--causas-button-glow-hover);
     }
 
-    .btn:disabled,
-    .chip-btn:disabled,
-    .quick-btn:disabled,
-    .tab-btn:disabled,
-    .icon-btn:disabled,
-    .btn[aria-disabled="true"],
-    .chip-btn[aria-disabled="true"],
-    .quick-btn[aria-disabled="true"],
-    .tab-btn[aria-disabled="true"],
-    .icon-btn[aria-disabled="true"]{
+    .causas-page .btn:disabled,
+    .causas-page .chip-btn:disabled,
+    .causas-page .quick-btn:disabled,
+    .causas-page .tab-btn:disabled,
+    .causas-page .icon-btn:disabled,
+    .causas-page .btn[aria-disabled="true"],
+    .causas-page .chip-btn[aria-disabled="true"],
+    .causas-page .quick-btn[aria-disabled="true"],
+    .causas-page .tab-btn[aria-disabled="true"],
+    .causas-page .icon-btn[aria-disabled="true"]{
       opacity:.62;
       cursor:not-allowed;
       filter:saturate(.72);
@@ -195,35 +192,35 @@
     }
 
     .causas-nav .active,
-    .btn.active,
-    .chip-btn.active,
-    .quick-btn.active,
-    .tab-btn.active,
-    .btn-primary,
-    .quick-btn-primary{
+    .causas-page .btn.active,
+    .causas-page .chip-btn.active,
+    .causas-page .quick-btn.active,
+    .causas-page .tab-btn.active,
+    .causas-page .btn-primary,
+    .causas-page .quick-btn-primary{
       background:var(--causas-active);
       color:var(--causas-white);
       border-color:var(--causas-active);
     }
 
-    .btn-danger,
-    .quick-btn-danger,
-    .critical,
-    .badge-critical,
-    .alert-vencido,
-    .alert-urgente{
+    .causas-page .btn-danger,
+    .causas-page .quick-btn-danger,
+    .causas-page .critical,
+    .causas-page .badge-critical,
+    .causas-page .alert-vencido,
+    .causas-page .alert-urgente{
       background:var(--causas-critical);
       color:var(--causas-white);
       border-color:var(--causas-critical);
     }
 
-    .btn-secondary{
+    .causas-page .btn-secondary{
       background:var(--causas-subblock);
       color:var(--causas-text);
       border-color:var(--causas-border-soft);
     }
 
-    .btn-ghost{
+    .causas-page .btn-ghost{
       background:rgba(255,255,255,.74);
       color:var(--causas-text);
     }
@@ -5073,6 +5070,32 @@
       return { batch, rows: upsertedRows };
     }
 
+    function analyzeImport(){
+      try {
+        const importData = parseJudicialImportInput({
+          sourceUrl: $('import_url').value,
+          rol: $('import_rol').value,
+          rit: $('import_rit').value,
+          tribunal: $('import_tribunal').value,
+          rawText: $('import_raw').value,
+          actorName: operatorName || 'Usuario autenticado',
+        });
+        state.pendingImport = importData;
+        renderImportPreview(importData);
+        const parties = importData.parties?.length || 0;
+        const movements = importData.movements?.length || 0;
+        const documents = (importData.documents?.length || 0) + (importData.ebook ? 1 : 0);
+        setMessage('importMsg', `Referencia judicial analizada. Partes: ${parties}, movimientos: ${movements}, documentos detectados: ${documents}.`, 'ok');
+        return importData;
+      } catch (error) {
+        console.error('[Alpha Avocat][pjud-import] No fue posible analizar la referencia individual.', error);
+        state.pendingImport = null;
+        renderImportPreview(null);
+        setMessage('importMsg', `No fue posible analizar la referencia judicial: ${buildLoadError('la referencia judicial', error).message}`, 'error');
+        return null;
+      }
+    }
+
     async function analyzeBatchImport(){
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
       if (excelFile) {
@@ -5774,15 +5797,35 @@
     async function init(){
       try {
         await ensureAuth();
-        await loadClients();
-        await loadCases();
-        populateFilters();
-        wireEvents();
-        renderAll();
       } catch (error) {
         console.error(error);
         const detail = error?.message ? error.message : String(error || 'Error desconocido');
         document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
+        return;
+      }
+
+      try {
+        await loadClients();
+        await loadCases();
+        populateFilters();
+      } catch (error) {
+        console.error(error);
+        const detail = error?.message ? error.message : String(error || 'Error desconocido');
+        document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
+        return;
+      }
+
+      try {
+        wireEvents();
+      } catch (error) {
+        console.error('[Alpha Avocat][causas] Error no fatal durante la conexión de eventos.', error);
+      }
+
+      try {
+        renderAll();
+      } catch (error) {
+        console.error('[Alpha Avocat][causas] Error no fatal durante render.', error);
+        setDetailStatus(`Se detectó un problema parcial de interfaz: ${buildLoadError('la interfaz de causas', error).message}`, 'error');
       }
     }
 
