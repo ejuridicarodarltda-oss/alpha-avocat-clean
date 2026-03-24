@@ -1088,11 +1088,11 @@ width:300px;
 height:100dvh;
 padding:18px 20px 12px;
 box-shadow:4px 0 18px rgba(0,0,0,.35);
---panel-menu-offset:84px;
+--panel-menu-offset:78px;
 }
 
 body.panel-page .logo{
-margin-top:22px;
+margin-top:20px;
 margin-bottom:20px;
 }
 
