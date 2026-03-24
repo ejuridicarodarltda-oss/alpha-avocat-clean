@@ -659,61 +659,68 @@ color:#c41e3a;
 }
 
 body.panel-page .topbar{
-padding:6px 16px;
-gap:10px;
+padding:4px 12px;
+gap:8px;
 flex-wrap:nowrap;
 }
 
 body.panel-page .topbar-left{
 flex:1 1 auto;
 min-width:0;
-gap:8px;
+gap:6px;
 flex-wrap:nowrap;
 }
 
 body.panel-page .topbar-nav{
 flex:1 1 auto;
 min-width:0;
-gap:6px;
+gap:4px;
 overflow-x:hidden;
 }
 
 body.panel-page .topbar-nav-link{
-padding:6px 10px;
-font-size:12px;
+padding:5px 8px;
+font-size:11px;
 }
 
 body.panel-page .search{
-min-width:120px;
-max-width:180px;
-padding:6px 8px;
-font-size:12px;
+min-width:100px;
+max-width:150px;
+padding:5px 7px;
+font-size:11px;
 }
 
 body.panel-page .top-info{
 flex:0 0 auto;
-gap:8px;
+gap:6px;
 flex-wrap:nowrap;
-font-size:12px;
+font-size:11px;
 }
 
 body.panel-page .modo-btn{
-min-width:36px;
-min-height:36px;
-padding:0 9px;
-font-size:16px;
-border-radius:12px;
+min-width:32px;
+min-height:32px;
+padding:0 8px;
+font-size:14px;
+border-radius:10px;
 }
 
 body.panel-page .cerrar-sesion-btn{
-padding:8px 11px;
-font-size:12px;
-border-radius:12px;
+padding:6px 9px;
+font-size:11px;
+border-radius:10px;
 }
 
 body.panel-page .avatar{
-width:30px;
-height:30px;
+width:26px;
+height:26px;
+}
+
+body.tools-page .main{
+display:flex;
+flex-direction:column;
+overflow-y:auto;
+overflow-x:hidden;
 }
 
 .search{
