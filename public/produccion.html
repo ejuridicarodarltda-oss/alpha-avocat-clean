@@ -88,15 +88,27 @@
       return cards;
     }
 
+    async function loadCasesForProduction(){
+      const orderedByCreated = await supabase.from('cases').select('*').order('created_at', { ascending: false });
+      if (!orderedByCreated.error) return orderedByCreated;
+      const missingCreatedAt = (orderedByCreated.error?.message || '').toLowerCase().includes('created_at');
+      if (!missingCreatedAt) return orderedByCreated;
+      console.warn('[PRODUCCIÓN] cases.created_at no existe; reintentando sin ordenamiento.', orderedByCreated.error);
+      return supabase.from('cases').select('*');
+    }
+
     async function loadProduction(){
-      const [{ data: clients }, { data: causes, error }] = await Promise.all([
+      const [{ data: clients, error: clientsError }, { data: causes, error }] = await Promise.all([
         supabase.from('clients').select('id,full_name,name'),
-        supabase.from('cases').select('*').order('updated_at', { ascending: false }),
+        loadCasesForProduction(),
       ]);
       if (error) {
         console.error('[PRODUCCIÓN] Error cargando causas', error);
         grid.innerHTML = `<article class="empty">No fue posible cargar la producción: ${escapeHtml(error.message)}</article>`;
         return;
+      }
+      if (clientsError) {
+        console.error('[PRODUCCIÓN] Error cargando clientes; se mostrará la producción sin nombres de cliente.', clientsError);
       }
       const clientsMap = new Map((clients || []).map((client) => [client.id, client.full_name || client.name || 'Cliente sin nombre']));
       const cards = buildProductionCards(causes || [], clientsMap);
