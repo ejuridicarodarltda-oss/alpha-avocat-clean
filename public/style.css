@@ -269,6 +269,9 @@ display:flex;
 flex-direction:column;
 gap:8px;
 width:100%;
+padding:0;
+margin-left:0;
+align-items:stretch;
 }
 
 body.panel-page .menu{
@@ -287,11 +290,13 @@ transition:.25s;
 color:white;
 font-size:15px;
 font-weight:600;
-box-shadow:4px 4px 12px rgba(0,0,0,.45);
+box-shadow:0 4px 12px rgba(0,0,0,.45);
 text-decoration:none;
 line-height:1.2;
 width:100%;
+min-width:0;
 max-width:100%;
+margin:0;
 transform:translateX(0);
 }
 
@@ -316,7 +321,7 @@ padding-top:8px;
 font-size:20px;
 min-width:24px;
 text-align:center;
-margin-left:2px;
+margin-left:0;
 }
 
 /* MAIN */
