@@ -1866,6 +1866,20 @@ font-size:12px;
 opacity:.9;
 }
 
+.panel-alert-link{
+display:inline-flex;
+margin-top:6px;
+font-size:12px;
+font-weight:700;
+color:#163A5F;
+text-decoration:none;
+}
+
+.panel-alert-link:hover,
+.panel-alert-link:focus-visible{
+text-decoration:underline;
+}
+
 .urgency-alta{box-shadow:inset 0 0 0 1px rgba(185,28,28,.2);}
 .urgency-media{box-shadow:inset 0 0 0 1px rgba(194,65,12,.18);}
 .urgency-baja{box-shadow:inset 0 0 0 1px rgba(161,98,7,.18);}

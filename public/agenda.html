@@ -854,6 +854,13 @@ input[type="checkbox"]{
 
   <section class="agenda-screen" id="calendario">
     <h2>Calendario y reloj</h2><p class="subtitle">control temporal del módulo Agenda</p>
+    <div class="block">
+      <h3>Alertas de entrevistas próximas</h3>
+      <p class="subtitle">Incluye entrevistas del día, del día siguiente y próximas según urgencia temporal.</p>
+      <ul id="agendaInterviewAlerts" class="panel-alert-group">
+        <li class="panel-list-empty">Cargando alertas de entrevistas…</li>
+      </ul>
+    </div>
     <div class="block"><h3>Bloque A. Calendario</h3><div class="check-grid"><label><input type="radio" name="vista" checked>Vista diaria</label><label><input type="radio" name="vista">Vista semanal</label><label><input type="radio" name="vista">Vista mensual</label></div></div>
     <div class="block"><h3>Bloque B. Eventos</h3><div class="check-grid"><label><input type="checkbox">Eventos del día</label><label><input type="checkbox">Próximos eventos</label><label><input type="checkbox">Evento en curso</label><label><input type="checkbox">Evento vencido</label><label><input type="checkbox">Evento finalizado</label></div></div>
     <div class="block"><h3>Bloque C. Reloj</h3><div class="fields"><label>Fecha actual<input id="fechaActual" readonly></label><label>Hora actual<input id="horaActual" readonly></label></div></div>
@@ -872,7 +879,7 @@ input[type="checkbox"]{
 
 <script type="module">
 import { supabase } from './app.js'
-import { AGENDA_FORM_METADATA_PREFIX } from './alerts.js'
+import { AGENDA_FORM_METADATA_PREFIX, buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from './alerts.js'
 import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, isValidRut, normalizeRutInput, escapeHtml as escapeRectificationHtml } from './rectification.js'
 import { MultimediaCaptureModal } from './media-capture.js'
 import { deleteMediaAsset, formatDuration, listMediaAssets, MEDIA_ROLE_LABELS, MEDIA_TYPE_LABELS, resolveAgendaMediaRelations, uploadMediaAsset } from './media-assets.js'
@@ -1182,6 +1189,24 @@ const ACTIVE_ACTIVITY_STATES = new Set([
 let editingEventId = null
 let activeEventRowId = null
 let eventsCache = []
+
+function renderAgendaInterviewAlerts(appointments = []) {
+  const list = document.getElementById('agendaInterviewAlerts')
+  if (!list) return
+  const consolidated = buildConsolidatedAlerts({
+    appointments,
+    cases: [],
+    clientDataset: loadClientDatasetFromStorage(window.localStorage),
+    now: new Date()
+  })
+  const interviewAlerts = consolidated.alerts
+    .filter((item) => item.module === 'Agenda' && item.category === 'Entrevistas próximas')
+    .slice(0, 6)
+  list.innerHTML = renderAlertListItems(interviewAlerts, {
+    emptyMessage: 'No hay entrevistas próximas para hoy, mañana o próximos días.',
+    showMeta: true
+  })
+}
 let pendingActivityEventNumber = ''
 let persistedActivityState = {}
 let activityWorkflow = {
@@ -2198,6 +2223,7 @@ async function loadEvents(savedId = null){
   }
 
   eventsCache = data ?? []
+  renderAgendaInterviewAlerts(eventsCache)
   if (savedId) activeEventRowId = savedId
   refreshNextEventNumber()
 

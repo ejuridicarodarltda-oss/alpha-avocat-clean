@@ -2,6 +2,8 @@ export const CLIENTS_STORAGE_KEY = 'alpha_avocat_clientes_expedientes_v1'
 export const AGENDA_FORM_METADATA_PREFIX = '__nuevo_evento__:'
 export const ALERT_CATEGORIES = [
   'Plazos judiciales',
+  'Entrevistas próximas',
+  'Honorarios por cobrar',
   'Audiencias',
   'Reuniones y atenciones',
   'Escritos pendientes',
@@ -68,6 +70,13 @@ function formatTime(date) {
 function formatDateTime(date) {
   const parsed = toDate(date)
   return parsed ? parsed.toLocaleString('es-CL', { dateStyle: 'short', timeStyle: 'short' }) : 'Pendiente'
+}
+
+function formatCurrency(value) {
+  if (value == null || value === '') return ''
+  const numeric = Number(String(value).replace(/[^\d.-]/g, ''))
+  if (!Number.isFinite(numeric)) return String(value)
+  return new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 }).format(numeric)
 }
 
 function escapeHtml(value) {
@@ -216,8 +225,14 @@ function buildAgendaAlerts(appointments = [], now = new Date()) {
     const dayDiff = Math.floor((startOfDay(startsAt).getTime() - startOfDay(now).getTime()) / DAY_MS)
     const isToday = dayDiff === 0
     const isTomorrow = dayDiff === 1
-    const isHearing = normalize(appointment.event_type || state.event_type).includes('audiencia')
-    const category = isHearing ? 'Audiencias' : (isToday ? 'Eventos de hoy' : 'Reuniones y atenciones')
+    const normalizedEventType = normalize(appointment.event_type || state.event_type || eventName)
+    const isHearing = normalizedEventType.includes('audiencia')
+    const isInterview = normalizedEventType.includes('entrevista') || normalizedEventType.includes('consulta') || normalizedEventType.includes('atencion')
+    const category = isHearing
+      ? 'Audiencias'
+      : isInterview
+        ? 'Entrevistas próximas'
+        : (isToday ? 'Eventos de hoy' : 'Reuniones y atenciones')
 
     let summary = `${eventName} ${isToday ? 'hoy' : isTomorrow ? 'mañana' : 'el ' + formatDate(startsAt)} a las ${formatTime(startsAt)}.`
     if (diffMs > 0 && diffMs <= 30 * 60 * 1000) {
@@ -332,6 +347,55 @@ function parseNextActivity(nextActivity = '') {
   const [, day, month, year, time = '09:00'] = match
   const parsed = toDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${time}`)
   return { text, date: parsed }
+}
+
+function parseFlexibleDate(value) {
+  if (!value) return null
+  if (value instanceof Date) return Number.isNaN(value.getTime()) ? null : value
+  const text = String(value).trim()
+  if (!text) return null
+  const direct = toDate(text)
+  if (direct) return direct
+  const dmyMatch = text.match(/(\d{1,2})[/-](\d{1,2})[/-](\d{2,4})(?:\s+(\d{1,2}):(\d{2}))?/)
+  if (!dmyMatch) return null
+  let [, day, month, year, hour = '09', minute = '00'] = dmyMatch
+  if (year.length === 2) year = `20${year}`
+  return toDate(`${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}T${hour.padStart(2, '0')}:${minute}`)
+}
+
+function collectDeadlineCandidates(cause = {}) {
+  const candidates = []
+  const pushCandidate = (dateValue, label, source, suggestedAction = 'Revisar expediente y preparar gestión judicial') => {
+    const parsed = parseFlexibleDate(dateValue)
+    if (!parsed) return
+    candidates.push({ date: parsed, label, source, suggestedAction })
+  }
+
+  pushCandidate(cause.deadline || cause.due_date || cause.next_deadline, 'Plazo registrado', 'Antecedentes de la causa')
+  pushCandidate(cause.pjud_fecha_ubicacion, 'Última ubicación PJUD', 'PJUD', 'Revisar movimiento PJUD y determinar escrito pendiente')
+
+  const notesText = String(cause.notes || '')
+  const notesDate = parseFlexibleDate(notesText)
+  if (notesDate) {
+    pushCandidate(notesDate, 'Plazo detectado en observaciones', 'Producción / notas internas')
+  }
+
+  const milestones = Array.isArray(cause.production_milestones)
+    ? cause.production_milestones
+    : Array.isArray(cause.hitos_produccion)
+      ? cause.hitos_produccion
+      : []
+  milestones.forEach((item, index) => {
+    if (!item) return
+    if (typeof item === 'string') {
+      const milestoneDate = parseFlexibleDate(item)
+      if (milestoneDate) pushCandidate(milestoneDate, `Hito ${index + 1}`, 'Producción')
+      return
+    }
+    pushCandidate(item.deadline || item.date || item.fecha || item.dueDate, item.title || item.label || 'Hito de producción', 'Producción')
+  })
+
+  return candidates.sort((a, b) => a.date.getTime() - b.date.getTime())
 }
 
 function getLastClientInteraction(expediente) {
@@ -463,32 +527,84 @@ function buildClientAlerts(clientDataset = { clients: [] }, now = new Date()) {
   return items
 }
 
-function buildCaseAlerts(cases = []) {
+export function buildCaseAlerts(cases = [], now = new Date()) {
   return (cases || []).map((item) => {
     const notes = item.notes || 'Sin notas cargadas.'
-    const title = item.subject ? `Seguimiento causa ${item.subject}` : `Seguimiento causa ${item.rol_rit || 'sin rol'}`
+    const deadlines = collectDeadlineCandidates(item)
+    const nearestDeadline = deadlines.find((entry) => entry.date.getTime() >= startOfDay(now).getTime()) || deadlines[0] || null
+    const referenceCode = item.rol_rit || item.pjud_rit || item.rol || item.pjud_ruc || item.ruc || 'Sin ROL / RIT / RUC'
+    const caseName = item.pjud_caratulado || item.caratula || item.subject || 'Causa sin carátula'
+    const title = `Plazo judicial · ${referenceCode}`
+    const urgency = nearestDeadline ? getUrgencyByDiff(nearestDeadline.date.getTime() - now.getTime()) : (normalize(notes).includes('urgente') ? 'alta' : 'media')
+    const summary = nearestDeadline
+      ? `${caseName} registra ${nearestDeadline.label.toLowerCase()} para el ${formatDate(nearestDeadline.date)} (${nearestDeadline.source}).`
+      : `${referenceCode} en ${item.court || item.pjud_tribunal || 'tribunal por definir'} requiere seguimiento en Producción.`
+
     return buildAlertBase({
       id: `causa-${item.id}`,
       module: 'Causas',
       category: 'Plazos judiciales',
       title,
-      summary: `${item.rol_rit || 'Causa sin rol'} en ${item.court || 'tribunal por definir'} requiere seguimiento en el panel principal.`,
-      date: item.created_at || new Date(),
+      summary,
+      date: nearestDeadline?.date || item.created_at || new Date(),
       person: item.client_name || 'Cliente vinculado a causa',
-      association: item.rol_rit || item.subject || 'Causa sin referencia',
+      association: `${referenceCode} · ${caseName}`,
       responsible: item.responsible || 'Por asignar',
       modality: 'Gestión judicial',
-      location: item.court || 'Tribunal por definir',
-      urgency: normalize(notes).includes('urgente') ? 'alta' : 'media',
-      href: './causas.html',
+      location: item.court || item.pjud_tribunal || 'Tribunal por definir',
+      urgency,
+      href: './produccion.html',
       observation: notes,
       metadata: [
-        `Tribunal: ${item.court || 'Por definir'}`,
-        `Materia: ${item.subject || 'Por definir'}`,
-        `Responsable: ${item.responsible || 'Por asignar'}`
+        `Causa: ${caseName}`,
+        `ROL/RIT/RUC: ${referenceCode}`,
+        `Tribunal: ${item.court || item.pjud_tribunal || 'Por definir'}`,
+        `Estado procesal: ${item.pjud_estado_procesal || item.pjud_estado_causa || 'No informado'}`,
+        `Plazo en curso: ${nearestDeadline?.label || 'Sin plazo identificado en datos disponibles'}`,
+        `Gestión sugerida: ${nearestDeadline?.suggestedAction || 'Revisar expediente y definir estrategia'}`
       ]
     })
   })
+}
+
+export function buildFeesAlerts(clientDataset = { clients: [] }, now = new Date()) {
+  const items = []
+  ;(clientDataset.clients || []).forEach((client) => {
+    ;(client.expedientes || []).forEach((expediente) => {
+      const fee = expediente.fees || {}
+      const dueDate = parseFlexibleDate(fee.dueDate)
+      const hasPendingSignal = expediente.feesPending || normalize(fee.response).includes('prevencion') || normalize(fee.response).includes('rechaza')
+      if (!dueDate && !hasPendingSignal) return
+      const diffMs = dueDate ? (dueDate.getTime() - now.getTime()) : null
+      const urgency = dueDate ? getUrgencyByDiff(diffMs) : (hasPendingSignal ? 'media' : 'baja')
+      const feeState = expediente.feesPending ? 'Pendiente' : (fee.response || 'En revisión')
+      items.push(buildAlertBase({
+        id: `honorarios-${client.id}-${expediente.id}`,
+        module: 'Clientes',
+        category: 'Honorarios por cobrar',
+        title: `Cuota de honorarios · ${client.name}`,
+        summary: `${client.name} · ${expediente.code}: ${fee.installments || 'cuota por definir'} (${feeState}).`,
+        date: dueDate || now,
+        person: client.name,
+        association: expediente.linkedCaseRol ? `${expediente.code} · ${expediente.linkedCaseRol}` : expediente.code,
+        responsible: expediente.responsibleLawyer || 'Por asignar',
+        modality: fee.modality || 'Honorarios',
+        location: 'Clientes > Honorarios',
+        urgency,
+        href: './clientes.html',
+        observation: expediente.issueNotes || '',
+        metadata: [
+          `Cliente: ${client.name}`,
+          `Expediente/Causa: ${expediente.code}${expediente.linkedCaseRol ? ` · ${expediente.linkedCaseRol}` : ''}`,
+          `Cuota: ${fee.installments || 'No definida'}`,
+          `Monto: ${formatCurrency(fee.total || fee.invoice?.amount || '') || 'No informado'}`,
+          `Vencimiento/cobro: ${dueDate ? formatDate(dueDate) : (fee.dueDate || 'No informado')}`,
+          `Estado del pago: ${feeState}`
+        ]
+      }))
+    })
+  })
+  return items
 }
 
 function sortAlerts(alerts = []) {
@@ -502,10 +618,11 @@ function sortAlerts(alerts = []) {
 }
 
 export function buildConsolidatedAlerts({ appointments = [], cases = [], clientDataset = { clients: [] }, now = new Date() }) {
-  const caseAlerts = buildCaseAlerts(cases)
+  const caseAlerts = buildCaseAlerts(cases, now)
   const agendaAlerts = buildAgendaAlerts(appointments, now)
   const clientAlerts = buildClientAlerts(clientDataset, now)
-  const alerts = sortAlerts([...caseAlerts, ...agendaAlerts, ...clientAlerts])
+  const feeAlerts = buildFeesAlerts(clientDataset, now)
+  const alerts = sortAlerts([...caseAlerts, ...agendaAlerts, ...clientAlerts, ...feeAlerts])
   const todayEnd = new Date(startOfDay(now).getTime() + DAY_MS)
   const weekEnd = new Date(startOfDay(now).getTime() + (7 * DAY_MS))
 
@@ -571,6 +688,7 @@ export function renderAlertListItems(alerts = [], { emptyMessage = 'Sin alertas'
           <span>${escapeHtml(alert.person)}</span>
         </div>
         ${showMeta ? `<ul class="panel-alert-tags">${meta.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')}</ul>` : ''}
+        ${alert.href ? `<a class="panel-alert-link" href="${escapeHtml(alert.href)}">Ir al registro</a>` : ''}
         ${alert.observation ? `<div class="panel-alert-note">Obs.: ${escapeHtml(alert.observation)}</div>` : ''}
       </li>
     `
