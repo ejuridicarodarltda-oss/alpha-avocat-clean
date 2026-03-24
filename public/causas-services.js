@@ -570,7 +570,7 @@ function parsePartiesFromText(text = '') {
 
   const parties = []
   lines.forEach((line) => {
-    const match = line.match(/^(demandante|actor|demandado|tercerista|interviniente|querellante|querellado)\s*[:：-]\s*(.+)$/i)
+    const match = line.match(/^(demandante|actor|demandado|tercerista|interviniente|querellante|querellado|abogado|abogada|apoderado|apoderada|patrocinante|compareciente|representante)\s*[:：-]\s*(.+)$/i)
     if (!match) return
     const role = match[1]
     const rawNames = match[2]
