@@ -3498,6 +3498,17 @@
       );
     }
 
+    function isSchemaCacheMissingColumnError(error, tableName, columnName){
+      const message = String(error?.message || '').toLowerCase();
+      if (!message) return false;
+      return (
+        message.includes('schema cache')
+        && message.includes('could not find')
+        && message.includes(String(columnName || '').toLowerCase())
+        && message.includes(String(tableName || '').toLowerCase())
+      );
+    }
+
     function buildPjudInfrastructureError(error){
       if (!error) return null;
       if (isSchemaCacheMissingTableError(error, `public.${T_PJUD_IMPORT_BATCHES}`) || isSchemaCacheMissingTableError(error, T_PJUD_IMPORT_BATCHES)) {
@@ -3505,6 +3516,12 @@
       }
       if (isSchemaCacheMissingTableError(error, `public.${T_PJUD_IMPORT_ROWS}`) || isSchemaCacheMissingTableError(error, T_PJUD_IMPORT_ROWS)) {
         return new Error('No fue posible cargar la importación PJUD. Falta la tabla crítica public.pjud_import_rows en Supabase (o no está visible para el rol autenticado). Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      if (
+        isSchemaCacheMissingColumnError(error, 'cases', 'import_batch_id')
+        || isSchemaCacheMissingColumnError(error, 'public.cases', 'import_batch_id')
+      ) {
+        return new Error('No fue posible cargar la importación PJUD. Falta la columna crítica public.cases.import_batch_id en Supabase (o el schema cache de PostgREST no está actualizado). Ejecuta la migración pendiente y refresca el schema cache.');
       }
       return null;
     }
@@ -5921,7 +5938,7 @@
           .from(T_CASES)
           .upsert(slice, { onConflict: 'owner_user_id,pjud_case_key' })
           .select('*');
-        if (error) throw error;
+        if (error) throw buildPjudInfrastructureError(error) || error;
         upsertedRows.push(...(data || []));
       }
 
