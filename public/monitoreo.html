@@ -72,6 +72,54 @@
       </section>
 
       <section class="monitoreo-card">
+        <div class="card-head-row">
+          <h3>PRESCRIPCIÓN DE LAS ACCIONES</h3>
+          <button id="btnAddPrescriptionRow" class="ui-button ui-button--secondary">Agregar fila</button>
+        </div>
+        <table class="monitoreo-table">
+          <thead>
+            <tr>
+              <th>Materia</th>
+              <th>Acción</th>
+              <th>Plazo</th>
+              <th>Norma</th>
+              <th>Inicio del cómputo</th>
+              <th>Fecha base</th>
+              <th>Fecha estimada de vencimiento</th>
+              <th>Estado de alerta</th>
+              <th>Observaciones</th>
+              <th>Editable por usuario</th>
+            </tr>
+          </thead>
+          <tbody id="monitorPrescriptions"></tbody>
+        </table>
+      </section>
+
+      <section class="monitoreo-card">
+        <div class="card-head-row">
+          <h3>MATERIAS QUE REQUIEREN MATRIZ POR ACCIÓN ESPECÍFICA</h3>
+          <button id="btnAddSpecialPrescriptionRow" class="ui-button ui-button--secondary">Agregar acción específica</button>
+        </div>
+        <p class="panel-list-empty">Materias base: Minería · Aguas · Pesca · Alcoholes · Servicios eléctricos / concesiones eléctricas · Comercio general · Consumidor civil no contravencional.</p>
+        <table class="monitoreo-table">
+          <thead>
+            <tr>
+              <th>Materia</th>
+              <th>Acción específica</th>
+              <th>Plazo</th>
+              <th>Norma</th>
+              <th>Inicio del cómputo</th>
+              <th>Fecha base</th>
+              <th>Fecha estimada de vencimiento</th>
+              <th>Alerta</th>
+              <th>Observaciones</th>
+            </tr>
+          </thead>
+          <tbody id="monitorSpecialPrescriptions"></tbody>
+        </table>
+      </section>
+
+      <section class="monitoreo-card">
         <h3>Propuestas de escritos e informes</h3>
         <ul id="monitorSuggestions" class="monitoreo-suggestions"></ul>
       </section>
