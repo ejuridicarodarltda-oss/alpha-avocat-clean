@@ -1992,6 +1992,11 @@
           <label for="import_raw">Texto pegado desde el Poder Judicial</label>
           <textarea id="import_raw" class="textarea" placeholder="Pega aquí la carátula, partes, movimientos, resoluciones o documentos visibles para extraer datos reales en modo semiautomático."></textarea>
         </div>
+        <div class="field">
+          <label for="import_support_files">Archivos descargados desde PJUD (opcional)</label>
+          <input id="import_support_files" class="input" type="file" multiple />
+          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Importados de PJUD”.</div>
+        </div>
 
         <div class="helper-box" id="importPreview">Aún no se ha analizado una causa judicial.</div>
 
@@ -2041,6 +2046,7 @@
               <option value="resoluciones">Resoluciones</option>
               <option value="notificaciones">Notificaciones</option>
               <option value="antecedentes">Otros antecedentes</option>
+              <option value="importadosPjud">Importados de PJUD</option>
             </select>
           </div>
           <div class="field">
@@ -3199,6 +3205,7 @@
         resoluciones: 'Resoluciones',
         notificaciones: 'Notificaciones',
         antecedentes: 'Otros antecedentes',
+        importadosPjud: 'Importados de PJUD',
       })[containerId] || 'Documentos asociados';
     }
 
@@ -6049,10 +6056,36 @@
       return { data, detail };
     }
 
+    async function collectImportSupportDocuments(importData, { primaryClientName } = {}){
+      const fileList = $('import_support_files')?.files;
+      if (!fileList?.length) return importData;
+      try {
+        const fileDocuments = await filesToDocumentInputs(fileList, {
+          category: 'Importados de PJUD',
+          destinationContainer: 'importadosPjud',
+          observation: 'Archivo adjuntado por el usuario desde importación PJUD.',
+          origin: 'Archivo descargado por usuario (PJUD)',
+        });
+        console.info('[CAUSAS][IMPORTACIÓN PJUD] Archivos descargados vinculados.', {
+          fileCount: fileDocuments.length,
+          role: importData?.rol || importData?.basic?.rol || null,
+          primaryClientName: primaryClientName || null,
+        });
+        return {
+          ...importData,
+          documents: [...(importData.documents || []), ...fileDocuments],
+        };
+      } catch (error) {
+        console.error('[CAUSAS][IMPORTACIÓN PJUD] Error vinculando archivos descargados.', error);
+        setMessage('importMsg', 'No fue posible adjuntar uno o más archivos descargados desde PJUD. Reintenta con archivos válidos.', 'error');
+        return importData;
+      }
+    }
+
     async function createOrUpdateImportedCase(event){
       event.preventDefault();
       if (!state.pendingImport) analyzeImport();
-      const importData = state.pendingImport;
+      let importData = state.pendingImport;
       if (!importData) {
         setMessage('importMsg', 'Debes ingresar al menos una referencia judicial para analizar.', 'error');
         return;
@@ -6062,6 +6095,7 @@
       const selectedParty = Number.isInteger(partyIndex) && partyIndex >= 0 ? importData.parties?.[partyIndex] : null;
       const primaryClientName = selectedParty?.name || importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
       const selectedClientParties = selectedParty ? [selectedParty.name] : [];
+      importData = await collectImportSupportDocuments(importData, { primaryClientName });
       const duplicate = findDuplicateCase(getAllCases(), importData);
 
       if (duplicate) {
@@ -6406,39 +6440,58 @@
       renderAll();
     }
 
+    function bindEvent(elementId, eventName, handler, { required = false, scope = 'general' } = {}){
+      const element = $(elementId);
+      if (!element) {
+        const message = `[CAUSAS][BOTONES][${scope}] Elemento no encontrado: #${elementId}`;
+        if (required) console.error(message);
+        else console.warn(message);
+        return false;
+      }
+      element.addEventListener(eventName, async (event) => {
+        try {
+          await handler(event);
+        } catch (error) {
+          console.error(`[CAUSAS][BOTONES][${scope}] Falló handler de #${elementId}.`, error);
+          setDetailStatus(`Error al ejecutar acción ${elementId}: ${error?.message || 'Error desconocido'}`, 'error');
+        }
+      });
+      return true;
+    }
+
     function wireEvents(){
-      $('btnLogout').addEventListener('click', async () => {
+      bindEvent('btnLogout', 'click', async () => {
         await supabase.auth.signOut();
         window.location.href = './login.html';
-      });
+      }, { required: true, scope: 'topbar' });
 
-      $('btnNuevaCausa').addEventListener('click', openModal);
-      $('btnImportar').addEventListener('click', openImportModal);
-      $('btnAnalizarLoteImportacion').addEventListener('click', analyzeBatchImport);
-      $('btnTransferirLoteImportacion').addEventListener('click', transferBatchImport);
+      bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
+      bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
       $('batch_excel_file')?.addEventListener('change', () => {
         state.pendingPjudWorkbook = null;
         state.pendingBatchImports = [];
         renderBatchImportPreview([], null);
         setMessage('importMsg', '', '');
       });
-      $('btnCalendario').addEventListener('click', () => window.location.href = './agenda.html');
-      $('btnActualizarEstado').addEventListener('click', openSyncModal);
-      $('btnQuickInfo').addEventListener('click', () => openBranchScreen('informacion', 'btnQuickInfo'));
-      $('btnQuickExpedientes').addEventListener('click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'));
-      $('btnTopExpedientes')?.addEventListener('click', () => openBranchScreen('expedientes', 'btnTopExpedientes'));
-      $('btnQuickProduction').addEventListener('click', () => openBranchScreen('produccion', 'btnQuickProduction'));
-      $('btnQuickAlerts').addEventListener('click', () => setActiveTab('informacion'));
+      bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
+      bindEvent('btnActualizarEstado', 'click', () => openSyncModal(), { scope: 'acciones' });
+      bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
+      bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => setActiveTab('informacion'), { scope: 'quick-nav' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
       diagnoseBranchButton('btnQuickProduction', 'produccion');
-      $('btnLimpiarFiltros').addEventListener('click', resetFilters);
-      $('formCausa').addEventListener('submit', createCase);
-      $('formImportacion').addEventListener('submit', createOrUpdateImportedCase);
-      $('btnAnalizarImportacion').addEventListener('click', analyzeImport);
-      $('formDocumento').addEventListener('submit', saveDocumentMetadata);
-      $('formSincronizacion').addEventListener('submit', submitSync);
-      $('caseFileInput').addEventListener('change', handleFileSelection);
+      bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
+      bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
+      bindEvent('formImportacion', 'submit', createOrUpdateImportedCase, { required: true, scope: 'form-importacion' });
+      bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
+      bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
+      bindEvent('formSincronizacion', 'submit', submitSync, { required: true, scope: 'form-sincronizacion' });
+      bindEvent('caseFileInput', 'change', handleFileSelection, { required: true, scope: 'documentos' });
       $('causeRectificationForm')?.addEventListener('submit', saveCauseRectification);
       $('causeRectificationForm')?.addEventListener('input', () => {
         if (state.rectificationValidation) {
@@ -6486,10 +6539,15 @@
       });
 
       ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','sortBy'].forEach(id => {
-        $(id).addEventListener(id === 'searchCausas' ? 'input' : 'change', updateFiltersFromInputs);
+        const filterField = $(id);
+        if (!filterField) {
+          console.warn('[CAUSAS][BOTONES][filtros] Campo no encontrado para binding.', { id });
+          return;
+        }
+        filterField.addEventListener(id === 'searchCausas' ? 'input' : 'change', updateFiltersFromInputs);
       });
 
-      $('casesList').addEventListener('click', event => {
+      $('casesList')?.addEventListener('click', event => {
         const kardexToggle = event.target.closest('[data-kardex-toggle]');
         if (kardexToggle) {
           const label = kardexToggle.dataset.kardexToggle;
@@ -6513,13 +6571,13 @@
         }
       });
 
-      $('tabBar').addEventListener('click', event => {
+      $('tabBar')?.addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         setActiveTab(tab.dataset.tab);
       });
 
-      $('pillarGrid').addEventListener('click', event => {
+      $('pillarGrid')?.addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
@@ -6529,14 +6587,14 @@
         setActiveTab(tab.dataset.tab);
       });
 
-      $('detailActions').addEventListener('click', event => {
+      $('detailActions')?.addEventListener('click', event => {
         const button = event.target.closest('[data-detail-action]');
         if (!button) return;
         const found = detailActions.find(item => item.id === button.dataset.detailAction);
         if (found) found.action();
       });
 
-      $('detailContent').addEventListener('click', (event) => {
+      $('detailContent')?.addEventListener('click', (event) => {
         const associationClient = event.target.closest('[data-select-associated-client]');
         if (associationClient) {
           state.selectedAssociationClientId = associationClient.dataset.selectAssociatedClient || null;
@@ -6634,18 +6692,23 @@
 
         const genericButton = event.target.closest('button');
         if (genericButton) {
+          console.warn('[CAUSAS][BOTONES] Acción genérica ejecutada para botón sin handler específico.', {
+            text: genericButton.textContent?.trim() || '',
+            id: genericButton.id || null,
+            classes: genericButton.className || null,
+          });
           alert(`Acción funcional disponible: ${genericButton.textContent.trim()}. Esta acción quedó conectada al módulo y puede ampliarse sin romper el diseño.`);
         }
       });
 
-      $('k_fee').addEventListener('blur', () => {
+      bindEvent('k_fee', 'blur', () => {
         const amount = parseCLP($('k_fee').value);
         if (amount != null) $('k_fee').value = new Intl.NumberFormat('es-CL').format(amount);
-      });
+      }, { scope: 'form-causa' });
 
-      $('k_caratula').addEventListener('blur', () => {
+      bindEvent('k_caratula', 'blur', () => {
         $('k_caratula').value = normalizeCaratula($('k_caratula').value);
-      });
+      }, { scope: 'form-causa' });
 
       $('btnCopyEbookLink')?.addEventListener('click', async () => {
         if (!state.ebookFallbackUrl) return;

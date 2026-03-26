@@ -133,6 +133,10 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
     resoluciones: { label: 'Resoluciones', docIds: [] },
     notificaciones: { label: 'Notificaciones', docIds: [] },
     antecedentes: { label: 'Otros antecedentes', docIds: [] },
+    importadosPjud: { label: 'Importados de PJUD', docIds: [] },
+  }
+  if (!next.documentContainers.importadosPjud) {
+    next.documentContainers.importadosPjud = { label: 'Importados de PJUD', docIds: [] }
   }
   next.selectedClientParties = Array.isArray(next.selectedClientParties) ? next.selectedClientParties : []
   return next
@@ -215,6 +219,8 @@ export function recordDownload(detail = {}, documentId) {
 export function containerIdForCategory(category = '') {
   const normalized = String(category || '').toLowerCase()
   if (normalized.includes('ebook')) return 'ebook'
+  if (normalized.includes('pjud')) return 'importadosPjud'
+  if (normalized.includes('poder judicial')) return 'importadosPjud'
   if (normalized.includes('escrit')) return 'escritos'
   if (normalized.includes('resol')) return 'resoluciones'
   if (normalized.includes('notif')) return 'notificaciones'
@@ -1260,7 +1266,43 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   })
 
   const importedDocIds = []
-  const allDocuments = [importData.ebook, ...(importData.documents || []).filter((documentRecord) => documentRecord.category !== 'Ebook')].filter(Boolean)
+  const primaryRole = options.selectedClientParties?.[0] || options.primaryClientName || next.cliente || 'Por definir'
+  const summaryBody = [
+    'Resumen materializado de importación PJUD',
+    '',
+    `Carátula: ${importData.basic?.caratula || importData.caratulado || next.caratula || 'Pendiente'}`,
+    `Rol: ${importData.basic?.rol || importData.rol || next.rol || 'Pendiente'}`,
+    `RIT: ${importData.basic?.rit || importData.rit || next.rit || 'Pendiente'}`,
+    `RUC: ${importData.ruc || next.ruc || 'Pendiente'}`,
+    `Tribunal: ${importData.basic?.tribunal || importData.tribunal || next.tribunal || 'Pendiente'}`,
+    `Materia: ${importData.basic?.materia || importData.materia || next.materia || 'Pendiente'}`,
+    `Estado causa: ${importData.estadoCausa || next.estadoCausa || 'Pendiente'}`,
+    `Estado procesal: ${importData.basic?.estadoProcesal || importData.estadoProcesal || next.estadoProcesal || 'Pendiente'}`,
+    `Cliente representado: ${options.primaryClientName || next.cliente || 'Pendiente'}`,
+    `Calidad procesal: ${primaryRole}`,
+    `Ubicación en Kárdex: ${next.kardex?.grupo || next.grupo || 'Pendiente'}`,
+    '',
+    'Este documento deja evidencia útil de la importación cuando la fuente PJUD no entrega automáticamente todo el expediente completo.',
+  ].join('\n')
+  const summaryDocInput = {
+    name: `resumen-pjud-${(importData.basic?.rol || importData.rol || `caso-${Date.now()}`).toString().replace(/[^\w.-]+/g, '-')}.txt`,
+    category: 'Importados de PJUD',
+    destinationContainer: 'importadosPjud',
+    observation: 'Resumen automático de importación judicial para materializar contenido mínimo utilizable.',
+    origin: 'Importación PJUD',
+    placeholderText: summaryBody,
+  }
+  const allDocuments = [
+    summaryDocInput,
+    importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: importData.ebook.category || 'Importados de PJUD' } : null,
+    ...(importData.documents || [])
+      .filter((documentRecord) => documentRecord.category !== 'Ebook')
+      .map((documentRecord) => ({
+        ...documentRecord,
+        destinationContainer: 'importadosPjud',
+        category: documentRecord.category || 'Importados de PJUD',
+      })),
+  ].filter(Boolean)
   allDocuments.forEach((documentRecord) => {
     const before = new Set((next.documents || []).map((item) => item.id))
     const updated = upsertDocument(next, { ...documentRecord, caseId: next.id, linkedClient: options.primaryClientName || next.cliente })
