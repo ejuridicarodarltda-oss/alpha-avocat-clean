@@ -133,10 +133,12 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
     resoluciones: { label: 'Resoluciones', docIds: [] },
     notificaciones: { label: 'Notificaciones', docIds: [] },
     antecedentes: { label: 'Otros antecedentes', docIds: [] },
-    importadosPjud: { label: 'Importados de PJUD', docIds: [] },
+    importadosPjud: { label: 'Contenido importado del PJUD', docIds: [] },
   }
   if (!next.documentContainers.importadosPjud) {
-    next.documentContainers.importadosPjud = { label: 'Importados de PJUD', docIds: [] }
+    next.documentContainers.importadosPjud = { label: 'Contenido importado del PJUD', docIds: [] }
+  } else {
+    next.documentContainers.importadosPjud.label = 'Contenido importado del PJUD'
   }
   next.selectedClientParties = Array.isArray(next.selectedClientParties) ? next.selectedClientParties : []
   return next
@@ -1201,8 +1203,6 @@ export function findDuplicateCase(cases = [], importData = {}) {
     if (normalizedLink && link && normalizedLink === link) return true
     if (normalizedRol && rol && normalizedRol === rol && normalizedTribunal && tribunal === normalizedTribunal) return true
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
-    if (normalizedRol && rol && normalizedRol === rol) return true
-    if (normalizedRit && rit && normalizedRit === rit) return true
     return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula)
   }) || null
 }
@@ -1286,7 +1286,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   ].join('\n')
   const summaryDocInput = {
     name: `resumen-pjud-${(importData.basic?.rol || importData.rol || `caso-${Date.now()}`).toString().replace(/[^\w.-]+/g, '-')}.txt`,
-    category: 'Importados de PJUD',
+    category: 'Contenido importado del PJUD',
     destinationContainer: 'importadosPjud',
     observation: 'Resumen automático de importación judicial para materializar contenido mínimo utilizable.',
     origin: 'Importación PJUD',
@@ -1294,13 +1294,13 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   }
   const allDocuments = [
     summaryDocInput,
-    importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: importData.ebook.category || 'Importados de PJUD' } : null,
+    importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: importData.ebook.category || 'Contenido importado del PJUD' } : null,
     ...(importData.documents || [])
       .filter((documentRecord) => documentRecord.category !== 'Ebook')
       .map((documentRecord) => ({
         ...documentRecord,
         destinationContainer: 'importadosPjud',
-        category: documentRecord.category || 'Importados de PJUD',
+        category: documentRecord.category || 'Contenido importado del PJUD',
       })),
   ].filter(Boolean)
   allDocuments.forEach((documentRecord) => {

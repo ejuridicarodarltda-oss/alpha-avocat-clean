@@ -1995,7 +1995,7 @@
         <div class="field">
           <label for="import_support_files">Archivos descargados desde PJUD (opcional)</label>
           <input id="import_support_files" class="input" type="file" multiple />
-          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Importados de PJUD”.</div>
+          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Contenido importado del PJUD”.</div>
         </div>
 
         <div class="helper-box" id="importPreview">Aún no se ha analizado una causa judicial.</div>
@@ -2046,7 +2046,7 @@
               <option value="resoluciones">Resoluciones</option>
               <option value="notificaciones">Notificaciones</option>
               <option value="antecedentes">Otros antecedentes</option>
-              <option value="importadosPjud">Importados de PJUD</option>
+              <option value="importadosPjud">Contenido importado del PJUD</option>
             </select>
           </div>
           <div class="field">
@@ -3230,7 +3230,7 @@
         resoluciones: 'Resoluciones',
         notificaciones: 'Notificaciones',
         antecedentes: 'Otros antecedentes',
-        importadosPjud: 'Importados de PJUD',
+        importadosPjud: 'Contenido importado del PJUD',
       })[containerId] || 'Documentos asociados';
     }
 
@@ -6086,7 +6086,7 @@
       if (!fileList?.length) return importData;
       try {
         const fileDocuments = await filesToDocumentInputs(fileList, {
-          category: 'Importados de PJUD',
+          category: 'Contenido importado del PJUD',
           destinationContainer: 'importadosPjud',
           observation: 'Archivo adjuntado por el usuario desde importación PJUD.',
           origin: 'Archivo descargado por usuario (PJUD)',
