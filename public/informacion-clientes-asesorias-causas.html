@@ -55,6 +55,7 @@
     .iac-list{ margin:8px 0 0; padding-left:18px; color:var(--iac-text); }
     .iac-warning{ background:color-mix(in srgb,var(--iac-critical) 10%, white); border:1px solid color-mix(in srgb,var(--iac-critical) 45%, white); border-radius:12px; padding:10px; color:#5a1b24; font-size:13px; }
     .iac-empty{ color:var(--iac-muted); font-style:italic; }
+    .iac-field input,.iac-field select{width:100%;margin-top:6px;border:1px solid var(--iac-border);border-radius:10px;padding:7px 8px;font:inherit;background:#fff;}
   </style>
 </head>
 <body class="iac-page">
@@ -115,16 +116,13 @@
     import { loadWorkspace } from './causas-services.js';
 
     const $ = (id) => document.getElementById(id);
-    const QUALITY_OPTIONS = ['demandante','demandado','querellante','querellado','acusado','imputado','recurrido','recurrente','reclamante','reclamado','tercero','ejecutante','ejecutado'];
+    const MANUAL_OVERRIDES_KEY = 'alpha-iac-manual-overrides-v1';
+    const QUALITY_OPTIONS = ['demandante','demandado','querellante','querellado','acusado','imputado','recurrido','recurrente','reclamante','reclamado','tercero','ejecutante','ejecutado','denunciante','denunciado','solicitante'];
 
     const toDate = (v) => {
       if (!v) return null;
       const d = new Date(String(v).length <= 10 ? `${v}T00:00:00Z` : v);
       return Number.isNaN(d.getTime()) ? null : d;
-    };
-    const fmt = (v) => {
-      const d = toDate(v);
-      return d ? new Intl.DateTimeFormat('es-CL', { dateStyle:'medium', timeZone:'UTC' }).format(d) : '—';
     };
     const esc = (v = '') => String(v).replace(/[&<>"']/g, (c) => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;' }[c]));
     const getVal = (obj, keys, fallback = '—') => {
@@ -134,12 +132,26 @@
       }
       return fallback;
     };
+    const norm = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+
     const looksLegalEntity = (client) => {
       const explicitType = String(client?.client_type || client?.type || '').toLowerCase();
       if (explicitType.includes('jurid')) return true;
       const name = getVal(client, ['legal_name','company_name','business_name','full_name','name'], '');
       return /(spa|ltda|s\.a\.?|eirl|sociedad|empresa)/i.test(name);
     };
+
+    function loadManualOverrides(storage = window.localStorage) {
+      try {
+        return JSON.parse(storage.getItem(MANUAL_OVERRIDES_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function saveManualOverrides(overrides, storage = window.localStorage) {
+      storage.setItem(MANUAL_OVERRIDES_KEY, JSON.stringify(overrides || {}));
+    }
 
     function normalizeClient(client){
       const legal = looksLegalEntity(client);
@@ -170,20 +182,14 @@
     function parseInterviewEvidence(appointment = {}) {
       const metadataRaw = appointment.required_background || '';
       let metadata = {};
-      try {
-        metadata = metadataRaw ? JSON.parse(metadataRaw) : {};
-      } catch {
-        metadata = {};
-      }
+      try { metadata = metadataRaw ? JSON.parse(metadataRaw) : {}; } catch { metadata = {}; }
       const media = Array.isArray(metadata?.activityMedia) ? metadata.activityMedia : [];
       const names = media.map((item) => String(item?.name || item?.fileName || '')).filter(Boolean);
       const lowerNames = names.map((value) => value.toLowerCase());
-      const hasWord = lowerNames.some((name) => name.endsWith('.doc') || name.endsWith('.docx'));
-      const hasPdf = lowerNames.some((name) => name.endsWith('.pdf'));
       return {
         recording: Boolean(appointment.recording_authorized) || media.some((item) => String(item?.type || '').startsWith('audio') || String(item?.type || '').startsWith('video')),
-        word: hasWord,
-        pdf: hasPdf,
+        word: lowerNames.some((name) => name.endsWith('.doc') || name.endsWith('.docx')),
+        pdf: lowerNames.some((name) => name.endsWith('.pdf')),
         agendaRef: appointment.id ? `Evento ${appointment.id}` : 'Evento agenda',
         sourceLabel: appointment.event_type || appointment.kind || 'Actividad agenda'
       };
@@ -191,24 +197,46 @@
 
     function classifyClientByAntiquity(client) {
       if (!client.createdAt) return 'antiguo';
-      const now = new Date();
-      const threshold = new Date(now.getTime() - 1000 * 60 * 60 * 24 * 180);
+      const threshold = new Date(Date.now() - 1000 * 60 * 60 * 24 * 180);
       return client.createdAt >= threshold ? 'nuevo' : 'antiguo';
     }
 
+    function inferQualityFromNarrative(cause = {}) {
+      const haystack = norm([
+        cause.caratula,
+        cause.descripcion,
+        cause.observaciones,
+        cause.notes,
+        cause.summary,
+        cause.expedienteHint,
+        JSON.stringify(cause.partes || []),
+        JSON.stringify(cause.movements || []),
+      ].filter(Boolean).join(' \n '));
+
+      const patternMap = [
+        ['demandante', /(por el demandante|por la demandante|demandante|actor\b)/],
+        ['demandado', /(por el demandado|por la demandada|demandado|demandada)/],
+        ['tercero', /(por el tercero|tercerista|tercero coadyuvante|tercero independiente)/],
+        ['querellante', /(por el querellante|querellante)/],
+        ['querellado', /(por el querellado|querellado)/],
+      ];
+      for (const [quality, regex] of patternMap) {
+        if (regex.test(haystack)) return quality;
+      }
+      return 'por definir';
+    }
+
     function detectQuality(cause) {
-      const quality = String(
-        cause.client_quality
-        || cause.calidad_cliente
-        || cause.party_quality
-        || cause.quality
-        || cause.role
-        || ''
-      ).toLowerCase();
-      if (QUALITY_OPTIONS.includes(quality)) return quality;
-      const firstPartyRole = String(cause?.partes?.[0]?.rol || '').toLowerCase();
-      if (QUALITY_OPTIONS.includes(firstPartyRole)) return firstPartyRole;
-      return 'tercero';
+      const direct = norm(cause.client_quality || cause.calidad_cliente || cause.party_quality || cause.quality || cause.role || '');
+      if (QUALITY_OPTIONS.includes(direct)) return direct;
+
+      const partyRoles = Array.isArray(cause?.partes)
+        ? cause.partes.map((party) => norm(party?.rol || party?.role || party?.calidad || '')).filter(Boolean)
+        : [];
+      const matchedParty = partyRoles.find((role) => QUALITY_OPTIONS.includes(role));
+      if (matchedParty) return matchedParty;
+
+      return inferQualityFromNarrative(cause);
     }
 
     function primaryIdentifier(cause) {
@@ -216,18 +244,15 @@
       const rit = String(cause.rit || cause.pjud_rit || '').trim();
       const ruc = String(cause.ruc || cause.pjud_ruc || '').trim();
       const id = String(cause.id || '').trim();
-      const materia = String(cause.materia || cause.pjud_materia || '').toLowerCase();
-      if (materia.includes('civil') && rol) return { label: 'ROL', value: rol, extra: [rit && `RIT: ${rit}`, ruc && `RUC: ${ruc}`].filter(Boolean) };
       if (rol) return { label: 'ROL', value: rol, extra: [rit && `RIT: ${rit}`, ruc && `RUC: ${ruc}`].filter(Boolean) };
       if (rit) return { label: 'RIT', value: rit, extra: [ruc && `RUC: ${ruc}`, id && `ID: ${id}`].filter(Boolean) };
       if (ruc) return { label: 'RUC', value: ruc, extra: [id && `ID: ${id}`].filter(Boolean) };
       return { label: 'ID', value: id || 'Sin identificador', extra: [] };
     }
 
-    function normalizeCause(cause, workspaceEntry = {}) {
-      const merged = { ...workspaceEntry, ...cause };
+    function normalizeCause(cause, workspaceEntry = {}, manualOverride = {}) {
+      const merged = { ...workspaceEntry, ...cause, ...manualOverride };
       const identifier = primaryIdentifier(merged);
-      const materia = getVal(merged, ['pjud_materia','matter','materia'], '—');
       return {
         id: String(merged.id || ''),
         rol: getVal(merged, ['rol','pjud_rol'], '—'),
@@ -235,27 +260,40 @@
         ruc: getVal(merged, ['ruc','pjud_ruc'], '—'),
         caratula: getVal(merged, ['caratula','pjud_caratulado','matter'], 'Sin carátula'),
         cliente: getVal(merged, ['cliente','client_name','linked_client_name'], 'Sin cliente asociado'),
-        calidad: detectQuality(merged),
+        calidad: manualOverride?.calidad || detectQuality(merged),
         accion: getVal(merged, ['accion','action','claim_type'], 'Por definir'),
         procedimiento: getVal(merged, ['procedimiento','pjud_tipo_causa','procedure'], 'Por definir'),
-        materia,
+        materia: getVal(merged, ['pjud_materia','matter','materia'], '—'),
+        tribunal: getVal(merged, ['tribunal','court','pjud_tribunal'], 'Tribunal por definir'),
         identifier,
         expedienteHint: getVal(workspaceEntry, ['expediente','pjudCaseKey','pjud_case_key'], 'Sin referencia')
       };
     }
 
+    function consolidateCausesByRoleAndCourt(causes = []) {
+      const bucket = new Map();
+      causes.forEach((item) => {
+        const role = norm(item.rol === '—' ? item.rit : item.rol);
+        const court = norm(item.tribunal);
+        const key = role && court ? `${role}::${court}` : `id::${item.id}`;
+        if (!bucket.has(key)) {
+          bucket.set(key, { ...item, consolidatedFrom: 1 });
+          return;
+        }
+        const current = bucket.get(key);
+        bucket.set(key, {
+          ...current,
+          ...item,
+          id: current.id,
+          consolidatedFrom: Number(current.consolidatedFrom || 1) + 1,
+          expedienteHint: current.expedienteHint !== 'Sin referencia' ? current.expedienteHint : item.expedienteHint,
+        });
+      });
+      return [...bucket.values()];
+    }
+
     function renderInterview(interview) {
-      return `
-        <div class="iac-subcard" style="padding:10px;">
-          <h4>ENTREVISTA CON EL CLIENTE</h4>
-          <ul class="iac-list">
-            <li>Grabación: ${interview.recording ? 'Disponible' : 'No registrada'}.</li>
-            <li>Acta transcrita en Word: ${interview.word ? 'Disponible' : 'No registrada'}.</li>
-            <li>Acta transcrita en PDF: ${interview.pdf ? 'Disponible' : 'No registrada'}.</li>
-          </ul>
-          <div class="iac-copy" style="margin-top:8px;">Fuente: CLIENTES + AGENDA · ${esc(interview.sourceLabel)} · ${esc(interview.agendaRef)}.</div>
-        </div>
-      `;
+      return `<div class="iac-subcard" style="padding:10px;"><h4>ENTREVISTA CON EL CLIENTE</h4><ul class="iac-list"><li>Grabación: ${interview.recording ? 'Disponible' : 'No registrada'}.</li><li>Acta transcrita en Word: ${interview.word ? 'Disponible' : 'No registrada'}.</li><li>Acta transcrita en PDF: ${interview.pdf ? 'Disponible' : 'No registrada'}.</li></ul><div class="iac-copy" style="margin-top:8px;">Fuente: CLIENTES + AGENDA · ${esc(interview.sourceLabel)} · ${esc(interview.agendaRef)}.</div></div>`;
     }
 
     function renderClients(list, appointmentsByName) {
@@ -264,89 +302,39 @@
         const events = appointmentsByName.get(client.fullName.toLowerCase()) || [];
         const interview = events.length ? parseInterviewEvidence(events[0]) : { recording:false, word:false, pdf:false, sourceLabel:'Sin actividad de agenda', agendaRef:'—' };
         if (!client.isLegalEntity) {
-          return `
-            <article class="iac-subcard">
-              <div class="iac-head">
-                <h4>${esc(client.fullName)}</h4>
-                <span class="iac-badge">Persona natural</span>
-              </div>
-              <div class="iac-kv">
-                ${[
-                  ['Nombre completo del cliente', client.fullName],
-                  ['RUT', client.rut],
-                  ['Teléfono', client.phone],
-                  ['Domicilio', client.address],
-                  ['Estado civil', client.maritalStatus],
-                  ['Dirección electrónica', client.email],
-                ].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
-              </div>
-              ${renderInterview(interview)}
-            </article>
-          `;
+          return `<article class="iac-subcard"><div class="iac-head"><h4>${esc(client.fullName)}</h4><span class="iac-badge">Persona natural</span></div><div class="iac-kv">${[['Nombre completo del cliente', client.fullName],['RUT', client.rut],['Teléfono', client.phone],['Domicilio', client.address],['Estado civil', client.maritalStatus],['Dirección electrónica', client.email],].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div>${renderInterview(interview)}</article>`;
         }
-        return `
-          <article class="iac-subcard">
-            <div class="iac-head">
-              <h4>${esc(client.legalName)}</h4>
-              <span class="iac-badge">Persona jurídica</span>
-            </div>
-            <div class="iac-stack">
-              <section>
-                <h4>Datos del representante</h4>
-                <div class="iac-kv">
-                  ${[
-                    ['Nombre completo', client.representativeName],
-                    ['RUT', client.representativeRut],
-                    ['Teléfono', client.representativePhone],
-                    ['Domicilio', client.representativeAddress],
-                    ['Estado civil', client.representativeMaritalStatus],
-                    ['Dirección electrónica', client.representativeEmail],
-                  ].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
-                </div>
-              </section>
-              <section>
-                <h4>Datos de la persona jurídica</h4>
-                <div class="iac-kv">
-                  ${[
-                    ['Nombre completo o denominación', client.legalName],
-                    ['RUT', client.legalRut],
-                    ['Domicilio', client.legalAddress],
-                    ['Giro o razón social', client.legalBusiness],
-                  ].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
-                </div>
-              </section>
-            </div>
-            ${renderInterview(interview)}
-          </article>
-        `;
+        return `<article class="iac-subcard"><div class="iac-head"><h4>${esc(client.legalName)}</h4><span class="iac-badge">Persona jurídica</span></div><div class="iac-stack"><section><h4>Datos del representante</h4><div class="iac-kv">${[['Nombre completo', client.representativeName],['RUT', client.representativeRut],['Teléfono', client.representativePhone],['Domicilio', client.representativeAddress],['Estado civil', client.representativeMaritalStatus],['Dirección electrónica', client.representativeEmail],].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div></section><section><h4>Datos de la persona jurídica</h4><div class="iac-kv">${[['Nombre completo o denominación', client.legalName],['RUT', client.legalRut],['Domicilio', client.legalAddress],['Giro o razón social', client.legalBusiness],].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div></section></div>${renderInterview(interview)}</article>`;
       }).join('');
     }
 
     function renderCauses(list) {
       if (!list.length) return '<p class="iac-empty">No hay causas para mostrar.</p>';
-      return list.map((cause) => `
-        <article class="iac-subcard">
-          <div class="iac-head">
-            <h3>${esc(cause.caratula)}</h3>
-            <span class="iac-badge">${esc(cause.identifier.label)}: ${esc(cause.identifier.value)}</span>
-          </div>
-          ${cause.identifier.extra.length ? `<div class="iac-copy">${esc(cause.identifier.extra.join(' · '))}</div>` : ''}
-          <div class="iac-kv" style="margin-top:8px;">
-            ${[
-              ['Rol', cause.rol],
-              ['RIT', cause.rit],
-              ['RUC', cause.ruc],
-              ['ID', cause.id || '—'],
-              ['Cliente', cause.cliente],
-              ['Calidad con que actúa el cliente', cause.calidad],
-              ['Acción', cause.accion],
-              ['Procedimiento', cause.procedimiento],
-              ['Materia', cause.materia],
-              ['Expediente digital', cause.expedienteHint],
-            ].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
-          </div>
-        </article>
-      `).join('');
+      return list.map((cause) => `<article class="iac-subcard"><div class="iac-head"><h3>${esc(cause.caratula)}</h3><span class="iac-badge">${esc(cause.identifier.label)}: ${esc(cause.identifier.value)}</span></div>${cause.identifier.extra.length ? `<div class="iac-copy">${esc(cause.identifier.extra.join(' · '))}</div>` : ''}<div class="iac-kv" style="margin-top:8px;">${[['Rol', cause.rol],['RIT', cause.rit],['RUC', cause.ruc],['ID', cause.id || '—'],['Cliente', cause.cliente],['Calidad con que actúa el cliente', cause.calidad],['Acción', cause.accion],['Procedimiento', cause.procedimiento],['Materia', cause.materia],['Tribunal', cause.tribunal],['Expediente digital', cause.expedienteHint],].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div><div class="iac-copy" style="margin-top:8px;">Consolidación por ROL + tribunal: ${cause.consolidatedFrom || 1} registro(s).</div><form class="iac-stack js-iac-edit-form" data-cause-id="${esc(cause.id)}" style="margin-top:10px;"><strong>Corrección manual prioritaria</strong><div class="iac-kv"><label class="iac-field"><div class="k">Cliente asociado</div><input name="cliente" value="${esc(cause.cliente)}" /></label><label class="iac-field"><div class="k">Calidad procesal</div><select name="calidad">${['por definir', ...QUALITY_OPTIONS].map((option) => `<option value="${esc(option)}" ${option === cause.calidad ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></label><label class="iac-field"><div class="k">Rol</div><input name="rol" value="${esc(cause.rol === '—' ? '' : cause.rol)}" /></label><label class="iac-field"><div class="k">Tribunal</div><input name="tribunal" value="${esc(cause.tribunal)}" /></label><label class="iac-field"><div class="k">Carátula</div><input name="caratula" value="${esc(cause.caratula)}" /></label><label class="iac-field"><div class="k">Materia</div><input name="materia" value="${esc(cause.materia)}" /></label></div><button type="submit" class="iac-badge" style="cursor:pointer;">Guardar rectificación manual</button></form></article>`).join('');
+    }
+
+    function wireCauseEditForms(onSaved) {
+      document.querySelectorAll('.js-iac-edit-form').forEach((form) => {
+        form.addEventListener('submit', (event) => {
+          event.preventDefault();
+          const causeId = String(form.dataset.causeId || '');
+          if (!causeId) return;
+          const formData = new FormData(form);
+          const overrides = loadManualOverrides();
+          overrides[causeId] = {
+            ...overrides[causeId],
+            cliente: String(formData.get('cliente') || '').trim(),
+            calidad: String(formData.get('calidad') || '').trim() || 'por definir',
+            rol: String(formData.get('rol') || '').trim(),
+            tribunal: String(formData.get('tribunal') || '').trim(),
+            caratula: String(formData.get('caratula') || '').trim(),
+            materia: String(formData.get('materia') || '').trim(),
+          };
+          saveManualOverrides(overrides);
+          onSaved?.();
+          $('warnings').insertAdjacentHTML('afterbegin', '<div class="iac-warning">Rectificación manual guardada. Esta edición prevalece sobre la inferencia automática.</div>');
+        });
+      });
     }
 
     async function safeSelect(queryPromise, label) {
@@ -372,8 +360,10 @@
       ]);
 
       const workspace = loadWorkspace(window.localStorage) || {};
+      const manualOverrides = loadManualOverrides(window.localStorage);
       const clients = clientsRaw.map(normalizeClient);
-      const causes = causesRaw.map((cause) => normalizeCause(cause, workspace[String(cause.id)] || {}));
+      const normalizedCauses = causesRaw.map((cause) => normalizeCause(cause, workspace[String(cause.id)] || {}, manualOverrides[String(cause.id)] || {}));
+      const causes = consolidateCausesByRoleAndCourt(normalizedCauses);
 
       const appointmentsByName = new Map();
       appointmentsRaw.forEach((item) => {
@@ -383,13 +373,11 @@
         appointmentsByName.get(name).push(item);
       });
 
-      const newClients = clients.filter((client) => classifyClientByAntiquity(client) === 'nuevo');
-      const oldClients = clients.filter((client) => classifyClientByAntiquity(client) === 'antiguo');
-
-      $('newClients').innerHTML = renderClients(newClients, appointmentsByName);
-      $('oldClients').innerHTML = renderClients(oldClients, appointmentsByName);
+      $('newClients').innerHTML = renderClients(clients.filter((client) => classifyClientByAntiquity(client) === 'nuevo'), appointmentsByName);
+      $('oldClients').innerHTML = renderClients(clients.filter((client) => classifyClientByAntiquity(client) === 'antiguo'), appointmentsByName);
       $('causesList').innerHTML = renderCauses(causes);
-      $('summaryBadge').textContent = `${clients.length} cliente(s) · ${causes.length} causa(s)`;
+      wireCauseEditForms(() => init());
+      $('summaryBadge').textContent = `${clients.length} cliente(s) · ${causes.length} causa(s) consolidadas`;
     }
 
     init().catch((error) => {

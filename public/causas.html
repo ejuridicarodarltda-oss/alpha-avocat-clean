@@ -2328,8 +2328,33 @@
       }
       try {
         const url = new URL(destination.href, window.location.href);
-        console.info(`[CAUSAS][NAVEGACIÓN] Abriendo "${destination.label}" desde ${origin}.`, { origin, branch, href: url.toString() });
-        window.location.href = url.toString();
+        const features = [
+          'popup=yes',
+          'toolbar=no',
+          'menubar=no',
+          'location=no',
+          'status=no',
+          'scrollbars=yes',
+          'resizable=yes',
+          `width=${window.screen?.availWidth || window.innerWidth || 1440}`,
+          `height=${window.screen?.availHeight || window.innerHeight || 900}`,
+          'left=0',
+          'top=0',
+        ].join(',');
+        console.info(`[CAUSAS][NAVEGACIÓN] Abriendo "${destination.label}" desde ${origin} en modal emergente fullscreen.`, { origin, branch, href: url.toString() });
+        const popup = window.open(url.toString(), `alpha-causas-${branch}`, features);
+        if (!popup) {
+          console.warn('[CAUSAS][NAVEGACIÓN] Popup bloqueado. Se aplicará fallback a navegación en pestaña actual.', { branch, origin });
+          window.location.href = url.toString();
+          return;
+        }
+        try {
+          popup.focus();
+          popup.moveTo(0, 0);
+          popup.resizeTo(window.screen?.availWidth || popup.outerWidth, window.screen?.availHeight || popup.outerHeight);
+        } catch (popupError) {
+          console.warn('[CAUSAS][NAVEGACIÓN] No fue posible forzar fullscreen del popup por restricciones del navegador.', { popupError, branch, origin });
+        }
       } catch (error) {
         console.error(`[CAUSAS][NAVEGACIÓN] URL inválida para "${destination.label}".`, { origin, branch, destination, error });
       }
