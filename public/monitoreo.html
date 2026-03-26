@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Monitoreo Procesal — Alpha Avocat</title>
-  <link rel="stylesheet" href="./style.css?v=46">
+  <link rel="stylesheet" href="./style.css?v=47">
 </head>
 <body class="monitoreo-page">
   <header class="monitoreo-topbar">
@@ -17,6 +17,8 @@
       <a class="active" href="./monitoreo.html">Monitoreo</a>
     </nav>
     <div class="monitoreo-actions">
+      <button id="btnViewGeneral" class="ui-button">Vista general</button>
+      <button id="btnViewCase" class="ui-button ui-button--secondary">Vista por causa</button>
       <button id="btnMonitorSave" class="ui-button">Guardar</button>
       <button id="btnMonitorCancel" class="ui-button ui-button--secondary">Cancelar</button>
       <button id="btnMonitorClose" class="ui-button ui-button--ghost">Cerrar</button>
@@ -25,81 +27,117 @@
 
   <main class="monitoreo-workspace">
     <aside class="monitoreo-sidebar">
-      <h2>Causas</h2>
-      <input id="monitorSearch" class="search" placeholder="Buscar por RIT/RUC/carátula">
+      <h2>Buscador MONITOREO</h2>
+      <input id="monitorSearchMateria" class="search" placeholder="Buscar por materia">
+      <input id="monitorSearchProcedure" class="search" placeholder="Buscar por procedimiento">
+      <input id="monitorSearchCase" class="search" placeholder="Buscar por causa (RIT/RUC/carátula)">
+      <input id="monitorSearchCourt" class="search" placeholder="Buscar por tribunal">
+      <div id="monitorCatalogList" class="monitoreo-case-list"></div>
+      <h3>Causas</h3>
       <div id="monitorCaseList" class="monitoreo-case-list"></div>
     </aside>
 
     <section class="monitoreo-editor">
       <header class="monitoreo-editor-header">
-        <h1 id="monitorCaseTitle">Selecciona una causa para monitorear</h1>
-        <p id="monitorCaseMeta">Sin causa activa.</p>
+        <h1 id="monitorCaseTitle">Selecciona procedimiento o causa</h1>
+        <p id="monitorCaseMeta">Monitoreo visible en Panel y Producción.</p>
       </header>
 
-      <section class="monitoreo-grid">
-        <article class="monitoreo-card">
-          <h3>Identificación de procedimiento</h3>
-          <label for="monitorProcedure">Procedimiento detectado/validado</label>
-          <select id="monitorProcedure"></select>
-          <p><strong>Estado:</strong> <span id="monitorProcedureStatus">Pendiente</span></p>
-          <p><strong>Confianza automática:</strong> <span id="monitorConfidence">0%</span></p>
-          <p><strong>Hito actual:</strong> <span id="monitorCurrentMilestone">-</span></p>
-          <p><strong>Siguiente hito probable:</strong> <span id="monitorNextMilestone">-</span></p>
-        </article>
+      <section id="generalCatalogSection" class="monitoreo-card">
+        <div class="card-head-row">
+          <h3>Catálogo íntegro de procedimientos (editable)</h3>
+          <button id="btnAddCatalogProcedure" class="ui-button ui-button--secondary">Agregar procedimiento</button>
+        </div>
+        <div class="monitoreo-grid">
+          <article class="monitoreo-card">
+            <label>Materia</label>
+            <input id="catalogMateria" type="text">
+            <label>Procedimiento</label>
+            <input id="catalogProcedureName" type="text">
+            <label>Órgano competente</label>
+            <input id="catalogCompetentBody" type="text">
+            <label>Forma de inicio</label>
+            <input id="catalogStartForm" type="text">
+            <label>Norma base</label>
+            <input id="catalogLegalBasis" type="text">
+          </article>
+          <article class="monitoreo-card">
+            <label>Hitos / actos (JSON)</label>
+            <textarea id="catalogMilestones" rows="10"></textarea>
+            <label>Rutas alternativas (JSON)</label>
+            <textarea id="catalogRoutes" rows="6"></textarea>
+            <label>Alertas (JSON)</label>
+            <textarea id="catalogAlerts" rows="6"></textarea>
+          </article>
+        </div>
+      </section>
 
-        <article class="monitoreo-card">
+      <section id="caseMonitoringSection">
+        <section class="monitoreo-grid">
+          <article class="monitoreo-card">
+            <h3>Identificación de procedimiento</h3>
+            <label for="monitorProcedure">Procedimiento detectado/validado</label>
+            <select id="monitorProcedure"></select>
+            <p><strong>Estado:</strong> <span id="monitorProcedureStatus">Pendiente</span></p>
+            <p><strong>Confianza automática:</strong> <span id="monitorConfidence">0%</span></p>
+            <p><strong>Hito actual:</strong> <span id="monitorCurrentMilestone">-</span></p>
+            <p><strong>Siguiente hito probable:</strong> <span id="monitorNextMilestone">-</span></p>
+          </article>
+
+          <article class="monitoreo-card">
+            <div class="card-head-row">
+              <h3>Plazos y vencimientos</h3>
+              <button id="btnAddDeadline" class="ui-button ui-button--secondary">Agregar plazo</button>
+            </div>
+            <table class="monitoreo-table">
+              <thead>
+                <tr><th>Tipo</th><th>Vencimiento</th><th>Gestión sugerida</th><th>Estado</th></tr>
+              </thead>
+              <tbody id="monitorDeadlines"></tbody>
+            </table>
+          </article>
+        </section>
+
+        <section class="monitoreo-card">
+          <h3>Alertas del monitoreo (también visibles en Panel &gt; ALERTAS)</h3>
+          <table class="monitoreo-table">
+            <thead>
+              <tr><th>Alerta</th><th>Fundamento</th><th>Urgencia</th><th>Plazo</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="monitorAlerts"></tbody>
+          </table>
+        </section>
+
+        <section class="monitoreo-card">
+          <h3>Propuestas de escritos e informes</h3>
+          <ul id="monitorSuggestions" class="monitoreo-suggestions"></ul>
+        </section>
+
+        <section class="monitoreo-card">
           <div class="card-head-row">
-            <h3>Plazos y vencimientos</h3>
-            <button id="btnAddDeadline" class="ui-button ui-button--secondary">Agregar plazo</button>
+            <h3>Diagrama de flujo procesal (hitos)</h3>
+            <button id="btnAddNode" class="ui-button ui-button--secondary">Agregar hito</button>
           </div>
           <table class="monitoreo-table">
             <thead>
-              <tr><th>Tipo</th><th>Vencimiento</th><th>Gestión sugerida</th><th>Estado</th></tr>
+              <tr><th>Hito</th><th>Descripción</th><th>Plazo</th><th>Documento gatillante</th><th>Alerta</th><th>Ruta de salida</th></tr>
             </thead>
-            <tbody id="monitorDeadlines"></tbody>
+            <tbody id="monitorNodes"></tbody>
           </table>
-        </article>
-      </section>
+        </section>
 
-      <section class="monitoreo-card">
-        <h3>Alertas del monitoreo (también visibles en Panel &gt; ALERTAS)</h3>
-        <table class="monitoreo-table">
-          <thead>
-            <tr><th>Alerta</th><th>Fundamento</th><th>Urgencia</th><th>Plazo</th><th>Estado</th></tr>
-          </thead>
-          <tbody id="monitorAlerts"></tbody>
-        </table>
-      </section>
-
-      <section class="monitoreo-card">
-        <h3>Propuestas de escritos e informes</h3>
-        <ul id="monitorSuggestions" class="monitoreo-suggestions"></ul>
-      </section>
-
-      <section class="monitoreo-card">
-        <div class="card-head-row">
-          <h3>Diagrama de flujo procesal (nodos)</h3>
-          <button id="btnAddNode" class="ui-button ui-button--secondary">Agregar nodo</button>
-        </div>
-        <table class="monitoreo-table">
-          <thead>
-            <tr><th>Hito</th><th>Descripción</th><th>Plazo</th><th>Documentos</th><th>Alertas</th><th>Salidas</th></tr>
-          </thead>
-          <tbody id="monitorNodes"></tbody>
-        </table>
-      </section>
-
-      <section class="monitoreo-card">
-        <div class="card-head-row">
-          <h3>Diagrama de flujo procesal (transiciones y rutas)</h3>
-          <button id="btnAddTransition" class="ui-button ui-button--secondary">Agregar transición</button>
-        </div>
-        <table class="monitoreo-table">
-          <thead>
-            <tr><th>Condición</th><th>Conducta</th><th>Ruta alternativa</th><th>Siguiente hito</th><th>Nueva alerta</th></tr>
-          </thead>
-          <tbody id="monitorTransitions"></tbody>
-        </table>
+        <section class="monitoreo-card">
+          <div class="card-head-row">
+            <h3>Diagrama de flujo procesal (rutas)</h3>
+            <button id="btnAddTransition" class="ui-button ui-button--secondary">Agregar ruta</button>
+          </div>
+          <table class="monitoreo-table">
+            <thead>
+              <tr><th>Condición</th><th>Conducta</th><th>Ruta alternativa</th><th>Siguiente hito</th><th>Nueva alerta</th></tr>
+            </thead>
+            <tbody id="monitorTransitions"></tbody>
+          </table>
+        </section>
       </section>
     </section>
   </main>
