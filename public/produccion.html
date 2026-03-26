@@ -83,7 +83,10 @@
           <h2 class="title">PRODUCCIÓN</h2>
           <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
         </div>
-        <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+        <div class="draft-actions">
+          <button id="btnOpenMonitoring" class="btn">Monitoreo</button>
+          <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+        </div>
       </div>
     </section>
     <section class="card">
@@ -184,6 +187,7 @@
     import { supabase, logout } from './app.js';
     import { buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from './alerts.js';
     import { loadSettings } from './config-store.js';
+    import { syncMonitoringAlertsFromDatabase } from './monitoring-store.js';
 
     const grid = document.getElementById('productionGrid');
     const deadlinesList = document.getElementById('productionDeadlineAlerts');
@@ -430,6 +434,7 @@
             <div class="muted">Escritos: ${escritos.length} · Hitos: ${hitos.length}</div>
             <div class="draft-actions">
               <a class="btn" href="${escapeHtml(buildExpedienteLink(cause, clientName))}">Deep-link a Expedientes Digitales</a>
+              <a class="btn" href="./monitoreo.html?caseId=${encodeURIComponent(cause.id)}">Monitoreo de esta causa</a>
             </div>
           </article>
         `);
@@ -469,6 +474,7 @@
       draftClient.innerHTML = `<option value="">Seleccionar cliente</option>${clientsCache.map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.full_name || client.name || 'Cliente sin nombre')}</option>`).join('')}`;
       draftCause.innerHTML = `<option value="">Seleccionar causa</option>${casesCache.map((cause) => `<option value="${escapeHtml(cause.id)}">${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</option>`).join('')}`;
 
+      await syncMonitoringAlertsFromDatabase(window.localStorage);
       const consolidated = buildConsolidatedAlerts({
         appointments: [],
         cases: causes || [],
@@ -486,6 +492,7 @@
     }
 
     document.getElementById('btnOpenDraftModal').addEventListener('click', openModal);
+    document.getElementById('btnOpenMonitoring')?.addEventListener('click', () => { window.location.href = './monitoreo.html'; });
     document.getElementById('btnCancelDraft').addEventListener('click', closeModal);
     modalBackdrop.addEventListener('click', (event) => {
       if (event.target === modalBackdrop) closeModal();
