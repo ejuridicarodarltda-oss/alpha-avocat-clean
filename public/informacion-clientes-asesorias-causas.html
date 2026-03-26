@@ -56,6 +56,8 @@
     .iac-warning{ background:color-mix(in srgb,var(--iac-critical) 10%, white); border:1px solid color-mix(in srgb,var(--iac-critical) 45%, white); border-radius:12px; padding:10px; color:#5a1b24; font-size:13px; }
     .iac-empty{ color:var(--iac-muted); font-style:italic; }
     .iac-field input,.iac-field select{width:100%;margin-top:6px;border:1px solid var(--iac-border);border-radius:10px;padding:7px 8px;font:inherit;background:#fff;}
+    .iac-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+    @media (max-width:900px){.iac-search{grid-template-columns:1fr}}
   </style>
 </head>
 <body class="iac-page">
@@ -107,6 +109,13 @@
           <p class="iac-copy">Campos jurídicos principales integrados desde CAUSAS + EXPEDIENTES DIGITALES y tolerancia a datos incompletos (ROL/RIT/RUC/ID).</p>
         </div>
       </div>
+      <div class="iac-search" style="margin-top:10px;">
+        <label class="iac-field">
+          <div class="k">Búsqueda transversal (rol, cliente, carátula y tribunal)</div>
+          <input id="causesSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · 2° Juzgado Civil" />
+        </label>
+        <button type="button" id="causesSearchClear" class="iac-badge" style="cursor:pointer;">Limpiar</button>
+      </div>
       <div id="causesList" class="iac-stack"></div>
     </section>
   </main>
@@ -133,6 +142,11 @@
       return fallback;
     };
     const norm = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    const crossSearchFromQuery = () => {
+      const params = new URLSearchParams(window.location.search);
+      return norm([params.get('rol'), params.get('cliente'), params.get('caratula'), params.get('tribunal')].filter(Boolean).join(' '));
+    };
+    let activeCauseSearch = crossSearchFromQuery();
 
     const looksLegalEntity = (client) => {
       const explicitType = String(client?.client_type || client?.type || '').toLowerCase();
@@ -313,6 +327,11 @@
       return list.map((cause) => `<article class="iac-subcard"><div class="iac-head"><h3>${esc(cause.caratula)}</h3><span class="iac-badge">${esc(cause.identifier.label)}: ${esc(cause.identifier.value)}</span></div>${cause.identifier.extra.length ? `<div class="iac-copy">${esc(cause.identifier.extra.join(' · '))}</div>` : ''}<div class="iac-kv" style="margin-top:8px;">${[['Rol', cause.rol],['RIT', cause.rit],['RUC', cause.ruc],['ID', cause.id || '—'],['Cliente', cause.cliente],['Calidad con que actúa el cliente', cause.calidad],['Acción', cause.accion],['Procedimiento', cause.procedimiento],['Materia', cause.materia],['Tribunal', cause.tribunal],['Expediente digital', cause.expedienteHint],].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}</div><div class="iac-copy" style="margin-top:8px;">Consolidación por ROL + tribunal: ${cause.consolidatedFrom || 1} registro(s).</div><form class="iac-stack js-iac-edit-form" data-cause-id="${esc(cause.id)}" style="margin-top:10px;"><strong>Corrección manual prioritaria</strong><div class="iac-kv"><label class="iac-field"><div class="k">Cliente asociado</div><input name="cliente" value="${esc(cause.cliente)}" /></label><label class="iac-field"><div class="k">Calidad procesal</div><select name="calidad">${['por definir', ...QUALITY_OPTIONS].map((option) => `<option value="${esc(option)}" ${option === cause.calidad ? 'selected' : ''}>${esc(option)}</option>`).join('')}</select></label><label class="iac-field"><div class="k">Rol</div><input name="rol" value="${esc(cause.rol === '—' ? '' : cause.rol)}" /></label><label class="iac-field"><div class="k">Tribunal</div><input name="tribunal" value="${esc(cause.tribunal)}" /></label><label class="iac-field"><div class="k">Carátula</div><input name="caratula" value="${esc(cause.caratula)}" /></label><label class="iac-field"><div class="k">Materia</div><input name="materia" value="${esc(cause.materia)}" /></label></div><button type="submit" class="iac-badge" style="cursor:pointer;">Guardar rectificación manual</button></form></article>`).join('');
     }
 
+    function filterCausesByCrossSearch(causes = []) {
+      if (!activeCauseSearch) return causes;
+      return causes.filter((cause) => norm([cause.rol, cause.cliente, cause.caratula, cause.tribunal].join(' ')).includes(activeCauseSearch));
+    }
+
     function wireCauseEditForms(onSaved) {
       document.querySelectorAll('.js-iac-edit-form').forEach((form) => {
         form.addEventListener('submit', (event) => {
@@ -375,10 +394,22 @@
 
       $('newClients').innerHTML = renderClients(clients.filter((client) => classifyClientByAntiquity(client) === 'nuevo'), appointmentsByName);
       $('oldClients').innerHTML = renderClients(clients.filter((client) => classifyClientByAntiquity(client) === 'antiguo'), appointmentsByName);
-      $('causesList').innerHTML = renderCauses(causes);
+      const visibleCauses = filterCausesByCrossSearch(causes);
+      $('causesList').innerHTML = renderCauses(visibleCauses);
       wireCauseEditForms(() => init());
       $('summaryBadge').textContent = `${clients.length} cliente(s) · ${causes.length} causa(s) consolidadas`;
     }
+
+    $('causesSearchInput').value = activeCauseSearch;
+    $('causesSearchInput').addEventListener('input', (event) => {
+      activeCauseSearch = norm(event.target.value);
+      init();
+    });
+    $('causesSearchClear').addEventListener('click', () => {
+      activeCauseSearch = '';
+      $('causesSearchInput').value = '';
+      init();
+    });
 
     init().catch((error) => {
       $('warnings').insertAdjacentHTML('beforeend', `<div class="iac-warning">Error al construir la vista integrada: ${esc(error.message || String(error))}.</div>`);
