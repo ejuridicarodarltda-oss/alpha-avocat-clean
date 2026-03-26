@@ -334,6 +334,7 @@ window.addEventListener("orientationchange",ajustarVistaMovil);
 <script type="module">
 import { supabase, requireAuth } from "./app.js"
 import { buildConsolidatedAlerts, loadClientDatasetFromStorage, renderAlertListItems } from "./alerts.js"
+import { syncMonitoringAlertsFromDatabase } from "./monitoring-store.js"
 
 const T_CASES = 'cases'
 const C = {
@@ -478,6 +479,8 @@ async function loadPanelData() {
     notes: item[C.k_notes],
     created_at: item[C.k_created]
   }))
+
+  await syncMonitoringAlertsFromDatabase(window.localStorage)
 
   consolidatedState = buildConsolidatedAlerts({
     appointments: appointments || [],
