@@ -1,4 +1,5 @@
 const WORKSPACE_KEY = 'alpha-causas-workspace-v4'
+const PJUD_IMPORTED_CONTENT_LABEL = 'Contenido importado del PJUD'
 
 function safeParse(value, fallback) {
   try {
@@ -133,10 +134,10 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
     resoluciones: { label: 'Resoluciones', docIds: [] },
     notificaciones: { label: 'Notificaciones', docIds: [] },
     antecedentes: { label: 'Otros antecedentes', docIds: [] },
-    importadosPjud: { label: 'Importados de PJUD', docIds: [] },
+    importadosPjud: { label: PJUD_IMPORTED_CONTENT_LABEL, docIds: [] },
   }
   if (!next.documentContainers.importadosPjud) {
-    next.documentContainers.importadosPjud = { label: 'Importados de PJUD', docIds: [] }
+    next.documentContainers.importadosPjud = { label: PJUD_IMPORTED_CONTENT_LABEL, docIds: [] }
   }
   next.selectedClientParties = Array.isArray(next.selectedClientParties) ? next.selectedClientParties : []
   return next
@@ -403,7 +404,7 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
     'Resoluciones',
     'Pruebas',
     'Trazabilidad',
-    'Importados de PJUD',
+    PJUD_IMPORTED_CONTENT_LABEL,
   ]
 
   const advisoryBranch = createNode({
@@ -628,7 +629,7 @@ const DEFAULT_PJUD_SUBFOLDERS = [
   'Resoluciones',
   'Pruebas',
   'Trazabilidad',
-  'Importados de PJUD',
+  PJUD_IMPORTED_CONTENT_LABEL,
 ]
 
 const PROCEDURAL_ROLE_PRIORITY = [
@@ -1095,7 +1096,7 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
     editable: true,
     nuevo: true,
     materia,
-    ruta: ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importados de PJUD'],
+    ruta: ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', PJUD_IMPORTED_CONTENT_LABEL],
     carpetas: [{
       tribunal,
       materia,
@@ -1439,7 +1440,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   ].join('\n')
   const summaryDocInput = {
     name: `resumen-pjud-${(importData.basic?.rol || importData.rol || `caso-${Date.now()}`).toString().replace(/[^\w.-]+/g, '-')}.txt`,
-    category: 'Importados de PJUD',
+    category: PJUD_IMPORTED_CONTENT_LABEL,
     destinationContainer: 'importadosPjud',
     observation: 'Resumen automático de importación judicial para materializar contenido mínimo utilizable.',
     origin: 'Importación PJUD',
@@ -1447,13 +1448,13 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   }
   const allDocuments = [
     summaryDocInput,
-    importData.ebook ? { ...importData.ebook, destinationContainer: 'ebook', category: importData.ebook.category || 'Ebook' } : null,
+    importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: PJUD_IMPORTED_CONTENT_LABEL } : null,
     ...(importData.documents || [])
       .filter((documentRecord) => documentRecord.category !== 'Ebook')
       .map((documentRecord) => ({
         ...documentRecord,
         destinationContainer: 'importadosPjud',
-        category: documentRecord.category || 'Importados de PJUD',
+        category: PJUD_IMPORTED_CONTENT_LABEL,
       })),
   ].filter(Boolean)
   allDocuments.forEach((documentRecord) => {
