@@ -58,8 +58,11 @@
     .source-row:last-child{border-bottom:none}
     .modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .hidden{display:none!important}
+    .search-shell{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+    .search-shell .field{margin:0}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
+    @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -81,6 +84,15 @@
           <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
         </div>
         <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="search-shell">
+        <label class="field">
+          <span class="label">Búsqueda transversal (rol, cliente, carátula, tribunal)</span>
+          <input id="productionSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · 2° Juzgado Civil" />
+        </label>
+        <button id="productionSearchClear" type="button" class="btn">Limpiar</button>
       </div>
     </section>
     <section class="card">
@@ -148,6 +160,14 @@
           <label class="label" for="extraInstructions">Instrucciones adicionales *</label>
           <textarea id="extraInstructions" name="extraInstructions" placeholder="Objetivo del escrito, postura procesal, hechos relevantes, peticiones concretas, estrategia deseada y observaciones del abogado." required></textarea>
         </div>
+        <div class="field">
+          <label class="label" for="draftDestination">Destino del escrito *</label>
+          <select id="draftDestination" name="draftDestination" required>
+            <option value="produccion">Mantener en Producción</option>
+            <option value="expediente">Depositar en expediente de causa</option>
+            <option value="asesoria">Vincular a asesoría</option>
+          </select>
+        </div>
         <div class="field span-2">
           <label class="label" for="lawyerStyle">Estilo del abogado</label>
           <textarea id="lawyerStyle" name="lawyerStyle"></textarea>
@@ -179,12 +199,16 @@
     const manualFilesSummary = document.getElementById('manualFilesSummary');
     const btnModeNoCause = document.getElementById('btnModeNoCause');
     const btnModeWithCause = document.getElementById('btnModeWithCause');
+    const productionSearchInput = document.getElementById('productionSearchInput');
+    const productionSearchClear = document.getElementById('productionSearchClear');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
+    const normalize = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
     let selectedMode = 'no-cause';
     let casesCache = [];
     let clientsCache = [];
     let fileAttachmentCache = [];
+    let activeSearch = '';
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -215,6 +239,34 @@
 
     function writeRequests(payload){
       window.localStorage.setItem(REQUESTS_KEY, JSON.stringify(payload));
+    }
+
+    function parseDeepLinkParams() {
+      const params = new URLSearchParams(window.location.search);
+      return {
+        caseId: params.get('caseId') || '',
+        rol: params.get('rol') || '',
+        cliente: params.get('cliente') || '',
+        caratula: params.get('caratula') || '',
+        tribunal: params.get('tribunal') || '',
+      };
+    }
+
+    function buildExpedienteLink(cause = {}, clientName = '') {
+      const params = new URLSearchParams();
+      if (cause?.id) params.set('caseId', cause.id);
+      if (cause?.rol) params.set('rol', cause.rol);
+      if (clientName) params.set('cliente', clientName);
+      if (cause?.caratula) params.set('caratula', cause.caratula);
+      if (cause?.pjud_tribunal || cause?.court || cause?.tribunal) params.set('tribunal', cause.pjud_tribunal || cause.court || cause.tribunal);
+      const suffix = params.toString();
+      return `./expedientes-digitales.html${suffix ? `?${suffix}` : ''}`;
+    }
+
+    function matchesCrossSearch(fields = []) {
+      if (!activeSearch) return true;
+      const haystack = normalize(fields.filter(Boolean).join(' '));
+      return haystack.includes(activeSearch);
     }
 
     function buildCauseInputs(cause){
@@ -273,9 +325,11 @@
     }
 
     function renderRequests(){
-      const requests = readRequests().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+      const requests = readRequests()
+        .sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
+        .filter((request) => matchesCrossSearch([request.type, request.clientName, request.caseTitle, request.caseRol, request.caseCourt]));
       if (!requests.length) {
-        draftRequestsList.innerHTML = '<article class="empty">Todavía no hay solicitudes manuales de redacción.</article>';
+        draftRequestsList.innerHTML = `<article class="empty">${activeSearch ? 'No hay solicitudes que coincidan con la búsqueda transversal.' : 'Todavía no hay solicitudes manuales de redacción.'}</article>`;
         return;
       }
       draftRequestsList.innerHTML = requests.map((request) => `
@@ -284,6 +338,7 @@
           <strong>${escapeHtml(request.title)}</strong>
           <div class="muted">Tipo: ${escapeHtml(request.type)} · Cliente: ${escapeHtml(request.clientName)}</div>
           <div class="muted">Modo: ${escapeHtml(request.modeLabel)}${request.caseTitle ? ` · Causa: ${escapeHtml(request.caseTitle)}` : ''}</div>
+          <div class="muted">Destino: ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}</div>
           <div class="muted">Insumos: ${request.selectedCauseInputs.length} automáticos + ${request.manualFiles.length} manuales.</div>
           <div class="muted small">Estado: <span class="pill">${escapeHtml(request.status)}</span> · ${new Date(request.createdAt).toLocaleString('es-CL')}</div>
           <div class="draft-actions">
@@ -291,6 +346,7 @@
             <button class="btn" data-action="edit" data-id="${escapeHtml(request.id)}">Editar</button>
             <button class="btn" data-action="pdf" data-id="${escapeHtml(request.id)}">Convertir a PDF</button>
             <button class="btn" data-action="send" data-id="${escapeHtml(request.id)}">Enviar / guardar en expediente</button>
+            ${request.caseId ? `<a class="btn" href="${escapeHtml(buildExpedienteLink({ id: request.caseId, rol: request.caseRol, caratula: request.caseTitle, tribunal: request.caseCourt }, request.clientName))}">Abrir en Expedientes Digitales</a>` : ''}
           </div>
         </article>
       `).join('');
@@ -362,13 +418,19 @@
         const hitos = toList(cause.production_milestones || cause.hitos_produccion || []);
         const total = escritos.length + hitos.length;
         if (!total) return;
-        cards.push(`
+      const clientName = clientsMap.get(cause.client_id) || 'Sin cliente asociado';
+      if (!matchesCrossSearch([cause.rol, cause.caratula, clientName, cause.pjud_tribunal, cause.court, cause.tribunal])) return;
+      cards.push(`
           <article class="item">
             <div class="kicker">Causa</div>
             <strong>${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</strong>
-            <div class="muted">Cliente: ${escapeHtml(clientsMap.get(cause.client_id) || 'Sin cliente asociado')}</div>
+            <div class="muted">Cliente: ${escapeHtml(clientName)}</div>
+            <div class="muted">Rol: ${escapeHtml(cause.rol || 'Sin rol')} · Tribunal: ${escapeHtml(cause.pjud_tribunal || cause.court || cause.tribunal || 'Por definir')}</div>
             <div class="muted">Producción asociada: ${total} elemento(s).</div>
             <div class="muted">Escritos: ${escritos.length} · Hitos: ${hitos.length}</div>
+            <div class="draft-actions">
+              <a class="btn" href="${escapeHtml(buildExpedienteLink(cause, clientName))}">Deep-link a Expedientes Digitales</a>
+            </div>
           </article>
         `);
       });
@@ -403,7 +465,7 @@
       const cards = buildProductionCards(causes || [], clientsMap);
       grid.innerHTML = cards.length
         ? cards.join('')
-        : '<article class="empty">No hay elementos de producción registrados todavía.</article>';
+        : `<article class="empty">${activeSearch ? 'No hay resultados de producción para la búsqueda transversal.' : 'No hay elementos de producción registrados todavía.'}</article>`;
       draftClient.innerHTML = `<option value="">Seleccionar cliente</option>${clientsCache.map((client) => `<option value="${escapeHtml(client.id)}">${escapeHtml(client.full_name || client.name || 'Cliente sin nombre')}</option>`).join('')}`;
       draftCause.innerHTML = `<option value="">Seleccionar causa</option>${casesCache.map((cause) => `<option value="${escapeHtml(cause.id)}">${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</option>`).join('')}`;
 
@@ -430,6 +492,15 @@
     });
     btnModeNoCause.addEventListener('click', () => applyMode('no-cause'));
     btnModeWithCause.addEventListener('click', () => applyMode('with-cause'));
+    productionSearchInput.addEventListener('input', () => {
+      activeSearch = normalize(productionSearchInput.value);
+      loadProduction();
+    });
+    productionSearchClear.addEventListener('click', () => {
+      productionSearchInput.value = '';
+      activeSearch = '';
+      loadProduction();
+    });
     draftCause.addEventListener('change', renderCauseSourceOptions);
     manualFilesInput.addEventListener('change', (event) => {
       fileAttachmentCache = Array.from(event.target.files || []);
@@ -447,6 +518,16 @@
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
+      const destination = draftRequestForm.draftDestination.value;
+      if (destination === 'expediente' && !selectedCase) {
+        window.alert('Para depositar en expediente debes vincular una causa preexistente.');
+        return;
+      }
+      const destinationLabelMap = {
+        produccion: 'Mantener en Producción',
+        expediente: 'Depositar en expediente de causa',
+        asesoria: 'Vincular a asesoría'
+      };
       const requestId = `draft-${Date.now()}`;
       const docBody = [
         `Solicitud de redacción jurídica`,
@@ -471,8 +552,12 @@
         clientName: selectedClient?.full_name || selectedClient?.name || 'Sin cliente',
         mode: selectedMode,
         modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
+        destination,
+        destinationLabel: destinationLabelMap[destination] || destinationLabelMap.produccion,
         caseId: selectedCase?.id || null,
         caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
+        caseRol: selectedCase?.rol || '',
+        caseCourt: selectedCase?.pjud_tribunal || selectedCase?.court || selectedCase?.tribunal || '',
         selectedCauseInputs: selectedInputs,
         manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
         instructions: draftRequestForm.extraInstructions.value.trim(),
@@ -510,6 +595,7 @@
         draftClient.value = target.clientId || '';
         applyMode(target.mode || 'no-cause');
         draftCause.value = target.caseId || '';
+        draftRequestForm.draftDestination.value = target.destination || 'produccion';
         renderCauseSourceOptions();
         document.getElementById('extraInstructions').value = target.instructions || '';
         document.getElementById('lawyerStyle').value = target.lawyerStyle || '';
@@ -521,13 +607,26 @@
         target.pdfFilename = pdfName;
       }
       if (action === 'send') {
-        target.status = target.caseId ? 'Guardado en expediente de la causa' : 'Guardado en Producción';
+        if ((target.destination || 'produccion') === 'expediente') {
+          target.status = target.caseId ? 'Guardado en expediente de la causa' : 'Pendiente de causa para expediente';
+        } else if (target.destination === 'asesoria') {
+          target.status = 'Vinculado a asesoría';
+        } else {
+          target.status = 'Guardado en Producción';
+        }
       }
       writeRequests(requests);
       renderRequests();
     });
 
     document.getElementById('btnLogout').addEventListener('click', logout);
+
+    const incoming = parseDeepLinkParams();
+    const prefillParts = [incoming.rol, incoming.cliente, incoming.caratula, incoming.tribunal].filter(Boolean);
+    if (prefillParts.length) {
+      productionSearchInput.value = prefillParts.join(' ');
+      activeSearch = normalize(productionSearchInput.value);
+    }
 
     ensureAuth().then(loadProduction);
   </script>

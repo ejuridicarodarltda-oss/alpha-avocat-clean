@@ -45,7 +45,11 @@
     .subfolders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .subfolders .folder:last-child:nth-child(odd){grid-column:1 / -1}
     .toggle{background:#163A5F;color:#fff;border:none;border-radius:10px;padding:7px 10px;cursor:pointer;font-weight:700}
+    .search-shell{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
+    .flow{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .flow .tag{margin-top:0}
     @media (max-width:900px){.icon-grid,.subfolders{grid-template-columns:1fr}}
+    @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -64,6 +68,26 @@
       <h2 class="title">EXPEDIENTES DIGITALES</h2>
       <p class="subtitle">Pantalla exclusiva con visualización por iconos: Kárdex, archivadores, subarchivadores, carpetas y subcarpetas internas.</p>
       <p class="muted">Fuentes integradas: Clientes, Agenda (actas/grabaciones) y Poder Judicial (OJV · Mis causas).</p>
+      <div class="flow" aria-label="Estructura jerárquica de Causas">
+        <span class="tag">Información de clientes, asesorías y causas</span>
+        <span class="tag">Expedientes digitales</span>
+        <span class="tag">Producción</span>
+        <span class="tag">Kárdex</span>
+        <span class="tag">Subarchivador por materia</span>
+        <span class="tag">Subarchivador por tribunal</span>
+        <span class="tag">Carpeta por rol</span>
+        <span class="tag">Importados de PJUD</span>
+      </div>
+    </section>
+
+    <section class="card">
+      <div class="search-shell">
+        <label>
+          <div class="muted"><strong>Búsqueda transversal</strong> (rol, cliente, carátula y tribunal)</div>
+          <input id="expedientesSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · 2° Juzgado Civil" />
+        </label>
+        <button id="expedientesSearchClear" class="btn" type="button">Limpiar</button>
+      </div>
     </section>
 
     <section class="kardex">
@@ -111,6 +135,7 @@
     const SUBFOLDERS = [
       'Ebook','Documento','Absolución de posiciones','Jurisprudencia','Doctrina','Incidentes','Escritos','Resoluciones','Notificaciones','Trazabilidad'
     ];
+    let activeSearch = '';
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -123,6 +148,11 @@
 
     function normalize(value='') {
       return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    function readCrossSearchFromQuery() {
+      const params = new URLSearchParams(window.location.search);
+      const joined = [params.get('rol'), params.get('cliente'), params.get('caratula'), params.get('tribunal')].filter(Boolean).join(' ');
+      return normalize(joined);
     }
 
     function yearFromRole(role='') {
@@ -156,6 +186,10 @@
       for (const k of cases) {
         const role = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`).trim();
         const tribunal = String(k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar').trim();
+        const caratula = k[C.kCaratula] || 'Carátula pendiente';
+        const cliente = clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo';
+        const searchable = normalize(`${role} ${cliente} ${caratula} ${tribunal}`);
+        if (activeSearch && !searchable.includes(activeSearch)) continue;
         const matter = inferMatter(k);
         const dedupeKey = `${normalize(role)}::${normalize(tribunal)}`;
 
@@ -167,8 +201,8 @@
         if (!roleMap.has(dedupeKey)) {
           roleMap.set(dedupeKey, {
             identificador: role,
-            caratula: k[C.kCaratula] || 'Carátula pendiente',
-            cliente: clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo',
+            caratula,
+            cliente,
             repeated: 1,
           });
         } else {
@@ -245,6 +279,18 @@
     });
 
     document.getElementById('btnLogout').addEventListener('click', logout);
+    document.getElementById('expedientesSearchInput').addEventListener('input', (event) => {
+      activeSearch = normalize(event.target.value);
+      loadData();
+    });
+    document.getElementById('expedientesSearchClear').addEventListener('click', () => {
+      activeSearch = '';
+      document.getElementById('expedientesSearchInput').value = '';
+      loadData();
+    });
+
+    activeSearch = readCrossSearchFromQuery();
+    if (activeSearch) document.getElementById('expedientesSearchInput').value = activeSearch;
 
     ensureAuth().then(loadData);
   </script>
