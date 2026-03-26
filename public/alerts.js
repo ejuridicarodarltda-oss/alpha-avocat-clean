@@ -17,6 +17,8 @@ const CATEGORY_PRIORITY = new Map(ALERT_CATEGORIES.map((category, index) => [cat
 const URGENCY_PRIORITY = new Map([['alta', 0], ['media', 1], ['baja', 2]])
 const DAY_MS = 24 * 60 * 60 * 1000
 
+const MONITORING_ALERTS_STORAGE_KEY = 'alpha_avocat_monitoreo_alertas_v1'
+
 function safeJsonParse(value, fallback = null) {
   try {
     return JSON.parse(value)
@@ -682,6 +684,39 @@ export function buildFeesAlerts(clientDataset = { clients: [] }, now = new Date(
   return items
 }
 
+
+function loadMonitoringAlerts(storage = window.localStorage) {
+  const rows = safeJsonParse(storage?.getItem?.(MONITORING_ALERTS_STORAGE_KEY) || '[]', []) || []
+  return rows
+    .filter((item) => item && item.status !== 'cerrada')
+    .map((item, index) => {
+      const date = toDate(item.deadline || item.createdAt || new Date()) || new Date()
+      return buildAlertBase({
+        id: item.id || `monitoreo-${index}`,
+        module: 'Monitoreo',
+        category: item.category || (item.urgency === 'alta' ? 'Alertas urgentes' : 'Plazos judiciales'),
+        title: item.title || 'Alerta de monitoreo',
+        summary: item.summary || 'Alerta procesal generada por monitoreo.',
+        date,
+        person: item.validationUser || 'Equipo jurídico',
+        association: item.caseRef || item.caseId || 'Causa en monitoreo',
+        responsible: item.validationUser || 'Por asignar',
+        modality: 'Monitoreo procesal',
+        location: 'Monitoreo > Flujo procesal',
+        urgency: item.urgency || 'media',
+        href: './monitoreo.html',
+        observation: item.foundation || '',
+        metadata: [
+          `Fuente: ${item.source || 'Monitoreo'}`,
+          `Estado: ${item.status || 'pendiente'}`,
+          `Fundamento: ${item.foundation || 'No informado'}`,
+          item.trace?.procedure ? `Procedimiento: ${item.trace.procedure}` : '',
+          item.trace?.milestone ? `Hito detectado: ${item.trace.milestone}` : ''
+        ].filter(Boolean)
+      })
+    })
+}
+
 function sortAlerts(alerts = []) {
   return [...alerts].sort((a, b) => {
     const urgencyDiff = (URGENCY_PRIORITY.get(a.urgency) ?? 99) - (URGENCY_PRIORITY.get(b.urgency) ?? 99)
@@ -699,7 +734,8 @@ export function buildConsolidatedAlerts({ appointments = [], cases = [], clientD
   const agendaAlerts = buildAgendaAlerts(appointments, now)
   const clientAlerts = buildClientAlerts(clientDataset, now)
   const feeAlerts = buildFeesAlerts(clientDataset, now)
-  const alerts = sortAlerts([...caseAlerts, ...agendaAlerts, ...clientAlerts, ...feeAlerts])
+  const monitoringAlerts = loadMonitoringAlerts()
+  const alerts = sortAlerts([...caseAlerts, ...agendaAlerts, ...clientAlerts, ...feeAlerts, ...monitoringAlerts])
   const todayEnd = new Date(startOfDay(now).getTime() + DAY_MS)
   const weekEnd = new Date(startOfDay(now).getTime() + (7 * DAY_MS))
 
