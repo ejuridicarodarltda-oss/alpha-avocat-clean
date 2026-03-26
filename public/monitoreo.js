@@ -21,9 +21,83 @@ const FALLBACK_PROCEDURES = [
   { category: 'Penal', items: ['procedimiento ordinario con juicio oral'] }
 ]
 
+const PRESCRIPTION_BASE_ROWS = [
+  { materia: 'Civil', accion: 'Acción ejecutiva', plazo: '3 años', norma: 'Código Civil, artículos 2514 y 2515', inicioComputo: 'Desde que la obligación se hizo exigible' },
+  { materia: 'Civil', accion: 'Acción ordinaria', plazo: '5 años', norma: 'Código Civil, artículos 2514 y 2515', inicioComputo: 'Desde que la obligación se hizo exigible' },
+  { materia: 'Civil', accion: 'Acción hipotecaria y acciones accesorias', plazo: 'Mismo plazo de la obligación principal', norma: 'Código Civil, artículo 2516', inicioComputo: 'Desde que corre la obligación principal' },
+  { materia: 'Civil', accion: 'Cobro de honorarios de profesiones liberales', plazo: '2 años', norma: 'Código Civil, artículo 2521', inicioComputo: 'Desde que el cobro se hizo exigible' },
+  { materia: 'Civil', accion: 'Cobro de mercaderías al menudeo', plazo: '1 año', norma: 'Código Civil, artículo 2522', inicioComputo: 'Desde que el cobro se hizo exigible' },
+  { materia: 'Civil', accion: 'Cobro de servicios periódicos o accidentales', plazo: '1 año', norma: 'Código Civil, artículo 2522', inicioComputo: 'Desde que el cobro se hizo exigible' },
+  { materia: 'Civil', accion: 'Responsabilidad extracontractual', plazo: '4 años', norma: 'Código Civil, artículo 2332', inicioComputo: 'Desde la perpetración del acto' },
+  { materia: 'Penal', accion: 'Acción penal por crimen con pena perpetua', plazo: '15 años', norma: 'Código Penal, artículo 94', inicioComputo: 'Desde la comisión del delito' },
+  { materia: 'Penal', accion: 'Acción penal por los demás crímenes', plazo: '10 años', norma: 'Código Penal, artículo 94', inicioComputo: 'Desde la comisión del delito' },
+  { materia: 'Penal', accion: 'Acción penal por simples delitos', plazo: '5 años', norma: 'Código Penal, artículo 94', inicioComputo: 'Desde la comisión del delito' },
+  { materia: 'Penal', accion: 'Acción penal por faltas', plazo: '6 meses', norma: 'Código Penal, artículo 94', inicioComputo: 'Desde la comisión del hecho' },
+  { materia: 'Penal', accion: 'Prescripción de la pena por crimen con pena perpetua', plazo: '15 años', norma: 'Código Penal, artículos 97 y 98', inicioComputo: 'Desde la sentencia firme o desde el quebrantamiento de la condena' },
+  { materia: 'Penal', accion: 'Prescripción de la pena por los demás crímenes', plazo: '10 años', norma: 'Código Penal, artículos 97 y 98', inicioComputo: 'Desde la sentencia firme o desde el quebrantamiento de la condena' },
+  { materia: 'Penal', accion: 'Prescripción de la pena por simples delitos', plazo: '5 años', norma: 'Código Penal, artículos 97 y 98', inicioComputo: 'Desde la sentencia firme o desde el quebrantamiento de la condena' },
+  { materia: 'Penal', accion: 'Prescripción de la pena por faltas', plazo: '6 meses', norma: 'Código Penal, artículos 97 y 98', inicioComputo: 'Desde la sentencia firme o desde el quebrantamiento de la condena' },
+  { materia: 'Laboral', accion: 'Derechos regidos por el Código del Trabajo', plazo: '2 años', norma: 'Código del Trabajo, artículo 480', inicioComputo: 'Desde que se hicieron exigibles' },
+  { materia: 'Laboral', accion: 'Acciones provenientes de actos y contratos del Código del Trabajo', plazo: '6 meses', norma: 'Código del Trabajo, artículo 480', inicioComputo: 'Desde la terminación de los servicios' },
+  { materia: 'Laboral', accion: 'Acción de nulidad del despido del artículo 162', plazo: '6 meses', norma: 'Código del Trabajo, artículo 480', inicioComputo: 'Desde la suspensión de los servicios' },
+  { materia: 'Laboral', accion: 'Cobro de horas extraordinarias', plazo: '6 meses', norma: 'Código del Trabajo, artículo 480', inicioComputo: 'Desde que debieron pagarse' },
+  { materia: 'Previsional', accion: 'Cobro de cotizaciones, reajustes, intereses y multas', plazo: '5 años', norma: 'Ley 17.322, artículo 31 bis', inicioComputo: 'Desde el término de los servicios' },
+  { materia: 'Consumidor', accion: 'Acción contravencional', plazo: '2 años', norma: 'Ley 19.496, artículo 26', inicioComputo: 'Desde que cesó la infracción' },
+  { materia: 'Consumidor', accion: 'Prescripción de la multa contravencional', plazo: '1 año', norma: 'Ley 19.496, artículo 26', inicioComputo: 'Desde que quedó firme la sentencia condenatoria' },
+  { materia: 'Tributario', accion: 'Acción del Servicio de Impuestos Internos para liquidar, revisar y girar impuestos', plazo: '3 años', norma: 'Código Tributario, artículo 200', inicioComputo: 'Desde la expiración del plazo legal para pagar' },
+  { materia: 'Tributario', accion: 'Acción del Servicio de Impuestos Internos para liquidar, revisar y girar impuestos cuando no hubo declaración o la declaración fue maliciosamente falsa', plazo: '6 años', norma: 'Código Tributario, artículo 200', inicioComputo: 'Desde la expiración del plazo legal para pagar' },
+  { materia: 'Tributario', accion: 'Acción para perseguir sanciones pecuniarias no accesorias al impuesto', plazo: '3 años', norma: 'Código Tributario, artículo 201', inicioComputo: 'Desde la fecha de la infracción' },
+  { materia: 'Tributario', accion: 'Acción del Fisco para el cobro de impuestos, intereses, sanciones y recargos', plazo: '3 o 6 años, según corresponda', norma: 'Código Tributario, artículos 200 y 201', inicioComputo: 'Desde el hito del artículo 200 que corresponda' },
+  { materia: 'Tránsito / JPL', accion: 'Prescripción de multas anotadas en el Registro de Multas de Tránsito No Pagadas', plazo: '3 años', norma: 'Ley 18.287, artículo 24', inicioComputo: 'Desde la fecha de la anotación' },
+  { materia: 'Tránsito / JPL', accion: 'Prescripción de la acción de cumplimiento cuando no pudo practicarse la anotación', plazo: '3 años', norma: 'Ley 18.287, artículo 24', inicioComputo: 'Desde la comunicación del Registro Civil al Juzgado de Policía Local' },
+  { materia: 'Insolvencia', accion: 'Acción revocatoria concursal', plazo: '1 año', norma: 'Ley 20.720, artículo 291', inicioComputo: 'Desde la resolución de reorganización, liquidación o admisibilidad, según corresponda' },
+  { materia: 'Insolvencia', accion: 'Revocabilidad objetiva de actos de empresa deudora', plazo: 'Ventana de 1 año hacia atrás', norma: 'Ley 20.720, artículo 287', inicioComputo: 'Se revisan actos celebrados dentro del año anterior al inicio del procedimiento' },
+  { materia: 'Insolvencia', accion: 'Revocabilidad de actos de persona deudora', plazo: 'Ventana de 1 año hacia atrás', norma: 'Ley 20.720, artículo 290', inicioComputo: 'Se revisan actos celebrados dentro del año anterior al inicio del procedimiento' },
+  { materia: 'Insolvencia', accion: 'Reformas a pactos o estatutos sociales revocables', plazo: 'Ventana de 6 meses hacia atrás', norma: 'Ley 20.720, artículo 289', inicioComputo: 'Se revisan actos celebrados dentro de los 6 meses anteriores al inicio del procedimiento' }
+]
+
+const SPECIAL_PRESCRIPTION_MATTERS = ['Minería', 'Aguas', 'Pesca', 'Alcoholes', 'Servicios eléctricos / concesiones eléctricas', 'Comercio general', 'Consumidor civil no contravencional']
+
 function normalize(value = '') { return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '') }
 function toDate(value) { const d = new Date(value); return Number.isNaN(d.getTime()) ? null : d }
 function formatDate(value) { const d = toDate(value); return d ? d.toLocaleDateString('es-CL') : 'Sin fecha' }
+function addDurationToDate(date, duration) {
+  const copy = new Date(date.getTime())
+  copy.setUTCDate(copy.getUTCDate() + (duration.days || 0))
+  copy.setUTCMonth(copy.getUTCMonth() + (duration.months || 0))
+  copy.setUTCFullYear(copy.getUTCFullYear() + (duration.years || 0))
+  return copy
+}
+
+function parseDurationFromTerm(term = '') {
+  const value = normalize(term)
+  const matchYears = value.match(/(\d+)\s*anos?/)
+  const matchMonths = value.match(/(\d+)\s*mes(?:es)?/)
+  const years = matchYears ? Number(matchYears[1]) : 0
+  const months = matchMonths ? Number(matchMonths[1]) : 0
+  if (!years && !months) return null
+  return { years, months, days: 0 }
+}
+
+function resolveAlertState(estimatedDate, baseDate) {
+  if (!baseDate || !estimatedDate) return 'sin fecha base'
+  const now = new Date()
+  const diffDays = Math.floor((estimatedDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
+  if (diffDays < 0) return 'plazo vencido'
+  if (diffDays <= 30) return 'plazo próximo a vencer'
+  return 'plazo corriendo'
+}
+
+function withComputedPrescription(row = {}) {
+  const baseDate = toDate(row.baseDate)
+  const duration = parseDurationFromTerm(row.term)
+  const estimatedDate = baseDate && duration ? addDurationToDate(baseDate, duration) : null
+  return {
+    ...row,
+    estimatedDueDate: estimatedDate ? estimatedDate.toISOString() : '',
+    alertState: resolveAlertState(estimatedDate, baseDate)
+  }
+}
 
 function detectProcedure(caseRecord, manualProcedure = '') {
   if (manualProcedure) return { procedure: manualProcedure, confidence: 1, status: 'validado por usuario', conflict: false }
@@ -106,12 +180,16 @@ const ui = {
   deadlines: document.getElementById('monitorDeadlines'),
   alerts: document.getElementById('monitorAlerts'),
   suggestions: document.getElementById('monitorSuggestions'),
+  prescriptions: document.getElementById('monitorPrescriptions'),
+  specialPrescriptions: document.getElementById('monitorSpecialPrescriptions'),
   nodes: document.getElementById('monitorNodes'),
   transitions: document.getElementById('monitorTransitions'),
   btnSave: document.getElementById('btnMonitorSave'),
   btnCancel: document.getElementById('btnMonitorCancel'),
   btnClose: document.getElementById('btnMonitorClose'),
   btnAddDeadline: document.getElementById('btnAddDeadline'),
+  btnAddPrescriptionRow: document.getElementById('btnAddPrescriptionRow'),
+  btnAddSpecialPrescriptionRow: document.getElementById('btnAddSpecialPrescriptionRow'),
   btnAddNode: document.getElementById('btnAddNode'),
   btnAddTransition: document.getElementById('btnAddTransition')
 }
@@ -148,6 +226,53 @@ function persistAlertsToLocalStorage() {
   localStorage.setItem(MONITORING_ALERTS_STORAGE_KEY, JSON.stringify(all))
 }
 
+function buildInitialPrescriptionRows() {
+  return PRESCRIPTION_BASE_ROWS.map((row, index) => withComputedPrescription({
+    id: `base-${index + 1}`,
+    matter: row.materia,
+    action: row.accion,
+    term: row.plazo,
+    legalRule: row.norma,
+    termStartRule: row.inicioComputo,
+    baseDate: '',
+    observations: '',
+    userEditable: true
+  }))
+}
+
+function buildInitialSpecialRows() {
+  return SPECIAL_PRESCRIPTION_MATTERS.map((matter, index) => withComputedPrescription({
+    id: `special-${index + 1}`,
+    matter,
+    action: '',
+    term: '',
+    legalRule: '',
+    termStartRule: '',
+    baseDate: '',
+    observations: '',
+    userEditable: true
+  }))
+}
+
+function buildPrescriptionAlerts(caseRecord, rows = []) {
+  return rows
+    .filter((row) => row.baseDate && row.alertState && row.alertState !== 'sin fecha base')
+    .map((row) => ({
+      id: `presc-${caseRecord.id}-${row.id}`,
+      title: `PRESCRIPCIÓN · ${row.action || 'Acción por definir'}`,
+      summary: `${row.matter || 'Materia'} · ${row.alertState}`,
+      urgency: row.alertState === 'plazo vencido' ? 'alta' : (row.alertState === 'plazo próximo a vencer' ? 'media' : 'baja'),
+      deadline: row.estimatedDueDate || row.baseDate,
+      status: row.alertState,
+      foundation: row.legalRule || '',
+      source: 'Monitoreo',
+      category: 'Plazos judiciales',
+      caseId: caseRecord.id,
+      caseRef: caseRecord.rol_rit || caseRecord.id,
+      trace: { module: 'prescripcion_acciones', matter: row.matter, action: row.action }
+    }))
+}
+
 function renderEditor() {
   const caseRecord = state.cases.find((item) => item.id === state.selectedCaseId)
   if (!caseRecord) return
@@ -160,7 +285,10 @@ function renderEditor() {
   const flow = buildFlowDiagram(procedureInfo.procedure, stored.flow)
   const deadlines = buildDeadlines(milestones, stored.manualDeadlines)
   const suggestions = buildSuggestions({ procedureInfo, milestones })
-  const alerts = buildAlerts({ caseRecord, deadlines, procedureInfo, milestones, manualAlerts: stored.manualAlerts })
+  const prescriptionRows = (stored.prescriptionsRows?.length ? stored.prescriptionsRows : buildInitialPrescriptionRows()).map((row) => withComputedPrescription(row))
+  const specialPrescriptionRows = (stored.specialPrescriptionRows?.length ? stored.specialPrescriptionRows : buildInitialSpecialRows()).map((row) => withComputedPrescription(row))
+  const prescriptionAlerts = buildPrescriptionAlerts(caseRecord, [...prescriptionRows, ...specialPrescriptionRows])
+  const alerts = buildAlerts({ caseRecord, deadlines, procedureInfo, milestones, manualAlerts: [...(stored.manualAlerts || []), ...prescriptionAlerts] })
 
   const fulfilledMilestones = milestones.all.slice(0, -1)
   const pendingMilestones = [milestones.next].filter(Boolean)
@@ -179,6 +307,8 @@ function renderEditor() {
     deadlines,
     runningDeadlines: deadlines,
     suggestions,
+    prescriptionsRows: prescriptionRows,
+    specialPrescriptionRows,
     alerts,
     flow,
     validations: stored.validations || [],
@@ -206,6 +336,30 @@ function renderEditor() {
 
   ui.nodes.innerHTML = flow.nodes.map((node) => `<tr><td>${node.name}</td><td>${node.description}</td><td>${node.term}</td><td>${node.docs}</td><td>${node.alerts}</td><td>${node.outputs}</td></tr>`).join('')
   ui.transitions.innerHTML = flow.transitions.map((t) => `<tr><td>${t.condition}</td><td>${t.conduct}</td><td>${t.route}</td><td>${t.nextMilestone}</td><td>${t.newAlert}</td></tr>`).join('')
+  ui.prescriptions.innerHTML = prescriptionRows.map((row) => `<tr>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="matter" value="${row.matter || ''}"></td>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="action" value="${row.action || ''}"></td>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="term" value="${row.term || ''}"></td>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="legalRule" value="${row.legalRule || ''}"></td>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="termStartRule" value="${row.termStartRule || ''}"></td>
+    <td><input type="date" data-prescription-id="${row.id}" data-field="baseDate" value="${String(row.baseDate || '').slice(0, 10)}"></td>
+    <td>${formatDate(row.estimatedDueDate)}</td>
+    <td>${row.alertState || 'sin fecha base'}</td>
+    <td><input type="text" data-prescription-id="${row.id}" data-field="observations" value="${row.observations || ''}"></td>
+    <td><input type="checkbox" data-prescription-id="${row.id}" data-field="userEditable" ${row.userEditable ? 'checked' : ''}></td>
+  </tr>`).join('')
+
+  ui.specialPrescriptions.innerHTML = specialPrescriptionRows.map((row) => `<tr>
+    <td><select data-special-prescription-id="${row.id}" data-field="matter">${SPECIAL_PRESCRIPTION_MATTERS.map((matter) => `<option value="${matter}" ${matter === row.matter ? 'selected' : ''}>${matter}</option>`).join('')}</select></td>
+    <td><input type="text" data-special-prescription-id="${row.id}" data-field="action" value="${row.action || ''}"></td>
+    <td><input type="text" data-special-prescription-id="${row.id}" data-field="term" value="${row.term || ''}"></td>
+    <td><input type="text" data-special-prescription-id="${row.id}" data-field="legalRule" value="${row.legalRule || ''}"></td>
+    <td><input type="text" data-special-prescription-id="${row.id}" data-field="termStartRule" value="${row.termStartRule || ''}"></td>
+    <td><input type="date" data-special-prescription-id="${row.id}" data-field="baseDate" value="${String(row.baseDate || '').slice(0, 10)}"></td>
+    <td>${formatDate(row.estimatedDueDate)}</td>
+    <td>${row.alertState || 'sin fecha base'}</td>
+    <td><input type="text" data-special-prescription-id="${row.id}" data-field="observations" value="${row.observations || ''}"></td>
+  </tr>`).join('')
 
   persistAlertsToLocalStorage()
 }
@@ -258,6 +412,8 @@ async function hydrateMonitoringFromDatabase() {
       flow: row.flow_snapshot || null,
       validations: row.validations || [],
       manualCorrections: row.manual_corrections || [],
+      prescriptionsRows: row.prescriptions_rows || [],
+      specialPrescriptionRows: row.special_prescription_rows || [],
       alerts: alertMap.get(caseId) || [],
       suggestions: suggestionMap.get(caseId) || [],
       overrides: overridesMap.get(caseId) || []
@@ -286,6 +442,8 @@ async function saveSelectedCaseMonitoring() {
     flow_snapshot: entry.flow || {},
     validations: entry.validations || [],
     manual_corrections: entry.manualCorrections || [],
+    prescriptions_rows: entry.prescriptionsRows || [],
+    special_prescription_rows: entry.specialPrescriptionRows || [],
     updated_by: state.userId,
     updated_at: new Date().toISOString()
   }
@@ -372,10 +530,68 @@ function bindEvents() {
     entry.validations = [...(entry.validations || []), { field: input.dataset.field, at: new Date().toISOString() }]
   })
 
+  ui.prescriptions.addEventListener('change', (event) => {
+    const input = event.target.closest('[data-prescription-id]')
+    if (!input || !state.selectedCaseId) return
+    const entry = state.monitoring[state.selectedCaseId]
+    const row = (entry.prescriptionsRows || []).find((item) => item.id === input.dataset.prescriptionId)
+    if (!row) return
+    row[input.dataset.field] = input.type === 'checkbox' ? input.checked : input.value
+    Object.assign(row, withComputedPrescription(row))
+    renderEditor()
+  })
+
+  ui.specialPrescriptions.addEventListener('change', (event) => {
+    const input = event.target.closest('[data-special-prescription-id]')
+    if (!input || !state.selectedCaseId) return
+    const entry = state.monitoring[state.selectedCaseId]
+    const row = (entry.specialPrescriptionRows || []).find((item) => item.id === input.dataset.specialPrescriptionId)
+    if (!row) return
+    row[input.dataset.field] = input.value
+    Object.assign(row, withComputedPrescription(row))
+    renderEditor()
+  })
+
   ui.btnAddDeadline.addEventListener('click', () => {
     const entry = state.monitoring[state.selectedCaseId] || {}
     entry.manualDeadlines = entry.manualDeadlines || []
     entry.manualDeadlines.push({ id: `manual-${Date.now()}`, type: 'Plazo manual', dueDate: new Date().toISOString(), legalBasis: 'Manual', action: 'Definir gestión', status: 'corriendo' })
+    state.monitoring[state.selectedCaseId] = entry
+    renderEditor()
+  })
+
+  ui.btnAddPrescriptionRow.addEventListener('click', () => {
+    const entry = state.monitoring[state.selectedCaseId] || {}
+    entry.prescriptionsRows = entry.prescriptionsRows || buildInitialPrescriptionRows()
+    entry.prescriptionsRows.push(withComputedPrescription({
+      id: `custom-${Date.now()}`,
+      matter: '',
+      action: '',
+      term: '',
+      legalRule: '',
+      termStartRule: '',
+      baseDate: '',
+      observations: '',
+      userEditable: true
+    }))
+    state.monitoring[state.selectedCaseId] = entry
+    renderEditor()
+  })
+
+  ui.btnAddSpecialPrescriptionRow.addEventListener('click', () => {
+    const entry = state.monitoring[state.selectedCaseId] || {}
+    entry.specialPrescriptionRows = entry.specialPrescriptionRows || buildInitialSpecialRows()
+    entry.specialPrescriptionRows.push(withComputedPrescription({
+      id: `special-custom-${Date.now()}`,
+      matter: SPECIAL_PRESCRIPTION_MATTERS[0],
+      action: '',
+      term: '',
+      legalRule: '',
+      termStartRule: '',
+      baseDate: '',
+      observations: '',
+      userEditable: true
+    }))
     state.monitoring[state.selectedCaseId] = entry
     renderEditor()
   })
