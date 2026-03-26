@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Monitoreo Procesal — Alpha Avocat</title>
+  <link rel="stylesheet" href="./style.css?v=46">
+</head>
+<body class="monitoreo-page">
+  <header class="monitoreo-topbar">
+    <div class="monitoreo-brand">Alpha Avocat · Monitoreo</div>
+    <nav class="monitoreo-nav" aria-label="Navegación principal">
+      <a href="./panel.html">Panel</a>
+      <a href="./clientes.html">Clientes</a>
+      <a href="./causas.html">Causas</a>
+      <a href="./agenda.html">Agenda</a>
+      <a class="active" href="./monitoreo.html">Monitoreo</a>
+    </nav>
+    <div class="monitoreo-actions">
+      <button id="btnMonitorSave" class="ui-button">Guardar</button>
+      <button id="btnMonitorCancel" class="ui-button ui-button--secondary">Cancelar</button>
+      <button id="btnMonitorClose" class="ui-button ui-button--ghost">Cerrar</button>
+    </div>
+  </header>
+
+  <main class="monitoreo-workspace">
+    <aside class="monitoreo-sidebar">
+      <h2>Causas</h2>
+      <input id="monitorSearch" class="search" placeholder="Buscar por RIT/RUC/carátula">
+      <div id="monitorCaseList" class="monitoreo-case-list"></div>
+    </aside>
+
+    <section class="monitoreo-editor">
+      <header class="monitoreo-editor-header">
+        <h1 id="monitorCaseTitle">Selecciona una causa para monitorear</h1>
+        <p id="monitorCaseMeta">Sin causa activa.</p>
+      </header>
+
+      <section class="monitoreo-grid">
+        <article class="monitoreo-card">
+          <h3>Identificación de procedimiento</h3>
+          <label for="monitorProcedure">Procedimiento detectado/validado</label>
+          <select id="monitorProcedure"></select>
+          <p><strong>Estado:</strong> <span id="monitorProcedureStatus">Pendiente</span></p>
+          <p><strong>Confianza automática:</strong> <span id="monitorConfidence">0%</span></p>
+          <p><strong>Hito actual:</strong> <span id="monitorCurrentMilestone">-</span></p>
+          <p><strong>Siguiente hito probable:</strong> <span id="monitorNextMilestone">-</span></p>
+        </article>
+
+        <article class="monitoreo-card">
+          <div class="card-head-row">
+            <h3>Plazos y vencimientos</h3>
+            <button id="btnAddDeadline" class="ui-button ui-button--secondary">Agregar plazo</button>
+          </div>
+          <table class="monitoreo-table">
+            <thead>
+              <tr><th>Tipo</th><th>Vencimiento</th><th>Gestión sugerida</th><th>Estado</th></tr>
+            </thead>
+            <tbody id="monitorDeadlines"></tbody>
+          </table>
+        </article>
+      </section>
+
+      <section class="monitoreo-card">
+        <h3>Alertas del monitoreo (también visibles en Panel &gt; ALERTAS)</h3>
+        <table class="monitoreo-table">
+          <thead>
+            <tr><th>Alerta</th><th>Fundamento</th><th>Urgencia</th><th>Plazo</th><th>Estado</th></tr>
+          </thead>
+          <tbody id="monitorAlerts"></tbody>
+        </table>
+      </section>
+
+      <section class="monitoreo-card">
+        <h3>Propuestas de escritos e informes</h3>
+        <ul id="monitorSuggestions" class="monitoreo-suggestions"></ul>
+      </section>
+
+      <section class="monitoreo-card">
+        <div class="card-head-row">
+          <h3>Diagrama de flujo procesal (nodos)</h3>
+          <button id="btnAddNode" class="ui-button ui-button--secondary">Agregar nodo</button>
+        </div>
+        <table class="monitoreo-table">
+          <thead>
+            <tr><th>Hito</th><th>Descripción</th><th>Plazo</th><th>Documentos</th><th>Alertas</th><th>Salidas</th></tr>
+          </thead>
+          <tbody id="monitorNodes"></tbody>
+        </table>
+      </section>
+
+      <section class="monitoreo-card">
+        <div class="card-head-row">
+          <h3>Diagrama de flujo procesal (transiciones y rutas)</h3>
+          <button id="btnAddTransition" class="ui-button ui-button--secondary">Agregar transición</button>
+        </div>
+        <table class="monitoreo-table">
+          <thead>
+            <tr><th>Condición</th><th>Conducta</th><th>Ruta alternativa</th><th>Siguiente hito</th><th>Nueva alerta</th></tr>
+          </thead>
+          <tbody id="monitorTransitions"></tbody>
+        </table>
+      </section>
+    </section>
+  </main>
+
+  <script type="module" src="./monitoreo.js"></script>
+</body>
+</html>

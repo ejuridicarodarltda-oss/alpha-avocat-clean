@@ -1598,6 +1598,7 @@
         <a href="./clientes.html">Clientes</a>
         <a class="active" href="./causas.html">Causas</a>
         <a href="./agenda.html">Agenda</a>
+        <a href="./monitoreo.html">Monitoreo</a>
       </nav>
 
       <div class="causas-topbar-actions">
@@ -1605,6 +1606,7 @@
         <button id="btnImportar" class="btn">Importar causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
+        <button id="btnMonitoreo" class="btn">Monitoreo</button>
         <button id="btnTopExpedientes" class="btn">Expedientes Digitales</button>
         <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
       </div>
@@ -6534,6 +6536,7 @@
         setMessage('importMsg', '', '');
       });
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
+      bindEvent('btnMonitoreo', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'topbar' });
       bindEvent('btnActualizarEstado', 'click', () => openSyncModal(), { scope: 'acciones' });
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
       bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
