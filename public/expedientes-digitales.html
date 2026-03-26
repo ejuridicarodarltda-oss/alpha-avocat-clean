@@ -45,7 +45,12 @@
     .subfolders{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
     .subfolders .folder:last-child:nth-child(odd){grid-column:1 / -1}
     .toggle{background:#163A5F;color:#fff;border:none;border-radius:10px;padding:7px 10px;cursor:pointer;font-weight:700}
+    .search-panel{background:#fff;border:1px solid #8ec7be;border-radius:16px;padding:12px;display:grid;gap:8px}
+    .search-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .search-results{display:grid;gap:8px}
+    .search-result{background:#f8fffd;border:1px solid #c2e4de;border-radius:12px;padding:10px}
     @media (max-width:900px){.icon-grid,.subfolders{grid-template-columns:1fr}}
+    @media (max-width:900px){.search-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -64,6 +69,23 @@
       <h2 class="title">EXPEDIENTES DIGITALES</h2>
       <p class="subtitle">Pantalla exclusiva con visualización por iconos: Kárdex, archivadores, subarchivadores, carpetas y subcarpetas internas.</p>
       <p class="muted">Fuentes integradas: Clientes, Agenda (actas/grabaciones) y Poder Judicial (OJV · Mis causas).</p>
+    </section>
+    <section class="card">
+      <h3 class="title">Búsqueda en Expedientes Digitales</h3>
+      <p class="subtitle">Filtra por rol, cliente, carátula y tribunal. Cada resultado abre el expediente correspondiente.</p>
+      <div class="search-panel">
+        <div class="search-grid">
+          <input id="searchRol" placeholder="ROL" />
+          <input id="searchCliente" placeholder="Cliente" />
+          <input id="searchCaratula" placeholder="Carátula" />
+          <input id="searchTribunal" placeholder="Tribunal" />
+        </div>
+        <div class="actions">
+          <button id="btnRunSearch" class="btn">Buscar</button>
+          <button id="btnClearSearch" class="btn">Limpiar</button>
+        </div>
+        <div id="searchResults" class="search-results"><article class="folder">Ejecuta una búsqueda para ver resultados.</article></div>
+      </div>
     </section>
 
     <section class="kardex">
@@ -112,6 +134,8 @@
       'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
       'Documentos','Grabación y Acta de reunión (viene de Agenda)','Jurisprudencia','Doctrina en Biblioteca','Absolución de posiciones','Informe de perito','Declaración de testigos','Ebook de juicios relacionados','Informes y estrategias de trabajo','Escritos sueltos','Incidentes','Certificado de envío de documentos al PJUD','ChatGPT','Trazabilidad'
     ];
+    let casesCache = [];
+    let clientsCache = [];
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -132,6 +156,8 @@
         supabase.from('clients').select('id,name'),
         supabase.from('cases').select('*').order('created_at', { ascending:false }),
       ]);
+      clientsCache = clients || [];
+      casesCache = cases || [];
 
       const clientMap = new Map((clients || []).map(c => [c[C.cId], c[C.cName]]));
       const naturals = [];
@@ -142,11 +168,12 @@
       document.getElementById('legalFolders').innerHTML = (legals.length ? legals : ['Sin asesorías registradas']).map((name, i, arr) => `<div class="folder ${arr.length % 2 === 1 && i === arr.length - 1 ? 'span-full':''}">📁 ${escapeHtml(name)}</div>`).join('');
 
       const grouped = new Map();
-      (cases || []).forEach(k => {
+      (casesCache || []).forEach(k => {
         const tribunal = k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar';
         const list = grouped.get(tribunal) || [];
         const id = k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`;
         list.push({
+          caseId:k[C.kId],
           identificador:id,
           caratula:k[C.kCaratula] || 'Carátula pendiente',
           cliente:clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo',
@@ -161,7 +188,7 @@
             <div class="line"><span class="icon">🗄️</span><div><strong>${escapeHtml(tribunal)}</strong><div class="muted">Archivador de tribunal</div></div></div>
             <div class="list">
               ${folders.map(cause => `
-                <div class="folder">
+                <div class="folder" id="folder-${escapeHtml(String(cause.caseId || ''))}">
                   <h5>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h5>
                   <div class="muted">Cliente: ${escapeHtml(cause.cliente)}</div>
                   <div class="subfolders">
@@ -175,15 +202,57 @@
         : '<div class="folder">No hay causas importadas/proyectadas desde OJV (Mis causas) para mostrar archivadores.</div>';
     }
 
+    function runSearchFromPanel(){
+      document.getElementById('tribunalFolders').hidden = false;
+      document.getElementById('toggleTribunales').textContent = 'Cerrar archivadores por tribunal';
+      const rol = document.getElementById('searchRol').value.trim().toLowerCase();
+      const cliente = document.getElementById('searchCliente').value.trim().toLowerCase();
+      const caratula = document.getElementById('searchCaratula').value.trim().toLowerCase();
+      const tribunal = document.getElementById('searchTribunal').value.trim().toLowerCase();
+      const clientMap = new Map((clientsCache || []).map((c) => [c[C.cId], c[C.cName]]));
+      const rows = (casesCache || []).filter((cause) => {
+        return String(cause[C.kRol] || '').toLowerCase().includes(rol)
+          && String(clientMap.get(cause[C.kClientId]) || '').toLowerCase().includes(cliente)
+          && String(cause[C.kCaratula] || '').toLowerCase().includes(caratula)
+          && String(cause[C.kTrib] || cause[C.kCourt] || '').toLowerCase().includes(tribunal);
+      });
+      const results = rows.map((cause) => `<article class="search-result"><strong>${escapeHtml(cause[C.kCaratula] || cause[C.kRol] || `ID-${cause[C.kId]}`)}</strong><div class="muted">Rol: ${escapeHtml(cause[C.kRol] || '—')} · Cliente: ${escapeHtml(clientMap.get(cause[C.kClientId]) || '—')} · Tribunal: ${escapeHtml(cause[C.kTrib] || cause[C.kCourt] || '—')}</div><a class="btn" href="#folder-${escapeHtml(String(cause[C.kId] || ''))}">Abrir expediente</a></article>`);
+      document.getElementById('searchResults').innerHTML = results.length ? results.join('') : '<article class="folder">Sin resultados para los filtros ingresados.</article>';
+    }
+
+    function hydrateSearchFromQuery(){
+      const params = new URLSearchParams(window.location.search);
+      const keys = [['rol','searchRol'],['cliente','searchCliente'],['caratula','searchCaratula'],['tribunal','searchTribunal']];
+      let hasAny = false;
+      keys.forEach(([queryKey, inputId]) => {
+        const value = params.get(queryKey) || '';
+        if (value) hasAny = true;
+        document.getElementById(inputId).value = value;
+      });
+      if (hasAny) {
+        document.getElementById('tribunalFolders').hidden = false;
+        document.getElementById('toggleTribunales').textContent = 'Cerrar archivadores por tribunal';
+        runSearchFromPanel();
+      }
+    }
+
     document.getElementById('toggleTribunales').addEventListener('click', () => {
       const wrap = document.getElementById('tribunalFolders');
       wrap.hidden = !wrap.hidden;
       document.getElementById('toggleTribunales').textContent = wrap.hidden ? 'Abrir archivadores por tribunal' : 'Cerrar archivadores por tribunal';
     });
+    document.getElementById('btnRunSearch').addEventListener('click', runSearchFromPanel);
+    document.getElementById('btnClearSearch').addEventListener('click', () => {
+      ['searchRol','searchCliente','searchCaratula','searchTribunal'].forEach((id) => { document.getElementById(id).value = ''; });
+      document.getElementById('searchResults').innerHTML = '<article class="folder">Ejecuta una búsqueda para ver resultados.</article>';
+    });
 
     document.getElementById('btnLogout').addEventListener('click', logout);
 
-    ensureAuth().then(loadData);
+    ensureAuth().then(async () => {
+      await loadData();
+      hydrateSearchFromQuery();
+    });
   </script>
 </body>
 </html>

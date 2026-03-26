@@ -55,6 +55,10 @@
     .iac-list{ margin:8px 0 0; padding-left:18px; color:var(--iac-text); }
     .iac-warning{ background:color-mix(in srgb,var(--iac-critical) 10%, white); border:1px solid color-mix(in srgb,var(--iac-critical) 45%, white); border-radius:12px; padding:10px; color:#5a1b24; font-size:13px; }
     .iac-empty{ color:var(--iac-muted); font-style:italic; }
+    .iac-search{ background:#fff; border:1px solid var(--iac-border); border-radius:16px; padding:12px; display:grid; gap:8px; }
+    .iac-search-grid{ display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:8px; }
+    .iac-search-results{ display:grid; gap:8px; }
+    @media (max-width:900px){ .iac-search-grid{ grid-template-columns:1fr; } }
   </style>
 </head>
 <body class="iac-page">
@@ -78,6 +82,23 @@
         <span id="summaryBadge" class="iac-badge">Cargando…</span>
       </div>
       <div id="warnings" class="iac-stack" style="margin-top:10px"></div>
+    </section>
+    <section class="iac-card">
+      <h2 class="iac-title">Búsqueda en Información integrada</h2>
+      <p class="iac-copy">Buscar por rol, cliente, carátula y tribunal entre clientes, asesorías y causas.</p>
+      <div class="iac-search">
+        <div class="iac-search-grid">
+          <input id="searchRol" placeholder="ROL" />
+          <input id="searchCliente" placeholder="Cliente" />
+          <input id="searchCaratula" placeholder="Carátula" />
+          <input id="searchTribunal" placeholder="Tribunal" />
+        </div>
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+          <button id="btnRunSearch" type="button">Buscar</button>
+          <button id="btnClearSearch" type="button">Limpiar</button>
+        </div>
+        <div id="searchResults" class="iac-search-results"><p class="iac-empty">Ejecuta una búsqueda para ver resultados.</p></div>
+      </div>
     </section>
 
     <section class="iac-card" aria-labelledby="clientesBlockTitle">
@@ -116,6 +137,8 @@
 
     const $ = (id) => document.getElementById(id);
     const QUALITY_OPTIONS = ['demandante','demandado','querellante','querellado','acusado','imputado','recurrido','recurrente','reclamante','reclamado','tercero','ejecutante','ejecutado'];
+    let clientsCache = [];
+    let causesCache = [];
 
     const toDate = (v) => {
       if (!v) return null;
@@ -239,6 +262,7 @@
         accion: getVal(merged, ['accion','action','claim_type'], 'Por definir'),
         procedimiento: getVal(merged, ['procedimiento','pjud_tipo_causa','procedure'], 'Por definir'),
         materia,
+        tribunal: getVal(merged, ['tribunal','pjud_tribunal','court'], '—'),
         identifier,
         expedienteHint: getVal(workspaceEntry, ['expediente','pjudCaseKey','pjud_case_key'], 'Sin referencia')
       };
@@ -265,7 +289,7 @@
         const interview = events.length ? parseInterviewEvidence(events[0]) : { recording:false, word:false, pdf:false, sourceLabel:'Sin actividad de agenda', agendaRef:'—' };
         if (!client.isLegalEntity) {
           return `
-            <article class="iac-subcard">
+            <article class="iac-subcard" id="client-${esc(client.id)}">
               <div class="iac-head">
                 <h4>${esc(client.fullName)}</h4>
                 <span class="iac-badge">Persona natural</span>
@@ -285,7 +309,7 @@
           `;
         }
         return `
-          <article class="iac-subcard">
+          <article class="iac-subcard" id="client-${esc(client.id)}">
             <div class="iac-head">
               <h4>${esc(client.legalName)}</h4>
               <span class="iac-badge">Persona jurídica</span>
@@ -325,7 +349,7 @@
     function renderCauses(list) {
       if (!list.length) return '<p class="iac-empty">No hay causas para mostrar.</p>';
       return list.map((cause) => `
-        <article class="iac-subcard">
+        <article class="iac-subcard" id="cause-${esc(cause.id)}">
           <div class="iac-head">
             <h3>${esc(cause.caratula)}</h3>
             <span class="iac-badge">${esc(cause.identifier.label)}: ${esc(cause.identifier.value)}</span>
@@ -342,6 +366,7 @@
               ['Acción', cause.accion],
               ['Procedimiento', cause.procedimiento],
               ['Materia', cause.materia],
+              ['Tribunal', cause.tribunal],
               ['Expediente digital', cause.expedienteHint],
             ].map(([k,v]) => `<div class="iac-field"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join('')}
           </div>
@@ -374,6 +399,8 @@
       const workspace = loadWorkspace(window.localStorage) || {};
       const clients = clientsRaw.map(normalizeClient);
       const causes = causesRaw.map((cause) => normalizeCause(cause, workspace[String(cause.id)] || {}));
+      clientsCache = clients;
+      causesCache = causes;
 
       const appointmentsByName = new Map();
       appointmentsRaw.forEach((item) => {
@@ -391,6 +418,29 @@
       $('causesList').innerHTML = renderCauses(causes);
       $('summaryBadge').textContent = `${clients.length} cliente(s) · ${causes.length} causa(s)`;
     }
+
+    function runSearch(){
+      const rol = $('searchRol').value.trim().toLowerCase();
+      const cliente = $('searchCliente').value.trim().toLowerCase();
+      const caratula = $('searchCaratula').value.trim().toLowerCase();
+      const tribunal = $('searchTribunal').value.trim().toLowerCase();
+      const clientRows = clientsCache.filter((item) => String(item.fullName || item.legalName || '').toLowerCase().includes(cliente))
+        .map((item) => `<article class="iac-subcard"><strong>Cliente · ${esc(item.fullName || item.legalName)}</strong><div class="iac-copy">Resultado en Información de clientes/asesorías.</div><a href="#client-${esc(item.id)}">Abrir registro</a></article>`);
+      const causeRows = causesCache.filter((item) =>
+        String(item.rol || '').toLowerCase().includes(rol)
+        && String(item.cliente || '').toLowerCase().includes(cliente)
+        && String(item.caratula || '').toLowerCase().includes(caratula)
+        && String(item.tribunal || '').toLowerCase().includes(tribunal)
+      ).map((item) => `<article class="iac-subcard"><strong>Causa · ${esc(item.caratula)}</strong><div class="iac-copy">Rol: ${esc(item.rol)} · Cliente: ${esc(item.cliente)}.</div><a href="#cause-${esc(item.id)}">Abrir registro</a></article>`);
+      const all = [...clientRows, ...causeRows];
+      $('searchResults').innerHTML = all.length ? all.join('') : '<p class="iac-empty">Sin resultados para los filtros ingresados.</p>';
+    }
+
+    $('btnRunSearch').addEventListener('click', runSearch);
+    $('btnClearSearch').addEventListener('click', () => {
+      ['searchRol','searchCliente','searchCaratula','searchTribunal'].forEach((id) => { $(id).value = ''; });
+      $('searchResults').innerHTML = '<p class="iac-empty">Ejecuta una búsqueda para ver resultados.</p>';
+    });
 
     init().catch((error) => {
       $('warnings').insertAdjacentHTML('beforeend', `<div class="iac-warning">Error al construir la vista integrada: ${esc(error.message || String(error))}.</div>`);

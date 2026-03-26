@@ -58,8 +58,14 @@
     .source-row:last-child{border-bottom:none}
     .modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .hidden{display:none!important}
+    .search-toolbar{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;align-items:center}
+    .search-panel{background:#fff;border:1px solid #8ec7be;border-radius:14px;padding:12px;display:grid;gap:8px}
+    .search-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px}
+    .search-results{display:grid;gap:8px}
+    .search-result{background:#f8fffd;border:1px solid #c2e4de;border-radius:12px;padding:10px}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
+    @media (max-width:900px){.search-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -81,6 +87,28 @@
           <p class="subtitle">Pantalla exclusiva para el trabajo de producción jurídica dependiente del módulo CAUSAS.</p>
         </div>
         <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="search-toolbar">
+        <div>
+          <h3 class="title">Búsqueda rápida en Producción</h3>
+          <p class="subtitle">Buscar por rol, cliente, carátula y tribunal. Resultados clickeables para abrir el registro.</p>
+        </div>
+        <button id="btnToggleSearchPanel" class="btn">Abrir panel de búsqueda</button>
+      </div>
+      <div id="searchPanel" class="search-panel hidden">
+        <div class="search-grid">
+          <input id="searchRol" placeholder="ROL" />
+          <input id="searchCliente" placeholder="Cliente" />
+          <input id="searchCaratula" placeholder="Carátula" />
+          <input id="searchTribunal" placeholder="Tribunal" />
+        </div>
+        <div class="draft-actions">
+          <button id="btnRunSearch" class="btn btn-primary" type="button">Buscar</button>
+          <button id="btnClearSearch" class="btn" type="button">Limpiar</button>
+        </div>
+        <div id="searchResults" class="search-results"><article class="empty">Ejecuta una búsqueda para ver resultados.</article></div>
       </div>
     </section>
     <section class="card">
@@ -145,6 +173,15 @@
           <div id="manualFilesSummary" class="small muted">Sin archivos cargados manualmente.</div>
         </div>
         <div class="field span-2">
+          <label class="label" for="draftDestination">Destino del escrito *</label>
+          <select id="draftDestination" name="draftDestination" required>
+            <option value="cause">Expediente digital de una causa</option>
+            <option value="advisory">Expediente digital de una asesoría</option>
+            <option value="production">Dejar en Producción (escrito suelto)</option>
+          </select>
+          <div class="small muted">Puedes crear escritos vinculados o sueltos y vincularlos más adelante.</div>
+        </div>
+        <div class="field span-2">
           <label class="label" for="extraInstructions">Instrucciones adicionales *</label>
           <textarea id="extraInstructions" name="extraInstructions" placeholder="Objetivo del escrito, postura procesal, hechos relevantes, peticiones concretas, estrategia deseada y observaciones del abogado." required></textarea>
         </div>
@@ -177,8 +214,11 @@
     const causeSourcesList = document.getElementById('causeSourcesList');
     const manualFilesInput = document.getElementById('manualFiles');
     const manualFilesSummary = document.getElementById('manualFilesSummary');
+    const draftDestination = document.getElementById('draftDestination');
     const btnModeNoCause = document.getElementById('btnModeNoCause');
     const btnModeWithCause = document.getElementById('btnModeWithCause');
+    const searchPanel = document.getElementById('searchPanel');
+    const searchResults = document.getElementById('searchResults');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
     let selectedMode = 'no-cause';
@@ -279,11 +319,12 @@
         return;
       }
       draftRequestsList.innerHTML = requests.map((request) => `
-        <article class="item">
+        <article class="item" id="request-${escapeHtml(request.id)}">
           <div class="kicker">Solicitud manual</div>
           <strong>${escapeHtml(request.title)}</strong>
           <div class="muted">Tipo: ${escapeHtml(request.type)} · Cliente: ${escapeHtml(request.clientName)}</div>
           <div class="muted">Modo: ${escapeHtml(request.modeLabel)}${request.caseTitle ? ` · Causa: ${escapeHtml(request.caseTitle)}` : ''}</div>
+          <div class="muted">Destino: ${escapeHtml(request.destinationLabel || 'Producción')}</div>
           <div class="muted">Insumos: ${request.selectedCauseInputs.length} automáticos + ${request.manualFiles.length} manuales.</div>
           <div class="muted small">Estado: <span class="pill">${escapeHtml(request.status)}</span> · ${new Date(request.createdAt).toLocaleString('es-CL')}</div>
           <div class="draft-actions">
@@ -291,6 +332,7 @@
             <button class="btn" data-action="edit" data-id="${escapeHtml(request.id)}">Editar</button>
             <button class="btn" data-action="pdf" data-id="${escapeHtml(request.id)}">Convertir a PDF</button>
             <button class="btn" data-action="send" data-id="${escapeHtml(request.id)}">Enviar / guardar en expediente</button>
+            <button class="btn" data-action="open-expediente" data-id="${escapeHtml(request.id)}">Abrir expediente digital</button>
           </div>
         </article>
       `).join('');
@@ -363,12 +405,15 @@
         const total = escritos.length + hitos.length;
         if (!total) return;
         cards.push(`
-          <article class="item">
+          <article class="item" id="cause-${escapeHtml(String(cause.id || ''))}">
             <div class="kicker">Causa</div>
             <strong>${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</strong>
             <div class="muted">Cliente: ${escapeHtml(clientsMap.get(cause.client_id) || 'Sin cliente asociado')}</div>
             <div class="muted">Producción asociada: ${total} elemento(s).</div>
             <div class="muted">Escritos: ${escritos.length} · Hitos: ${hitos.length}</div>
+            <div class="draft-actions">
+              <a class="btn" href="./expedientes-digitales.html?caseId=${encodeURIComponent(String(cause.id || ''))}&rol=${encodeURIComponent(String(cause.rol || cause.pjud_rol || ''))}&cliente=${encodeURIComponent(String(clientsMap.get(cause.client_id) || ''))}&caratula=${encodeURIComponent(String(cause.caratula || ''))}&tribunal=${encodeURIComponent(String(cause.pjud_tribunal || cause.court || ''))}">Abrir expediente digital</a>
+            </div>
           </article>
         `);
       });
@@ -423,7 +468,42 @@
       renderRequests();
     }
 
+    function runSearch(){
+      const rol = document.getElementById('searchRol').value.trim().toLowerCase();
+      const cliente = document.getElementById('searchCliente').value.trim().toLowerCase();
+      const caratula = document.getElementById('searchCaratula').value.trim().toLowerCase();
+      const tribunal = document.getElementById('searchTribunal').value.trim().toLowerCase();
+      const requests = readRequests();
+      const matchesCause = casesCache.filter((cause) => {
+        const linkedClient = clientsCache.find((item) => String(item.id) === String(cause.client_id));
+        return String(cause.rol || cause.pjud_rol || '').toLowerCase().includes(rol)
+          && String(linkedClient?.full_name || linkedClient?.name || '').toLowerCase().includes(cliente)
+          && String(cause.caratula || '').toLowerCase().includes(caratula)
+          && String(cause.pjud_tribunal || cause.court || '').toLowerCase().includes(tribunal);
+      }).map((cause) => {
+        const linkedClient = clientsCache.find((item) => String(item.id) === String(cause.client_id));
+        return `<article class="search-result"><strong>Causa · ${escapeHtml(cause.caratula || cause.rol || `ID-${cause.id}`)}</strong><div class="muted">Rol: ${escapeHtml(cause.rol || cause.pjud_rol || '—')} · Cliente: ${escapeHtml(linkedClient?.full_name || linkedClient?.name || '—')} · Tribunal: ${escapeHtml(cause.pjud_tribunal || cause.court || '—')}</div><div class="draft-actions"><a class="btn" href="#cause-${escapeHtml(String(cause.id || ''))}">Abrir en Producción</a><a class="btn" href="./expedientes-digitales.html?caseId=${encodeURIComponent(String(cause.id || ''))}&rol=${encodeURIComponent(String(cause.rol || cause.pjud_rol || ''))}&cliente=${encodeURIComponent(String(linkedClient?.full_name || linkedClient?.name || ''))}&caratula=${encodeURIComponent(String(cause.caratula || ''))}&tribunal=${encodeURIComponent(String(cause.pjud_tribunal || cause.court || ''))}">Ir a Expediente Digital</a></div></article>`;
+      });
+      const matchesRequests = requests.filter((request) =>
+        String(request.caseTitle || '').toLowerCase().includes(rol)
+        && String(request.clientName || '').toLowerCase().includes(cliente)
+        && String(request.caseTitle || request.title || '').toLowerCase().includes(caratula)
+        && String(request.caseTribunal || '').toLowerCase().includes(tribunal)
+      ).map((request) => `<article class="search-result"><strong>Escrito · ${escapeHtml(request.title)}</strong><div class="muted">Cliente: ${escapeHtml(request.clientName)} · Destino: ${escapeHtml(request.destinationLabel || 'Producción')}</div><div class="draft-actions"><a class="btn" href="#request-${escapeHtml(request.id)}">Abrir solicitud</a></div></article>`);
+      const all = [...matchesCause, ...matchesRequests];
+      searchResults.innerHTML = all.length ? all.join('') : '<article class="empty">Sin resultados para los filtros ingresados.</article>';
+    }
+
     document.getElementById('btnOpenDraftModal').addEventListener('click', openModal);
+    document.getElementById('btnToggleSearchPanel').addEventListener('click', () => {
+      searchPanel.classList.toggle('hidden');
+      document.getElementById('btnToggleSearchPanel').textContent = searchPanel.classList.contains('hidden') ? 'Abrir panel de búsqueda' : 'Cerrar panel de búsqueda';
+    });
+    document.getElementById('btnRunSearch').addEventListener('click', runSearch);
+    document.getElementById('btnClearSearch').addEventListener('click', () => {
+      ['searchRol','searchCliente','searchCaratula','searchTribunal'].forEach((id) => { document.getElementById(id).value = ''; });
+      searchResults.innerHTML = '<article class="empty">Ejecuta una búsqueda para ver resultados.</article>';
+    });
     document.getElementById('btnCancelDraft').addEventListener('click', closeModal);
     modalBackdrop.addEventListener('click', (event) => {
       if (event.target === modalBackdrop) closeModal();
@@ -446,6 +526,10 @@
       }
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      if (draftDestination.value === 'cause' && !selectedCase) {
+        window.alert('Para depositar en expediente de causa debes seleccionar una causa.');
+        return;
+      }
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
       const requestId = `draft-${Date.now()}`;
       const docBody = [
@@ -473,6 +557,13 @@
         modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
         caseId: selectedCase?.id || null,
         caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
+        caseTribunal: selectedCase?.pjud_tribunal || selectedCase?.court || '',
+        destination: draftDestination.value,
+        destinationLabel: draftDestination.value === 'cause'
+          ? 'Expediente digital de causa'
+          : draftDestination.value === 'advisory'
+            ? 'Expediente digital de asesoría'
+            : 'Producción (escrito suelto)',
         selectedCauseInputs: selectedInputs,
         manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
         instructions: draftRequestForm.extraInstructions.value.trim(),
@@ -486,7 +577,7 @@
       const requests = readRequests();
       requests.push(newRequest);
       writeRequests(requests);
-      await persistRequestInCase(newRequest);
+      if (newRequest.destination === 'cause') await persistRequestInCase(newRequest);
       renderRequests();
       downloadBlob(newRequest.wordFilename, docBody, 'application/msword');
       closeModal();
@@ -521,7 +612,22 @@
         target.pdfFilename = pdfName;
       }
       if (action === 'send') {
-        target.status = target.caseId ? 'Guardado en expediente de la causa' : 'Guardado en Producción';
+        target.status = target.destination === 'cause'
+          ? 'Depositado en expediente digital de la causa'
+          : target.destination === 'advisory'
+            ? 'Depositado en expediente digital de asesoría'
+            : 'Guardado en Producción como escrito suelto';
+      }
+      if (action === 'open-expediente') {
+        const params = new URLSearchParams({
+          caseId: target.caseId || '',
+          rol: target.caseTitle || '',
+          cliente: target.clientName || '',
+          caratula: target.caseTitle || target.title || '',
+          tribunal: target.caseTribunal || ''
+        });
+        window.location.href = `./expedientes-digitales.html?${params.toString()}`;
+        return;
       }
       writeRequests(requests);
       renderRequests();
