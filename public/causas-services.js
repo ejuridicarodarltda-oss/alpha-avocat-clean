@@ -394,21 +394,16 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
   })
 
   const legalArchiveFolders = [
-    'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos',
-    'Documentos',
-    'Grabación y Acta de reunión',
-    'Jurisprudencia',
-    'Doctrina en Biblioteca',
+    'Ebook',
+    'Acta de entrevista cliente',
+    'Documento',
     'Absolución de posiciones',
-    'Informe de perito',
-    'Declaración de testigos',
-    'Ebook de juicios relacionados',
-    'Informes y estrategias de trabajo',
-    'Escritos sueltos',
-    'Incidentes',
-    'Certificado de envío de documentos al PJUD',
-    'ChatGPT',
+    'Jurisprudencia',
+    'Escritos',
+    'Resoluciones',
+    'Pruebas',
     'Trazabilidad',
+    'Importados de PJUD',
   ]
 
   const advisoryBranch = createNode({
@@ -485,12 +480,13 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
       })
 
       const containerMappings = [
-        ['ebook', ['ebook-primera-instancia-expediente-de-corte-de-apelaciones-expediente-corte-suprema-y-exhortos', 'ebook-de-juicios-relacionados']],
-        ['asociados', ['documentos', 'grabacion-y-acta-de-reunion', 'incidentes']],
-        ['escritos', ['escritos-sueltos', 'chatgpt']],
-        ['resoluciones', ['jurisprudencia', 'doctrina-en-biblioteca']],
-        ['notificaciones', ['certificado-de-envio-de-documentos-al-pjud', 'trazabilidad']],
-        ['antecedentes', ['informes-y-estrategias-de-trabajo', 'absolucion-de-posiciones', 'informe-de-perito', 'declaracion-de-testigos']],
+        ['ebook', ['ebook']],
+        ['asociados', ['documento', 'acta-de-entrevista-cliente']],
+        ['escritos', ['escritos']],
+        ['resoluciones', ['resoluciones', 'jurisprudencia']],
+        ['notificaciones', ['trazabilidad']],
+        ['antecedentes', ['pruebas', 'absolucion-de-posiciones']],
+        ['importadosPjud', ['importados-de-pjud']],
       ]
 
       containerMappings.forEach(([containerId, aliases]) => {
@@ -617,6 +613,49 @@ function sanitizeVisibleText(value = '') {
 
 function normalizeForComparison(value = '') {
   return normalizeSearchText(sanitizeVisibleText(value))
+}
+
+
+const LAWYER_FULL_NAME = 'Mario Javier Rodríguez Ardiles'
+const LAWYER_NAME_TOKENS = ['mario', 'javier', 'rodriguez', 'ardiles']
+const DEFAULT_PJUD_SUBFOLDERS = [
+  'Ebook',
+  'Acta de entrevista cliente',
+  'Documento',
+  'Absolución de posiciones',
+  'Jurisprudencia',
+  'Escritos',
+  'Resoluciones',
+  'Pruebas',
+  'Trazabilidad',
+  'Importados de PJUD',
+]
+
+const PROCEDURAL_ROLE_PRIORITY = [
+  'demandante',
+  'demandado',
+  'querellante',
+  'querellado',
+  'denunciante',
+  'imputado',
+  'requerente',
+  'requerido',
+  'tercero',
+]
+
+const PROCEDURAL_ROLE_LABELS = {
+  demandante: 'Demandante',
+  actor: 'Demandante',
+  demandado: 'Demandado',
+  querellante: 'Querellante',
+  querellado: 'Querellado',
+  denunciante: 'Denunciante',
+  imputado: 'Imputado',
+  requerente: 'Requirente',
+  requerido: 'Requerido',
+  tercerista: 'Tercero',
+  tercero: 'Tercero',
+  interviniente: 'Interviniente',
 }
 
 function canonicalSheetName(value = '') {
@@ -957,6 +996,9 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
         link: '',
         importedAt: new Date().toISOString(),
       },
+      representedClientName: 'Cliente por inferir desde PJUD',
+      representedClientRole: primary.estadoProcesal ? 'Demandante' : 'Por definir',
+      representedByLawyer: true,
       parties: [],
       demandantes: [],
       demandados: [],
@@ -988,6 +1030,83 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
     countsByMateria,
     consolidatedCases,
   }
+}
+
+function proceduralRoleRank(value = '') {
+  const normalized = normalizeForComparison(value)
+  const index = PROCEDURAL_ROLE_PRIORITY.findIndex((item) => normalized.includes(item))
+  return index >= 0 ? index : Number.MAX_SAFE_INTEGER
+}
+
+function normalizeProceduralRole(value = '') {
+  const normalized = normalizeForComparison(value)
+  const direct = Object.keys(PROCEDURAL_ROLE_LABELS).find((key) => normalized.includes(key))
+  return direct ? PROCEDURAL_ROLE_LABELS[direct] : (collapseWhitespace(value) || 'Por definir')
+}
+
+function detectLawyerMention(text = '') {
+  const normalized = normalizeForComparison(text)
+  if (!normalized) return false
+  const fullName = normalizeForComparison(LAWYER_FULL_NAME)
+  if (normalized.includes(fullName)) return true
+  return LAWYER_NAME_TOKENS.every((token) => normalized.includes(token))
+}
+
+function inferRepresentedClient({ parties = [], rawText = '', fallbackName = '' } = {}) {
+  const normalizedFallback = normalizeParticipantLabel(fallbackName)
+  const sortedParties = [...(parties || [])].sort((a, b) => proceduralRoleRank(a.role || a.proceduralRole) - proceduralRoleRank(b.role || b.proceduralRole))
+  const nonLawyerParties = sortedParties.filter((party) => !/abogad|patrocinante|apoderad/i.test(party.role || party.proceduralRole || ''))
+  const preferred = nonLawyerParties[0] || sortedParties[0] || null
+  const inferredName = normalizeParticipantLabel(preferred?.name || normalizedFallback || 'Cliente pendiente por confirmar')
+  const inferredRole = normalizeProceduralRole(preferred?.proceduralRole || preferred?.role || '')
+
+  const roleFromText = (() => {
+    const lines = String(rawText || '').split(/\n+/).map((line) => line.trim()).filter(Boolean)
+    const roleLine = lines.find((line) => /(calidad procesal|representa a|comparece por|en representacion de)/i.test(line))
+    if (!roleLine) return ''
+    const match = roleLine.match(/(demandante|demandado|querellante|querellado|denunciante|imputado|requerente|requerido|tercero|interviniente)/i)
+    return match?.[1] || ''
+  })()
+
+  const normalizedRole = normalizeProceduralRole(roleFromText || inferredRole)
+  const avoidsTerceroDefault = normalizedRole.toLowerCase() === 'tercero' && sortedParties.some((party) => proceduralRoleRank(party.role) < PROCEDURAL_ROLE_PRIORITY.indexOf('tercero'))
+  const finalRole = avoidsTerceroDefault
+    ? normalizeProceduralRole(sortedParties.find((party) => proceduralRoleRank(party.role) < PROCEDURAL_ROLE_PRIORITY.indexOf('tercero'))?.role || inferredRole)
+    : normalizedRole
+
+  return {
+    representedClientName: inferredName,
+    representedClientRole: finalRole || 'Por definir',
+    representedByLawyer: detectLawyerMention(rawText),
+  }
+}
+
+function materializePjudDigitalFolder(detail = {}, importData = {}) {
+  const next = ensureCauseStorage(detail)
+  const tribunal = importData.basic?.tribunal || importData.tribunal || next.tribunal || 'Tribunal pendiente'
+  const materia = importData.basic?.materia || importData.materia || next.materia || 'Materia judicial'
+  const rol = importData.basic?.rol || importData.rol || next.rol || 'Rol pendiente'
+  const rit = importData.basic?.rit || importData.rit || next.rit || ''
+  const ruc = importData.ruc || next.ruc || ''
+  const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`
+  next.expedienteDigital = next.expedienteDigital || {}
+  next.expedienteDigital.cliente = next.expedienteDigital.cliente || {}
+  next.expedienteDigital.cliente.tribunal = {
+    editable: true,
+    nuevo: true,
+    materia,
+    ruta: ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importados de PJUD'],
+    carpetas: [{
+      tribunal,
+      materia,
+      editable: 'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
+      causas: [{
+        nombre: `${folderName} · ${next.caratula || importData.basic?.caratula || 'Causa PJUD'}`,
+        subcarpetas: [...DEFAULT_PJUD_SUBFOLDERS],
+      }],
+    }],
+  }
+  return next
 }
 
 function splitJudicialBatchBlocks(rawText = '') {
@@ -1041,9 +1160,18 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
   const parsedRit = normalizeParticipantLabel(rit || parseSimpleField(raw, ['rit']))
   const parsedTribunal = normalizeParticipantLabel(tribunal || parseSimpleField(raw, ['tribunal']))
   const materia = normalizeParticipantLabel(parseSimpleField(raw, ['materia', 'asunto']))
+  const submateria = normalizeParticipantLabel(parseSimpleField(raw, ['submateria']))
   const procedimiento = normalizeParticipantLabel(parseSimpleField(raw, ['procedimiento', 'tipo de causa']))
   const estadoProcesal = normalizeParticipantLabel(parseSimpleField(raw, ['estado procesal', 'estado']))
+  const estadoCausa = normalizeParticipantLabel(parseSimpleField(raw, ['estado causa']))
   const fechaIngreso = parseDateLine(raw, 'fecha de ingreso')
+  const fechaUbicacion = parseDateLine(raw, 'fecha de ubicacion') || parseDateLine(raw, 'fecha de ubicación')
+  const ubicacion = normalizeParticipantLabel(parseSimpleField(raw, ['ubicacion', 'ubicación']))
+  const institucion = normalizeParticipantLabel(parseSimpleField(raw, ['institucion', 'institución']))
+  const corte = normalizeParticipantLabel(parseSimpleField(raw, ['corte']))
+  const era = normalizeParticipantLabel(parseSimpleField(raw, ['era']))
+  const ruc = normalizeParticipantLabel(parseSimpleField(raw, ['ruc']))
+  const tipoCausa = normalizeParticipantLabel(parseSimpleField(raw, ['tipo de causa', 'tipo causa'])) || procedimiento
   const caratulaFromText = normalizeCaratula(parseSimpleField(raw, ['caratula', 'carátula']))
   const caratula = buildCaratula({ demandantes, demandados, fallback: caratulaFromText })
 
@@ -1123,9 +1251,25 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
     downloadStrategy: explicitEbookSourceUrl || ebookSourcePageUrl ? 'remote' : 'stored',
   }
 
+  const representedInference = inferRepresentedClient({
+    parties,
+    rawText: raw,
+    fallbackName: demandantes[0] || demandados[0] || '',
+  })
+
   return {
     mode: sourceUrl ? 'semiautomatico' : 'manual',
     sourceUrl,
+    corte,
+    era,
+    ruc,
+    tipoCausa,
+    submateria,
+    estadoCausa,
+    estadoProcesal,
+    ubicacion,
+    fechaUbicacion,
+    institucion,
     basic: {
       rol: parsedRol,
       rit: parsedRit,
@@ -1138,6 +1282,9 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
       link: sourceUrl,
       importedAt: new Date().toISOString(),
     },
+    representedClientName: representedInference.representedClientName,
+    representedClientRole: representedInference.representedClientRole,
+    representedByLawyer: representedInference.representedByLawyer,
     parties,
     demandantes,
     demandados,
@@ -1201,9 +1348,7 @@ export function findDuplicateCase(cases = [], importData = {}) {
     if (normalizedLink && link && normalizedLink === link) return true
     if (normalizedRol && rol && normalizedRol === rol && normalizedTribunal && tribunal === normalizedTribunal) return true
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
-    if (normalizedRol && rol && normalizedRol === rol) return true
-    if (normalizedRit && rit && normalizedRit === rit) return true
-    return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula)
+    return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula && normalizedTribunal && tribunal === normalizedTribunal)
   }) || null
 }
 
@@ -1234,8 +1379,16 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   next.sourceConfidence = importData.sourceConfidence || next.sourceConfidence || 'high'
   next.importBatchId = options.importBatchId || importData.importBatchId || next.importBatchId || null
   next.pjudCaseKey = importData.pjudCaseKey || next.pjudCaseKey || ''
-  next.cliente = options.primaryClientName || next.cliente
-  next.selectedClientParties = options.selectedClientParties || []
+  const representedInference = inferRepresentedClient({
+    parties: importData.parties || [],
+    rawText: importData.rawText || '',
+    fallbackName: options.primaryClientName || importData.representedClientName || next.cliente,
+  })
+  next.cliente = options.primaryClientName || importData.representedClientName || representedInference.representedClientName || next.cliente
+  next.representedClientName = next.cliente
+  next.clientProceduralRole = importData.representedClientRole || representedInference.representedClientRole || next.clientProceduralRole || 'Por definir'
+  next.representedByLawyer = importData.representedByLawyer ?? representedInference.representedByLawyer
+  next.selectedClientParties = options.selectedClientParties || (next.cliente ? [next.cliente] : [])
   next.importMeta = {
     mode: importData.mode || 'manual',
     status: 'Importada desde Poder Judicial',
@@ -1279,7 +1432,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
     `Estado causa: ${importData.estadoCausa || next.estadoCausa || 'Pendiente'}`,
     `Estado procesal: ${importData.basic?.estadoProcesal || importData.estadoProcesal || next.estadoProcesal || 'Pendiente'}`,
     `Cliente representado: ${options.primaryClientName || next.cliente || 'Pendiente'}`,
-    `Calidad procesal: ${primaryRole}`,
+    `Calidad procesal: ${next.clientProceduralRole || primaryRole}`,
     `Ubicación en Kárdex: ${next.kardex?.grupo || next.grupo || 'Pendiente'}`,
     '',
     'Este documento deja evidencia útil de la importación cuando la fuente PJUD no entrega automáticamente todo el expediente completo.',
@@ -1294,7 +1447,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   }
   const allDocuments = [
     summaryDocInput,
-    importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: importData.ebook.category || 'Importados de PJUD' } : null,
+    importData.ebook ? { ...importData.ebook, destinationContainer: 'ebook', category: importData.ebook.category || 'Ebook' } : null,
     ...(importData.documents || [])
       .filter((documentRecord) => documentRecord.category !== 'Ebook')
       .map((documentRecord) => ({
@@ -1311,6 +1464,23 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
     next.ebookDocumentId = updated.ebookDocumentId
     const created = updated.documents.find((item) => !before.has(item.id) && item.hash === documentRecord.hash) || updated.documents.find((item) => item.hash === documentRecord.hash)
     if (created) importedDocIds.push(created.id)
+  })
+
+  materializePjudDigitalFolder(next, importData)
+
+  console.info('[CAUSAS][IMPORTACIÓN PJUD] Materialización de expediente digital', {
+    caseId: next.id,
+    pjudCaseKey: next.pjudCaseKey || null,
+    importedMovements: importedMovementIds.length,
+    importedDocuments: importedDocIds.length,
+    representedClientName: next.representedClientName || null,
+    clientProceduralRole: next.clientProceduralRole || null,
+    missingCoreFields: {
+      caratula: !next.caratula,
+      rol: !next.rol,
+      tribunal: !next.tribunal,
+      materia: !next.materia,
+    },
   })
 
   next.syncHistory.unshift({
