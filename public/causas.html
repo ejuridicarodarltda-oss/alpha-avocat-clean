@@ -3611,6 +3611,10 @@
         observaciones: base.notes || 'Sin observaciones adicionales.',
         causaRelacionada: base.causaRelacionada || 'Sin causa principal relacionada',
         cliente,
+        representedClientName: base.representedClientName || cliente,
+        clientProceduralRole: base.clientProceduralRole || 'Por definir',
+        representedByLawyer: Boolean(base.representedByLawyer),
+        pjudTraceability: base.pjudTraceability || {},
         procurador: base.procurador || 'Coordinación procesal interna',
         responsable,
         expediente,
@@ -3929,6 +3933,9 @@
         fechaUbicacion: baseCase.pjud_fecha_ubicacion || workspaceEntry?.fechaUbicacion || '',
         ubicacion: baseCase.pjud_ubicacion || workspaceEntry?.ubicacion || '',
         institucion: baseCase.pjud_institucion || workspaceEntry?.institucion || '',
+        representedClientName: baseCase.pjud_represented_client || workspaceEntry?.representedClientName || workspaceEntry?.cliente || '',
+        clientProceduralRole: baseCase.pjud_client_role || workspaceEntry?.clientProceduralRole || 'Por definir',
+        pjudTraceability: baseCase.pjud_traceability || workspaceEntry?.pjudTraceability || {},
         source: baseCase.source || workspaceEntry?.source || '',
         sourceConfidence: baseCase.source_confidence || workspaceEntry?.sourceConfidence || '',
         importBatchId: baseCase.import_batch_id || workspaceEntry?.importBatchId || null,
@@ -5850,6 +5857,9 @@
       const tribunal = importData.tribunal || importData.basic?.tribunal || '';
       const corte = importData.corte || '';
       const rolComposite = [importData.rol || importData.basic?.rol, importData.era, importData.rit, importData.ruc].filter(Boolean).join(' / ') || null;
+      const representedClientName = primaryClientName || importData.representedClientName || null;
+      const representedClientRole = importData.representedClientRole || null;
+      const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
       return {
         [C.k_client_id]: matchingClient?.[C.c_id] || null,
         [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
@@ -5884,6 +5894,17 @@
         pjud_ubicacion: importData.ubicacion || null,
         pjud_fecha_ubicacion: importData.fechaUbicacion || null,
         pjud_institucion: importData.institucion || null,
+        pjud_represented_client: representedClientName,
+        pjud_client_role: representedClientRole,
+        pjud_documents_count: importedDocumentsCount,
+        pjud_traceability: {
+          source: 'pjud_excel_mis_causas',
+          mode: importData.mode || 'manual',
+          imported_at_client: new Date().toISOString(),
+          pjud_case_key: importData.pjudCaseKey || null,
+          represented_by_lawyer: Boolean(importData.representedByLawyer),
+          has_raw_text: Boolean(importData.rawText),
+        },
       };
     }
 
@@ -5908,6 +5929,9 @@
         ubicacion: importData.ubicacion || '',
         fechaUbicacion: importData.fechaUbicacion || '',
         institucion: importData.institucion || '',
+        representedClientName: primaryClientName || importData.representedClientName || '',
+        clientProceduralRole: importData.representedClientRole || '',
+        representedByLawyer: Boolean(importData.representedByLawyer),
         notes: importData.rawText || '',
         updatedAt: isoDate(baseRow.updated_at || baseRow[C.k_created] || baseRow.created_at) || new Date().toISOString().slice(0,10),
       });
@@ -5943,6 +5967,15 @@
         dedupe_key: row.dedupeKey,
         row_signature: row.rowSignature,
         is_valid: true,
+        represented_client_name: row.representedClientName || null,
+        represented_client_role: row.representedClientRole || null,
+        imported_documents_count: Number((row.documents || []).length + (row.ebook ? 1 : 0)),
+        traceability: {
+          source: 'pjud_excel_mis_causas',
+          pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
+          row_number: row.rowNumber,
+          sheet_name: row.sheetName,
+        },
         payload: row,
       }));
       for (let index = 0; index < rowPayloads.length; index += 250) {
