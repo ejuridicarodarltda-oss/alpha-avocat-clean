@@ -105,12 +105,11 @@
     const C = {
       cId:'id', cName:'name',
       kId:'id', kClientId:'client_id', kCaratula:'caratula', kRol:'rol', kCourt:'court',
-      kRit:'pjud_rit', kRuc:'pjud_ruc', kTrib:'pjud_tribunal'
+      kRit:'pjud_rit', kRuc:'pjud_ruc', kTrib:'pjud_tribunal', kMatter:'pjud_materia'
     };
 
     const SUBFOLDERS = [
-      'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
-      'Documentos','Grabación y Acta de reunión (viene de Agenda)','Jurisprudencia','Doctrina en Biblioteca','Absolución de posiciones','Informe de perito','Declaración de testigos','Ebook de juicios relacionados','Informes y estrategias de trabajo','Escritos sueltos','Incidentes','Certificado de envío de documentos al PJUD','ChatGPT','Trazabilidad'
+      'Ebook','Documento','Absolución de posiciones','Jurisprudencia','Doctrina','Incidentes','Escritos','Resoluciones','Notificaciones','Trazabilidad'
     ];
 
     function isLegalEntity(name=''){
@@ -122,9 +121,103 @@
       return String(value).replace(/[&<>'"]/g, (ch) => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch] || ch));
     }
 
+    function normalize(value='') {
+      return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function yearFromRole(role='') {
+      const found = String(role || '').trim().match(/(\d{4})(?!.*\d{4})/);
+      return found ? Number(found[1]) : Number.MAX_SAFE_INTEGER;
+    }
+
+    function inferMatter(cause = {}) {
+      const raw = normalize(cause[C.kMatter] || '');
+      const tribunal = normalize(cause[C.kTrib] || cause[C.kCourt] || '');
+      const source = `${raw} ${tribunal}`;
+      if (source.includes('familia')) return 'Juzgados de Familia';
+      if (source.includes('cobranza')) return 'Juzgados de Cobranza Laboral y Previsional';
+      if (source.includes('trabajo') || source.includes('laboral')) return 'Juzgados del Trabajo';
+      if (source.includes('garantia') || source.includes('garantia')) return 'Juzgados de Garantía';
+      if (source.includes('oral en lo penal') || source.includes('juicio oral')) return 'Tribunales de Juicio Oral en lo Penal';
+      if (source.includes('policia local')) return 'Juzgados de Policía Local';
+      if (source.includes('apelaciones')) return 'Cortes de Apelaciones';
+      if (source.includes('suprema')) return 'Corte Suprema';
+      if (source.includes('civil') || source.includes('letras')) return 'Juzgados Civiles';
+      return 'Juzgados Civiles';
+    }
+
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
       if (!data?.session) window.location.href = './login.html';
+    }
+
+    function buildJudicialTree(cases = [], clientMap = new Map()) {
+      const matterMap = new Map();
+      for (const k of cases) {
+        const role = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`).trim();
+        const tribunal = String(k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar').trim();
+        const matter = inferMatter(k);
+        const dedupeKey = `${normalize(role)}::${normalize(tribunal)}`;
+
+        if (!matterMap.has(matter)) matterMap.set(matter, new Map());
+        const tribunalMap = matterMap.get(matter);
+        if (!tribunalMap.has(tribunal)) tribunalMap.set(tribunal, new Map());
+        const roleMap = tribunalMap.get(tribunal);
+
+        if (!roleMap.has(dedupeKey)) {
+          roleMap.set(dedupeKey, {
+            identificador: role,
+            caratula: k[C.kCaratula] || 'Carátula pendiente',
+            cliente: clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo',
+            repeated: 1,
+          });
+        } else {
+          const prev = roleMap.get(dedupeKey);
+          prev.repeated += 1;
+          if (prev.caratula === 'Carátula pendiente' && k[C.kCaratula]) prev.caratula = k[C.kCaratula];
+        }
+      }
+      return matterMap;
+    }
+
+    function renderRoles(roles = []) {
+      const ordered = [...roles].sort((a, b) => yearFromRole(a.identificador) - yearFromRole(b.identificador) || a.identificador.localeCompare(b.identificador, 'es'));
+      return ordered.map((cause) => `
+        <div class="folder">
+          <h5>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h5>
+          <div class="muted">Cliente representado: ${escapeHtml(cause.cliente)}${cause.repeated > 1 ? ` · Consolidado desde ${cause.repeated} filas PJUD` : ''}</div>
+          <div class="subfolders">
+            ${SUBFOLDERS.map((name) => `<div class="folder">📘 ${escapeHtml(name)}</div>`).join('')}
+            <div class="folder span-full">📥 IMPORTADOS DE PJUD</div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderMatterTree(matterMap) {
+      const orderedMatters = [
+        'Juzgados de Familia','Juzgados Civiles','Juzgados del Trabajo','Juzgados de Cobranza Laboral y Previsional','Juzgados de Garantía','Tribunales de Juicio Oral en lo Penal','Juzgados de Policía Local','Cortes de Apelaciones','Corte Suprema'
+      ];
+      const matters = orderedMatters.filter((name) => matterMap.has(name));
+      if (!matters.length) return '<div class="folder">No hay causas importadas/proyectadas desde OJV (Mis causas).</div>';
+      return matters.map((matter, idx, arr) => {
+        const tribunalMap = matterMap.get(matter);
+        const tribunals = [...tribunalMap.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+        return `
+          <article class="icon-card ${arr.length % 2 === 1 && idx === arr.length - 1 ? 'span-full' : ''}">
+            <div class="line"><span class="icon">⚖️</span><div><strong>${escapeHtml(matter)}</strong><div class="muted">Subarchivador de materia judicial</div></div></div>
+            <div class="list" style="margin-top:8px;">
+              ${tribunals.map(([tribunal, roles]) => `
+                <div class="folder">
+                  <h5>🗄️ ${escapeHtml(tribunal)}</h5>
+                  <div class="muted">Tribunal específico</div>
+                  <div class="list" style="margin-top:8px;">${renderRoles([...roles.values()])}</div>
+                </div>
+              `).join('')}
+            </div>
+          </article>
+        `;
+      }).join('');
     }
 
     async function loadData(){
@@ -141,38 +234,8 @@
       document.getElementById('naturalFolders').innerHTML = (naturals.length ? naturals : ['Sin asesorías registradas']).map((name, i, arr) => `<div class="folder ${arr.length % 2 === 1 && i === arr.length - 1 ? 'span-full':''}">📁 ${escapeHtml(name)}</div>`).join('');
       document.getElementById('legalFolders').innerHTML = (legals.length ? legals : ['Sin asesorías registradas']).map((name, i, arr) => `<div class="folder ${arr.length % 2 === 1 && i === arr.length - 1 ? 'span-full':''}">📁 ${escapeHtml(name)}</div>`).join('');
 
-      const grouped = new Map();
-      (cases || []).forEach(k => {
-        const tribunal = k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar';
-        const list = grouped.get(tribunal) || [];
-        const id = k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`;
-        list.push({
-          identificador:id,
-          caratula:k[C.kCaratula] || 'Carátula pendiente',
-          cliente:clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo',
-        });
-        grouped.set(tribunal, list);
-      });
-
-      const tribunales = [...grouped.entries()];
-      document.getElementById('tribunalFolders').innerHTML = tribunales.length
-        ? tribunales.map(([tribunal, folders], idx, arr) => `
-          <article class="icon-card ${arr.length % 2 === 1 && idx === arr.length - 1 ? 'span-full' : ''}">
-            <div class="line"><span class="icon">🗄️</span><div><strong>${escapeHtml(tribunal)}</strong><div class="muted">Archivador de tribunal</div></div></div>
-            <div class="list">
-              ${folders.map(cause => `
-                <div class="folder">
-                  <h5>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h5>
-                  <div class="muted">Cliente: ${escapeHtml(cause.cliente)}</div>
-                  <div class="subfolders">
-                    ${SUBFOLDERS.map((name, j, jarr) => `<div class="folder ${jarr.length % 2 === 1 && j === jarr.length - 1 ? 'span-full' : ''}">📘 ${escapeHtml(name)}</div>`).join('')}
-                  </div>
-                </div>
-              `).join('')}
-            </div>
-          </article>
-        `).join('')
-        : '<div class="folder">No hay causas importadas/proyectadas desde OJV (Mis causas) para mostrar archivadores.</div>';
+      const matterMap = buildJudicialTree(cases || [], clientMap);
+      document.getElementById('tribunalFolders').innerHTML = renderMatterTree(matterMap);
     }
 
     document.getElementById('toggleTribunales').addEventListener('click', () => {
