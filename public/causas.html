@@ -3545,6 +3545,65 @@
       );
     }
 
+    function extractSchemaCacheMissingColumnName(error){
+      const message = String(error?.message || '');
+      const match = message.match(/could not find the ['"]([^'"]+)['"] column/i);
+      return match?.[1] || null;
+    }
+
+    const OPTIONAL_PJUD_BATCH_COLUMNS = new Set([
+      'discarded_count',
+      'discarded_rows',
+      'sheet_row_counts',
+      'recognized_sheets',
+      'rows_processed',
+      'rows_invalid',
+      'causes_consolidated',
+      'counts_by_materia',
+      'sheets_detected',
+      'imported_count',
+      'updated_count',
+      'error_summary',
+      'metadata',
+      'summary',
+      'file_size_bytes',
+    ]);
+
+    function buildPjudBatchInsertPayload(summary, { status = 'processing', errorSummary = [] } = {}, { discardedColumn = 'discarded_count' } = {}){
+      return {
+        owner_user_id: authenticatedUser.id,
+        source: 'pjud_excel_mis_causas',
+        source_confidence: 'high',
+        file_name: summary.fileName || null,
+        file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
+        sheets_detected: summary.sheetsDetected || [],
+        recognized_sheets: summary.sheetsDetected || [],
+        sheet_row_counts: Object.fromEntries(Object.entries(summary.countsBySheet || {}).slice(0, 20)),
+        rows_processed: summary.rowsProcessed || 0,
+        rows_invalid: summary.invalidRows || 0,
+        causes_consolidated: summary.consolidatedCount || 0,
+        counts_by_materia: Object.fromEntries(Object.entries(summary.countsByMateria || {}).slice(0, 25)),
+        status,
+        imported_count: 0,
+        updated_count: 0,
+        [discardedColumn]: 0,
+        summary: {
+          mode: summary.mode || 'mis_causas_excel',
+          fileName: summary.fileName || null,
+          rowsProcessed: summary.rowsProcessed || 0,
+          invalidRows: summary.invalidRows || 0,
+          consolidatedCount: summary.consolidatedCount || 0,
+        },
+        error_summary: (errorSummary || []).slice(0, 20),
+        metadata: {
+          mode: summary.mode || 'mis_causas_excel',
+          importedAtClient: new Date().toISOString(),
+          status,
+          errorSummary: (errorSummary || []).slice(0, 20),
+        },
+      };
+    }
+
     function buildPjudInfrastructureError(error){
       if (!error) return null;
       if (isSchemaCacheMissingTableError(error, `public.${T_PJUD_IMPORT_BATCHES}`) || isSchemaCacheMissingTableError(error, T_PJUD_IMPORT_BATCHES)) {
@@ -5943,43 +6002,39 @@
     }
 
     async function persistPjudImportBatch(summary, { status = 'processing', errorSummary = [] } = {}){
-      const batchPayload = {
-        owner_user_id: authenticatedUser.id,
-        source: 'pjud_excel_mis_causas',
-        source_confidence: 'high',
-        file_name: summary.fileName || null,
-        file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
-        sheets_detected: summary.sheetsDetected || [],
-        sheet_row_counts: Object.fromEntries(Object.entries(summary.countsBySheet || {}).slice(0, 20)),
-        rows_processed: summary.rowsProcessed || 0,
-        rows_invalid: summary.invalidRows || 0,
-        causes_consolidated: summary.consolidatedCount || 0,
-        counts_by_materia: Object.fromEntries(Object.entries(summary.countsByMateria || {}).slice(0, 25)),
-        status,
-        imported_count: 0,
-        updated_count: 0,
-        discarded_count: 0,
-        summary: {
-          mode: summary.mode || 'mis_causas_excel',
-          fileName: summary.fileName || null,
-          rowsProcessed: summary.rowsProcessed || 0,
-          invalidRows: summary.invalidRows || 0,
-          consolidatedCount: summary.consolidatedCount || 0,
-        },
-        error_summary: (errorSummary || []).slice(0, 20),
-        metadata: {
-          mode: summary.mode || 'mis_causas_excel',
-          importedAtClient: new Date().toISOString(),
-          status,
-          errorSummary: (errorSummary || []).slice(0, 20),
-        },
-      };
-      const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
-      if (batchError) throw buildPjudInfrastructureError(batchError) || batchError;
-      return batch;
+      let batchPayload = buildPjudBatchInsertPayload(summary, { status, errorSummary }, { discardedColumn: 'discarded_count' });
+      let attempts = 0;
+      while (attempts < 16) {
+        attempts += 1;
+        const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
+        if (!batchError) return batch;
+        const missingColumn = extractSchemaCacheMissingColumnName(batchError);
+        if (missingColumn === 'discarded_count') {
+          delete batchPayload.discarded_count;
+          batchPayload.discarded_rows = 0;
+          continue;
+        }
+        if (missingColumn === 'discarded_rows') {
+          delete batchPayload.discarded_rows;
+          batchPayload.discarded_count = 0;
+          continue;
+        }
+        if (missingColumn && OPTIONAL_PJUD_BATCH_COLUMNS.has(missingColumn)) {
+          delete batchPayload[missingColumn];
+          continue;
+        }
+        console.warn('[Alpha Avocat][pjud-batch] No fue posible crear el batch PJUD. La importación continuará sin metadata de batch.', {
+          error: batchError,
+          infrastructureError: buildPjudInfrastructureError(batchError)?.message || null,
+        });
+        return null;
+      }
+      console.warn('[Alpha Avocat][pjud-batch] Se agotaron los reintentos para crear metadata de batch PJUD. La importación continuará.');
+      return null;
     }
 
     async function appendPjudImportRows(batchId, rows = [], { isValid = true } = {}){
+      if (!batchId) return false;
       const rowPayloads = rows.map((row) => ({
         batch_id: batchId,
         owner_user_id: authenticatedUser.id,
@@ -6011,35 +6066,67 @@
         const slice = rowPayloads.slice(index, index + PJUD_ROW_LOG_CHUNK_SIZE);
         if (!slice.length) continue;
         const { error } = await supabase.from(T_PJUD_IMPORT_ROWS).insert(slice);
-        if (error) throw buildPjudInfrastructureError(error) || error;
+        if (error) {
+          console.warn('[Alpha Avocat][pjud-batch] No fue posible guardar filas accesorias del batch PJUD. La importación de causas no se detiene.', error);
+          return false;
+        }
       }
+      return true;
     }
 
     async function updatePjudBatchMetadata(batchId, metadataPatch = {}, counters = {}){
-      const { error } = await supabase
-        .from(T_PJUD_IMPORT_BATCHES)
-        .update({
-          rows_processed: counters.rowsProcessed,
-          rows_invalid: counters.rowsInvalid,
-          causes_consolidated: counters.causesConsolidated,
-          status: metadataPatch.status || 'completed',
-          imported_count: Number(metadataPatch.imported || 0),
-          updated_count: Number(metadataPatch.updated || 0),
-          discarded_count: Number(metadataPatch.discarded || 0),
-          summary: {
-            imported: Number(metadataPatch.imported || 0),
-            created: Number(metadataPatch.created || 0),
-            updated: Number(metadataPatch.updated || 0),
-            discarded: Number(metadataPatch.discarded || 0),
-          },
-          error_summary: (metadataPatch.errorSummary || []).slice(0, 25),
-          metadata: {
-            ...(metadataPatch || {}),
-            updatedAtClient: new Date().toISOString(),
-          },
-        })
-        .eq('id', batchId);
-      if (error) throw buildPjudInfrastructureError(error) || error;
+      if (!batchId) return false;
+      let updatePayload = {
+        rows_processed: counters.rowsProcessed,
+        rows_invalid: counters.rowsInvalid,
+        causes_consolidated: counters.causesConsolidated,
+        status: metadataPatch.status || 'completed',
+        imported_count: Number(metadataPatch.imported || 0),
+        updated_count: Number(metadataPatch.updated || 0),
+        discarded_count: Number(metadataPatch.discarded || 0),
+        summary: {
+          imported: Number(metadataPatch.imported || 0),
+          created: Number(metadataPatch.created || 0),
+          updated: Number(metadataPatch.updated || 0),
+          discarded: Number(metadataPatch.discarded || 0),
+        },
+        error_summary: (metadataPatch.errorSummary || []).slice(0, 25),
+        metadata: {
+          ...(metadataPatch || {}),
+          updatedAtClient: new Date().toISOString(),
+        },
+      };
+      let attempts = 0;
+      while (attempts < 16) {
+        attempts += 1;
+        const { error } = await supabase
+          .from(T_PJUD_IMPORT_BATCHES)
+          .update(updatePayload)
+          .eq('id', batchId);
+        if (!error) return true;
+        const missingColumn = extractSchemaCacheMissingColumnName(error);
+        if (missingColumn === 'discarded_count') {
+          delete updatePayload.discarded_count;
+          updatePayload.discarded_rows = Number(metadataPatch.discarded || 0);
+          continue;
+        }
+        if (missingColumn === 'discarded_rows') {
+          delete updatePayload.discarded_rows;
+          updatePayload.discarded_count = Number(metadataPatch.discarded || 0);
+          continue;
+        }
+        if (missingColumn && OPTIONAL_PJUD_BATCH_COLUMNS.has(missingColumn)) {
+          delete updatePayload[missingColumn];
+          continue;
+        }
+        console.warn('[Alpha Avocat][pjud-batch] No fue posible actualizar metadata accesoria del batch PJUD. La importación de causas ya fue persistida.', {
+          error,
+          infrastructureError: buildPjudInfrastructureError(error)?.message || null,
+        });
+        return false;
+      }
+      console.warn('[Alpha Avocat][pjud-batch] Se agotaron los reintentos para actualizar metadata de batch PJUD.');
+      return false;
     }
 
     async function upsertImportedWorkbookCasesFromFile(excelFile){
@@ -6049,14 +6136,14 @@
         includeInvalidDetails: true,
       });
       const batch = await persistPjudImportBatch(summary, { status: 'processing' });
-      state.pendingPjudBatchId = batch.id;
+      state.pendingPjudBatchId = batch?.id || null;
       const discarded = [];
       let created = 0;
       let updated = 0;
       let imported = 0;
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
-        importBatchId: batch.id,
+        importBatchId: batch?.id || null,
       }));
       const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
       for (let index = 0; index < casePayloads.length; index += PJUD_IMPORT_CHUNK_SIZE) {
@@ -6118,10 +6205,10 @@
         ...invalidRows,
       ];
       if (discardedRows.length) {
-        await appendPjudImportRows(batch.id, discardedRows.slice(0, 1000), { isValid: false });
+        await appendPjudImportRows(batch?.id || null, discardedRows.slice(0, 1000), { isValid: false });
       }
 
-      await updatePjudBatchMetadata(batch.id, {
+      await updatePjudBatchMetadata(batch?.id || null, {
         status: discardedRows.length ? 'completed_with_warnings' : 'completed',
         imported,
         created,
@@ -6331,10 +6418,11 @@
       if (excelFile) {
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
-          setMessage('importMsg', `Importación PJUD completada (Batch ${batch.id}). Importadas: ${stats.imported}, creadas: ${stats.created}, actualizadas: ${stats.updated}, descartadas: ${stats.discarded}.`, stats.discarded ? 'warn' : 'ok');
+          const batchDescriptor = batch?.id ? `Batch ${batch.id}` : 'sin registro de batch (modo tolerante)';
+          setMessage('importMsg', `Importación PJUD completada (${batchDescriptor}). Importadas: ${stats.imported}, creadas: ${stats.created}, actualizadas: ${stats.updated}, descartadas: ${stats.discarded}.`, stats.discarded ? 'warn' : 'ok');
           if (!stats.discarded) closeManagedModal('modalImportacion');
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
-            batchId: batch.id,
+            batchId: batch?.id || null,
             fileName: summary.fileName,
             imported: stats.imported,
             created: stats.created,
