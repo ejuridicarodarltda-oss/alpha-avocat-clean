@@ -1595,24 +1595,35 @@ export function parseJudicialBatchImportInput({ rawText = '', actorName = 'Usuar
 
 export function findDuplicateCase(cases = [], importData = {}) {
   const basic = importData.basic || {}
+  const normalizeJudicialId = (value = '') => normalizeForComparison(value).replace(/[^a-z0-9]/g, '')
+  const extractYear = (value = '') => {
+    const match = String(value || '').match(/(19|20)\d{2}/)
+    return match ? match[0] : ''
+  }
   const normalizedLink = normalizeForComparison(basic.link || '')
-  const normalizedRol = normalizeForComparison(basic.rol || '')
-  const normalizedRit = normalizeForComparison(basic.rit || '')
+  const normalizedRol = normalizeJudicialId(basic.rol || importData.rol || '')
+  const normalizedRit = normalizeJudicialId(basic.rit || importData.rit || '')
+  const normalizedRuc = normalizeJudicialId(importData.ruc || basic.ruc || '')
   const normalizedTribunal = normalizeForComparison(basic.tribunal || '')
   const normalizedCaratula = normalizeForComparison(basic.caratula || '')
-  const normalizedPjudKey = normalizeForComparison(importData.pjudCaseKey || basic.pjudCaseKey || '')
+  const normalizedPjudKey = normalizeJudicialId(importData.pjudCaseKey || basic.pjudCaseKey || '')
+  const rolYear = extractYear(basic.rol || importData.rol || '')
 
   return cases.find((item) => {
     const link = normalizeForComparison(item.poderJudicial?.link || item.tribunalData?.poderJudicial || '')
-    const rol = normalizeForComparison(item.rol || '')
-    const rit = normalizeForComparison(item.rit || '')
+    const rol = normalizeJudicialId(item.rol || '')
+    const rit = normalizeJudicialId(item.rit || '')
+    const ruc = normalizeJudicialId(item.ruc || '')
     const tribunal = normalizeForComparison(item.tribunal || '')
     const caratula = normalizeForComparison(item.caratula || '')
-    const pjudCaseKey = normalizeForComparison(item.pjudCaseKey || item.pjud_case_key || '')
+    const pjudCaseKey = normalizeJudicialId(item.pjudCaseKey || item.pjud_case_key || '')
+    const itemRolYear = extractYear(item.rol || '')
 
     if (normalizedPjudKey && pjudCaseKey && normalizedPjudKey === pjudCaseKey) return true
+    if (normalizedRuc && ruc && normalizedRuc === ruc) return true
     if (normalizedLink && link && normalizedLink === link) return true
     if (normalizedRol && rol && normalizedRol === rol && normalizedTribunal && tribunal === normalizedTribunal) return true
+    if (normalizedRol && rol && normalizedRol === rol && rolYear && itemRolYear && rolYear === itemRolYear) return true
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
     return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula && normalizedTribunal && tribunal === normalizedTribunal)
   }) || null

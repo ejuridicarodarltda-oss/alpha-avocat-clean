@@ -1207,6 +1207,7 @@
       width:28px;
       height:28px;
       font-size:14px;
+      transition:transform .2s ease;
     }
 
     .causas-page .explorer-tree-toggle.spacer{
@@ -1215,7 +1216,7 @@
       height:28px;
     }
 
-    .causas-page .explorer-tree-row.active .explorer-tree-toggle{
+    .causas-page .explorer-tree-toggle.expanded{
       transform:rotate(90deg);
     }
 
@@ -1680,10 +1681,23 @@
             <label for="filterPlazo">Plazo próximo</label>
             <select id="filterPlazo" class="input"></select>
           </div>
+          <div class="field">
+            <label for="filterImportBatch">Lote PJUD</label>
+            <select id="filterImportBatch" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterImportStatus">Estado importación PJUD</label>
+            <select id="filterImportStatus" class="input"></select>
+          </div>
+          <div class="field">
+            <label for="filterLastImported">Últimas importadas</label>
+            <select id="filterLastImported" class="input"></select>
+          </div>
             <div class="field">
               <label for="sortBy">Orden</label>
               <select id="sortBy" class="input">
                 <option value="updated">Última gestión</option>
+                <option value="imported_desc">Fecha importación PJUD (desc)</option>
                 <option value="deadline">Próximo plazo</option>
                 <option value="hearing">Próxima audiencia</option>
                 <option value="alert">Mayor alerta</option>
@@ -2146,6 +2160,9 @@
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
     const PJUD_ROW_LOG_CHUNK_SIZE = 200;
+    const PJUD_HISTORY_PAGE_SIZE = 200;
+    const EXPLORER_EXPANDED_SESSION_KEY = 'alpha-causas-explorer-expanded';
+    const KARDEX_EXPANDED_SESSION_KEY = 'alpha-causas-kardex-expanded';
 
     const C = {
       c_id: 'id',
@@ -2219,8 +2236,17 @@
         error: '',
         model: null,
       },
+      pjudHistory: {
+        loaded: false,
+        loading: false,
+        error: '',
+        items: [],
+        selectedBatchId: null,
+        rowsByBatchId: {},
+        loadingBatchRows: {},
+      },
       filters: {
-        search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', sortBy: 'updated'
+        search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', importBatch: '', importStatus: '', lastImported: '', sortBy: 'updated'
       },
       openKardexByTribunal: {},
       rectificationOpen: false,
@@ -2239,6 +2265,19 @@
       'Juzgado de Policía Local',
       'Otros Tribunales'
     ];
+
+    try {
+      const persistedExplorer = JSON.parse(sessionStorage.getItem(EXPLORER_EXPANDED_SESSION_KEY) || '[]');
+      if (Array.isArray(persistedExplorer)) state.explorer.expandedNodeIds = persistedExplorer.filter(Boolean);
+    } catch (error) {
+      console.warn('[CAUSAS][EXPLORER] No fue posible restaurar nodos expandidos desde sesión.', error);
+    }
+    try {
+      const persistedKardex = JSON.parse(sessionStorage.getItem(KARDEX_EXPANDED_SESSION_KEY) || '{}');
+      if (persistedKardex && typeof persistedKardex === 'object') state.openKardexByTribunal = persistedKardex;
+    } catch (error) {
+      console.warn('[CAUSAS][KARDEX] No fue posible restaurar el estado expandido desde sesión.', error);
+    }
 
     const detailActions = [
       { id:'editar', label:'Editar', action:() => openModal() },
@@ -3362,7 +3401,7 @@
       return `
         <li class="explorer-tree-item">
           <div class="explorer-tree-row ${isSelected ? 'active' : ''}" style="--tree-depth:${depth}">
-            ${canExpand ? `<button class="explorer-tree-toggle" data-explorer-toggle="${node.id}" aria-label="${isExpanded ? 'Contraer' : 'Expandir'}">▸</button>` : '<span class="explorer-tree-toggle spacer"></span>'}
+            ${canExpand ? `<button class="explorer-tree-toggle ${isExpanded ? 'expanded' : ''}" data-explorer-toggle="${node.id}" aria-label="${isExpanded ? 'Contraer' : 'Expandir'}">▸</button>` : '<span class="explorer-tree-toggle spacer"></span>'}
             <button class="explorer-tree-link" data-explorer-node="${node.id}">
               <span class="explorer-tree-icon" aria-hidden="true">${explorerNodeIcon(node.type)}</span>
               <span>${escapeHtml(node.name)}</span>
@@ -4066,6 +4105,40 @@
       return values;
     }
 
+    function normalizeImportComparisonKey(value = ''){
+      return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function inferCaseImportStatus(caseItem){
+      const operation = String(caseItem?.pjudTraceability?.import_operation || caseItem?.pjud_traceability?.import_operation || '').toLowerCase();
+      if (operation === 'created') return 'Nueva';
+      if (operation === 'updated') return 'Actualizada';
+      if (operation === 'duplicate') return 'Duplicada / ya existente';
+      if (operation === 'error') return 'Error';
+      if (caseItem?.importBatchId || caseItem?.import_batch_id || caseItem?.imported_at || caseItem?.importedAt) return 'Importada';
+      return '';
+    }
+
+    function caseImportedAt(caseItem){
+      return caseItem?.imported_at || caseItem?.importedAt || caseItem?.pjudTraceability?.imported_at_client || caseItem?.pjud_traceability?.imported_at_client || '';
+    }
+
+    function persistExplorerExpandedState(){
+      try {
+        sessionStorage.setItem(EXPLORER_EXPANDED_SESSION_KEY, JSON.stringify(state.explorer.expandedNodeIds || []));
+      } catch (error) {
+        console.warn('[CAUSAS][EXPLORER] No fue posible persistir la expansión del árbol.', error);
+      }
+    }
+
+    function persistKardexExpandedState(){
+      try {
+        sessionStorage.setItem(KARDEX_EXPANDED_SESSION_KEY, JSON.stringify(state.openKardexByTribunal || {}));
+      } catch (error) {
+        console.warn('[CAUSAS][KARDEX] No fue posible persistir la expansión del listado.', error);
+      }
+    }
+
     function populateFilters(){
       const configs = [
         ['filterEstado', 'estadoProcesal'],
@@ -4097,6 +4170,21 @@
       `;
       $('filterAudiencia').value = state.filters.audiencia;
       $('filterPlazo').value = state.filters.plazo;
+      const importBatchValues = [...new Set(getAllCases().map((item) => item.importBatchId || item.import_batch_id).filter(Boolean))];
+      $('filterImportBatch').innerHTML = '<option value="">Todos</option>' + importBatchValues.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+      $('filterImportBatch').value = state.filters.importBatch;
+
+      const importStatuses = ['Nueva', 'Actualizada', 'Duplicada / ya existente', 'Error', 'Importada'];
+      $('filterImportStatus').innerHTML = '<option value="">Todos</option>' + importStatuses.map((value) => `<option value="${escapeHtml(value)}">${escapeHtml(value)}</option>`).join('');
+      $('filterImportStatus').value = state.filters.importStatus;
+
+      $('filterLastImported').innerHTML = `
+        <option value="">Todas</option>
+        <option value="1">Últimas 24 horas</option>
+        <option value="7">Últimos 7 días</option>
+        <option value="30">Últimos 30 días</option>
+      `;
+      $('filterLastImported').value = state.filters.lastImported;
     }
 
     function caseMatches(caseItem){
@@ -4117,6 +4205,18 @@
         const days = daysBetween(caseItem.proximoPlazo);
         if (days == null || days > Number(state.filters.plazo)) return false;
       }
+      if (state.filters.importBatch) {
+        const batchId = String(caseItem.importBatchId || caseItem.import_batch_id || '');
+        if (batchId !== String(state.filters.importBatch)) return false;
+      }
+      if (state.filters.importStatus) {
+        if (inferCaseImportStatus(caseItem) !== state.filters.importStatus) return false;
+      }
+      if (state.filters.lastImported) {
+        const importedAt = caseImportedAt(caseItem);
+        const days = daysBetween(importedAt);
+        if (days == null || days > Number(state.filters.lastImported)) return false;
+      }
       return true;
     }
 
@@ -4129,6 +4229,7 @@
         if (sorter === 'deadline') return String(a.proximoPlazo || '9999-12-31').localeCompare(String(b.proximoPlazo || '9999-12-31'));
         if (sorter === 'hearing') return String(a.proximaAudiencia || '9999-12-31').localeCompare(String(b.proximaAudiencia || '9999-12-31'));
         if (sorter === 'alert') return (alertRank[b.alerta] || 0) - (alertRank[a.alerta] || 0);
+        if (sorter === 'imported_desc') return String(caseImportedAt(b) || '').localeCompare(String(caseImportedAt(a) || ''));
         return String(b.ultimaGestion || '').localeCompare(String(a.ultimaGestion || ''));
       });
       return list;
@@ -4212,6 +4313,7 @@
       });
       const selectedCase = list.find((item) => item.id === state.selectedId);
       if (selectedCase) state.openKardexByTribunal[inferKardexLabel(selectedCase.tribunal)] = true;
+      persistKardexExpandedState();
 
       $('casesList').innerHTML = KARDEX_GROUPS
         .filter((label) => (grouped.get(label) || []).length)
@@ -4232,6 +4334,7 @@
                   const days = daysBetween(item.proximoPlazo);
                   const selected = item.id === state.selectedId ? 'selected' : '';
                   const identity = getCauseIdentifier(item);
+                  const importStatus = inferCaseImportStatus(item);
                   return `
                     <article class="list-card archivador-card ${selected}" data-select="${item.id}">
                       <div class="archivador-tab">ARCHIVADOR CAUSA</div>
@@ -4245,6 +4348,7 @@
                       <div class="detail-grid">
                         <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
                         <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
+                        <div><span class="mini-label">Importación PJUD</span><div class="case-meta">${escapeHtml(importStatus || 'Sin importación PJUD')}</div></div>
                         <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
                         <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
                       </div>
@@ -4529,6 +4633,164 @@
       `;
     }
 
+    async function fetchAllRowsFromTable(tableName, queryBuilderFactory, pageSize = PJUD_HISTORY_PAGE_SIZE){
+      const rows = [];
+      let from = 0;
+      while (true) {
+        const to = from + pageSize - 1;
+        const query = queryBuilderFactory(supabase.from(tableName)).range(from, to);
+        const { data, error } = await query;
+        if (error) throw error;
+        const chunk = data || [];
+        rows.push(...chunk);
+        if (chunk.length < pageSize) break;
+        from += pageSize;
+      }
+      return rows;
+    }
+
+    function mapBatchSummary(batch = {}){
+      const summary = batch.summary || {};
+      return {
+        totalRowsAnalyzed: Number(batch.rows_processed || 0),
+        validDetected: Number(batch.causes_consolidated || summary.imported || 0),
+        created: Number(batch.imported_count || summary.created || 0),
+        updated: Number(batch.updated_count || summary.updated || 0),
+        duplicates: Number(summary.duplicates || 0),
+        structuralErrors: Number(batch.rows_invalid || 0),
+        failed: Number(summary.failed || 0),
+      };
+    }
+
+    async function loadPjudImportHistory(force = false){
+      if (state.pjudHistory.loading) return;
+      if (state.pjudHistory.loaded && !force) return;
+      state.pjudHistory.loading = true;
+      state.pjudHistory.error = '';
+      renderCurrentTab();
+      try {
+        const batches = await fetchAllRowsFromTable(T_PJUD_IMPORT_BATCHES, (base) => base
+          .select('*')
+          .eq('owner_user_id', authenticatedUser.id)
+          .order('created_at', { ascending: false }));
+        state.pjudHistory.items = batches;
+        state.pjudHistory.loaded = true;
+        if (!state.pjudHistory.selectedBatchId && batches[0]?.id) state.pjudHistory.selectedBatchId = batches[0].id;
+        if (state.pjudHistory.selectedBatchId) {
+          await loadPjudBatchRows(state.pjudHistory.selectedBatchId);
+        }
+      } catch (error) {
+        state.pjudHistory.error = buildLoadError('el historial de importaciones PJUD', error).message;
+      } finally {
+        state.pjudHistory.loading = false;
+        renderCurrentTab();
+      }
+    }
+
+    async function loadPjudBatchRows(batchId){
+      if (!batchId) return;
+      if (state.pjudHistory.loadingBatchRows[batchId]) return;
+      if (state.pjudHistory.rowsByBatchId[batchId]) return;
+      state.pjudHistory.loadingBatchRows = { ...state.pjudHistory.loadingBatchRows, [batchId]: true };
+      renderCurrentTab();
+      try {
+        const rows = await fetchAllRowsFromTable(T_PJUD_IMPORT_ROWS, (base) => base
+          .select('*')
+          .eq('owner_user_id', authenticatedUser.id)
+          .eq('batch_id', batchId)
+          .order('row_number', { ascending: true }));
+        state.pjudHistory.rowsByBatchId = { ...state.pjudHistory.rowsByBatchId, [batchId]: rows };
+      } catch (error) {
+        state.pjudHistory.error = buildLoadError('el detalle de filas del lote PJUD', error).message;
+      } finally {
+        state.pjudHistory.loadingBatchRows = { ...state.pjudHistory.loadingBatchRows, [batchId]: false };
+        renderCurrentTab();
+      }
+    }
+
+    function renderPjudBatchRowStatus(row = {}){
+      const payloadStatus = String(row.payload?.status || '').toLowerCase();
+      if (payloadStatus === 'created') return 'Nueva';
+      if (payloadStatus === 'updated') return 'Actualizada';
+      if (payloadStatus === 'duplicate') return 'Duplicada / ya existente';
+      if (payloadStatus === 'error') return 'Error';
+      if (row.is_valid === false || payloadStatus === 'discarded') return 'Error';
+      return 'Procesada';
+    }
+
+    function renderPjudImportHistoryPanel(){
+      const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
+      const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
+      const selectedSummary = mapBatchSummary(selectedBatch || {});
+      return `
+        <section class="section-card" id="pjudImportHistoryPanel">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Importado PJUD</h4>
+              <p class="section-copy">Historial auditable por lote con estado de cada causa (Nueva, Actualizada, Duplicada/Error) y métricas completas de importación.</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn" data-pjud-action="refresh-history">Actualizar historial</button>
+              <button class="btn btn-primary" data-pjud-action="open-import-modal">Nueva importación PJUD</button>
+            </div>
+          </div>
+          ${state.pjudHistory.loading ? '<div class="helper-box">Cargando historial de importaciones PJUD…</div>' : ''}
+          ${state.pjudHistory.error ? `<div class="helper-box">${escapeHtml(state.pjudHistory.error)}</div>` : ''}
+          <div class="timeline">
+            ${(state.pjudHistory.items || []).map((batch) => {
+              const summary = mapBatchSummary(batch);
+              return `
+                <article class="timeline-item">
+                  <div class="case-top">
+                    <strong>${escapeHtml(batch.id || 'Batch sin ID')}</strong>
+                    <span class="badge badge-info">${escapeHtml(batch.status || 'sin estado')}</span>
+                  </div>
+                  <div class="timeline-meta">${escapeHtml(formatDate(batch.created_at))} · Fuente: ${escapeHtml(batch.file_name || batch.source || 'PJUD')}</div>
+                  <div class="case-meta">Analizadas: ${summary.totalRowsAnalyzed} · Válidas: ${summary.validDetected} · Nuevas: ${summary.created} · Actualizadas: ${summary.updated} · Duplicadas: ${summary.duplicates} · Estructurales: ${summary.structuralErrors} · Error: ${summary.failed}</div>
+                  <div class="document-actions">
+                    <button class="btn" data-pjud-action="open-batch" data-batch-id="${batch.id}">Abrir detalle</button>
+                    <button class="btn" data-pjud-action="retry-batch" data-batch-id="${batch.id}">Reintentar importación</button>
+                  </div>
+                </article>
+              `;
+            }).join('') || '<div class="helper-box">Aún no hay importaciones PJUD registradas.</div>'}
+          </div>
+          ${selectedBatch ? `
+            <section class="section-card">
+              <div class="section-head">
+                <div>
+                  <h5 class="segment-title">Detalle lote ${escapeHtml(selectedBatch.id)}</h5>
+                  <p class="section-copy">Rol/RIT/RUC, tribunal, materia, interviniente y resultado por causa del lote seleccionado.</p>
+                </div>
+                <span class="badge badge-active">${selectedRows.length} fila(s)</span>
+              </div>
+              <div class="helper-box">
+                Se analizaron ${selectedSummary.totalRowsAnalyzed} filas, válidas ${selectedSummary.validDetected}, nuevas ${selectedSummary.created}, actualizadas ${selectedSummary.updated}, duplicadas ${selectedSummary.duplicates}, estructurales ${selectedSummary.structuralErrors}, con error ${selectedSummary.failed}.
+              </div>
+              <div class="explorer-list-wrap">
+                <table class="explorer-list-table">
+                  <thead><tr><th>Rol / RIT / RUC</th><th>Tribunal</th><th>Materia</th><th>Interviniente</th><th>Resultado</th><th>Motivo</th></tr></thead>
+                  <tbody>
+                    ${selectedRows.map((row) => {
+                      const payload = row.payload || {};
+                      return `<tr>
+                        <td>${escapeHtml([payload.rol, payload.rit, payload.ruc, payload.pjud_case_key].filter(Boolean).join(' · ') || 'Sin identificador')}</td>
+                        <td>${escapeHtml(row.tribunal || payload.tribunal || 'Sin tribunal')}</td>
+                        <td>${escapeHtml(row.materia || payload.materia || 'Sin materia')}</td>
+                        <td>${escapeHtml(row.represented_client_name || payload.represented_client_name || 'No detectado')}</td>
+                        <td>${escapeHtml(renderPjudBatchRowStatus(row))}</td>
+                        <td>${escapeHtml(payload.reason || row.traceability?.reason || 'Sin observaciones')}</td>
+                      </tr>`;
+                    }).join('') || '<tr><td colspan="6">No hay filas almacenadas para este lote.</td></tr>'}
+                  </tbody>
+                </table>
+              </div>
+            </section>
+          ` : ''}
+        </section>
+      `;
+    }
+
     function renderExpedientesPillar(cause){
       return `
         <section class="section-card">
@@ -4546,6 +4808,7 @@
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
+        ${renderPjudImportHistoryPanel()}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
         ${renderSyncHistory(cause)}
@@ -5673,6 +5936,9 @@
       renderPillarCards();
       renderTabs();
       renderCurrentTab();
+      if (state.activeTab === 'expedientes') {
+        loadPjudImportHistory();
+      }
     }
 
     function updateFiltersFromInputs(){
@@ -5685,13 +5951,16 @@
       state.filters.urgencia = $('filterUrgencia').value;
       state.filters.audiencia = $('filterAudiencia').value;
       state.filters.plazo = $('filterPlazo').value;
+      state.filters.importBatch = $('filterImportBatch').value;
+      state.filters.importStatus = $('filterImportStatus').value;
+      state.filters.lastImported = $('filterLastImported').value;
       state.filters.sortBy = $('sortBy').value;
       renderAll();
     }
 
     function resetFilters(){
-      state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', sortBy:'updated' };
-      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo'].forEach(id => { $(id).value = ''; });
+      state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', importBatch:'', importStatus:'', lastImported:'', sortBy:'updated' };
+      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => { $(id).value = ''; });
       $('sortBy').value = 'updated';
       renderAll();
     }
@@ -6056,10 +6325,16 @@
           reason: row.reason || null,
         },
         payload: {
-          pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
+          pjud_case_key: row.pjudCaseKey || row.dedupeKey || row.payload?.pjud_case_key || null,
           source: 'pjud_excel_mis_causas',
-          status: isValid ? 'ok' : 'discarded',
-          reason: row.reason || null,
+          status: row.payload?.status || (isValid ? 'ok' : 'discarded'),
+          reason: row.reason || row.payload?.reason || null,
+          rol: row.rol || row.payload?.rol || null,
+          rit: row.rit || row.payload?.rit || null,
+          ruc: row.ruc || row.payload?.ruc || null,
+          tribunal: row.tribunal || row.payload?.tribunal || null,
+          represented_client_name: row.representedClientName || row.payload?.represented_client_name || null,
+          materia: row.materia || row.payload?.materia || null,
         },
       }));
       for (let index = 0; index < rowPayloads.length; index += PJUD_ROW_LOG_CHUNK_SIZE) {
@@ -6088,6 +6363,8 @@
           imported: Number(metadataPatch.imported || 0),
           created: Number(metadataPatch.created || 0),
           updated: Number(metadataPatch.updated || 0),
+          duplicates: Number(metadataPatch.duplicates || 0),
+          failed: Number(metadataPatch.failed || 0),
           discarded: Number(metadataPatch.discarded || 0),
         },
         error_summary: (metadataPatch.errorSummary || []).slice(0, 25),
@@ -6138,9 +6415,12 @@
       const batch = await persistPjudImportBatch(summary, { status: 'processing' });
       state.pendingPjudBatchId = batch?.id || null;
       const discarded = [];
+      const processedRows = [];
       let created = 0;
       let updated = 0;
       let imported = 0;
+      let duplicated = 0;
+      let failed = 0;
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
         importBatchId: batch?.id || null,
@@ -6155,19 +6435,29 @@
           : { data: [] };
         const existingKeys = new Set((existingRows || []).map((row) => row.pjud_case_key));
         setMessage('importMsg', `Importando lote PJUD ${chunkNumber}/${totalChunks}...`, 'ok');
+        const chunkPayload = slice.map((row) => ({
+          ...row,
+          pjud_traceability: {
+            ...(row.pjud_traceability || {}),
+            import_operation: existingKeys.has(row.pjud_case_key) ? 'updated' : 'created',
+            import_chunk: chunkNumber,
+            import_chunks_total: totalChunks,
+          },
+        }));
 
         const { data, error } = await supabase
           .from(T_CASES)
-          .upsert(slice, { onConflict: 'owner_user_id,pjud_case_key' })
+          .upsert(chunkPayload, { onConflict: 'owner_user_id,pjud_case_key' })
           .select('id,pjud_case_key');
         if (error) {
-          for (const rowPayload of slice) {
+          for (const rowPayload of chunkPayload) {
             const { error: rowError } = await supabase
               .from(T_CASES)
               .upsert([rowPayload], { onConflict: 'owner_user_id,pjud_case_key' })
               .select('id,pjud_case_key')
               .single();
             if (rowError) {
+              failed += 1;
               discarded.push({
                 pjudCaseKey: rowPayload.pjud_case_key,
                 materia: rowPayload.pjud_materia,
@@ -6175,20 +6465,66 @@
                 rowNumber: null,
                 reason: buildLoadError('la fila de importación PJUD', rowError).message,
               });
+              processedRows.push({
+                pjudCaseKey: rowPayload.pjud_case_key,
+                materia: rowPayload.pjud_materia,
+                rol: rowPayload[C.k_rol],
+                rit: rowPayload.pjud_rit,
+                ruc: rowPayload.pjud_ruc,
+                tribunal: rowPayload.pjud_tribunal,
+                representedClientName: rowPayload.pjud_represented_client,
+                reason: buildLoadError('la fila de importación PJUD', rowError).message,
+                status: 'error',
+              });
               continue;
             }
             imported += 1;
-            if (existingKeys.has(rowPayload.pjud_case_key)) updated += 1;
-            else created += 1;
+            if (existingKeys.has(rowPayload.pjud_case_key)) {
+              updated += 1;
+              processedRows.push({
+                pjudCaseKey: rowPayload.pjud_case_key,
+                materia: rowPayload.pjud_materia,
+                rol: rowPayload[C.k_rol],
+                rit: rowPayload.pjud_rit,
+                ruc: rowPayload.pjud_ruc,
+                tribunal: rowPayload.pjud_tribunal,
+                representedClientName: rowPayload.pjud_represented_client,
+                status: 'updated',
+              });
+            } else {
+              created += 1;
+              processedRows.push({
+                pjudCaseKey: rowPayload.pjud_case_key,
+                materia: rowPayload.pjud_materia,
+                rol: rowPayload[C.k_rol],
+                rit: rowPayload.pjud_rit,
+                ruc: rowPayload.pjud_ruc,
+                tribunal: rowPayload.pjud_tribunal,
+                representedClientName: rowPayload.pjud_represented_client,
+                status: 'created',
+              });
+            }
           }
         } else {
           imported += data?.length || 0;
           (data || []).forEach((savedRow) => {
-            if (existingKeys.has(savedRow.pjud_case_key)) updated += 1;
-            else created += 1;
+            if (existingKeys.has(savedRow.pjud_case_key)) {
+              updated += 1;
+              processedRows.push({
+                pjudCaseKey: savedRow.pjud_case_key,
+                status: 'updated',
+              });
+            } else {
+              created += 1;
+              processedRows.push({
+                pjudCaseKey: savedRow.pjud_case_key,
+                status: 'created',
+              });
+            }
           });
         }
       }
+      duplicated = Math.max(0, updated);
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
         materia: row.sheetName || 'Sin materia',
@@ -6207,12 +6543,42 @@
       if (discardedRows.length) {
         await appendPjudImportRows(batch?.id || null, discardedRows.slice(0, 1000), { isValid: false });
       }
+      if (processedRows.length) {
+        await appendPjudImportRows(batch?.id || null, processedRows.slice(0, 2000).map((item, index) => ({
+          materia: item.materia || '',
+          sheetName: item.sheetName || '',
+          rowNumber: index + 1,
+          dedupeKey: item.pjudCaseKey || '',
+          rowSignature: item.status || '',
+          representedClientName: item.representedClientName || '',
+          representedClientRole: '',
+          pjudCaseKey: item.pjudCaseKey || '',
+          rol: item.rol || '',
+          rit: item.rit || '',
+          ruc: item.ruc || '',
+          tribunal: item.tribunal || '',
+          reason: item.reason || '',
+          payload: {
+            status: item.status,
+            reason: item.reason || '',
+            pjud_case_key: item.pjudCaseKey || '',
+            rol: item.rol || '',
+            rit: item.rit || '',
+            ruc: item.ruc || '',
+            tribunal: item.tribunal || '',
+            represented_client_name: item.representedClientName || '',
+            materia: item.materia || '',
+          },
+        })), { isValid: true });
+      }
 
       await updatePjudBatchMetadata(batch?.id || null, {
         status: discardedRows.length ? 'completed_with_warnings' : 'completed',
         imported,
         created,
         updated,
+        duplicates: duplicated,
+        failed,
         discarded: discardedRows.length,
         errorSummary: discardedRows.slice(0, 25).map((item) => ({
           caseKey: item.pjudCaseKey || null,
@@ -6235,6 +6601,8 @@
           imported,
           created,
           updated,
+          duplicated,
+          failed,
           discarded: discardedRows.length,
           discardedRows: discardedRows.slice(0, 25),
         },
@@ -6419,7 +6787,7 @@
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const batchDescriptor = batch?.id ? `Batch ${batch.id}` : 'sin registro de batch (modo tolerante)';
-          setMessage('importMsg', `Importación PJUD completada (${batchDescriptor}). Importadas: ${stats.imported}, creadas: ${stats.created}, actualizadas: ${stats.updated}, descartadas: ${stats.discarded}.`, stats.discarded ? 'warn' : 'ok');
+          setMessage('importMsg', `Se procesaron ${summary?.rowsProcessed || stats.imported + stats.discarded} causas/fila(s): ${stats.created} nuevas, ${stats.updated} actualizadas, ${stats.duplicated} duplicadas, ${stats.failed + stats.discarded} con error. (${batchDescriptor}).`, (stats.failed || stats.discarded) ? 'warn' : 'ok');
           if (!stats.discarded) closeManagedModal('modalImportacion');
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
@@ -6427,9 +6795,12 @@
             imported: stats.imported,
             created: stats.created,
             updated: stats.updated,
+            duplicated: stats.duplicated,
+            failed: stats.failed,
             discarded: stats.discarded,
             discardedRows: stats.discardedRows,
           });
+          await loadPjudImportHistory(true);
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
@@ -6820,7 +7191,7 @@
         });
       });
 
-      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','sortBy'].forEach(id => {
+      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported','sortBy'].forEach(id => {
         const filterField = $(id);
         if (!filterField) {
           console.warn('[CAUSAS][BOTONES][filtros] Campo no encontrado para binding.', { id });
@@ -6834,6 +7205,7 @@
         if (kardexToggle) {
           const label = kardexToggle.dataset.kardexToggle;
           state.openKardexByTribunal[label] = !state.openKardexByTribunal[label];
+          persistKardexExpandedState();
           renderList();
           return;
         }
@@ -6904,6 +7276,7 @@
           if (expanded.has(nodeId)) expanded.delete(nodeId);
           else expanded.add(nodeId);
           state.explorer.expandedNodeIds = Array.from(expanded);
+          persistExplorerExpandedState();
           renderCurrentTab();
           return;
         }
@@ -6919,6 +7292,12 @@
               const expanded = new Set(state.explorer.expandedNodeIds || []);
               expanded.add(node.id);
               state.explorer.expandedNodeIds = Array.from(expanded);
+              persistExplorerExpandedState();
+              if (normalizeImportComparisonKey(node.name) === 'contenidoimportadodelpjud' || normalizeImportComparisonKey(node.name) === 'importadosdepjud') {
+                const panel = document.getElementById('pjudImportHistoryPanel');
+                panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                loadPjudImportHistory();
+              }
               renderCurrentTab();
             } else if (node.documentId) {
               renderCurrentTab();
@@ -6970,6 +7349,31 @@
         if (resolutionAction) {
           handleResolutionToolbarAction(resolutionAction.dataset.resolutionAction);
           return;
+        }
+
+        const pjudAction = event.target.closest('[data-pjud-action]');
+        if (pjudAction) {
+          const action = pjudAction.dataset.pjudAction;
+          const batchId = pjudAction.dataset.batchId || '';
+          if (action === 'refresh-history') {
+            loadPjudImportHistory(true);
+            return;
+          }
+          if (action === 'open-import-modal') {
+            openImportModal();
+            return;
+          }
+          if (action === 'open-batch') {
+            state.pjudHistory.selectedBatchId = batchId;
+            loadPjudBatchRows(batchId);
+            renderCurrentTab();
+            return;
+          }
+          if (action === 'retry-batch') {
+            openImportModal();
+            setMessage('importMsg', `Reintento preparado para el lote ${batchId}. Vuelve a adjuntar el archivo/fuente y ejecuta la importación.`, 'warn');
+            return;
+          }
         }
 
         const genericButton = event.target.closest('button');
