@@ -1163,9 +1163,15 @@ function mapPjudSheetRow(rawRow = {}, config = {}, headerLookup = new Map()) {
   return mapped
 }
 
-export async function parsePjudMisCausasWorkbook(file, XLSX) {
+export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
   if (!file) throw new Error('Debes seleccionar un archivo Excel exportado desde Mis Causas.')
   if (!XLSX?.read) throw new Error('No fue posible cargar el parser XLSX en el navegador.')
+  const {
+    includeConsolidatedCases = true,
+    includeRawRows = false,
+    includeInvalidDetails = false,
+    previewLimit = 50,
+  } = options || {}
 
   const fileName = String(file.name || 'mis-causas.xlsx')
   const buffer = await file.arrayBuffer()
@@ -1242,7 +1248,6 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
       estadoCausa: primary.estadoCausa || (primary.materia !== 'Corte Apelaciones' ? preferredEstado : ''),
       consolidatedFrom: variants.length,
       conflictStates: [...entry.states],
-      rawVariants: variants,
       pjudCaseKey: entry.dedupeKey,
       basic: {
         rol: primary.rol,
@@ -1265,7 +1270,7 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
       movements: [],
       documents: [],
       ebook: null,
-      rawText: variants.map((item) => Object.entries(item.raw || {}).map(([key, value]) => `${key}: ${value}`).join('\n')).join('\n\n---\n\n'),
+      rawText: '',
       importSource: 'mis_causas_excel',
     }
   })
@@ -1284,11 +1289,12 @@ export async function parsePjudMisCausasWorkbook(file, XLSX) {
     countsBySheet,
     rowsProcessed: rawRows.length,
     invalidRows: invalidRows.length,
-    rawRows,
-    invalidRowDetails: invalidRows,
+    rawRows: includeRawRows ? rawRows : [],
+    invalidRowDetails: includeInvalidDetails ? invalidRows.slice(0, 200) : [],
     consolidatedCount: consolidatedCases.length,
     countsByMateria,
-    consolidatedCases,
+    consolidatedCases: includeConsolidatedCases ? consolidatedCases : [],
+    previewCases: consolidatedCases.slice(0, Math.max(1, Number(previewLimit) || 1)),
   }
 }
 
