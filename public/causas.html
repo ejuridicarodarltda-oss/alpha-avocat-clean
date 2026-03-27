@@ -2144,6 +2144,8 @@
     const T_PJUD_IMPORT_BATCHES = 'pjud_import_batches';
     const T_PJUD_IMPORT_ROWS = 'pjud_import_rows';
     const TODAY = new Date('2026-03-20T00:00:00Z');
+    const PJUD_IMPORT_CHUNK_SIZE = 100;
+    const PJUD_ROW_LOG_CHUNK_SIZE = 200;
 
     const C = {
       c_id: 'id',
@@ -5874,7 +5876,7 @@
         [C.k_payment]: 'Único pago',
         [C.k_ppm]: null,
         [C.k_withheld_by]: 'Retiene receptor',
-        [C.k_notes]: importData.rawText || null,
+        [C.k_notes]: null,
         owner_user_id: authenticatedUser.id,
         source: 'pjud_excel_mis_causas',
         source_confidence: 'high',
@@ -5906,7 +5908,7 @@
           imported_at_client: new Date().toISOString(),
           pjud_case_key: importData.pjudCaseKey || null,
           represented_by_lawyer: Boolean(importData.representedByLawyer),
-          has_raw_text: Boolean(importData.rawText),
+          has_raw_text: false,
         },
       };
     }
@@ -5940,7 +5942,7 @@
       });
     }
 
-    async function persistPjudImportBatch(summary){
+    async function persistPjudImportBatch(summary, { status = 'processing', errorSummary = [] } = {}){
       const batchPayload = {
         owner_user_id: authenticatedUser.id,
         source: 'pjud_excel_mis_causas',
@@ -5948,28 +5950,45 @@
         file_name: summary.fileName || null,
         file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
         sheets_detected: summary.sheetsDetected || [],
-        sheet_row_counts: summary.countsBySheet || {},
+        sheet_row_counts: Object.fromEntries(Object.entries(summary.countsBySheet || {}).slice(0, 20)),
         rows_processed: summary.rowsProcessed || 0,
         rows_invalid: summary.invalidRows || 0,
         causes_consolidated: summary.consolidatedCount || 0,
-        counts_by_materia: summary.countsByMateria || {},
+        counts_by_materia: Object.fromEntries(Object.entries(summary.countsByMateria || {}).slice(0, 25)),
+        status,
+        imported_count: 0,
+        updated_count: 0,
+        discarded_count: 0,
+        summary: {
+          mode: summary.mode || 'mis_causas_excel',
+          fileName: summary.fileName || null,
+          rowsProcessed: summary.rowsProcessed || 0,
+          invalidRows: summary.invalidRows || 0,
+          consolidatedCount: summary.consolidatedCount || 0,
+        },
+        error_summary: (errorSummary || []).slice(0, 20),
         metadata: {
           mode: summary.mode || 'mis_causas_excel',
           importedAtClient: new Date().toISOString(),
+          status,
+          errorSummary: (errorSummary || []).slice(0, 20),
         },
       };
       const { data: batch, error: batchError } = await supabase.from(T_PJUD_IMPORT_BATCHES).insert(batchPayload).select('*').single();
       if (batchError) throw buildPjudInfrastructureError(batchError) || batchError;
+      return batch;
+    }
 
-      const rowPayloads = (summary.rawRows || []).map((row) => ({
-        batch_id: batch.id,
+    async function appendPjudImportRows(batchId, rows = [], { isValid = true } = {}){
+      const rowPayloads = rows.map((row) => ({
+        batch_id: batchId,
         owner_user_id: authenticatedUser.id,
         materia: row.materia,
         sheet_name: row.sheetName,
         row_number: row.rowNumber,
         dedupe_key: row.dedupeKey,
         row_signature: row.rowSignature,
-        is_valid: true,
+        is_valid: isValid,
         represented_client_name: row.representedClientName || null,
         represented_client_role: row.representedClientRole || null,
         imported_documents_count: Number((row.documents || []).length + (row.ebook ? 1 : 0)),
@@ -5978,75 +5997,177 @@
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
           row_number: row.rowNumber,
           sheet_name: row.sheetName,
+          stage: isValid ? 'accepted' : 'discarded',
+          reason: row.reason || null,
         },
-        payload: row,
+        payload: {
+          pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
+          source: 'pjud_excel_mis_causas',
+          status: isValid ? 'ok' : 'discarded',
+          reason: row.reason || null,
+        },
       }));
-      for (let index = 0; index < rowPayloads.length; index += 250) {
-        const slice = rowPayloads.slice(index, index + 250);
+      for (let index = 0; index < rowPayloads.length; index += PJUD_ROW_LOG_CHUNK_SIZE) {
+        const slice = rowPayloads.slice(index, index + PJUD_ROW_LOG_CHUNK_SIZE);
         if (!slice.length) continue;
         const { error } = await supabase.from(T_PJUD_IMPORT_ROWS).insert(slice);
         if (error) throw buildPjudInfrastructureError(error) || error;
       }
-      return batch;
     }
 
-    async function upsertImportedWorkbookCases(summary){
-      const batch = await persistPjudImportBatch(summary);
+    async function updatePjudBatchMetadata(batchId, metadataPatch = {}, counters = {}){
+      const { error } = await supabase
+        .from(T_PJUD_IMPORT_BATCHES)
+        .update({
+          rows_processed: counters.rowsProcessed,
+          rows_invalid: counters.rowsInvalid,
+          causes_consolidated: counters.causesConsolidated,
+          status: metadataPatch.status || 'completed',
+          imported_count: Number(metadataPatch.imported || 0),
+          updated_count: Number(metadataPatch.updated || 0),
+          discarded_count: Number(metadataPatch.discarded || 0),
+          summary: {
+            imported: Number(metadataPatch.imported || 0),
+            created: Number(metadataPatch.created || 0),
+            updated: Number(metadataPatch.updated || 0),
+            discarded: Number(metadataPatch.discarded || 0),
+          },
+          error_summary: (metadataPatch.errorSummary || []).slice(0, 25),
+          metadata: {
+            ...(metadataPatch || {}),
+            updatedAtClient: new Date().toISOString(),
+          },
+        })
+        .eq('id', batchId);
+      if (error) throw buildPjudInfrastructureError(error) || error;
+    }
+
+    async function upsertImportedWorkbookCasesFromFile(excelFile){
+      const summary = await parsePjudMisCausasWorkbook(excelFile, XLSX, {
+        includeConsolidatedCases: true,
+        includeRawRows: false,
+        includeInvalidDetails: true,
+      });
+      const batch = await persistPjudImportBatch(summary, { status: 'processing' });
       state.pendingPjudBatchId = batch.id;
-      const nowIso = new Date().toISOString();
-      const casePayloads = summary.consolidatedCases.map((item) => buildPjudStructuredPayload(item, {
+      const discarded = [];
+      let created = 0;
+      let updated = 0;
+      let imported = 0;
+      const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
         importBatchId: batch.id,
       }));
+      const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
+      for (let index = 0; index < casePayloads.length; index += PJUD_IMPORT_CHUNK_SIZE) {
+        const slice = casePayloads.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
+        const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
+        const keys = slice.map((row) => row.pjud_case_key).filter(Boolean);
+        const { data: existingRows } = keys.length
+          ? await supabase.from(T_CASES).select('pjud_case_key').in('pjud_case_key', keys).eq('owner_user_id', authenticatedUser.id)
+          : { data: [] };
+        const existingKeys = new Set((existingRows || []).map((row) => row.pjud_case_key));
+        setMessage('importMsg', `Importando lote PJUD ${chunkNumber}/${totalChunks}...`, 'ok');
 
-      const upsertedRows = [];
-      for (let index = 0; index < casePayloads.length; index += 200) {
-        const slice = casePayloads.slice(index, index + 200);
         const { data, error } = await supabase
           .from(T_CASES)
           .upsert(slice, { onConflict: 'owner_user_id,pjud_case_key' })
-          .select('*');
-        if (error) throw buildPjudInfrastructureError(error) || error;
-        upsertedRows.push(...(data || []));
+          .select('id,pjud_case_key');
+        if (error) {
+          for (const rowPayload of slice) {
+            const { error: rowError } = await supabase
+              .from(T_CASES)
+              .upsert([rowPayload], { onConflict: 'owner_user_id,pjud_case_key' })
+              .select('id,pjud_case_key')
+              .single();
+            if (rowError) {
+              discarded.push({
+                pjudCaseKey: rowPayload.pjud_case_key,
+                materia: rowPayload.pjud_materia,
+                sheetName: '',
+                rowNumber: null,
+                reason: buildLoadError('la fila de importación PJUD', rowError).message,
+              });
+              continue;
+            }
+            imported += 1;
+            if (existingKeys.has(rowPayload.pjud_case_key)) updated += 1;
+            else created += 1;
+          }
+        } else {
+          imported += data?.length || 0;
+          (data || []).forEach((savedRow) => {
+            if (existingKeys.has(savedRow.pjud_case_key)) updated += 1;
+            else created += 1;
+          });
+        }
       }
 
-      const byKey = new Map(upsertedRows.map((row) => [row.pjud_case_key, row]));
-      summary.consolidatedCases.forEach((item) => {
-        const row = byKey.get(item.pjudCaseKey);
-        if (!row) return;
-        const primaryClientName = state.clientMap.get(row[C.k_client_id]) || 'Cliente asociado por Mis Causas';
-        const detail = applyImportToDetail(buildImportedSeedDetail(row, item, primaryClientName), {
-          ...item,
-          importBatchId: batch.id,
-          basic: {
-            ...item.basic,
-            importedAt: nowIso,
-          },
-        }, {
-          primaryClientName,
-          selectedClientParties: [],
-          operationMode: 'upsert',
-          createdNewCase: false,
-          importBatchId: batch.id,
-        });
-        updateWorkspaceEntry(String(row[C.k_id]), () => detail);
+      const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
+        materia: row.sheetName || 'Sin materia',
+        sheetName: row.sheetName,
+        rowNumber: row.rowNumber,
+        dedupeKey: '',
+        rowSignature: '',
+        representedClientName: null,
+        representedClientRole: null,
+        reason: 'Fila descartada por estructura inválida',
+      }));
+      const discardedRows = [
+        ...discarded,
+        ...invalidRows,
+      ];
+      if (discardedRows.length) {
+        await appendPjudImportRows(batch.id, discardedRows.slice(0, 1000), { isValid: false });
+      }
+
+      await updatePjudBatchMetadata(batch.id, {
+        status: discardedRows.length ? 'completed_with_warnings' : 'completed',
+        imported,
+        created,
+        updated,
+        discarded: discardedRows.length,
+        errorSummary: discardedRows.slice(0, 25).map((item) => ({
+          caseKey: item.pjudCaseKey || null,
+          rowNumber: item.rowNumber || null,
+          reason: item.reason || 'Fila descartada sin detalle',
+        })),
+      }, {
+        rowsProcessed: imported + discardedRows.length,
+        rowsInvalid: discardedRows.length,
+        causesConsolidated: imported,
       });
 
       await loadCases();
       populateFilters();
       renderAll();
-      return { batch, rows: upsertedRows };
+      return {
+        batch,
+        summary,
+        stats: {
+          imported,
+          created,
+          updated,
+          discarded: discardedRows.length,
+          discardedRows: discardedRows.slice(0, 25),
+        },
+      };
     }
 
     async function analyzeBatchImport(){
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
       if (excelFile) {
         try {
-          const summary = await parsePjudMisCausasWorkbook(excelFile, XLSX);
+          const summary = await parsePjudMisCausasWorkbook(excelFile, XLSX, {
+            includeConsolidatedCases: false,
+            includeRawRows: false,
+            includeInvalidDetails: false,
+            previewLimit: 50,
+          });
           state.pendingPjudWorkbook = summary;
-          state.pendingBatchImports = summary.consolidatedCases;
-          renderBatchImportPreview(summary.consolidatedCases, summary);
-          if (!summary.consolidatedCases.length) {
+          state.pendingBatchImports = [];
+          renderBatchImportPreview(summary.previewCases || [], summary);
+          if (!summary.consolidatedCount) {
             setMessage('importMsg', 'El Excel fue leído, pero no entregó causas válidas. Revisa si el archivo tiene filas vacías o un error estructural real.', 'warn');
             return;
           }
@@ -6098,11 +6219,12 @@
       openManagedModal('modalImportacion');
     }
 
-    async function createImportedCaseFromData(importData, { primaryClientName, selectedClientParties = [], importBatchId = null } = {}){
+    async function createImportedCaseFromData(importData, { primaryClientName, selectedClientParties = [], importBatchId = null, skipWorkspace = false } = {}){
       const payload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId });
       const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
       if (error) throw error;
 
+      if (skipWorkspace) return { data, detail: null };
       const detail = applyImportToDetail(buildImportedSeedDetail(data, importData, primaryClientName), {
         ...importData,
         importBatchId,
@@ -6205,13 +6327,21 @@
       if (!state.pendingBatchImports.length && !state.pendingPjudWorkbook) {
         await analyzeBatchImport();
       }
-      if (state.pendingPjudWorkbook?.consolidatedCases?.length) {
+      const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      if (excelFile) {
         try {
-          const { batch } = await upsertImportedWorkbookCases(state.pendingPjudWorkbook);
-          const rowsProcessed = state.pendingPjudWorkbook.rowsProcessed || 0;
-          const consolidated = state.pendingPjudWorkbook.consolidatedCount || 0;
-          setMessage('importMsg', `Importación PJUD completada. Batch ${batch.id}: ${rowsProcessed} filas válidas procesadas, ${consolidated} causas consolidadas y listado general actualizado.`, 'ok');
-          closeManagedModal('modalImportacion');
+          const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
+          setMessage('importMsg', `Importación PJUD completada (Batch ${batch.id}). Importadas: ${stats.imported}, creadas: ${stats.created}, actualizadas: ${stats.updated}, descartadas: ${stats.discarded}.`, stats.discarded ? 'warn' : 'ok');
+          if (!stats.discarded) closeManagedModal('modalImportacion');
+          console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
+            batchId: batch.id,
+            fileName: summary.fileName,
+            imported: stats.imported,
+            created: stats.created,
+            updated: stats.updated,
+            discarded: stats.discarded,
+            discardedRows: stats.discardedRows,
+          });
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
@@ -6229,34 +6359,36 @@
       let failures = 0;
       let lastSelectedId = null;
 
-      for (const importData of items) {
-        const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
-        const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
-        const duplicate = findDuplicateCase(getAllCases(), importData);
+      for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
+        const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
+        for (const importData of slice) {
+          const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
+          const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
+          const duplicate = findDuplicateCase(getAllCases(), importData);
 
-        try {
-          if (duplicate) {
-            updateWorkspaceEntry(duplicate.id, (entry) => applyImportToDetail(entry, importData, {
-              primaryClientName,
-              selectedClientParties,
-              operationMode: 'update',
-              createdNewCase: false,
-            }));
-            updated += 1;
-            lastSelectedId = duplicate.id;
-          } else {
-            const { data } = await createImportedCaseFromData(importData, {
-              primaryClientName,
-              selectedClientParties,
-            });
-            created += 1;
-            lastSelectedId = String(data[C.k_id]);
+          try {
+            if (duplicate) {
+              const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
+              const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
+              if (updateError) throw updateError;
+              updated += 1;
+              lastSelectedId = duplicate.id;
+            } else {
+              const { data } = await createImportedCaseFromData(importData, {
+                primaryClientName,
+                selectedClientParties,
+                skipWorkspace: true,
+              });
+              created += 1;
+              lastSelectedId = String(data[C.k_id]);
+            }
+          } catch (error) {
+            console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
+            failures += 1;
           }
-          await loadCases();
-        } catch (error) {
-          console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
-          failures += 1;
         }
+        await loadCases();
+        setMessage('importMsg', `Transferencia masiva en progreso (${Math.min(index + PJUD_IMPORT_CHUNK_SIZE, items.length)}/${items.length}).`, 'ok');
       }
 
       if (lastSelectedId) state.selectedId = String(lastSelectedId);
