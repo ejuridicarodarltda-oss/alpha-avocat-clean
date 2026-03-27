@@ -1,5 +1,37 @@
 const WORKSPACE_KEY = 'alpha-causas-workspace-v4'
 const PJUD_IMPORTED_CONTENT_LABEL = 'Contenido importado del PJUD'
+const MAX_WORKSPACE_BYTES = 350000
+const MAX_STRING_LENGTH = 4000
+const MAX_LIST_ITEMS = 120
+const HEAVY_FIELD_PATTERN = /(content|snapshot|base64|blob|raw(text|html)?|html|ebook(text|content)?|binary|payload|filedata|documentbody|fulltext)/i
+const LIGHTWEIGHT_DOCUMENT_FIELDS = [
+  'id',
+  'name',
+  'size',
+  'category',
+  'type',
+  'extension',
+  'observation',
+  'origin',
+  'destinationModule',
+  'destinationContainer',
+  'caseId',
+  'linkedClient',
+  'createdAt',
+  'updatedAt',
+  'downloadedAt',
+  'downloadCount',
+  'hash',
+  'sourceUrl',
+  'sourcePageUrl',
+  'downloadStrategy',
+  'lastTransferStatus',
+  'lastTransferError',
+  'documentId',
+  'route',
+  'status',
+  'importedAt',
+]
 
 function safeParse(value, fallback) {
   try {
@@ -9,12 +41,239 @@ function safeParse(value, fallback) {
   }
 }
 
-export function loadWorkspace(storage = window.localStorage) {
-  return safeParse(storage.getItem(WORKSPACE_KEY) || '{}', {})
+function estimateBytes(value) {
+  try {
+    return new Blob([JSON.stringify(value)]).size
+  } catch {
+    return Number.POSITIVE_INFINITY
+  }
 }
 
-export function saveWorkspace(workspace, storage = window.localStorage) {
-  storage.setItem(WORKSPACE_KEY, JSON.stringify(workspace))
+function isQuotaExceededError(error) {
+  return (
+    error?.name === 'QuotaExceededError'
+    || error?.code === 22
+    || /quota/i.test(String(error?.message || ''))
+  )
+}
+
+function notifyWorkspaceStorageWarning(message = '', meta = {}) {
+  console.warn(`[CAUSAS][WORKSPACE] ${message}`, meta)
+  try {
+    window.dispatchEvent(new CustomEvent('alpha:workspace-storage-warning', {
+      detail: { message, ...meta },
+    }))
+  } catch {
+    // noop: algunos contextos no exponen CustomEvent.
+  }
+}
+
+function sanitizeString(value = '') {
+  const text = String(value || '')
+  if (!text) return ''
+  if (/^data:/i.test(text)) return ''
+  if (text.length <= MAX_STRING_LENGTH) return text
+  return text.slice(0, MAX_STRING_LENGTH)
+}
+
+function sanitizeLightRecord(record = {}, depth = 0) {
+  if (depth > 4 || !record || typeof record !== 'object') return null
+  if (Array.isArray(record)) {
+    return record
+      .slice(0, MAX_LIST_ITEMS)
+      .map((item) => sanitizeLightRecord(item, depth + 1))
+      .filter((item) => item != null)
+  }
+
+  const result = {}
+  Object.entries(record).forEach(([key, value]) => {
+    if (HEAVY_FIELD_PATTERN.test(key) && !/(status|id|hash|updated|created|date)/i.test(key)) return
+    if (typeof value === 'string') {
+      const clean = sanitizeString(value)
+      if (clean) result[key] = clean
+      return
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      result[key] = value
+      return
+    }
+    if (value == null) {
+      result[key] = value
+      return
+    }
+    if (typeof value === 'object') {
+      const nested = sanitizeLightRecord(value, depth + 1)
+      if (nested != null) result[key] = nested
+    }
+  })
+  return result
+}
+
+function sanitizeDocumentRecord(record = {}) {
+  const next = {}
+  LIGHTWEIGHT_DOCUMENT_FIELDS.forEach((field) => {
+    const value = record?.[field]
+    if (value == null || value === '') return
+    if (typeof value === 'string') {
+      const clean = sanitizeString(value)
+      if (clean) next[field] = clean
+      return
+    }
+    if (typeof value === 'number' || typeof value === 'boolean') {
+      next[field] = value
+      return
+    }
+    if (value && typeof value === 'object') {
+      next[field] = sanitizeLightRecord(value)
+    }
+  })
+  return next
+}
+
+function sanitizeCauseForStorage(cause = {}, causeId = '') {
+  const safeCause = ensureCauseStorage(cause, causeId)
+  const next = { id: String(safeCause.id || causeId || '') }
+
+  Object.entries(safeCause).forEach(([key, value]) => {
+    if (['documents', 'movements', 'syncHistory', 'importOperations', 'reversionLog', 'documentContainers'].includes(key)) return
+    if (HEAVY_FIELD_PATTERN.test(key) && !/(status|id|hash|updated|created|date|importedat|lastsyncat)/i.test(key)) return
+    if (typeof value === 'string') {
+      const clean = sanitizeString(value)
+      if (clean) next[key] = clean
+      return
+    }
+    if (typeof value === 'number' || typeof value === 'boolean' || value == null) {
+      next[key] = value
+      return
+    }
+    if (Array.isArray(value) || typeof value === 'object') {
+      const cleaned = sanitizeLightRecord(value)
+      if (cleaned != null) next[key] = cleaned
+    }
+  })
+
+  next.documents = (safeCause.documents || [])
+    .slice(0, MAX_LIST_ITEMS)
+    .map((record) => sanitizeDocumentRecord(record))
+    .filter((record) => record.id || record.hash || record.name)
+
+  const sanitizeHistory = (list = []) => list
+    .slice(0, MAX_LIST_ITEMS)
+    .map((item) => sanitizeLightRecord(item))
+    .filter(Boolean)
+
+  next.movements = sanitizeHistory(safeCause.movements)
+  next.syncHistory = sanitizeHistory(safeCause.syncHistory)
+  next.importOperations = sanitizeHistory(safeCause.importOperations)
+  next.reversionLog = sanitizeHistory(safeCause.reversionLog)
+
+  next.documentContainers = Object.fromEntries(
+    Object.entries(safeCause.documentContainers || {}).map(([containerId, container]) => [
+      containerId,
+      {
+        label: sanitizeString(container?.label || ''),
+        docIds: Array.from(new Set((container?.docIds || []).slice(0, MAX_LIST_ITEMS).map((id) => String(id || '')).filter(Boolean))),
+      },
+    ]),
+  )
+
+  return next
+}
+
+function compactWorkspaceForStorage(workspace = {}) {
+  const next = structuredClone(workspace || {})
+  Object.values(next).forEach((entry) => {
+    if (!entry || typeof entry !== 'object') return
+    if (Array.isArray(entry.documents) && entry.documents.length > 24) {
+      entry.documents = entry.documents.slice(0, 24)
+    }
+    if (Array.isArray(entry.movements) && entry.movements.length > 40) {
+      entry.movements = entry.movements.slice(0, 40)
+    }
+    if (Array.isArray(entry.syncHistory) && entry.syncHistory.length > 30) {
+      entry.syncHistory = entry.syncHistory.slice(0, 30)
+    }
+    if (Array.isArray(entry.importOperations) && entry.importOperations.length > 30) {
+      entry.importOperations = entry.importOperations.slice(0, 30)
+    }
+    if (Array.isArray(entry.reversionLog) && entry.reversionLog.length > 30) {
+      entry.reversionLog = entry.reversionLog.slice(0, 30)
+    }
+  })
+  return next
+}
+
+export function sanitizeWorkspaceForStorage(workspace = {}) {
+  if (!workspace || typeof workspace !== 'object') return {}
+  const next = {}
+  Object.entries(workspace).forEach(([key, value]) => {
+    if (value && typeof value === 'object' && !Array.isArray(value) && (
+      'documents' in value
+      || 'documentContainers' in value
+      || 'movements' in value
+      || 'importMeta' in value
+      || 'poderJudicial' in value
+    )) {
+      next[key] = sanitizeCauseForStorage(value, key)
+      return
+    }
+    if (typeof value === 'string') {
+      const clean = sanitizeString(value)
+      if (clean) next[key] = clean
+      return
+    }
+    if (typeof value === 'number' || typeof value === 'boolean' || value == null) {
+      next[key] = value
+      return
+    }
+    if (typeof value === 'object') {
+      const cleanObject = sanitizeLightRecord(value)
+      if (cleanObject != null) next[key] = cleanObject
+    }
+  })
+  return next
+}
+
+export function loadWorkspace(storage = window.localStorage) {
+  const raw = storage.getItem(WORKSPACE_KEY)
+  if (!raw) return {}
+  const parsed = safeParse(raw, {})
+  const sanitized = sanitizeWorkspaceForStorage(parsed)
+  const shouldPersistSanitized = raw.length > MAX_WORKSPACE_BYTES || JSON.stringify(parsed) !== JSON.stringify(sanitized)
+  if (shouldPersistSanitized) {
+    saveWorkspace(sanitized, storage, { skipSanitize: true, reason: 'load-migration' })
+  }
+  return sanitized
+}
+
+export function saveWorkspace(workspace, storage = window.localStorage, options = {}) {
+  const sanitized = options.skipSanitize ? (workspace || {}) : sanitizeWorkspaceForStorage(workspace)
+  let payload = sanitized
+  if (estimateBytes(payload) > MAX_WORKSPACE_BYTES) {
+    payload = compactWorkspaceForStorage(payload)
+  }
+
+  try {
+    storage.setItem(WORKSPACE_KEY, JSON.stringify(payload))
+  } catch (error) {
+    if (!isQuotaExceededError(error)) throw error
+    notifyWorkspaceStorageWarning('Se excedió la cuota de localStorage. Se limpiará caché local no esencial y se continuará con Supabase.', {
+      reason: options.reason || 'save',
+      key: WORKSPACE_KEY,
+    })
+    const fallbackPayload = compactWorkspaceForStorage(sanitizeWorkspaceForStorage(payload))
+    try {
+      storage.removeItem(WORKSPACE_KEY)
+      storage.setItem(WORKSPACE_KEY, JSON.stringify(fallbackPayload))
+    } catch (fallbackError) {
+      if (!isQuotaExceededError(fallbackError)) throw fallbackError
+      storage.removeItem(WORKSPACE_KEY)
+      notifyWorkspaceStorageWarning('No fue posible guardar caché local de causas. La persistencia principal seguirá en Supabase.', {
+        reason: 'fallback-cleanup',
+        key: WORKSPACE_KEY,
+      })
+    }
+  }
 }
 
 export function slugId(value = '') {
