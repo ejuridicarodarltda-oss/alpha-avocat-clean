@@ -1958,6 +1958,7 @@
         <div class="modal-actions">
           <button type="button" id="btnAnalizarLoteImportacion" class="btn">Analizar lote PJUD</button>
           <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Importar causas del lote</button>
+          <button type="button" id="btnActualizarLoteImportacion" class="btn">Actualizar importadas PJUD</button>
         </div>
 
         <div class="helper-box" id="batchImportPreview">Aún no se ha analizado un lote de causas judiciales.</div>
@@ -1997,7 +1998,7 @@
         <div class="field">
           <label for="import_support_files">Archivos descargados desde PJUD (opcional)</label>
           <input id="import_support_files" class="input" type="file" multiple />
-          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Importados de PJUD”.</div>
+          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Importadas del Poder Judicial”.</div>
         </div>
 
         <div class="helper-box" id="importPreview">Aún no se ha analizado una causa judicial.</div>
@@ -2048,7 +2049,7 @@
               <option value="resoluciones">Resoluciones</option>
               <option value="notificaciones">Notificaciones</option>
               <option value="antecedentes">Otros antecedentes</option>
-              <option value="importadosPjud">Importados de PJUD</option>
+              <option value="importadosPjud">Importadas del Poder Judicial</option>
             </select>
           </div>
           <div class="field">
@@ -2247,6 +2248,7 @@
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
       { id:'produccion', label:'Producción', action:() => setActiveTab('produccion') },
       { id:'actualizar', label:'Actualizar causa', action:() => openSyncModal() },
+      { id:'actualizar-pjud', label:'Actualizar importación PJUD', action:() => openImportModal() },
       { id:'pj', label:'Abrir en Poder Judicial', action:() => openInPoderJudicial() },
       { id:'ebook', label:'Descargar ebook', action:() => {
         const cause = getCurrentCause();
@@ -3234,7 +3236,7 @@
         resoluciones: 'Resoluciones',
         notificaciones: 'Notificaciones',
         antecedentes: 'Otros antecedentes',
-        importadosPjud: 'Importados de PJUD',
+        importadosPjud: 'Importadas del Poder Judicial',
       })[containerId] || 'Documentos asociados';
     }
 
@@ -6141,6 +6143,9 @@
       let created = 0;
       let updated = 0;
       let imported = 0;
+      const analyzedRows = Number(summary.rowsProcessed || 0);
+      const uniqueCases = Number(summary.consolidatedCount || 0);
+      const duplicateRows = Math.max(0, analyzedRows - uniqueCases);
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
         importBatchId: batch?.id || null,
@@ -6232,10 +6237,14 @@
         batch,
         summary,
         stats: {
+          analyzedRows,
+          uniqueCases,
+          duplicateRows,
           imported,
           created,
           updated,
           discarded: discardedRows.length,
+          errors: discardedRows.length,
           discardedRows: discardedRows.slice(0, 25),
         },
       };
@@ -6258,7 +6267,8 @@
             setMessage('importMsg', 'El Excel fue leído, pero no entregó causas válidas. Revisa si el archivo tiene filas vacías o un error estructural real.', 'warn');
             return;
           }
-          setMessage('importMsg', `Excel Mis Causas analizado: ${summary.rowsProcessed} filas válidas, ${summary.consolidatedCount} causas consolidadas y ${summary.sheetsDetected.length} hojas reconocidas.`, 'ok');
+          const duplicateRows = Math.max(0, Number(summary.rowsProcessed || 0) - Number(summary.consolidatedCount || 0));
+          setMessage('importMsg', `Excel Mis Causas analizado: filas analizadas ${summary.rowsProcessed}, causas únicas ${summary.consolidatedCount}, duplicados internos ${duplicateRows} y hojas reconocidas ${summary.sheetsDetected.length}.`, 'ok');
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-excel] No fue posible analizar el Excel Mis Causas.', error);
@@ -6331,7 +6341,7 @@
       if (!fileList?.length) return importData;
       try {
         const fileDocuments = await filesToDocumentInputs(fileList, {
-          category: 'Importados de PJUD',
+          category: 'Importadas del Poder Judicial',
           destinationContainer: 'importadosPjud',
           observation: 'Archivo adjuntado por el usuario desde importación PJUD.',
           origin: 'Archivo descargado por usuario (PJUD)',
@@ -6419,7 +6429,7 @@
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const batchDescriptor = batch?.id ? `Batch ${batch.id}` : 'sin registro de batch (modo tolerante)';
-          setMessage('importMsg', `Importación PJUD completada (${batchDescriptor}). Importadas: ${stats.imported}, creadas: ${stats.created}, actualizadas: ${stats.updated}, descartadas: ${stats.discarded}.`, stats.discarded ? 'warn' : 'ok');
+          setMessage('importMsg', `Importación PJUD completada (${batchDescriptor}). Filas analizadas: ${stats.analyzedRows}, causas únicas: ${stats.uniqueCases}, duplicados internos: ${stats.duplicateRows}, insertadas: ${stats.created}, actualizadas: ${stats.updated}, errores: ${stats.errors}.`, stats.discarded ? 'warn' : 'ok');
           if (!stats.discarded) closeManagedModal('modalImportacion');
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
@@ -6750,6 +6760,9 @@
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
       bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
+      bindEvent('btnActualizarLoteImportacion', 'click', async () => {
+        await transferBatchImport();
+      }, { scope: 'importacion' });
       $('batch_excel_file')?.addEventListener('change', () => {
         state.pendingPjudWorkbook = null;
         state.pendingBatchImports = [];

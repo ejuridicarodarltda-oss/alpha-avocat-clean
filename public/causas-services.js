@@ -1,5 +1,5 @@
 const WORKSPACE_KEY = 'alpha-causas-workspace-v4'
-const PJUD_IMPORTED_CONTENT_LABEL = 'Contenido importado del PJUD'
+const PJUD_IMPORTED_CONTENT_LABEL = 'Importadas del Poder Judicial'
 const MAX_WORKSPACE_BYTES = 350000
 const MAX_STRING_LENGTH = 4000
 const MAX_LIST_ITEMS = 120
@@ -746,7 +746,7 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
         ['resoluciones', ['resoluciones', 'jurisprudencia']],
         ['notificaciones', ['trazabilidad']],
         ['antecedentes', ['pruebas', 'absolucion-de-posiciones']],
-        ['importadosPjud', ['importados-de-pjud']],
+        ['importadosPjud', [slugId(PJUD_IMPORTED_CONTENT_LABEL), 'importados-de-pjud', 'importadas-del-poder-judicial']],
       ]
 
       containerMappings.forEach(([containerId, aliases]) => {
@@ -964,27 +964,27 @@ const PJUD_MIS_CAUSAS_SHEETS = {
     materia: 'Civil',
     required: ['tribunal', 'rol'],
     aliases: {
-      rol: ['rol'],
+      rol: ['rol', 'rol/rit', 'rol rit', 'rol causa', 'rol causa / rit'],
       tribunal: ['tribunal'],
       fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
       caratulado: ['caratulado', 'caratula', 'carátula'],
       estadoCausa: ['estado causa', 'estado'],
       institucion: ['institucion', 'institución'],
     },
-    dedupeKey: (row) => ['civil', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+    dedupeKey: (row) => buildPjudCaseDedupeKey(row, 'Civil'),
   },
   Laboral: {
     materia: 'Laboral',
     required: ['tribunal', 'rol'],
     aliases: {
-      rol: ['rol'],
+      rol: ['rol', 'rol/rit', 'rol rit', 'rol causa', 'rol causa / rit'],
       tribunal: ['tribunal'],
       fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
       caratulado: ['caratulado', 'caratula', 'carátula'],
       estadoCausa: ['estado causa', 'estado'],
       institucion: ['institucion', 'institución'],
     },
-    dedupeKey: (row) => ['laboral', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+    dedupeKey: (row) => buildPjudCaseDedupeKey(row, 'Laboral'),
   },
   Penal: {
     materia: 'Penal',
@@ -999,19 +999,22 @@ const PJUD_MIS_CAUSAS_SHEETS = {
       estadoCausa: ['estado causa', 'estado'],
       institucion: ['institucion', 'institución'],
     },
-    dedupeKey: (row) => ['penal', row.tribunal, row.rit, row.ruc].map(normalizeForComparison).join('|'),
+    dedupeKey: (row) => buildPjudCaseDedupeKey({
+      ...row,
+      rol: row.rol || row.rit || row.ruc,
+    }, 'Penal'),
   },
   Cobranza: {
     materia: 'Cobranza',
     required: ['tribunal', 'rol'],
     aliases: {
-      rol: ['rol'],
+      rol: ['rol', 'rol/rit', 'rol rit', 'rol causa', 'rol causa / rit'],
       tribunal: ['tribunal'],
       fechaIngreso: ['fecha ingreso', 'fecha ingreso causa'],
       caratulado: ['caratulado', 'caratula', 'carátula'],
       institucion: ['institucion', 'institución'],
     },
-    dedupeKey: (row) => ['cobranza', row.tribunal, row.rol].map(normalizeForComparison).join('|'),
+    dedupeKey: (row) => buildPjudCaseDedupeKey(row, 'Cobranza'),
   },
   Familia: {
     materia: 'Familia',
@@ -1024,7 +1027,10 @@ const PJUD_MIS_CAUSAS_SHEETS = {
       estadoCausa: ['estado causa', 'estado'],
       institucion: ['institucion', 'institución'],
     },
-    dedupeKey: (row) => ['familia', row.tribunal, row.rit].map(normalizeForComparison).join('|'),
+    dedupeKey: (row) => buildPjudCaseDedupeKey({
+      ...row,
+      rol: row.rol || row.rit,
+    }, 'Familia'),
   },
 }
 
@@ -1037,6 +1043,23 @@ function containsNamedParticipant(text = '', participant = '') {
 
 function buildHeaderLookup(headers = []) {
   return new Map(headers.map((header) => [normalizeForComparison(header), header]))
+}
+
+function normalizePjudRol(value = '') {
+  const raw = sanitizeVisibleText(value)
+  if (!raw) return ''
+  const compact = raw.replace(/\s+/g, ' ').trim()
+  const directRol = compact.match(/[A-Z]{1,4}-\d{1,6}-\d{2,4}/i)
+  if (directRol) return directRol[0].toUpperCase()
+  return compact.toUpperCase()
+}
+
+function buildPjudCaseDedupeKey(row = {}, materia = '') {
+  const tribunal = row.tribunal || row.corte || ''
+  const rol = normalizePjudRol(row.rol)
+  if (rol) return [normalizeForComparison(tribunal), normalizeForComparison(rol)].join('|')
+  const fallbackIdentity = row.rit || row.ruc || row.caratulado || ''
+  return [normalizeForComparison(tribunal), normalizeForComparison(fallbackIdentity), normalizeForComparison(materia)].join('|')
 }
 
 function resolveHeaderName(headerLookup = new Map(), aliases = []) {
@@ -1160,6 +1183,7 @@ function mapPjudSheetRow(rawRow = {}, config = {}, headerLookup = new Map()) {
   })
 
   mapped.caratulado = normalizeCaratula(mapped.caratulado)
+  mapped.rol = normalizePjudRol(mapped.rol || mapped.rit || '')
   return mapped
 }
 
