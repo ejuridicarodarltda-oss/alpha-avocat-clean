@@ -6396,12 +6396,15 @@
       duplicatedInternal = 0,
       inserted = 0,
       updated = 0,
+      materialized = 0,
+      materializationFailed = 0,
+      supabaseOnly = 0,
       errors = 0,
       batchId = null,
       warning = '',
       tone = 'ok',
     } = {}){
-      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -6410,7 +6413,8 @@
           <div class="selection-card">
             <strong>Resumen final importación PJUD</strong>
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
-            <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Errores: ${escapeHtml(errors)}</div>
+            <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Materializadas: ${escapeHtml(materialized)}</div>
+            <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${warning ? `<div class="timeline-meta"><strong>${escapeHtml(warning)}</strong></div>` : ''}
           </div>
@@ -6501,6 +6505,96 @@
         notes: importData.rawText || '',
         updatedAt: isoDate(baseRow.updated_at || baseRow[C.k_created] || baseRow.created_at) || new Date().toISOString().slice(0,10),
       });
+    }
+
+    function buildImportDataFromStructuredCaseRow(rowPayload, fallbackImportData = {}, { importBatchId = null } = {}){
+      const importedAt = new Date().toISOString();
+      const safeFallback = fallbackImportData || {};
+      const basicFallback = safeFallback.basic || {};
+      const rol = rowPayload?.[C.k_rol] || safeFallback.rol || basicFallback.rol || '';
+      const rit = rowPayload?.pjud_rit || safeFallback.rit || basicFallback.rit || '';
+      const ruc = rowPayload?.pjud_ruc || safeFallback.ruc || basicFallback.ruc || '';
+      const tribunal = rowPayload?.pjud_tribunal || safeFallback.tribunal || basicFallback.tribunal || '';
+      const materia = rowPayload?.pjud_materia || safeFallback.materia || basicFallback.materia || '';
+      const estadoProcesal = rowPayload?.pjud_estado_procesal || safeFallback.estadoProcesal || basicFallback.estadoProcesal || '';
+      const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
+      return {
+        ...safeFallback,
+        source: 'pjud_excel_mis_causas',
+        sourceConfidence: 'high',
+        mode: 'mis_causas_excel',
+        importBatchId: importBatchId || safeFallback.importBatchId || null,
+        pjudCaseKey,
+        rol,
+        rit,
+        ruc,
+        era: rowPayload?.pjud_era || safeFallback.era || '',
+        corte: rowPayload?.pjud_corte || safeFallback.corte || '',
+        tribunal,
+        tipoCausa: rowPayload?.pjud_tipo_causa || safeFallback.tipoCausa || basicFallback.procedimiento || '',
+        materia,
+        submateria: rowPayload?.pjud_submateria || safeFallback.submateria || '',
+        estadoCausa: rowPayload?.pjud_estado_causa || safeFallback.estadoCausa || '',
+        estadoProcesal,
+        fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
+        caratulado: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+        ubicacion: rowPayload?.pjud_ubicacion || safeFallback.ubicacion || '',
+        fechaUbicacion: rowPayload?.pjud_fecha_ubicacion || safeFallback.fechaUbicacion || '',
+        institucion: rowPayload?.pjud_institucion || safeFallback.institucion || '',
+        representedClientName: rowPayload?.pjud_represented_client || safeFallback.representedClientName || 'Cliente por inferir desde PJUD',
+        representedClientRole: rowPayload?.pjud_client_role || safeFallback.representedClientRole || 'Por definir',
+        representedByLawyer: safeFallback.representedByLawyer ?? true,
+        parties: safeFallback.parties || [],
+        demandantes: safeFallback.demandantes || [],
+        demandados: safeFallback.demandados || [],
+        movements: safeFallback.movements || [],
+        documents: safeFallback.documents || [],
+        ebook: safeFallback.ebook || null,
+        rawText: safeFallback.rawText || '',
+        basic: {
+          rol,
+          rit,
+          tribunal,
+          procedimiento: rowPayload?.pjud_tipo_causa || safeFallback.tipoCausa || basicFallback.procedimiento || '',
+          materia,
+          estadoProcesal,
+          fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
+          caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+          link: safeFallback.basic?.link || '',
+          importedAt,
+          pjudCaseKey,
+        },
+      };
+    }
+
+    function materializeImportedCaseWorkspace({
+      caseRow,
+      rowPayload,
+      operationMode = 'update',
+      importData = {},
+      selectedClientParties = [],
+      importBatchId = null,
+    } = {}){
+      if (!caseRow?.id) throw new Error('No fue posible materializar la causa: falta ID de la fila persistida.');
+      const caseId = String(caseRow.id);
+      const clientName = rowPayload?.pjud_represented_client
+        || importData?.representedClientName
+        || state.clientMap.get(caseRow[C.k_client_id] || caseRow.client_id)
+        || SAFE_CLIENT_LABEL;
+      const normalizedImportData = buildImportDataFromStructuredCaseRow(rowPayload, importData, { importBatchId });
+      const baseDetail = buildImportedSeedDetail({ ...rowPayload, ...caseRow, id: caseId }, normalizedImportData, clientName);
+      const nextDetail = updateWorkspaceEntry(caseId, (entry) => applyImportToDetail(entry?.id ? entry : baseDetail, normalizedImportData, {
+        primaryClientName: clientName,
+        selectedClientParties: selectedClientParties.length ? selectedClientParties : (clientName ? [clientName] : []),
+        operationMode,
+        createdNewCase: operationMode === 'create',
+        importBatchId,
+      }));
+      if (!nextDetail?.documents?.length) throw new Error('Materialización incompleta: no se registraron documentos en el expediente digital.');
+      if (!(nextDetail?.documentContainers?.importadosPjud?.docIds || []).length) {
+        throw new Error('Materialización incompleta: no se registró contenido en Importadas del Poder Judicial.');
+      }
+      return nextDetail;
     }
 
     async function persistPjudImportBatch(summary, { status = 'processing', errorSummary = [] } = {}){
@@ -6649,6 +6743,7 @@
       state.pendingPjudBatchId = batch?.id || null;
       const discarded = [];
       const processedRows = [];
+      const materializationWarnings = [];
       const stageTrace = {
         rowsRead: Number(Object.values(summary.countsBySheet || {}).reduce((acc, value) => acc + Number(value || 0), 0)),
         rowsValid: Number(summary.rowsProcessed || 0),
@@ -6659,6 +6754,9 @@
         rowsSentToUpdate: 0,
         rowsCreated: 0,
         rowsUpdated: 0,
+        rowsMaterialized: 0,
+        rowsMaterializationFailed: 0,
+        rowsSupabaseOnly: 0,
         rowsRejected: 0,
         rejectedByReason: {},
       };
@@ -6671,7 +6769,10 @@
       let imported = 0;
       let duplicated = Math.max(0, Number(summary.rowsProcessed || 0) - Number(summary.consolidatedCount || 0));
       let failed = 0;
+      let materialized = 0;
+      let materializationFailed = 0;
       const affectedCaseIds = new Set();
+      const consolidatedCaseMap = new Map((summary.consolidatedCases || []).map((item) => [String(item.pjudCaseKey || ''), item]));
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
         importBatchId: batch?.id || null,
@@ -6775,6 +6876,27 @@
           updated += 1;
           stageTrace.rowsUpdated += 1;
           if (updatedRow?.id) affectedCaseIds.add(String(updatedRow.id));
+          try {
+            materializeImportedCaseWorkspace({
+              caseRow: updatedRow,
+              rowPayload,
+              operationMode: 'update',
+              importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
+              importBatchId: batch?.id || null,
+            });
+            materialized += 1;
+            stageTrace.rowsMaterialized += 1;
+          } catch (materializationError) {
+            materializationFailed += 1;
+            stageTrace.rowsMaterializationFailed += 1;
+            stageTrace.rowsSupabaseOnly += 1;
+            const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
+            materializationWarnings.push({
+              pjudCaseKey: rowPayload.pjud_case_key,
+              caseId: updatedRow?.id || null,
+              reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+            });
+          }
           processedRows.push({
             pjudCaseKey: updatedRow.pjud_case_key,
             materia: rowPayload.pjud_materia,
@@ -6829,6 +6951,27 @@
               created += 1;
               stageTrace.rowsCreated += 1;
               if (insertedRow?.id) affectedCaseIds.add(String(insertedRow.id));
+              try {
+                materializeImportedCaseWorkspace({
+                  caseRow: insertedRow,
+                  rowPayload,
+                  operationMode: 'create',
+                  importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
+                  importBatchId: batch?.id || null,
+                });
+                materialized += 1;
+                stageTrace.rowsMaterialized += 1;
+              } catch (materializationError) {
+                materializationFailed += 1;
+                stageTrace.rowsMaterializationFailed += 1;
+                stageTrace.rowsSupabaseOnly += 1;
+                const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
+                materializationWarnings.push({
+                  pjudCaseKey: rowPayload.pjud_case_key,
+                  caseId: insertedRow?.id || null,
+                  reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+                });
+              }
               processedRows.push({
                 pjudCaseKey: insertedRow.pjud_case_key,
                 materia: rowPayload.pjud_materia,
@@ -6846,6 +6989,28 @@
             stageTrace.rowsCreated += insertedRows?.length || 0;
             (insertedRows || []).forEach((savedRow) => {
               if (savedRow?.id) affectedCaseIds.add(String(savedRow.id));
+              const sourcePayload = rowsToCreate.find((item) => item.pjud_case_key === savedRow.pjud_case_key) || null;
+              try {
+                materializeImportedCaseWorkspace({
+                  caseRow: savedRow,
+                  rowPayload: sourcePayload,
+                  operationMode: 'create',
+                  importData: consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || null,
+                  importBatchId: batch?.id || null,
+                });
+                materialized += 1;
+                stageTrace.rowsMaterialized += 1;
+              } catch (materializationError) {
+                materializationFailed += 1;
+                stageTrace.rowsMaterializationFailed += 1;
+                stageTrace.rowsSupabaseOnly += 1;
+                const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
+                materializationWarnings.push({
+                  pjudCaseKey: savedRow.pjud_case_key,
+                  caseId: savedRow?.id || null,
+                  reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+                });
+              }
               processedRows.push({
                 pjudCaseKey: savedRow.pjud_case_key,
                 status: 'created',
@@ -6867,6 +7032,7 @@
       }));
       const discardedRows = [
         ...discarded,
+        ...materializationWarnings,
         ...invalidRows,
       ];
       if (discardedRows.length) {
@@ -6906,12 +7072,15 @@
         imported,
         created,
         updated,
+        materialized,
+        materializationFailed,
+        supabaseOnly: Math.max(0, imported - materialized),
         duplicates: duplicated,
         failed,
         discarded: discardedRows.length,
         stageTrace: {
           ...stageTrace,
-          rowsRejected: failed + invalidRows.length,
+          rowsRejected: failed + invalidRows.length + materializationWarnings.length,
         },
         errorSummary: discardedRows.slice(0, 25).map((item) => ({
           caseKey: item.pjudCaseKey || null,
@@ -6936,10 +7105,13 @@
           imported,
           created,
           updated,
+          materialized,
+          materializationFailed,
+          supabaseOnly: Math.max(0, imported - materialized),
           duplicated,
           failed,
           structuralErrors: invalidRows.length,
-          rejected: failed + invalidRows.length,
+          rejected: failed + invalidRows.length + materializationWarnings.length,
           discarded: discardedRows.length,
           discardedRows: discardedRows.slice(0, 25),
           stageTrace,
@@ -7131,19 +7303,23 @@
           const uniqueCases = Number(summary?.consolidatedCount || 0);
           const completedCases = Number(stats.created || 0) + Number(stats.updated || 0);
           const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
-          const warning = suspiciousLow
-            ? 'La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.'
-            : '';
+          const warningMessages = [];
+          if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
+          if (Number(stats.materializationFailed || 0) > 0) warningMessages.push(`Advertencia: ${Number(stats.materializationFailed || 0)} causa(s) fueron actualizadas en Supabase, pero no se pudieron materializar en Expedientes Digitales.`);
+          const warning = warningMessages.join(' ');
           renderImportFinalSummary({
             rowsAnalyzed,
             uniqueCases,
             duplicatedInternal: Number(stats.duplicated || 0),
             inserted: Number(stats.created || 0),
             updated: Number(stats.updated || 0),
+            materialized: Number(stats.materialized || 0),
+            materializationFailed: Number(stats.materializationFailed || 0),
+            supabaseOnly: Number(stats.supabaseOnly || 0),
             errors: Number(stats.rejected || 0),
             batchId: batch?.id || null,
             warning,
-            tone: (stats.rejected || stats.discarded) ? 'warn' : 'ok',
+            tone: (stats.rejected || stats.discarded || stats.materializationFailed) ? 'warn' : 'ok',
           });
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
@@ -7156,6 +7332,9 @@
               imported: stats.imported,
               created: stats.created,
               updated: stats.updated,
+              materialized: stats.materialized,
+              supabaseOnly: stats.supabaseOnly,
+              materializationFailed: stats.materializationFailed,
               duplicated: stats.duplicated,
               failed: stats.failed,
               rejected: stats.rejected,
@@ -7164,6 +7343,9 @@
             imported: stats.imported,
             created: stats.created,
             updated: stats.updated,
+            materialized: stats.materialized,
+            supabaseOnly: stats.supabaseOnly,
+            materializationFailed: stats.materializationFailed,
             duplicated: stats.duplicated,
             failed: stats.failed,
             structuralErrors: stats.structuralErrors,
