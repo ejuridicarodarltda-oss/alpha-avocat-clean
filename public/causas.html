@@ -415,7 +415,7 @@
     }
 
     .causas-page.landing-mode .screen-grid{
-      display:none;
+      display:grid;
     }
 
     .causas-page .panel-card{
@@ -928,6 +928,22 @@
       border-radius:18px;
       background:rgba(255,255,255,.45);
       border:1px solid rgba(95,159,151,.26);
+    }
+
+    .causas-page .visibility-diagnostics{
+      margin-top:8px;
+      padding:10px 12px;
+      border-radius:12px;
+      border:1px dashed rgba(22,58,95,.28);
+      background:rgba(255,255,255,.35);
+      display:grid;
+      gap:6px;
+    }
+
+    .causas-page .visibility-diagnostics .diagnostic-actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
     }
 
     .causas-page .action-group{
@@ -1602,7 +1618,7 @@
     }
   </style>
 </head>
-<body class="causas-page landing-mode">
+  <body class="causas-page landing-mode">
   <header class="causas-topbar">
     <div class="causas-brand">
       <div class="causas-module-brand" aria-label="Marca institucional">Alpha Avocat</div>
@@ -1721,14 +1737,24 @@
             </div>
           </div>
 
-          <div class="filter-actions">
-          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
-          <span class="muted" id="countLabel">0 causas</span>
-        </div>
+	          <div class="filter-actions">
+	          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
+	          <span class="muted" id="countLabel">0 causas</span>
+	        </div>
 
-        <div class="list-wrap" id="casesList"></div>
-        </div>
-      </aside>
+          <div class="visibility-diagnostics" id="visibilityDiagnostics">
+            <div class="timeline-meta" id="diagSupabaseTotal">Total causas cargadas: 0</div>
+            <div class="timeline-meta" id="diagVisibleTotal">Total causas visibles tras filtros: 0</div>
+            <div class="timeline-meta" id="diagBatchApplied">Batch aplicado: —</div>
+            <div class="timeline-meta" id="diagAutoSelectedCase">Primera causa seleccionada automáticamente: —</div>
+            <div class="diagnostic-actions">
+              <button id="btnVerCausasLote" class="btn btn-primary" type="button" hidden>Ver causas del lote importado</button>
+            </div>
+          </div>
+
+	        <div class="list-wrap" id="casesList"></div>
+	        </div>
+	      </aside>
 
       <section class="detail-panel">
         <div class="detail-header">
@@ -2260,6 +2286,11 @@
         selectedBatchId: null,
         rowsByBatchId: {},
         loadingBatchRows: {},
+      },
+      visibilityDiagnostics: {
+        lastBatchId: null,
+        firstAutoSelectedCaseId: null,
+        importedCaseIds: [],
       },
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', importBatch: '', importStatus: '', lastImported: '', sortBy: 'updated'
@@ -4291,6 +4322,81 @@
       return true;
     }
 
+    function disableLandingMode(){
+      document.body.classList.remove('landing-mode');
+    }
+
+    function clearAllFilters(){
+      state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', importBatch:'', importStatus:'', lastImported:'', sortBy:'updated' };
+      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => {
+        const input = $(id);
+        if (input) input.value = '';
+      });
+      if ($('sortBy')) $('sortBy').value = 'updated';
+    }
+
+    function selectAndExpandCase(targetCaseId){
+      if (!targetCaseId) return null;
+      const caseId = String(targetCaseId);
+      const selected = state.caseMap.get(caseId);
+      if (!selected) return null;
+      state.selectedId = caseId;
+      const inferKardexLabel = (tribunal = '') => {
+        const lower = String(tribunal || '').toLowerCase();
+        if (lower.includes('civil')) return 'Causas Juzgados Civiles';
+        if (lower.includes('familia')) return 'Causas Juzgado de Familia';
+        if (lower.includes('trabajo') || lower.includes('laboral')) return 'Causas Juzgado del Trabajo';
+        if (lower.includes('cobranza')) return 'Causas Juzgado de Cobranza';
+        if (lower.includes('garant')) return 'Causas Juzgado de Garantía';
+        if (lower.includes('oral') && lower.includes('penal')) return 'Tribunal Oral en lo Penal';
+        if (lower.includes('polic') && lower.includes('local')) return 'Juzgado de Policía Local';
+        return 'Otros Tribunales';
+      };
+      const kardexLabel = inferKardexLabel(selected.tribunal);
+      state.openKardexByTribunal[kardexLabel] = true;
+      persistKardexExpandedState();
+      return selected;
+    }
+
+    async function refreshCasesAfterPjudImport({ batchId = null, preferredCaseIds = [], keepBatchFilter = false } = {}){
+      disableLandingMode();
+      await loadCases();
+      populateFilters();
+      clearAllFilters();
+      if (keepBatchFilter && batchId) {
+        state.filters.importBatch = String(batchId);
+        if ($('filterImportBatch')) $('filterImportBatch').value = String(batchId);
+      }
+      const visible = getVisibleCases();
+      const preferredSet = new Set((preferredCaseIds || []).filter(Boolean).map((id) => String(id)));
+      const autoSelected = visible.find((item) => preferredSet.has(String(item.id)))
+        || visible.find((item) => String(item.importBatchId || item.import_batch_id || '') === String(batchId || ''))
+        || visible[0]
+        || null;
+      if (autoSelected?.id) selectAndExpandCase(autoSelected.id);
+      state.visibilityDiagnostics.lastBatchId = batchId ? String(batchId) : null;
+      state.visibilityDiagnostics.firstAutoSelectedCaseId = autoSelected?.id ? String(autoSelected.id) : null;
+      state.visibilityDiagnostics.importedCaseIds = [...preferredSet];
+      renderAll();
+    }
+
+    function focusLastImportedBatch(){
+      const lastBatchId = state.visibilityDiagnostics.lastBatchId;
+      if (!lastBatchId) return;
+      disableLandingMode();
+      clearAllFilters();
+      state.filters.importBatch = String(lastBatchId);
+      if ($('filterImportBatch')) $('filterImportBatch').value = String(lastBatchId);
+      const visible = getVisibleCases();
+      const preferredSet = new Set((state.visibilityDiagnostics.importedCaseIds || []).map((id) => String(id)));
+      const autoSelected = visible.find((item) => preferredSet.has(String(item.id))) || visible[0] || null;
+      if (autoSelected?.id) {
+        selectAndExpandCase(autoSelected.id);
+        state.visibilityDiagnostics.firstAutoSelectedCaseId = String(autoSelected.id);
+      }
+      renderAll();
+    }
+
     function sortCases(cases){
       const list = [...cases];
       const sorter = state.filters.sortBy;
@@ -4353,8 +4459,24 @@
       `).join('');
     }
 
+    function renderVisibilityDiagnostics(list = []){
+      const allCases = getAllCases();
+      const selected = list.find((item) => item.id === state.selectedId) || list[0] || null;
+      const selectedLabel = selected
+        ? `${selected.caratula || 'Sin carátula'} (${selected.id})`
+        : '—';
+      const batchLabel = state.visibilityDiagnostics.lastBatchId || state.filters.importBatch || '—';
+      if ($('diagSupabaseTotal')) $('diagSupabaseTotal').textContent = `Total causas cargadas desde Supabase: ${allCases.length}`;
+      if ($('diagVisibleTotal')) $('diagVisibleTotal').textContent = `Total causas visibles tras filtros: ${list.length}`;
+      if ($('diagBatchApplied')) $('diagBatchApplied').textContent = `Batch ID aplicado: ${batchLabel}`;
+      if ($('diagAutoSelectedCase')) $('diagAutoSelectedCase').textContent = `Primera causa seleccionada automáticamente: ${selectedLabel}`;
+      const batchButton = $('btnVerCausasLote');
+      if (batchButton) batchButton.hidden = !state.visibilityDiagnostics.lastBatchId;
+    }
+
     function renderList(){
       const list = getVisibleCases();
+      renderVisibilityDiagnostics(list);
       $('countLabel').textContent = `${list.length} causa(s)`;
       if (!list.length) {
         $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
@@ -6030,9 +6152,7 @@
     }
 
     function resetFilters(){
-      state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', importBatch:'', importStatus:'', lastImported:'', sortBy:'updated' };
-      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => { $(id).value = ''; });
-      $('sortBy').value = 'updated';
+      clearAllFilters();
       renderAll();
     }
 
@@ -6551,6 +6671,7 @@
       let imported = 0;
       let duplicated = Math.max(0, Number(summary.rowsProcessed || 0) - Number(summary.consolidatedCount || 0));
       let failed = 0;
+      const affectedCaseIds = new Set();
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
         importBatchId: batch?.id || null,
@@ -6653,6 +6774,7 @@
           imported += 1;
           updated += 1;
           stageTrace.rowsUpdated += 1;
+          if (updatedRow?.id) affectedCaseIds.add(String(updatedRow.id));
           processedRows.push({
             pjudCaseKey: updatedRow.pjud_case_key,
             materia: rowPayload.pjud_materia,
@@ -6706,6 +6828,7 @@
               imported += 1;
               created += 1;
               stageTrace.rowsCreated += 1;
+              if (insertedRow?.id) affectedCaseIds.add(String(insertedRow.id));
               processedRows.push({
                 pjudCaseKey: insertedRow.pjud_case_key,
                 materia: rowPayload.pjud_materia,
@@ -6722,6 +6845,7 @@
             created += insertedRows?.length || 0;
             stageTrace.rowsCreated += insertedRows?.length || 0;
             (insertedRows || []).forEach((savedRow) => {
+              if (savedRow?.id) affectedCaseIds.add(String(savedRow.id));
               processedRows.push({
                 pjudCaseKey: savedRow.pjud_case_key,
                 status: 'created',
@@ -6800,12 +6924,14 @@
         causesConsolidated: imported,
       });
 
-      await loadCases();
-      populateFilters();
-      renderAll();
+      await refreshCasesAfterPjudImport({
+        batchId: batch?.id || null,
+        preferredCaseIds: [...affectedCaseIds],
+      });
       return {
         batch,
         summary,
+        affectedCaseIds: [...affectedCaseIds],
         stats: {
           imported,
           created,
@@ -6966,9 +7092,10 @@
         }));
         state.selectedId = duplicate.id;
         setMessage('importMsg', 'Causa existente actualizada con los últimos movimientos y datos estructurados del Poder Judicial.', 'ok');
-        await loadCases();
-        populateFilters();
-        renderAll();
+        await refreshCasesAfterPjudImport({
+          batchId: state.pendingPjudBatchId || null,
+          preferredCaseIds: [duplicate.id],
+        });
         return updated;
       }
 
@@ -6984,9 +7111,10 @@
       }
       state.selectedId = String(data[C.k_id]);
       setMessage('importMsg', 'Causa creada desde flujo judicial semiautomático y documentada con trazabilidad.', 'ok');
-      await loadCases();
-      populateFilters();
-      renderAll();
+      await refreshCasesAfterPjudImport({
+        batchId: state.pendingPjudBatchId || null,
+        preferredCaseIds: [String(data[C.k_id])],
+      });
       return state.caseMap.get(String(data[C.k_id])) || null;
     }
 
@@ -7066,6 +7194,7 @@
       let updated = 0;
       let failures = 0;
       let lastSelectedId = null;
+      const affectedCaseIds = new Set();
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
@@ -7083,6 +7212,7 @@
                 if (updateError) throw updateError;
                 updated += 1;
                 lastSelectedId = duplicate.id;
+                affectedCaseIds.add(String(duplicate.id));
               } else {
                 const { data } = await createImportedCaseFromData(importData, {
                   primaryClientName,
@@ -7091,6 +7221,7 @@
                 });
                 created += 1;
                 lastSelectedId = String(data[C.k_id]);
+                affectedCaseIds.add(String(data[C.k_id]));
               }
             } catch (error) {
               console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
@@ -7110,9 +7241,10 @@
         }
 
         if (lastSelectedId) state.selectedId = String(lastSelectedId);
-        await loadCases();
-        populateFilters();
-        renderAll();
+        await refreshCasesAfterPjudImport({
+          batchId: state.pendingPjudBatchId || null,
+          preferredCaseIds: [...affectedCaseIds],
+        });
         const uniqueCases = Number(items.length || 0);
         const completedCases = Number(created || 0) + Number(updated || 0);
         const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
@@ -7434,6 +7566,7 @@
       bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => setActiveTab('informacion'), { scope: 'quick-nav' });
+      bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
       diagnoseBranchButton('btnQuickProduction', 'produccion');
@@ -7784,6 +7917,7 @@
         document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
         return;
       }
+      disableLandingMode();
       initNonFatalPhase();
     }
 
