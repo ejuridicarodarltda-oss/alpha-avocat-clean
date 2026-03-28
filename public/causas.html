@@ -967,6 +967,24 @@
       gap:10px;
       align-content:start;
     }
+    .causas-page .detail-tab-panel{
+      display:grid;
+      gap:10px;
+      align-content:start;
+      position:relative;
+      z-index:0;
+      overflow:visible;
+      pointer-events:auto;
+    }
+    .causas-page .detail-tab-panel[hidden]{
+      display:none !important;
+      visibility:hidden;
+      opacity:0;
+      pointer-events:none;
+      z-index:-1;
+      height:0;
+      overflow:hidden;
+    }
 
     .causas-page .panel-card,
     .causas-page .detail-panel{
@@ -4165,16 +4183,28 @@
     }
 
     async function loadCases(){
-      const { data, error } = await supabase.from(T_CASES).select('*').order(C.k_created, { ascending:false });
+      const { data, error } = await supabase
+        .from(T_CASES)
+        .select('*')
+        .eq('owner_user_id', authenticatedUser.id)
+        .order(C.k_created, { ascending:false });
       if (error) throw buildLoadError('las causas registradas', error);
       const workspace = loadWorkspace();
       state.supabaseCases = data || [];
-      state.caseMap = new Map(state.supabaseCases.map(base => {
-        const merged = mergeCase(base, workspace[String(base[C.k_id])]);
-        return [String(base[C.k_id]), merged];
-      }));
+      state.caseMap = new Map(state.supabaseCases
+        .map((base) => {
+          const caseId = String(base[C.k_id] || '').trim();
+          if (!caseId) {
+            console.warn('[CAUSAS][LOAD] Se omitió una fila de cases sin ID persistido.', { base });
+            return null;
+          }
+          const merged = mergeCase(base, workspace[caseId]);
+          return [caseId, merged];
+        })
+        .filter(Boolean));
       if (!state.selectedId || !state.caseMap.has(state.selectedId)) {
-        state.selectedId = state.supabaseCases[0] ? String(state.supabaseCases[0][C.k_id]) : null;
+        const [firstCaseId] = state.caseMap.keys();
+        state.selectedId = firstCaseId || null;
       }
     }
 
@@ -4356,6 +4386,15 @@
       state.openKardexByTribunal[kardexLabel] = true;
       persistKardexExpandedState();
       return selected;
+    }
+
+    function resolveCaseId(value){
+      if (value == null) return null;
+      const raw = String(value).trim();
+      if (!raw) return null;
+      if (state.caseMap.has(raw)) return raw;
+      const fallback = getAllCases().find((item) => String(item?.id || '') === raw || String(item?.pjudCaseKey || '') === raw);
+      return fallback?.id ? String(fallback.id) : null;
     }
 
     async function refreshCasesAfterPjudImport({ batchId = null, preferredCaseIds = [], keepBatchFilter = false } = {}){
@@ -6168,7 +6207,8 @@
         state.rectificationOpen = false;
         state.rectificationValidation = null;
         $('causeRectificationPanel').hidden = true;
-        $('detailContent').innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
+        const detailContent = $('detailContent');
+        if (detailContent) detailContent.innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
         return;
       }
       if (!state.selectedAssociationClientId || !state.clients.some(client => String(client[C.c_id]) === String(state.selectedAssociationClientId))) {
@@ -6193,9 +6233,45 @@
         produccion: renderProduccionPillar,
       };
       const activeRenderer = renderers[state.activeTab] || renderInformationPillar;
-      $('detailContent').innerHTML = activeRenderer(cause) + renderCauseRectificationHistory(cause);
+      const detailContent = $('detailContent');
+      if (!detailContent) return;
+      const panelByTab = ensureDetailTabPanels(detailContent);
+      const activeTab = TAB_CONFIG.some(([id]) => id === state.activeTab) ? state.activeTab : 'informacion';
+      Object.entries(panelByTab).forEach(([tabId, panel]) => {
+        const isActive = tabId === activeTab;
+        panel.hidden = !isActive;
+        panel.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+      });
+      if (panelByTab[activeTab]) {
+        panelByTab[activeTab].innerHTML = activeRenderer(cause) + renderCauseRectificationHistory(cause);
+      }
+      Object.entries(panelByTab).forEach(([tabId, panel]) => {
+        if (tabId !== activeTab) panel.innerHTML = '';
+      });
       renderCauseRectificationPanel();
       refreshCauseMedia(cause);
+    }
+
+    function ensureDetailTabPanels(detailContent){
+      const knownPanels = TAB_CONFIG.map(([tabId]) => tabId).reduce((acc, tabId) => {
+        const selector = `[data-tab-panel="${tabId}"]`;
+        let panel = detailContent.querySelector(selector);
+        if (!panel) {
+          panel = document.createElement('section');
+          panel.className = 'detail-tab-panel';
+          panel.dataset.tabPanel = tabId;
+          panel.hidden = true;
+          panel.setAttribute('aria-hidden', 'true');
+          detailContent.appendChild(panel);
+        }
+        acc[tabId] = panel;
+        return acc;
+      }, {});
+      detailContent.querySelectorAll('[data-tab-panel]').forEach((panel) => {
+        const tabId = panel.dataset.tabPanel;
+        if (!knownPanels[tabId]) panel.remove();
+      });
+      return knownPanels;
     }
 
     function renderAll(){
@@ -7932,7 +8008,12 @@
         }
         const jump = event.target.closest('[data-jump]');
         if (jump) {
-          state.selectedId = jump.dataset.case;
+          const resolvedCaseId = resolveCaseId(jump.dataset.case);
+          if (!resolvedCaseId) {
+            setDetailStatus('No fue posible abrir la causa seleccionada: ID inválido o no persistido.', 'warn');
+            return;
+          }
+          state.selectedId = resolvedCaseId;
           setDetailStatus('', '');
           setActiveTab(jump.dataset.jump);
           renderAll();
@@ -7940,7 +8021,12 @@
         }
         const card = event.target.closest('[data-select]');
         if (card) {
-          state.selectedId = card.dataset.select;
+          const resolvedCaseId = resolveCaseId(card.dataset.select);
+          if (!resolvedCaseId) {
+            setDetailStatus('No fue posible abrir la causa seleccionada: ID inválido o no persistido.', 'warn');
+            return;
+          }
+          state.selectedId = resolvedCaseId;
           setDetailStatus('', '');
           renderAll();
         }
