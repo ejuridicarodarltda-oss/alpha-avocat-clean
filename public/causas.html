@@ -4380,9 +4380,53 @@
       renderAll();
     }
 
-    function focusLastImportedBatch(){
+    function clearResidualImportOverlays(){
+      const importModal = $('modalImportacion');
+      if (importModal) {
+        importModal.classList.remove('open');
+        importModal.setAttribute('aria-hidden', 'true');
+        importModal.removeAttribute('aria-busy');
+        importModal.removeAttribute('data-import-locked');
+      }
+      document.querySelectorAll('.modal.open').forEach((modalNode) => {
+        if (modalNode?.id === 'modalImportacion') return;
+        modalNode.classList.remove('open');
+        modalNode.setAttribute('aria-hidden', 'true');
+      });
+      document.querySelectorAll('.panel-quick-modal-overlay.is-open').forEach((overlayNode) => {
+        overlayNode.classList.remove('is-open');
+      });
+      document.body.classList.remove('modal-open', 'no-scroll');
+    }
+
+    function scrollToImportedCasesList(){
+      const list = $('casesList');
+      list?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function scrollToCauseDetailPanel(){
+      const detailPanel = document.querySelector('.detail-panel');
+      detailPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function resolveImportedCaseId(){
+      if (state.visibilityDiagnostics.firstAutoSelectedCaseId) {
+        return String(state.visibilityDiagnostics.firstAutoSelectedCaseId);
+      }
+      if ((state.visibilityDiagnostics.importedCaseIds || []).length) {
+        return String(state.visibilityDiagnostics.importedCaseIds[0]);
+      }
+      return null;
+    }
+
+    function focusLastImportedBatch({ closeImportModal = false } = {}){
       const lastBatchId = state.visibilityDiagnostics.lastBatchId;
       if (!lastBatchId) return;
+      if (closeImportModal) {
+        lockImportModalInteractions(false);
+        closeManagedModal('modalImportacion');
+        clearResidualImportOverlays();
+      }
       disableLandingMode();
       clearAllFilters();
       state.filters.importBatch = String(lastBatchId);
@@ -4395,6 +4439,45 @@
         state.visibilityDiagnostics.firstAutoSelectedCaseId = String(autoSelected.id);
       }
       renderAll();
+      scrollToImportedCasesList();
+    }
+
+    function selectExplorerNodeByMatcher(cause, matcher){
+      if (!cause || typeof matcher !== 'function') return null;
+      const explorer = getExplorerState(cause);
+      const model = explorer?.model;
+      if (!model?.nodes?.length) return null;
+      const targetNode = model.nodes.find((node) => matcher(node));
+      if (!targetNode) return null;
+      state.explorer.selectedNodeId = targetNode.id;
+      const expanded = new Set(state.explorer.expandedNodeIds || []);
+      if (['kardex','archivador','folder'].includes(targetNode.type)) expanded.add(targetNode.id);
+      let parentId = targetNode.parentId;
+      while (parentId && model.nodeMap?.[parentId]) {
+        expanded.add(parentId);
+        parentId = model.nodeMap[parentId].parentId;
+      }
+      state.explorer.expandedNodeIds = Array.from(expanded);
+      persistExplorerExpandedState();
+      return targetNode;
+    }
+
+    function closeImportModalAndOpenCase({ caseId = null, openImportedPjudFolder = false } = {}){
+      const targetCaseId = caseId ? String(caseId) : resolveImportedCaseId();
+      if (!targetCaseId) return false;
+      lockImportModalInteractions(false);
+      closeManagedModal('modalImportacion');
+      clearResidualImportOverlays();
+      if (!selectAndExpandCase(targetCaseId)) return false;
+      renderAll();
+      if (openImportedPjudFolder) {
+        setActiveTab('expedientes');
+        const currentCause = getCurrentCause();
+        selectExplorerNodeByMatcher(currentCause, (node) => isPjudImportedFolderNode(node));
+        renderCurrentTab();
+      }
+      scrollToCauseDetailPanel();
+      return true;
     }
 
     function sortCases(cases){
@@ -6404,6 +6487,8 @@
       warning = '',
       tone = 'ok',
     } = {}){
+      const firstImportedCaseId = resolveImportedCaseId();
+      const hasMaterializedOnlyUpdates = Number(materialized || 0) > 0 && Number(inserted || 0) === 0;
       const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
@@ -6416,7 +6501,13 @@
             <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Materializadas: ${escapeHtml(materialized)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
+            ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
             ${warning ? `<div class="timeline-meta"><strong>${escapeHtml(warning)}</strong></div>` : ''}
+            <div class="modal-actions" style="margin-top:12px;">
+              <button type="button" class="btn" data-import-summary-action="close-view-batch">Cerrar y ver causas del lote</button>
+              <button type="button" class="btn btn-primary" data-import-summary-action="close-open-first" ${firstImportedCaseId ? '' : 'disabled aria-disabled="true"'}>Cerrar y abrir primera causa materializada</button>
+              ${firstImportedCaseId ? '<button type="button" class="btn" data-import-summary-action="open-importadas">Abrir Importadas del Poder Judicial</button>' : ''}
+            </div>
           </div>
         </div>
       `;
@@ -7739,6 +7830,22 @@
         state.pendingBatchImports = [];
         renderBatchImportPreview([], null);
         setMessage('importMsg', '', '');
+      });
+      $('batchImportPreview')?.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-import-summary-action]');
+        if (!actionButton) return;
+        const action = actionButton.dataset.importSummaryAction;
+        if (action === 'close-view-batch') {
+          focusLastImportedBatch({ closeImportModal: true });
+          return;
+        }
+        if (action === 'close-open-first') {
+          closeImportModalAndOpenCase();
+          return;
+        }
+        if (action === 'open-importadas') {
+          closeImportModalAndOpenCase({ openImportedPjudFolder: true });
+        }
       });
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
       bindEvent('btnMonitoreo', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'topbar' });
