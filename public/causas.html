@@ -1148,6 +1148,11 @@
       padding:0;
     }
 
+    .causas-page .explorer-breadcrumb-link.active{
+      text-decoration:underline;
+      text-underline-offset:3px;
+    }
+
     .causas-page .explorer-shell{
       display:grid;
       grid-template-columns:minmax(260px, 320px) minmax(0, 1fr);
@@ -1305,6 +1310,11 @@
       border-color:var(--causas-active);
     }
 
+    .causas-page .explorer-card.active{
+      border-color:var(--causas-active);
+      box-shadow:0 0 0 2px rgba(22,58,95,.16), 0 12px 24px rgba(22,58,95,.12);
+    }
+
     .causas-page .explorer-card-icon{
       width:64px;
       height:64px;
@@ -1354,6 +1364,11 @@
 
     .causas-page .explorer-list-table tbody tr:hover{
       background:#eef9f6;
+    }
+
+    .causas-page .explorer-list-table tbody tr.active{
+      background:#e3f5f1;
+      box-shadow:inset 3px 0 0 var(--causas-active);
     }
 
     .causas-page .explorer-list-name{
@@ -3430,13 +3445,14 @@
 
     function renderExplorerItem(node){
       const isFolderLike = ['kardex','archivador','folder'].includes(node.type);
+      const isSelected = state.explorer.selectedNodeId === node.id;
       const meta = [
         node.extension ? `.${node.extension}` : explorerTypeLabel(node.type),
         node.updatedAt ? formatDate(node.updatedAt) : '',
         !isFolderLike ? formatExplorerSize(node.size) : `${node.children?.length || 0} elemento(s)`,
       ].filter(Boolean);
       return `
-        <article class="explorer-card ${isFolderLike ? 'folder' : 'file'} ${explorerVisualClass(node)}" data-explorer-node="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(node.name)}">
+        <article class="explorer-card ${isFolderLike ? 'folder' : 'file'} ${explorerVisualClass(node)} ${isSelected ? 'active' : ''}" data-explorer-node="${node.id}" tabindex="0" role="button" aria-label="${escapeHtml(node.name)}" ${isSelected ? 'aria-current="true"' : ''}>
           <div class="explorer-portada">${escapeHtml(explorerTypeLabel(node.type).toUpperCase())}</div>
           <div class="explorer-card-icon" aria-hidden="true">${node.thumbnailUrl && node.type === 'image'
             ? `<img src="${escapeHtml(node.thumbnailUrl)}" alt="">`
@@ -3452,8 +3468,9 @@
 
     function renderExplorerListRow(node){
       const kind = explorerTypeLabel(node.type);
+      const isSelected = state.explorer.selectedNodeId === node.id;
       return `
-        <tr data-explorer-node="${node.id}">
+        <tr data-explorer-node="${node.id}" class="${isSelected ? 'active' : ''}" ${isSelected ? 'aria-current="true"' : ''}>
           <td><span class="explorer-list-name"><span aria-hidden="true">${explorerNodeIcon(node.type)}</span>${escapeHtml(node.name)}</span></td>
           <td>${escapeHtml(kind)}</td>
           <td>${escapeHtml(node.updatedAt ? formatDate(node.updatedAt) : '—')}</td>
@@ -3467,6 +3484,8 @@
         return '<div class="helper-box">Selecciona un archivador, carpeta o archivo para revisar su contexto documental.</div>';
       }
       const isFile = !['kardex','archivador','folder'].includes(node.type);
+      const isPjudFolder = isPjudImportedFolderNode(node);
+      const isPjudFolderEmpty = isPjudFolder && (node.children?.length || 0) === 0;
       const breadcrumbs = (node.path || '').split(' / ').filter(Boolean).join(' / ');
       return `
         <div class="explorer-preview-card">
@@ -3476,7 +3495,7 @@
           </div>
           <div class="timeline-meta">${escapeHtml(breadcrumbs || `Cliente / ${cause.caratula || cause.rol || 'Causa'}`)}</div>
           <div class="micro-grid">
-            <div class="helper-box"><strong>Tamaño</strong><div>${escapeHtml(formatExplorerSize(node.size))}</div></div>
+            <div class="helper-box"><strong>${isFile ? 'Tamaño' : 'Contenido'}</strong><div>${escapeHtml(isFile ? formatExplorerSize(node.size) : `${node.children?.length || 0} elemento(s)`)}</div></div>
             <div class="helper-box"><strong>Actualización</strong><div>${escapeHtml(node.updatedAt ? formatDate(node.updatedAt) : 'No informada')}</div></div>
             <div class="helper-box"><strong>Extensión</strong><div>${escapeHtml(node.extension ? `.${node.extension}` : 'No informada')}</div></div>
             <div class="helper-box"><strong>Acción</strong><div>${isFile ? 'Abrir o descargar' : 'Explorar contenido'}</div></div>
@@ -3486,7 +3505,14 @@
               <button class="btn btn-primary" data-doc-action="open" data-doc-id="${node.documentId}">Abrir archivo</button>
               <button class="btn" data-doc-action="download" data-doc-id="${node.documentId}">Descargar</button>
             </div>
-          ` : '<div class="linked-note">Este contenedor permite navegar archivadores, carpetas, subcarpetas y archivos de la causa actual sin perder el contexto institucional.</div>'}
+          ` : `
+            <div class="linked-note">
+              ${isPjudFolder
+                ? 'Contenedor de documentos importados desde PJUD para esta causa. Aquí se mostrarán adjuntos y materializaciones vinculadas a la importación.'
+                : 'Este contenedor permite navegar archivadores, carpetas, subcarpetas y archivos de la causa actual sin perder el contexto institucional.'}
+            </div>
+            ${isPjudFolderEmpty ? '<div class="helper-box">No hay archivos en Importadas del Poder Judicial. Este espacio mostrará los documentos adjuntos o materializados desde la importación PJUD cuando existan.</div>' : ''}
+          `}
         </div>
       `;
     }
@@ -3503,19 +3529,26 @@
         return '<div class="explorer-state">Esta causa aún no contiene archivos en Expedientes Digitales.</div>';
       }
       const currentNode = explorer.currentNode || explorer.model.nodeMap[explorer.model.rootId];
+      const isPjudFolderSelected = isPjudImportedFolderNode(currentNode);
       const pairedFolders = explorer.items.length > 0 && explorer.items.every((item) => ['folder'].includes(item.type));
+      const pjudEmptyStateMessage = `
+        <div class="helper-box">
+          <strong>No hay archivos en Importadas del Poder Judicial.</strong>
+          <div class="timeline-meta">Este espacio mostrará los documentos adjuntos o materializados desde la importación PJUD cuando existan.</div>
+        </div>
+      `;
       const itemsMarkup = state.explorer.viewMode === 'list'
         ? `
           <div class="explorer-list-wrap">
             <table class="explorer-list-table">
               <thead><tr><th>Nombre</th><th>Tipo</th><th>Fecha</th><th>Tamaño</th></tr></thead>
-              <tbody>${explorer.items.map(renderExplorerListRow).join('') || '<tr><td colspan="4">No hay elementos visibles en este nivel.</td></tr>'}</tbody>
+              <tbody>${explorer.items.map(renderExplorerListRow).join('') || `<tr><td colspan="4">${isPjudFolderSelected ? 'No hay archivos en Importadas del Poder Judicial.' : 'No hay elementos visibles en este nivel.'}</td></tr>`}</tbody>
             </table>
           </div>
         `
         : `
           <div class="explorer-grid-view ${pairedFolders ? 'folders-paired' : ''}">
-            ${explorer.items.map(renderExplorerItem).join('') || '<div class="helper-box">No hay elementos visibles en este nivel del expediente digital.</div>'}
+            ${explorer.items.map(renderExplorerItem).join('') || (isPjudFolderSelected ? pjudEmptyStateMessage : '<div class="helper-box">No hay elementos visibles en este nivel del expediente digital.</div>')}
           </div>
         `;
 
@@ -3534,7 +3567,7 @@
           </div>
           <div class="explorer-breadcrumb">
             ${explorer.breadcrumbs.map((node, index) => `
-              <button class="explorer-breadcrumb-link" data-explorer-node="${node.id}">
+              <button class="explorer-breadcrumb-link ${index === explorer.breadcrumbs.length - 1 ? 'active' : ''}" data-explorer-node="${node.id}">
                 ${escapeHtml(node.name)}
               </button>${index < explorer.breadcrumbs.length - 1 ? '<span>/</span>' : ''}
             `).join('')}
@@ -3555,7 +3588,7 @@
             <section class="explorer-main">
               <div class="branch-head">
                 <div>
-                  <h5 class="segment-title">${escapeHtml(currentNode?.name || 'Expedientes digitales')}</h5>
+                  <h5 class="segment-title">${escapeHtml(currentNode?.name || 'Expedientes digitales')}${isPjudFolderSelected ? ' · Contenedor PJUD' : ''}</h5>
                   <p class="segment-copy">Vista principal del expediente con scroll, íconos por tipo y apertura por clic.</p>
                 </div>
                 <span class="badge badge-active">${explorer.items.length} elemento(s)</span>
@@ -4125,6 +4158,26 @@
 
     function normalizeImportComparisonKey(value = ''){
       return String(value || '').toLowerCase().replace(/[^a-z0-9]/g, '');
+    }
+
+    function isPjudImportedFolderNode(node){
+      if (!node || !['kardex','archivador','folder'].includes(node.type)) return false;
+      const pjudKeys = new Set([
+        'importadasdelpoderjudicial',
+        'importadospjud',
+        'importadosdepjud',
+      ]);
+      const candidates = [
+        node.name,
+        node.id,
+        node.path,
+        node.meta?.category,
+        node.meta?.origin,
+      ].map(normalizeImportComparisonKey).filter(Boolean);
+      return candidates.some((candidate) => {
+        if (pjudKeys.has(candidate)) return true;
+        return candidate.includes('importadasdelpoderjudicial') || candidate.includes('importadospjud') || candidate.includes('importadosdepjud');
+      });
     }
 
     function inferCaseImportStatus(caseItem){
@@ -7540,11 +7593,18 @@
               state.explorer.expandedNodeIds = Array.from(expanded);
               persistExplorerExpandedState();
               const normalizedNodeName = normalizeImportComparisonKey(node.name);
+              const normalizedNodeId = normalizeImportComparisonKey(node.id);
               const opensPjudImportedPanel = [
                 'contenidoimportadodelpjud',
+                'importadospjud',
                 'importadosdepjud',
                 'importadasdelpoderjudicial',
-              ].includes(normalizedNodeName);
+              ].includes(normalizedNodeName) || [
+                'contenidoimportadodelpjud',
+                'importadospjud',
+                'importadosdepjud',
+                'importadasdelpoderjudicial',
+              ].includes(normalizedNodeId) || isPjudImportedFolderNode(node);
               if (opensPjudImportedPanel) {
                 const panel = document.getElementById('pjudImportHistoryPanel');
                 panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
