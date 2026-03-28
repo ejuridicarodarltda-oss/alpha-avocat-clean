@@ -3591,6 +3591,8 @@
     }
 
     const OPTIONAL_PJUD_BATCH_COLUMNS = new Set([
+      'file_name',
+      'status',
       'discarded_count',
       'discarded_rows',
       'sheet_row_counts',
@@ -6416,10 +6418,27 @@
       state.pendingPjudBatchId = batch?.id || null;
       const discarded = [];
       const processedRows = [];
+      const stageTrace = {
+        rowsRead: Number(Object.values(summary.countsBySheet || {}).reduce((acc, value) => acc + Number(value || 0), 0)),
+        rowsValid: Number(summary.rowsProcessed || 0),
+        rowsUnique: Number(summary.consolidatedCount || 0),
+        rowsDiscardedStructural: Number(summary.invalidRows || 0),
+        rowsDiscardedValidation: 0,
+        rowsSentToCreate: 0,
+        rowsSentToUpdate: 0,
+        rowsCreated: 0,
+        rowsUpdated: 0,
+        rowsRejected: 0,
+        rejectedByReason: {},
+      };
+      const pushRejectedReason = (reason = 'Error desconocido') => {
+        const key = String(reason || 'Error desconocido');
+        stageTrace.rejectedByReason[key] = (stageTrace.rejectedByReason[key] || 0) + 1;
+      };
       let created = 0;
       let updated = 0;
       let imported = 0;
-      let duplicated = 0;
+      let duplicated = Math.max(0, Number(summary.rowsProcessed || 0) - Number(summary.consolidatedCount || 0));
       let failed = 0;
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
         primaryClientName: 'Cliente asociado por Mis Causas',
@@ -6444,87 +6463,155 @@
             import_chunks_total: totalChunks,
           },
         }));
-
-        const { data, error } = await supabase
-          .from(T_CASES)
-          .upsert(chunkPayload, { onConflict: 'owner_user_id,pjud_case_key' })
-          .select('id,pjud_case_key');
-        if (error) {
-          for (const rowPayload of chunkPayload) {
-            const { error: rowError } = await supabase
-              .from(T_CASES)
-              .upsert([rowPayload], { onConflict: 'owner_user_id,pjud_case_key' })
-              .select('id,pjud_case_key')
-              .single();
-            if (rowError) {
-              failed += 1;
-              discarded.push({
-                pjudCaseKey: rowPayload.pjud_case_key,
-                materia: rowPayload.pjud_materia,
-                sheetName: '',
-                rowNumber: null,
-                reason: buildLoadError('la fila de importación PJUD', rowError).message,
-              });
-              processedRows.push({
-                pjudCaseKey: rowPayload.pjud_case_key,
-                materia: rowPayload.pjud_materia,
-                rol: rowPayload[C.k_rol],
-                rit: rowPayload.pjud_rit,
-                ruc: rowPayload.pjud_ruc,
-                tribunal: rowPayload.pjud_tribunal,
-                representedClientName: rowPayload.pjud_represented_client,
-                reason: buildLoadError('la fila de importación PJUD', rowError).message,
-                status: 'error',
-              });
-              continue;
-            }
-            imported += 1;
-            if (existingKeys.has(rowPayload.pjud_case_key)) {
-              updated += 1;
-              processedRows.push({
-                pjudCaseKey: rowPayload.pjud_case_key,
-                materia: rowPayload.pjud_materia,
-                rol: rowPayload[C.k_rol],
-                rit: rowPayload.pjud_rit,
-                ruc: rowPayload.pjud_ruc,
-                tribunal: rowPayload.pjud_tribunal,
-                representedClientName: rowPayload.pjud_represented_client,
-                status: 'updated',
-              });
-            } else {
-              created += 1;
-              processedRows.push({
-                pjudCaseKey: rowPayload.pjud_case_key,
-                materia: rowPayload.pjud_materia,
-                rol: rowPayload[C.k_rol],
-                rit: rowPayload.pjud_rit,
-                ruc: rowPayload.pjud_ruc,
-                tribunal: rowPayload.pjud_tribunal,
-                representedClientName: rowPayload.pjud_represented_client,
-                status: 'created',
-              });
-            }
+        const rowsWithKey = [];
+        for (const rowPayload of chunkPayload) {
+          if (!rowPayload.pjud_case_key) {
+            const reason = 'Fila sin pjud_case_key consolidada desde Excel; no es posible crear/actualizar sin clave única.';
+            failed += 1;
+            stageTrace.rowsRejected += 1;
+            stageTrace.rowsDiscardedValidation += 1;
+            pushRejectedReason(reason);
+            discarded.push({
+              pjudCaseKey: null,
+              materia: rowPayload.pjud_materia,
+              sheetName: '',
+              rowNumber: null,
+              reason,
+            });
+            processedRows.push({
+              pjudCaseKey: null,
+              materia: rowPayload.pjud_materia,
+              rol: rowPayload[C.k_rol],
+              rit: rowPayload.pjud_rit,
+              ruc: rowPayload.pjud_ruc,
+              tribunal: rowPayload.pjud_tribunal,
+              representedClientName: rowPayload.pjud_represented_client,
+              reason,
+              status: 'error',
+            });
+            continue;
           }
-        } else {
-          imported += data?.length || 0;
-          (data || []).forEach((savedRow) => {
-            if (existingKeys.has(savedRow.pjud_case_key)) {
-              updated += 1;
-              processedRows.push({
-                pjudCaseKey: savedRow.pjud_case_key,
-                status: 'updated',
-              });
-            } else {
-              created += 1;
-              processedRows.push({
-                pjudCaseKey: savedRow.pjud_case_key,
-                status: 'created',
-              });
-            }
+          rowsWithKey.push(rowPayload);
+        }
+        const rowsToUpdate = rowsWithKey.filter((row) => existingKeys.has(row.pjud_case_key));
+        const rowsToCreate = rowsWithKey.filter((row) => !existingKeys.has(row.pjud_case_key));
+        stageTrace.rowsSentToUpdate += rowsToUpdate.length;
+        stageTrace.rowsSentToCreate += rowsToCreate.length;
+
+        for (const rowPayload of rowsToUpdate) {
+          const { data: updatedRow, error: updateError } = await supabase
+            .from(T_CASES)
+            .update(rowPayload)
+            .eq('owner_user_id', authenticatedUser.id)
+            .eq('pjud_case_key', rowPayload.pjud_case_key)
+            .select('id,pjud_case_key')
+            .maybeSingle();
+          if (updateError || !updatedRow) {
+            const normalizedReason = buildLoadError('la actualización de la causa importada PJUD', updateError || new Error('No se encontró fila existente para actualizar')).message;
+            failed += 1;
+            stageTrace.rowsRejected += 1;
+            stageTrace.rowsDiscardedValidation += 1;
+            pushRejectedReason(normalizedReason);
+            discarded.push({
+              pjudCaseKey: rowPayload.pjud_case_key,
+              materia: rowPayload.pjud_materia,
+              sheetName: '',
+              rowNumber: null,
+              reason: normalizedReason,
+            });
+            processedRows.push({
+              pjudCaseKey: rowPayload.pjud_case_key,
+              materia: rowPayload.pjud_materia,
+              rol: rowPayload[C.k_rol],
+              rit: rowPayload.pjud_rit,
+              ruc: rowPayload.pjud_ruc,
+              tribunal: rowPayload.pjud_tribunal,
+              representedClientName: rowPayload.pjud_represented_client,
+              reason: normalizedReason,
+              status: 'error',
+            });
+            continue;
+          }
+          imported += 1;
+          updated += 1;
+          stageTrace.rowsUpdated += 1;
+          processedRows.push({
+            pjudCaseKey: updatedRow.pjud_case_key,
+            materia: rowPayload.pjud_materia,
+            rol: rowPayload[C.k_rol],
+            rit: rowPayload.pjud_rit,
+            ruc: rowPayload.pjud_ruc,
+            tribunal: rowPayload.pjud_tribunal,
+            representedClientName: rowPayload.pjud_represented_client,
+            status: 'updated',
           });
         }
+
+        if (rowsToCreate.length) {
+          const { data: insertedRows, error: insertError } = await supabase
+            .from(T_CASES)
+            .insert(rowsToCreate)
+            .select('id,pjud_case_key');
+          if (insertError) {
+            for (const rowPayload of rowsToCreate) {
+              const { data: insertedRow, error: rowInsertError } = await supabase
+                .from(T_CASES)
+                .insert(rowPayload)
+                .select('id,pjud_case_key')
+                .single();
+              if (rowInsertError || !insertedRow) {
+                const normalizedReason = buildLoadError('la creación de la causa importada PJUD', rowInsertError || new Error('No fue posible crear la causa')).message;
+                failed += 1;
+                stageTrace.rowsRejected += 1;
+                stageTrace.rowsDiscardedValidation += 1;
+                pushRejectedReason(normalizedReason);
+                discarded.push({
+                  pjudCaseKey: rowPayload.pjud_case_key,
+                  materia: rowPayload.pjud_materia,
+                  sheetName: '',
+                  rowNumber: null,
+                  reason: normalizedReason,
+                });
+                processedRows.push({
+                  pjudCaseKey: rowPayload.pjud_case_key,
+                  materia: rowPayload.pjud_materia,
+                  rol: rowPayload[C.k_rol],
+                  rit: rowPayload.pjud_rit,
+                  ruc: rowPayload.pjud_ruc,
+                  tribunal: rowPayload.pjud_tribunal,
+                  representedClientName: rowPayload.pjud_represented_client,
+                  reason: normalizedReason,
+                  status: 'error',
+                });
+                continue;
+              }
+              imported += 1;
+              created += 1;
+              stageTrace.rowsCreated += 1;
+              processedRows.push({
+                pjudCaseKey: insertedRow.pjud_case_key,
+                materia: rowPayload.pjud_materia,
+                rol: rowPayload[C.k_rol],
+                rit: rowPayload.pjud_rit,
+                ruc: rowPayload.pjud_ruc,
+                tribunal: rowPayload.pjud_tribunal,
+                representedClientName: rowPayload.pjud_represented_client,
+                status: 'created',
+              });
+            }
+          } else {
+            imported += insertedRows?.length || 0;
+            created += insertedRows?.length || 0;
+            stageTrace.rowsCreated += insertedRows?.length || 0;
+            (insertedRows || []).forEach((savedRow) => {
+              processedRows.push({
+                pjudCaseKey: savedRow.pjud_case_key,
+                status: 'created',
+              });
+            });
+          }
+        }
       }
-      duplicated = Math.max(0, updated);
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
         materia: row.sheetName || 'Sin materia',
@@ -6580,6 +6667,10 @@
         duplicates: duplicated,
         failed,
         discarded: discardedRows.length,
+        stageTrace: {
+          ...stageTrace,
+          rowsRejected: failed + invalidRows.length,
+        },
         errorSummary: discardedRows.slice(0, 25).map((item) => ({
           caseKey: item.pjudCaseKey || null,
           rowNumber: item.rowNumber || null,
@@ -6603,8 +6694,11 @@
           updated,
           duplicated,
           failed,
+          structuralErrors: invalidRows.length,
+          rejected: failed + invalidRows.length,
           discarded: discardedRows.length,
           discardedRows: discardedRows.slice(0, 25),
+          stageTrace,
         },
       };
     }
@@ -6787,7 +6881,7 @@
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const batchDescriptor = batch?.id ? `Batch ${batch.id}` : 'sin registro de batch (modo tolerante)';
-          setMessage('importMsg', `Se procesaron ${summary?.rowsProcessed || stats.imported + stats.discarded} causas/fila(s): ${stats.created} nuevas, ${stats.updated} actualizadas, ${stats.duplicated} duplicadas, ${stats.failed + stats.discarded} con error. (${batchDescriptor}).`, (stats.failed || stats.discarded) ? 'warn' : 'ok');
+          setMessage('importMsg', `Se procesaron ${summary?.rowsProcessed || stats.imported + stats.discarded} causas/fila(s): ${stats.created} nuevas, ${stats.updated} actualizadas, ${stats.duplicated} duplicadas, ${stats.rejected} con error. (${batchDescriptor}).`, (stats.rejected || stats.discarded) ? 'warn' : 'ok');
           if (!stats.discarded) closeManagedModal('modalImportacion');
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
@@ -6797,8 +6891,11 @@
             updated: stats.updated,
             duplicated: stats.duplicated,
             failed: stats.failed,
+            structuralErrors: stats.structuralErrors,
+            rejected: stats.rejected,
             discarded: stats.discarded,
             discardedRows: stats.discardedRows,
+            traceability: stats.stageTrace,
           });
           await loadPjudImportHistory(true);
           return;
