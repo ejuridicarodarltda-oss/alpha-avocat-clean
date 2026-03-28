@@ -1971,7 +1971,6 @@
 
         <div class="modal-actions">
           <button type="button" id="btnAnalizarLoteImportacion" class="btn">Analizar lote PJUD</button>
-          <button type="button" id="btnActualizarLoteImportacion" class="btn">Actualizar lote PJUD</button>
           <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Importar causas del lote</button>
         </div>
 
@@ -7222,7 +7221,6 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
-      bindEvent('btnActualizarLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
       bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
       $('batch_excel_file')?.addEventListener('change', () => {
         state.pendingPjudWorkbook = null;
