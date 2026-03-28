@@ -2221,6 +2221,7 @@
       pendingBatchImports: [],
       pendingPjudWorkbook: null,
       pendingPjudBatchId: null,
+      importModalLocked: false,
       importTargetCaseId: null,
       currentDocumentId: null,
       currentDocumentContainer: 'asociados',
@@ -3262,8 +3263,22 @@
     function closeManagedModal(id){
       const target = $(id);
       if (!target) return;
+      if (id === 'modalImportacion' && state.importModalLocked) return;
       target.classList.remove('open');
       target.setAttribute('aria-hidden', 'true');
+    }
+
+    function lockImportModalInteractions(isLocked){
+      state.importModalLocked = Boolean(isLocked);
+      const modalNode = $('modalImportacion');
+      if (!modalNode) return;
+      modalNode.setAttribute('data-import-locked', state.importModalLocked ? '1' : '0');
+      modalNode.setAttribute('aria-busy', state.importModalLocked ? 'true' : 'false');
+      modalNode.querySelectorAll('[data-close]').forEach((button) => {
+        button.disabled = state.importModalLocked;
+        button.setAttribute('aria-disabled', state.importModalLocked ? 'true' : 'false');
+        button.title = state.importModalLocked ? 'Importación en curso. Espera al resumen final para cerrar manualmente.' : '';
+      });
     }
 
     function getContainerLabel(containerId){
@@ -6151,7 +6166,7 @@
         preview.innerHTML = 'Aún no se ha analizado un lote de causas judiciales.';
         return;
       }
-      if (!items.length) {
+      if (!items.length && !Number(summary?.consolidatedCount || 0)) {
         preview.innerHTML = 'No se detectaron causas válidas para importar. Revisa si el archivo está vacío o tiene un problema estructural real.';
         return;
       }
@@ -6184,6 +6199,48 @@
               <div class="timeline-meta">Tribunal: ${escapeHtml(item.tribunal || item.corte || item.basic?.tribunal || 'Pendiente')} · Estado: ${escapeHtml(item.estadoProcesal || item.estadoCausa || item.basic?.estadoProcesal || 'Pendiente')} · Consolidada desde ${escapeHtml(item.consolidatedFrom || 1)} fila(s)</div>
             </div>
           `).join('')}
+        </div>
+      `;
+    }
+
+    function renderImportProgressPreview({ chunkNumber = 0, totalChunks = 0, processed = 0, totalItems = 0, batchId = null } = {}){
+      const preview = $('batchImportPreview');
+      if (!preview) return;
+      preview.innerHTML = `
+        <div class="selection-grid">
+          <div class="selection-card">
+            <strong>Importando lote ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}...</strong>
+            <div class="case-meta">Progreso: ${escapeHtml(processed || 0)}/${escapeHtml(totalItems || 0)} causas procesadas.</div>
+            <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
+          </div>
+        </div>
+      `;
+    }
+
+    function renderImportFinalSummary({
+      rowsAnalyzed = 0,
+      uniqueCases = 0,
+      duplicatedInternal = 0,
+      inserted = 0,
+      updated = 0,
+      errors = 0,
+      batchId = null,
+      warning = '',
+      tone = 'ok',
+    } = {}){
+      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      setMessage('importMsg', summaryText, warning ? 'warn' : tone);
+      const preview = $('batchImportPreview');
+      if (!preview) return;
+      preview.innerHTML = `
+        <div class="selection-grid">
+          <div class="selection-card">
+            <strong>Resumen final importación PJUD</strong>
+            <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
+            <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Errores: ${escapeHtml(errors)}</div>
+            <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
+            ${warning ? `<div class="timeline-meta"><strong>${escapeHtml(warning)}</strong></div>` : ''}
+          </div>
         </div>
       `;
     }
@@ -6455,6 +6512,13 @@
           : { data: [] };
         const existingKeys = new Set((existingRows || []).map((row) => row.pjud_case_key));
         setMessage('importMsg', `Importando lote PJUD ${chunkNumber}/${totalChunks}...`, 'ok');
+        renderImportProgressPreview({
+          chunkNumber,
+          totalChunks,
+          processed: Math.min(index + PJUD_IMPORT_CHUNK_SIZE, casePayloads.length),
+          totalItems: casePayloads.length,
+          batchId: batch?.id || null,
+        });
         const chunkPayload = slice.map((row) => ({
           ...row,
           pjud_traceability: {
@@ -6763,6 +6827,7 @@
       state.pendingBatchImports = [];
       state.pendingPjudWorkbook = null;
       state.pendingPjudBatchId = null;
+      lockImportModalInteractions(false);
       state.importTargetCaseId = null;
       renderImportPreview(null);
       renderBatchImportPreview([], null);
@@ -6851,7 +6916,6 @@
         await loadCases();
         populateFilters();
         renderAll();
-        closeManagedModal('modalImportacion');
         return updated;
       }
 
@@ -6870,11 +6934,11 @@
       await loadCases();
       populateFilters();
       renderAll();
-      closeManagedModal('modalImportacion');
       return state.caseMap.get(String(data[C.k_id])) || null;
     }
 
     async function transferBatchImport(){
+      lockImportModalInteractions(true);
       if (!state.pendingBatchImports.length && !state.pendingPjudWorkbook) {
         await analyzeBatchImport();
       }
@@ -6882,13 +6946,39 @@
       if (excelFile) {
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
-          const batchDescriptor = batch?.id ? `Batch ${batch.id}` : 'sin registro de batch (modo tolerante)';
           const rowsAnalyzed = Number(summary?.rowsProcessed || 0);
           const uniqueCases = Number(summary?.consolidatedCount || 0);
-          setMessage('importMsg', `Importación PJUD completada: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${stats.duplicated}, insertadas ${stats.created}, actualizadas ${stats.updated}, errores ${stats.rejected}. (${batchDescriptor}).`, (stats.rejected || stats.discarded) ? 'warn' : 'ok');
-          if (!stats.discarded) closeManagedModal('modalImportacion');
+          const completedCases = Number(stats.created || 0) + Number(stats.updated || 0);
+          const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
+          const warning = suspiciousLow
+            ? 'La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.'
+            : '';
+          renderImportFinalSummary({
+            rowsAnalyzed,
+            uniqueCases,
+            duplicatedInternal: Number(stats.duplicated || 0),
+            inserted: Number(stats.created || 0),
+            updated: Number(stats.updated || 0),
+            errors: Number(stats.rejected || 0),
+            batchId: batch?.id || null,
+            warning,
+            tone: (stats.rejected || stats.discarded) ? 'warn' : 'ok',
+          });
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
+            totalChunks: Math.max(1, Math.ceil(uniqueCases / PJUD_IMPORT_CHUNK_SIZE)),
+            summary: {
+              rowsProcessed: summary?.rowsProcessed || 0,
+              consolidatedCount: summary?.consolidatedCount || 0,
+            },
+            stats: {
+              imported: stats.imported,
+              created: stats.created,
+              updated: stats.updated,
+              duplicated: stats.duplicated,
+              failed: stats.failed,
+              rejected: stats.rejected,
+            },
             fileName: summary.fileName,
             imported: stats.imported,
             created: stats.created,
@@ -6908,55 +6998,110 @@
           const normalizedError = buildPjudInfrastructureError(error) || error;
           setMessage('importMsg', `No fue posible importar el lote PJUD: ${buildLoadError('la importación PJUD', normalizedError).message}`, 'error');
           return;
+        } finally {
+          lockImportModalInteractions(false);
         }
       }
 
       const items = state.pendingBatchImports || [];
-      if (!items.length) return;
+      if (!items.length) {
+        lockImportModalInteractions(false);
+        return;
+      }
 
       let created = 0;
       let updated = 0;
       let failures = 0;
       let lastSelectedId = null;
+      const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
+      try {
+        for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
+          const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
+          const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
+          for (const importData of slice) {
+            const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
+            const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
+            const duplicate = findDuplicateCase(getAllCases(), importData);
 
-      for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
-        const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
-        for (const importData of slice) {
-          const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
-          const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
-          const duplicate = findDuplicateCase(getAllCases(), importData);
-
-          try {
-            if (duplicate) {
-              const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
-              const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
-              if (updateError) throw updateError;
-              updated += 1;
-              lastSelectedId = duplicate.id;
-            } else {
-              const { data } = await createImportedCaseFromData(importData, {
-                primaryClientName,
-                selectedClientParties,
-                skipWorkspace: true,
-              });
-              created += 1;
-              lastSelectedId = String(data[C.k_id]);
+            try {
+              if (duplicate) {
+                const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
+                const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
+                if (updateError) throw updateError;
+                updated += 1;
+                lastSelectedId = duplicate.id;
+              } else {
+                const { data } = await createImportedCaseFromData(importData, {
+                  primaryClientName,
+                  selectedClientParties,
+                  skipWorkspace: true,
+                });
+                created += 1;
+                lastSelectedId = String(data[C.k_id]);
+              }
+            } catch (error) {
+              console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
+              failures += 1;
             }
-          } catch (error) {
-            console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
-            failures += 1;
           }
+          await loadCases();
+          const processed = Math.min(index + PJUD_IMPORT_CHUNK_SIZE, items.length);
+          setMessage('importMsg', `Importando lote ${chunkNumber}/${totalChunks}... (${processed}/${items.length}).`, 'ok');
+          renderImportProgressPreview({
+            chunkNumber,
+            totalChunks,
+            processed,
+            totalItems: items.length,
+            batchId: state.pendingPjudBatchId || null,
+          });
         }
-        await loadCases();
-        setMessage('importMsg', `Transferencia masiva en progreso (${Math.min(index + PJUD_IMPORT_CHUNK_SIZE, items.length)}/${items.length}).`, 'ok');
-      }
 
-      if (lastSelectedId) state.selectedId = String(lastSelectedId);
-      await loadCases();
-      populateFilters();
-      renderAll();
-      setMessage('importMsg', `Transferencia masiva finalizada. Creadas: ${created}. Actualizadas: ${updated}. Errores: ${failures}.`, failures ? 'warn' : 'ok');
-      if (!failures) closeManagedModal('modalImportacion');
+        if (lastSelectedId) state.selectedId = String(lastSelectedId);
+        await loadCases();
+        populateFilters();
+        renderAll();
+        const uniqueCases = Number(items.length || 0);
+        const completedCases = Number(created || 0) + Number(updated || 0);
+        const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
+        const warning = suspiciousLow
+          ? 'La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.'
+          : '';
+        renderImportFinalSummary({
+          rowsAnalyzed: uniqueCases,
+          uniqueCases,
+          duplicatedInternal: 0,
+          inserted: created,
+          updated,
+          errors: failures,
+          batchId: state.pendingPjudBatchId || null,
+          warning,
+          tone: failures ? 'warn' : 'ok',
+        });
+        console.info('[Alpha Avocat][batch-import] Resultado importación manual.', {
+          batchId: state.pendingPjudBatchId || null,
+          totalChunks,
+          summary: {
+            rowsProcessed: uniqueCases,
+            consolidatedCount: uniqueCases,
+          },
+          stats: {
+            imported: completedCases,
+            created,
+            updated,
+            duplicated: 0,
+            failed: failures,
+            rejected: failures,
+          },
+          imported: completedCases,
+          created,
+          updated,
+          duplicated: 0,
+          failed: failures,
+          rejected: failures,
+        });
+      } finally {
+        lockImportModalInteractions(false);
+      }
     }
 
     function openSyncModal(){
