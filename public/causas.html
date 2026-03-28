@@ -7293,7 +7293,13 @@
               expanded.add(node.id);
               state.explorer.expandedNodeIds = Array.from(expanded);
               persistExplorerExpandedState();
-              if (normalizeImportComparisonKey(node.name) === 'contenidoimportadodelpjud' || normalizeImportComparisonKey(node.name) === 'importadosdepjud') {
+              const normalizedNodeName = normalizeImportComparisonKey(node.name);
+              const opensPjudImportedPanel = [
+                'contenidoimportadodelpjud',
+                'importadosdepjud',
+                'importadasdelpoderjudicial',
+              ].includes(normalizedNodeName);
+              if (opensPjudImportedPanel) {
                 const panel = document.getElementById('pjudImportHistoryPanel');
                 panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
                 loadPjudImportHistory();
