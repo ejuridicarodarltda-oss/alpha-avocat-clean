@@ -2052,6 +2052,32 @@
 
       <form id="formImportacion" class="form">
         <div class="helper-box">
+          <strong>Arquitectura obligatoria del módulo CAUSAS</strong>
+          <div class="timeline-meta"><strong>Flujo 1:</strong> Excel local = estructura base (causas, metadatos, archivadores y carpetas).</div>
+          <div class="timeline-meta"><strong>Flujo 2:</strong> PJUD/OJV = contenido real del expediente (ebook, resoluciones, actuaciones y documentos).</div>
+        </div>
+
+        <div class="selection-grid">
+          <div class="selection-card">
+            <strong>Flujo 1 · Importación estructural</strong>
+            <div class="timeline-meta">Usa solo Excel local para crear y ordenar la estructura inicial de Expedientes Digitales.</div>
+            <div class="modal-actions" style="margin-top:10px;">
+              <button type="button" id="btnImportarExcelLocal" class="btn">Importar desde Excel local</button>
+            </div>
+          </div>
+          <div class="selection-card">
+            <strong>Flujo 2 · Conexión real PJUD</strong>
+            <div class="timeline-meta">Conecta con la causa real para abrir PJUD y poblar contenido judicial real en la carpeta correcta.</div>
+            <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+              <button type="button" id="btnConectarPjud" class="btn">Conectar con PJUD</button>
+              <button type="button" id="btnAbrirCausaPjud" class="btn">Abrir causa en PJUD</button>
+              <button type="button" id="btnDescargarContenidoPjud" class="btn">Descargar contenido del expediente</button>
+              <button type="button" id="btnVincularContenidoPjud" class="btn btn-primary">Vincular contenido descargado a Expedientes Digitales</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="helper-box">
           <strong>Importación masiva desde Poder Judicial / Mis Causas</strong>
           <div class="timeline-meta">Carga el Excel oficial exportado desde Mis Causas o, si necesitas un respaldo manual, pega un consolidado tabular. Cuando el origen es el Excel oficial del usuario autenticado, Alpha Avocat lo tratará como fuente confiable y no filtrará por nombre en caratulado, demandante, demandado ni institución.</div>
         </div>
@@ -6630,6 +6656,199 @@
       }
     }
 
+    function getPjudConnectionPayload(){
+      const payload = {
+        url: $('import_url')?.value?.trim() || '',
+        rol: $('import_rol')?.value?.trim() || '',
+        rit: $('import_rit')?.value?.trim() || '',
+        tribunal: $('import_tribunal')?.value?.trim() || '',
+        rawText: $('import_raw')?.value || '',
+      };
+      const hasReference = Boolean(payload.url || payload.rol || payload.rit || payload.tribunal || payload.rawText.trim());
+      return { payload, hasReference };
+    }
+
+    function buildPjudPublicSearchUrl({ rol = '', rit = '', tribunal = '' } = {}){
+      const base = 'https://oficinajudicialvirtual.pjud.cl/home/index.php';
+      const params = new URLSearchParams();
+      if (rol) params.set('rol', rol);
+      if (rit) params.set('rit', rit);
+      if (tribunal) params.set('tribunal', tribunal);
+      const query = params.toString();
+      return query ? `${base}?${query}` : base;
+    }
+
+    async function connectWithPjud(){
+      const { hasReference } = getPjudConnectionPayload();
+      if (!hasReference) {
+        setMessage('importMsg', 'Debes ingresar URL, Rol/RIT, tribunal o texto judicial antes de conectar con PJUD.', 'warn');
+        return null;
+      }
+      const importData = analyzeImport();
+      if (!importData) return null;
+      const identity = [
+        importData.basic?.rol ? `Rol ${importData.basic.rol}` : '',
+        importData.basic?.rit ? `RIT ${importData.basic.rit}` : '',
+        importData.basic?.ruc ? `RUC ${importData.basic.ruc}` : '',
+        importData.basic?.tribunal ? `Tribunal ${importData.basic.tribunal}` : '',
+      ].filter(Boolean).join(' · ');
+      setMessage('importMsg', `Conexión PJUD preparada. Identidad judicial detectada: ${identity || 'sin identificador suficiente'}. Ahora puedes abrir PJUD, descargar y vincular contenido real.`, 'ok');
+      return importData;
+    }
+
+    async function openCauseInPjudFromImport(){
+      const importData = state.pendingImport || await connectWithPjud();
+      if (!importData) return false;
+      const current = getCurrentCause();
+      const pseudoCause = {
+        ...current,
+        poderJudicial: {
+          ...(current?.poderJudicial || {}),
+          link: importData.sourceUrl || current?.poderJudicial?.link || buildPjudPublicSearchUrl({
+            rol: importData.basic?.rol || '',
+            rit: importData.basic?.rit || '',
+            tribunal: importData.basic?.tribunal || '',
+          }),
+        },
+        tribunalData: {
+          ...(current?.tribunalData || {}),
+          poderJudicial: importData.sourceUrl || current?.tribunalData?.poderJudicial || '',
+        },
+      };
+      const popup = openExternalPopup('pjud', 'Abriendo la causa o búsqueda oficial en PJUD/OJV con la referencia detectada.');
+      if (!popup) {
+        setMessage('importMsg', 'El navegador bloqueó la ventana emergente. Habilita pop-ups para abrir PJUD.', 'error');
+        return false;
+      }
+      return navigateToOfficialSite({
+        scope: 'pjud',
+        cause: pseudoCause,
+        popup,
+        requestedBy: 'import-flow:pjud',
+      });
+    }
+
+    function blobToDataUrl(blob){
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = () => reject(reader.error || new Error('No fue posible leer el blob descargado.'));
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    async function downloadPjudContentForCurrentCause(){
+      const current = getCurrentCause();
+      if (!current) {
+        setMessage('importMsg', 'Primero selecciona o crea una causa para recibir el contenido real del expediente.', 'warn');
+        return;
+      }
+      const importData = state.pendingImport || await connectWithPjud();
+      if (!importData) return;
+
+      const candidates = [...(importData.documents || [])]
+        .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
+        .slice(0, 20);
+      if (!candidates.length) {
+        setMessage('importMsg', 'No se detectaron URLs de documentos PJUD descargables automáticamente. Usa “Abrir causa en PJUD” y luego vincula archivos descargados manualmente.', 'warn');
+        return;
+      }
+
+      const linkedDocs = [];
+      const failedDocs = [];
+      for (const doc of candidates) {
+        const sourceUrl = normalizeDownloadUrl(doc.sourceUrl);
+        try {
+          const response = await fetch(sourceUrl, {
+            method: 'GET',
+            credentials: 'include',
+          });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          if (!blob.size) throw new Error('Respuesta vacía');
+          const content = await blobToDataUrl(blob);
+          linkedDocs.push({
+            name: doc.name || `documento-pjud-${Date.now()}.pdf`,
+            category: doc.category || 'Importadas del Poder Judicial',
+            destinationContainer: 'importadosPjud',
+            observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
+            origin: 'Poder Judicial (descarga directa)',
+            sourceUrl,
+            sourcePageUrl: doc.sourcePageUrl || importData.sourceUrl || '',
+            destinationModule: 'Causas',
+            caseId: current.id,
+            linkedClient: current.cliente,
+            content,
+          });
+        } catch (error) {
+          failedDocs.push({
+            name: doc.name || 'Documento PJUD',
+            sourceUrl,
+            error: error?.message || 'Error de descarga',
+          });
+        }
+      }
+
+      if (linkedDocs.length) {
+        persistCurrentCause((entry) => {
+          let next = entry;
+          linkedDocs.forEach((doc) => {
+            next = upsertDocument(next, doc);
+          });
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+      }
+
+      const msg = `Descarga PJUD finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/session.`;
+      setMessage('importMsg', msg, linkedDocs.length ? (failedDocs.length ? 'warn' : 'ok') : 'warn');
+      registerJudicialTrace({
+        scope: 'pjud',
+        mode: 'descarga-contenido-expediente',
+        result: msg,
+        notes: failedDocs.length
+          ? `Fallaron ${failedDocs.length} descarga(s): ${failedDocs.slice(0, 3).map((item) => `${item.name} (${item.error})`).join('; ')}`
+          : 'Descarga directa con sesión activa del usuario.',
+      });
+    }
+
+    async function linkDownloadedFilesToDigitalFolder(){
+      const current = getCurrentCause();
+      if (!current) {
+        setMessage('importMsg', 'Selecciona primero una causa para vincular archivos descargados desde PJUD.', 'warn');
+        return;
+      }
+      const files = $('import_support_files')?.files;
+      if (!files?.length) {
+        setMessage('importMsg', 'Adjunta archivos descargados desde PJUD para vincularlos al expediente digital.', 'warn');
+        return;
+      }
+      try {
+        const fileDocuments = await filesToDocumentInputs(files, {
+          category: 'Importadas del Poder Judicial',
+          destinationContainer: 'importadosPjud',
+          observation: 'Archivo descargado por el usuario desde PJUD y vinculado desde el flujo de conexión.',
+          origin: 'Archivo descargado por usuario (PJUD)',
+          destinationModule: 'Causas',
+          caseId: current.id,
+          linkedClient: current.cliente,
+        });
+        persistCurrentCause((entry) => {
+          let next = entry;
+          fileDocuments.forEach((doc) => {
+            next = upsertDocument(next, doc);
+          });
+          return markManualEdit(next);
+        });
+        await loadCases();
+        renderAll();
+        setMessage('importMsg', `Se vincularon ${fileDocuments.length} archivo(s) descargados a Expedientes Digitales en “Importadas del Poder Judicial”.`, 'ok');
+      } catch (error) {
+        setMessage('importMsg', `No fue posible vincular el contenido descargado: ${error?.message || 'error desconocido'}`, 'error');
+      }
+    }
+
     function renderBatchImportPreview(items = [], summary = null){
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -8202,6 +8421,14 @@
 
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnImportarExcelLocal', 'click', async () => {
+        await analyzeBatchImport();
+        await transferBatchImport();
+      }, { scope: 'importacion' });
+      bindEvent('btnConectarPjud', 'click', () => connectWithPjud(), { scope: 'importacion' });
+      bindEvent('btnAbrirCausaPjud', 'click', () => openCauseInPjudFromImport(), { scope: 'importacion' });
+      bindEvent('btnDescargarContenidoPjud', 'click', () => downloadPjudContentForCurrentCause(), { scope: 'importacion' });
+      bindEvent('btnVincularContenidoPjud', 'click', () => linkDownloadedFilesToDigitalFolder(), { scope: 'importacion' });
       bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
       bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
       $('batch_excel_file')?.addEventListener('change', () => {
