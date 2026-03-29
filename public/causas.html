@@ -5154,6 +5154,16 @@
       return 'Procesada';
     }
 
+    function boolLabel(value){
+      return value ? 'Sí' : 'No';
+    }
+
+    function renderPjudOriginSummary(payload = {}){
+      const items = Array.isArray(payload.origin_types) ? payload.origin_types.filter(Boolean) : [];
+      if (!items.length) return 'metadata';
+      return items.join(', ');
+    }
+
     function renderPjudImportHistoryPanel(){
       const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
       const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
@@ -5205,7 +5215,7 @@
               </div>
               <div class="explorer-list-wrap">
                 <table class="explorer-list-table">
-                  <thead><tr><th>Rol / RIT / RUC</th><th>Tribunal</th><th>Materia</th><th>Interviniente</th><th>Resultado</th><th>Motivo</th></tr></thead>
+                  <thead><tr><th>Rol / RIT / RUC</th><th>Tribunal</th><th>Materia</th><th>Case ID / Batch / Key</th><th>Operación</th><th>Materializada</th><th>Descargada real</th><th>Persistida real</th><th>Origen</th><th>Destino</th><th>Motivo</th></tr></thead>
                   <tbody>
                     ${selectedRows.map((row) => {
                       const payload = row.payload || {};
@@ -5213,11 +5223,16 @@
                         <td>${escapeHtml([payload.rol, payload.rit, payload.ruc, payload.pjud_case_key].filter(Boolean).join(' · ') || 'Sin identificador')}</td>
                         <td>${escapeHtml(row.tribunal || payload.tribunal || 'Sin tribunal')}</td>
                         <td>${escapeHtml(row.materia || payload.materia || 'Sin materia')}</td>
-                        <td>${escapeHtml(row.represented_client_name || payload.represented_client_name || 'No detectado')}</td>
-                        <td>${escapeHtml(renderPjudBatchRowStatus(row))}</td>
+                        <td>${escapeHtml([payload.case_id || '—', row.batch_id || '—', payload.pjud_case_key || '—'].join(' / '))}</td>
+                        <td>${escapeHtml(payload.operation || renderPjudBatchRowStatus(row))}</td>
+                        <td>${escapeHtml(boolLabel(Boolean(payload.materialized)))}</td>
+                        <td>${escapeHtml(boolLabel(Boolean(payload.downloaded_real)))}</td>
+                        <td>${escapeHtml(boolLabel(Boolean(payload.persisted_real)))}</td>
+                        <td>${escapeHtml(renderPjudOriginSummary(payload))}</td>
+                        <td>${escapeHtml((Array.isArray(payload.destination_types) ? payload.destination_types.join(', ') : '') || 'Sin destino')}</td>
                         <td>${escapeHtml(payload.reason || row.traceability?.reason || 'Sin observaciones')}</td>
                       </tr>`;
-                    }).join('') || '<tr><td colspan="6">No hay filas almacenadas para este lote.</td></tr>'}
+                    }).join('') || '<tr><td colspan="11">No hay filas almacenadas para este lote.</td></tr>'}
                   </tbody>
                 </table>
               </div>
@@ -6895,6 +6910,46 @@
       };
     }
 
+    function buildPjudContentAudit(rowPayload = {}, importData = {}, destinationMap = null){
+      const safeImportData = importData || {};
+      const documents = [
+        ...(safeImportData.documents || []),
+        ...(safeImportData.ebook ? [safeImportData.ebook] : []),
+      ].filter(Boolean);
+      const originTypes = new Set();
+      let hasBinaryStorage = false;
+      documents.forEach((documentRecord) => {
+        if (String(documentRecord?.content || '').trim()) originTypes.add('content');
+        if (String(documentRecord?.sourceUrl || '').trim()) originTypes.add('sourceUrl');
+        if (String(documentRecord?.sourcePageUrl || '').trim()) originTypes.add('sourcePageUrl');
+        if (String(documentRecord?.storageBucket || '').trim() || String(documentRecord?.storagePath || '').trim()) {
+          hasBinaryStorage = true;
+          originTypes.add('storage');
+        }
+      });
+      if (!originTypes.size) originTypes.add('metadata');
+      const persistence = destinationMap?.persistence || {};
+      const destinationTypes = [
+        persistence.caseTable || null,
+        persistence.importRowsTable || null,
+        persistence.batchTable || null,
+        persistence.workspaceStore && persistence.workspaceKey ? `${persistence.workspaceStore}:${persistence.workspaceKey}` : null,
+        persistence.documentContainer ? `documentContainers.${persistence.documentContainer}` : null,
+      ].filter(Boolean);
+      return {
+        pjudCaseKey: rowPayload?.pjud_case_key || safeImportData?.pjudCaseKey || null,
+        downloadedReal: false,
+        persistedReal: Boolean(hasBinaryStorage),
+        hasExternalLinks: originTypes.has('sourceUrl') || originTypes.has('sourcePageUrl'),
+        hasPlaceholderContent: originTypes.has('content'),
+        hasStorageFile: hasBinaryStorage,
+        originTypes: [...originTypes],
+        destinationTypes,
+        storageBucket: persistence.storageBucket || null,
+        storagePath: persistence.storagePath || null,
+      };
+    }
+
     function materializeImportedCaseWorkspace({
       caseRow,
       rowPayload,
@@ -7176,6 +7231,8 @@
         stageTrace.rowsSentToCreate += rowsToCreate.length;
 
         for (const rowPayload of rowsToUpdate) {
+          const destinationMap = buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
+          const rowAudit = buildPjudContentAudit(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}, destinationMap);
           const { data: updatedRow, error: updateError } = await supabase
             .from(T_CASES)
             .update(rowPayload)
@@ -7223,10 +7280,12 @@
             });
             materialized += 1;
             stageTrace.rowsMaterialized += 1;
+            rowAudit.materialized = true;
           } catch (materializationError) {
             materializationFailed += 1;
             stageTrace.rowsMaterializationFailed += 1;
             stageTrace.rowsSupabaseOnly += 1;
+            rowAudit.materialized = false;
             const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
             materializationWarnings.push({
               pjudCaseKey: rowPayload.pjud_case_key,
@@ -7244,13 +7303,19 @@
             representedClientName: rowPayload.pjud_represented_client,
             caseId: updatedRow?.id || null,
             operation: 'update',
-            materialized: true,
-            destination: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).logicalPath,
-            persistence: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).persistence,
+            materialized: rowAudit.materialized === true,
+            downloadedReal: rowAudit.downloadedReal,
+            persistedReal: rowAudit.persistedReal,
+            originTypes: rowAudit.originTypes,
+            destinationTypes: rowAudit.destinationTypes,
+            destination: destinationMap.logicalPath,
+            persistence: destinationMap.persistence,
+            storageBucket: rowAudit.storageBucket,
+            storagePath: rowAudit.storagePath,
             traceability: {
-              stage: 'updated_and_materialized',
+              stage: rowAudit.materialized ? 'updated_and_materialized' : 'updated_without_materialization',
               linked_to_case: true,
-              linked_to_workspace: true,
+              linked_to_workspace: rowAudit.materialized === true,
             },
             status: 'updated',
           });
@@ -7263,6 +7328,8 @@
             .select('id,pjud_case_key');
           if (insertError) {
             for (const rowPayload of rowsToCreate) {
+              const destinationMap = buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
+              const rowAudit = buildPjudContentAudit(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}, destinationMap);
               const { data: insertedRow, error: rowInsertError } = await supabase
                 .from(T_CASES)
                 .insert(rowPayload)
@@ -7308,10 +7375,12 @@
                 });
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
+                rowAudit.materialized = true;
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
                 stageTrace.rowsSupabaseOnly += 1;
+                rowAudit.materialized = false;
                 const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
                 materializationWarnings.push({
                   pjudCaseKey: rowPayload.pjud_case_key,
@@ -7329,13 +7398,19 @@
                 representedClientName: rowPayload.pjud_represented_client,
                 caseId: insertedRow?.id || null,
                 operation: 'insert',
-                materialized: true,
-                destination: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).logicalPath,
-                persistence: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).persistence,
+                materialized: rowAudit.materialized === true,
+                downloadedReal: rowAudit.downloadedReal,
+                persistedReal: rowAudit.persistedReal,
+                originTypes: rowAudit.originTypes,
+                destinationTypes: rowAudit.destinationTypes,
+                destination: destinationMap.logicalPath,
+                persistence: destinationMap.persistence,
+                storageBucket: rowAudit.storageBucket,
+                storagePath: rowAudit.storagePath,
                 traceability: {
-                  stage: 'inserted_and_materialized',
+                  stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
-                  linked_to_workspace: true,
+                  linked_to_workspace: rowAudit.materialized === true,
                 },
                 status: 'created',
               });
@@ -7347,6 +7422,8 @@
             (insertedRows || []).forEach((savedRow) => {
               if (savedRow?.id) affectedCaseIds.add(String(savedRow.id));
               const sourcePayload = rowsToCreate.find((item) => item.pjud_case_key === savedRow.pjud_case_key) || null;
+              const destinationMap = buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {});
+              const rowAudit = buildPjudContentAudit(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}, destinationMap);
               try {
                 materializeImportedCaseWorkspace({
                   caseRow: savedRow,
@@ -7357,10 +7434,12 @@
                 });
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
+                rowAudit.materialized = true;
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
                 stageTrace.rowsSupabaseOnly += 1;
+                rowAudit.materialized = false;
                 const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
                 materializationWarnings.push({
                   pjudCaseKey: savedRow.pjud_case_key,
@@ -7372,13 +7451,19 @@
                 pjudCaseKey: savedRow.pjud_case_key,
                 caseId: savedRow?.id || null,
                 operation: 'insert',
-                materialized: true,
-                destination: buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}).logicalPath,
-                persistence: buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}).persistence,
+                materialized: rowAudit.materialized === true,
+                downloadedReal: rowAudit.downloadedReal,
+                persistedReal: rowAudit.persistedReal,
+                originTypes: rowAudit.originTypes,
+                destinationTypes: rowAudit.destinationTypes,
+                destination: destinationMap.logicalPath,
+                persistence: destinationMap.persistence,
+                storageBucket: rowAudit.storageBucket,
+                storagePath: rowAudit.storagePath,
                 traceability: {
-                  stage: 'inserted_and_materialized',
+                  stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
-                  linked_to_workspace: true,
+                  linked_to_workspace: rowAudit.materialized === true,
                 },
                 status: 'created',
               });
@@ -7424,6 +7509,10 @@
             status: item.status,
             operation: item.operation || null,
             materialized: item.materialized ?? null,
+            downloaded_real: item.downloadedReal ?? false,
+            persisted_real: item.persistedReal ?? false,
+            origin_types: item.originTypes || [],
+            destination_types: item.destinationTypes || [],
             reason: item.reason || '',
             case_id: item.caseId || null,
             pjud_case_key: item.pjudCaseKey || '',
@@ -7435,6 +7524,8 @@
             materia: item.materia || '',
             destination: item.destination || null,
             persistence: item.persistence || null,
+            storage_bucket: item.storageBucket || null,
+            storage_path: item.storagePath || null,
           },
           traceability: item.traceability || null,
         })), { isValid: true });
