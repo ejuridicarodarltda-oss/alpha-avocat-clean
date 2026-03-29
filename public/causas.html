@@ -1676,6 +1676,7 @@
 
       <div class="causas-topbar-actions">
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
+        <button id="btnSistemaAutomatico" class="btn btn-primary">Sistema automático</button>
         <button id="btnImportar" class="btn">Importar causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
@@ -2270,7 +2271,26 @@
       upsertDocument,
     } from './causas-services.js';
 
-    const XLSX = await import('https://esm.sh/xlsx@0.18.5');
+    let XLSX = null;
+
+    async function ensureXlsxModule(){
+      if (XLSX) return XLSX;
+      const candidates = [
+        'https://esm.sh/xlsx@0.18.5',
+        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm',
+      ];
+      let lastError = null;
+      for (const url of candidates) {
+        try {
+          XLSX = await import(url);
+          return XLSX;
+        } catch (error) {
+          lastError = error;
+          console.warn('[CAUSAS][IMPORTACIÓN][XLSX] Falló carga del módulo.', { url, error });
+        }
+      }
+      throw new Error(`No fue posible cargar el motor XLSX para importar Excel. ${lastError?.message || ''}`.trim());
+    }
     const { data: rectificationSession } = await supabase.auth.getSession();
     if (!rectificationSession?.session) window.location.href = './login.html';
     const authenticatedUser = rectificationSession.session.user;
@@ -7806,7 +7826,8 @@
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
       if (excelFile) {
         try {
-          const summary = await parsePjudMisCausasWorkbook(excelFile, XLSX, {
+          const xlsxModule = await ensureXlsxModule();
+          const summary = await parsePjudMisCausasWorkbook(excelFile, xlsxModule, {
             includeConsolidatedCases: false,
             includeRawRows: false,
             includeInvalidDetails: false,
@@ -8420,6 +8441,7 @@
       }, { required: true, scope: 'topbar' });
 
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnSistemaAutomatico', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportarExcelLocal', 'click', async () => {
         await analyzeBatchImport();
