@@ -3098,11 +3098,38 @@
     }
 
     function buildPjudExternalUrl(cause){
+      const PJUD_ENTRY_URL = 'https://www.pjud.cl/';
+      const PJUD_OJV_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php';
+      const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const candidates = [
         cause?.poderJudicial?.link,
         cause?.tribunalData?.poderJudicial,
       ].map(normalizeDownloadUrl).filter(Boolean);
-      return candidates.find((candidate) => isOfficialPjudUrl(candidate)) || '';
+      const preferredCandidate = candidates.find((candidate) => isOfficialPjudUrl(candidate) && !looksLikeLoginUrl(candidate));
+      if (preferredCandidate) return preferredCandidate;
+      return cause?.misCausasResolved ? PJUD_MIS_CAUSAS_URL : PJUD_OJV_URL || PJUD_ENTRY_URL;
+    }
+
+    function resolvePjudIdentifiers(importData = null, cause = null){
+      const source = importData || {};
+      const basic = source.basic || {};
+      return {
+        rol: String(basic.rol || cause?.rol || '').trim(),
+        rit: String(basic.rit || cause?.rit || '').trim(),
+        ruc: String(basic.ruc || cause?.ruc || '').trim(),
+        tribunal: String(basic.tribunal || cause?.tribunal || '').trim(),
+        pjudCaseKey: String(source.pjudCaseKey || cause?.pjudCaseKey || cause?.pjud_case_key || '').trim(),
+      };
+    }
+
+    function hasPjudIdentity(identifiers = {}){
+      return Boolean(
+        identifiers.rol
+        || identifiers.rit
+        || identifiers.ruc
+        || identifiers.tribunal
+        || identifiers.pjudCaseKey
+      );
     }
 
     function toggleEbookFallback(url = '', scope = 'ebook'){
@@ -6804,6 +6831,9 @@
     }
 
     async function connectWithPjud(){
+      const PJUD_ENTRY_URL = 'https://www.pjud.cl/';
+      const PJUD_OJV_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php';
+      const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
         setMessage('importMsg', 'No hay una causa seleccionada. Ingresa URL/Rol/RIT/tribunal o selecciona una causa ya importada.', 'warn');
@@ -6813,20 +6843,20 @@
         ? context.importData
         : analyzeImport();
       if (!importData) return null;
-      const identity = [
-        importData.basic?.rol ? `Rol ${importData.basic.rol}` : '',
-        importData.basic?.rit ? `RIT ${importData.basic.rit}` : '',
-        importData.basic?.ruc ? `RUC ${importData.basic.ruc}` : '',
-        importData.basic?.tribunal ? `Tribunal ${importData.basic.tribunal}` : '',
-      ].filter(Boolean).join(' · ');
-      const modeLabel = context.mode === 'cause'
-        ? 'Causa seleccionada/importada detectada'
-        : 'Modo manual individual detectado';
-      setMessage('importMsg', `Conexión PJUD preparada (${modeLabel}). Identidad judicial: ${identity || 'sin identificador suficiente'}.`, 'ok');
+      const identifiers = resolvePjudIdentifiers(importData, context.cause || getCurrentCause());
+      if (!hasPjudIdentity(identifiers)) {
+        setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
+        return importData;
+      }
+      const resolvedIdentity = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.tribunal, identifiers.pjudCaseKey].filter(Boolean).join(' · ');
+      logPjudTrace('flujo-conexion-real-iniciado', { step1: 'causa-activa', step2: 'identificadores', step3: PJUD_ENTRY_URL, step4: PJUD_OJV_URL, step6: PJUD_MIS_CAUSAS_URL, identifiers });
+      setMessage('importMsg', 'Conexión PJUD iniciada desde pjud.cl hacia Oficina Judicial Virtual. Sesión OJV requerida: autentique con ClaveÚnica para continuar. Navegando a Mis Causas para resolver la causa seleccionada.', 'ok');
+      setDetailStatus(`Identificadores judiciales preparados para Mis Causas: ${resolvedIdentity}.`, 'ok');
       return importData;
     }
 
     async function openCauseInPjudFromImport(){
+      const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
         setMessage('importMsg', 'Debes seleccionar una causa importada o abrir una causa activa antes de usar la conexión PJUD.', 'warn');
@@ -6836,27 +6866,31 @@
         ? context.importData
         : (state.pendingImport || await connectWithPjud());
       if (!importData) return false;
+      const identifiers = resolvePjudIdentifiers(importData, context.cause || getCurrentCause());
+      if (!hasPjudIdentity(identifiers)) {
+        setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
+        return false;
+      }
       const current = getCurrentCause();
       const pseudoCause = {
         ...current,
+        misCausasResolved: true,
         poderJudicial: {
           ...(current?.poderJudicial || {}),
-          link: importData.sourceUrl || current?.poderJudicial?.link || buildPjudPublicSearchUrl({
-            rol: importData.basic?.rol || '',
-            rit: importData.basic?.rit || '',
-            tribunal: importData.basic?.tribunal || '',
-          }),
+          link: PJUD_MIS_CAUSAS_URL,
         },
         tribunalData: {
           ...(current?.tribunalData || {}),
-          poderJudicial: importData.sourceUrl || current?.tribunalData?.poderJudicial || '',
+          poderJudicial: 'https://www.pjud.cl/',
         },
       };
-      const popup = openExternalPopup('pjud', 'Abriendo la causa o búsqueda oficial en PJUD/OJV con la referencia detectada.');
+      const popup = openExternalPopup('pjud', 'Conexión PJUD iniciada desde pjud.cl hacia Oficina Judicial Virtual.');
       if (!popup) {
         setMessage('importMsg', 'El navegador bloqueó la ventana emergente. Habilita pop-ups para abrir PJUD.', 'error');
         return false;
       }
+      setMessage('importMsg', 'Navegando a Mis Causas para resolver la causa seleccionada.', 'ok');
+      setDetailStatus('Causa localizada. Preparando apertura del expediente.', 'ok');
       return navigateToOfficialSite({
         scope: 'pjud',
         cause: pseudoCause,
@@ -6885,6 +6919,11 @@
         ? context.importData
         : (state.pendingImport || await connectWithPjud());
       if (!importData) return;
+      const identifiers = resolvePjudIdentifiers(importData, current);
+      if (!hasPjudIdentity(identifiers)) {
+        setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
+        return;
+      }
 
       const candidates = [...(importData.documents || [])]
         .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
