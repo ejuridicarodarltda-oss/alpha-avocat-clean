@@ -3173,7 +3173,7 @@
     }
 
     function openExternalPopup(scope, loadingMessage){
-      const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      const popup = window.open('', '_blank');
       const blocked = popup == null;
       logTrace(scope, blocked ? 'popup-null' : 'popup-abierto', { blocked });
       if (blocked) return null;
@@ -6831,8 +6831,6 @@
     }
 
     async function connectWithPjud(){
-      const PJUD_ENTRY_URL = 'https://www.pjud.cl/';
-      const PJUD_OJV_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php';
       const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
@@ -6848,10 +6846,14 @@
         setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
         return importData;
       }
-      const resolvedIdentity = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.tribunal, identifiers.pjudCaseKey].filter(Boolean).join(' · ');
-      logPjudTrace('flujo-conexion-real-iniciado', { step1: 'causa-activa', step2: 'identificadores', step3: PJUD_ENTRY_URL, step4: PJUD_OJV_URL, step6: PJUD_MIS_CAUSAS_URL, identifiers });
-      setMessage('importMsg', 'Conexión PJUD iniciada desde pjud.cl hacia Oficina Judicial Virtual. Sesión OJV requerida: autentique con ClaveÚnica para continuar. Navegando a Mis Causas para resolver la causa seleccionada.', 'ok');
-      setDetailStatus(`Identificadores judiciales preparados para Mis Causas: ${resolvedIdentity}.`, 'ok');
+      const popup = window.open(PJUD_MIS_CAUSAS_URL, '_blank');
+      if (!popup) {
+        setMessage('importMsg', 'El navegador bloqueó la ventana emergente. Habilita pop-ups para abrir OJV / Mis Causas.', 'error');
+        return importData;
+      }
+      logPjudTrace('flujo-conexion-real-iniciado', { step1: 'causa-activa', step2: 'identificadores', step3: PJUD_MIS_CAUSAS_URL, identifiers });
+      setMessage('importMsg', 'OJV / Mis Causas abierto en nueva pestaña. Continúa con ClaveÚnica si es necesario.', 'ok');
+      setDetailStatus('OJV / Mis Causas abierto en nueva pestaña.', 'ok');
       return importData;
     }
 
@@ -6884,13 +6886,20 @@
           poderJudicial: 'https://www.pjud.cl/',
         },
       };
-      const popup = openExternalPopup('pjud', 'Conexión PJUD iniciada desde pjud.cl hacia Oficina Judicial Virtual.');
+      const popup = window.open(PJUD_MIS_CAUSAS_URL, '_blank');
       if (!popup) {
         setMessage('importMsg', 'El navegador bloqueó la ventana emergente. Habilita pop-ups para abrir PJUD.', 'error');
         return false;
       }
-      setMessage('importMsg', 'Navegando a Mis Causas para resolver la causa seleccionada.', 'ok');
-      setDetailStatus('Causa localizada. Preparando apertura del expediente.', 'ok');
+      const resolvedIdentity = [
+        identifiers.rol ? `Rol ${identifiers.rol}` : '',
+        identifiers.rit ? `RIT ${identifiers.rit}` : '',
+        identifiers.ruc ? `RUC ${identifiers.ruc}` : '',
+        identifiers.tribunal ? `Tribunal ${identifiers.tribunal}` : '',
+        identifiers.pjudCaseKey ? `pjud_case_key ${identifiers.pjudCaseKey}` : '',
+      ].filter(Boolean).join(', ');
+      setMessage('importMsg', `Mis Causas abierta en nueva pestaña. Ubica la causa con estos identificadores: ${resolvedIdentity || 'sin identificadores disponibles'}.`, 'ok');
+      setDetailStatus('Mis Causas abierta en nueva pestaña para búsqueda manual de la causa.', 'ok');
       return navigateToOfficialSite({
         scope: 'pjud',
         cause: pseudoCause,
@@ -6929,7 +6938,8 @@
         .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
         .slice(0, 20);
       if (!candidates.length) {
-        setMessage('importMsg', 'No se detectaron URLs de documentos PJUD descargables automáticamente. Usa “Abrir causa en PJUD” y luego vincula archivos descargados manualmente.', 'warn');
+        setMessage('importMsg', 'No hay URLs directas para descarga automática en esta causa. Selecciona ahora los archivos descargados desde PJUD para vincularlos al expediente digital.', 'warn');
+        $('import_support_files')?.click();
         return;
       }
 
@@ -7005,7 +7015,8 @@
       const files = $('import_support_files')?.files;
       const queuedDocs = Array.isArray(state.pendingDownloadedPjudDocs) ? state.pendingDownloadedPjudDocs : [];
       if (!files?.length && !queuedDocs.length) {
-        setMessage('importMsg', 'Aún no hay archivos descargados para vincular.', 'warn');
+        setMessage('importMsg', 'Selecciona los archivos descargados desde PJUD para vincularlos a Importadas del Poder Judicial.', 'warn');
+        $('import_support_files')?.click();
         return;
       }
       try {
@@ -7041,7 +7052,7 @@
         await loadCases();
         renderAll();
         state.pendingDownloadedPjudDocs = [];
-        setMessage('importMsg', `Se vincularon ${allDocuments.length} archivo(s) descargados a Expedientes Digitales en “Importadas del Poder Judicial”.`, 'ok');
+        setMessage('importMsg', `Se vincularon ${allDocuments.length} archivos a Importadas del Poder Judicial.`, 'ok');
       } catch (error) {
         setMessage('importMsg', `No fue posible vincular el contenido descargado: ${error?.message || 'error desconocido'}`, 'error');
       }
