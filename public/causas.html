@@ -3174,7 +3174,10 @@
     }
 
     function openExternalPopup(scope, loadingMessage){
-      const popup = window.open('about:blank', '_blank', 'noopener,noreferrer');
+      const initialUrl = scope === 'ebook'
+        ? 'https://www.pjud.cl/'
+        : 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
+      const popup = window.open(initialUrl, '_blank', 'noopener,noreferrer');
       const blocked = popup == null;
       logTrace(scope, blocked ? 'popup-null' : 'popup-abierto', { blocked });
       if (blocked) return null;
@@ -6848,7 +6851,7 @@
         return importData;
       }
       const resolvedIdentity = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.tribunal, identifiers.pjudCaseKey].filter(Boolean).join(' · ');
-      const popup = window.open(PJUD_MIS_CAUSAS_URL, '_blank');
+      const popup = window.open(PJUD_MIS_CAUSAS_URL, '_blank', 'noopener,noreferrer');
       if (!popup) {
         setMessage('importMsg', 'El navegador bloqueó la apertura de OJV/Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
         return importData;
@@ -6880,7 +6883,7 @@
         rit: identifiers.rit || '',
         tribunal: identifiers.tribunal || '',
       }) || PJUD_MIS_CAUSAS_URL;
-      const popup = window.open(finalUrl, '_blank');
+      const popup = window.open(finalUrl, '_blank', 'noopener,noreferrer');
       if (!popup) {
         setMessage('importMsg', 'El navegador bloqueó la ventana emergente. Habilita pop-ups para abrir PJUD.', 'error');
         return false;
