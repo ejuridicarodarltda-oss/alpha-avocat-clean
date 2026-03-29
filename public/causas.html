@@ -409,7 +409,7 @@
 
     .causas-page .screen-grid{
       display:grid;
-      grid-template-columns:minmax(320px,34fr) minmax(0,66fr);
+      grid-template-columns:minmax(320px,1fr);
       gap:10px;
       align-items:stretch;
     }
@@ -1461,6 +1461,29 @@
       padding:22px;
     }
 
+    .causas-page .workspace-modal{
+      z-index:50;
+      padding:16px;
+      background:rgba(9, 28, 32, .52);
+    }
+
+    .causas-page .workspace-modal .modal-panel{
+      width:min(1280px,100%);
+      max-height:94dvh;
+      padding:16px;
+      overflow:hidden;
+      display:grid;
+      grid-template-rows:auto 1fr;
+      gap:12px;
+    }
+
+    .causas-page .workspace-shell{
+      min-height:0;
+      overflow:auto;
+      border-radius:20px;
+      padding:6px;
+    }
+
     .causas-page .modal-header{
       display:flex;
       justify-content:space-between;
@@ -1774,7 +1797,20 @@
 	        </div>
 	      </aside>
 
-      <section class="detail-panel">
+    </section>
+  </main>
+
+  <div id="workspaceModal" class="modal workspace-modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Visor de causa y expediente</div>
+          <p class="panel-subtitle">Ficha jurídica completa, expediente digital, carpetas, documentos, ebook, producción y monitoreo en vista emergente.</p>
+        </div>
+        <button class="icon-btn" type="button" id="btnCloseWorkspaceModal" aria-label="Cerrar visor">✕</button>
+      </div>
+      <div class="workspace-shell">
+        <section class="detail-panel">
         <div class="detail-header">
           <div>
             <p class="eyebrow">Ficha interna de la causa</p>
@@ -1842,9 +1878,10 @@
         </div>
         <div class="tab-bar" id="tabBar"></div>
         <div id="detailContent"></div>
-      </section>
-    </section>
-  </main>
+        </section>
+      </div>
+    </div>
+  </div>
 
   <div id="modalCausa" class="modal" aria-hidden="true">
     <div class="modal-panel">
@@ -2427,11 +2464,7 @@
         branch,
         tabId,
       });
-      disableLandingMode();
-      setActiveTab(tabId);
-      requestAnimationFrame(() => {
-        $('detailContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-      });
+      openWorkspaceModal({ tabId, origin });
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -3277,6 +3310,12 @@
     function openManagedModal(id){
       const target = $(id);
       if (!target) return;
+      document.querySelectorAll('.modal.open').forEach((modalNode) => {
+        if (modalNode?.id !== id) {
+          modalNode.classList.remove('open');
+          modalNode.setAttribute('aria-hidden', 'true');
+        }
+      });
       target.classList.add('open');
       target.setAttribute('aria-hidden', 'false');
       const firstField = target.querySelector('input, select, textarea, button');
@@ -4317,6 +4356,24 @@
       document.body.classList.remove('landing-mode');
     }
 
+    function closeWorkspaceModal(){
+      closeManagedModal('workspaceModal');
+    }
+
+    function openWorkspaceModal({ tabId = null, caseId = null, origin = 'unknown' } = {}){
+      const visibleCases = getVisibleCases();
+      const resolvedCaseId = resolveCaseId(caseId) || resolveCaseId(state.selectedId) || (visibleCases[0]?.id ? String(visibleCases[0].id) : null);
+      if (resolvedCaseId) state.selectedId = resolvedCaseId;
+      disableLandingMode();
+      if (tabId && TAB_CONFIG.some(([id]) => id === tabId)) {
+        state.activeTab = tabId;
+      }
+      renderAll();
+      openManagedModal('workspaceModal');
+      console.info('[CAUSAS][WORKSPACE] Visor emergente abierto.', { origin, tabId: state.activeTab, caseId: state.selectedId });
+      if (state.activeTab === 'expedientes') loadPjudImportHistory();
+    }
+
     function clearAllFilters(){
       state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', importBatch:'', importStatus:'', lastImported:'', sortBy:'updated' };
       ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => {
@@ -4405,8 +4462,7 @@
     }
 
     function scrollToCauseDetailPanel(){
-      const detailPanel = document.querySelector('.detail-panel');
-      detailPanel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      openWorkspaceModal({ tabId: state.activeTab || 'informacion', origin: 'scrollToCauseDetailPanel' });
     }
 
     function resolveImportedCaseId(){
@@ -8007,6 +8063,7 @@
       bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'quick-nav' });
+      bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
       bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
@@ -8044,7 +8101,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDocumento'), $('modalSincronizacion')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDocumento'), $('modalSincronizacion'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -8059,7 +8116,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDocumento','modalSincronizacion'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDocumento','modalSincronizacion','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -8091,8 +8148,7 @@
           }
           state.selectedId = resolvedCaseId;
           setDetailStatus('', '');
-          setActiveTab(jump.dataset.jump);
-          renderAll();
+          openWorkspaceModal({ tabId: jump.dataset.jump, caseId: resolvedCaseId, origin: 'case-jump' });
           return;
         }
         const card = event.target.closest('[data-select]');
@@ -8104,7 +8160,7 @@
           }
           state.selectedId = resolvedCaseId;
           setDetailStatus('', '');
-          renderAll();
+          openWorkspaceModal({ tabId: state.activeTab || 'informacion', caseId: resolvedCaseId, origin: 'case-card' });
         }
       });
 
@@ -8118,10 +8174,10 @@
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
-          setActiveTab(tab.dataset.tab);
+          openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
           return;
         }
-        setActiveTab(tab.dataset.tab);
+        openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
       });
 
       $('detailActions')?.addEventListener('click', event => {
