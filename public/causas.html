@@ -2249,21 +2249,6 @@
       ['produccion', 'Producción'],
     ];
 
-    const BRANCH_DESTINATIONS = {
-      informacion: {
-        label: 'Información de Clientes, Asesorías y Causas',
-        href: './informacion-clientes-asesorias-causas.html',
-      },
-      expedientes: {
-        label: 'Expedientes Digitales',
-        href: './expedientes-digitales.html',
-      },
-      produccion: {
-        label: 'Producción',
-        href: './produccion.html',
-      },
-    };
-
     const $ = (id) => document.getElementById(id);
     const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
     const shortDate = new Intl.DateTimeFormat('es-CL', { dateStyle: 'medium', timeZone: 'UTC' });
@@ -2436,43 +2421,16 @@
     }
 
     function openBranchScreen(branch, origin = 'unknown'){
-      const destination = BRANCH_DESTINATIONS[branch];
-      if (!destination?.href) {
-        console.error(`[CAUSAS][NAVEGACIÓN] No existe destino configurado para "${branch}".`, { origin, branch, destination });
-        return;
-      }
-      try {
-        const url = new URL(destination.href, window.location.href);
-        const features = [
-          'popup=yes',
-          'toolbar=no',
-          'menubar=no',
-          'location=no',
-          'status=no',
-          'scrollbars=yes',
-          'resizable=yes',
-          `width=${window.screen?.availWidth || window.innerWidth || 1440}`,
-          `height=${window.screen?.availHeight || window.innerHeight || 900}`,
-          'left=0',
-          'top=0',
-        ].join(',');
-        console.info(`[CAUSAS][NAVEGACIÓN] Abriendo "${destination.label}" desde ${origin} en modal emergente fullscreen.`, { origin, branch, href: url.toString() });
-        const popup = window.open(url.toString(), `alpha-causas-${branch}`, features);
-        if (!popup) {
-          console.warn('[CAUSAS][NAVEGACIÓN] Popup bloqueado. Se aplicará fallback a navegación en pestaña actual.', { branch, origin });
-          window.location.href = url.toString();
-          return;
-        }
-        try {
-          popup.focus();
-          popup.moveTo(0, 0);
-          popup.resizeTo(window.screen?.availWidth || popup.outerWidth, window.screen?.availHeight || popup.outerHeight);
-        } catch (popupError) {
-          console.warn('[CAUSAS][NAVEGACIÓN] No fue posible forzar fullscreen del popup por restricciones del navegador.', { popupError, branch, origin });
-        }
-      } catch (error) {
-        console.error(`[CAUSAS][NAVEGACIÓN] URL inválida para "${destination.label}".`, { origin, branch, destination, error });
-      }
+      const tabId = TAB_CONFIG.some(([id]) => id === branch) ? branch : 'informacion';
+      console.info('[CAUSAS][NAVEGACIÓN] Se abrirá la sección dentro del contenedor activo del módulo.', {
+        origin,
+        branch,
+        tabId,
+      });
+      setActiveTab(tabId);
+      requestAnimationFrame(() => {
+        $('detailContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -8042,7 +8000,7 @@
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
-          openBranchScreen(tab.dataset.tab, `pillarGrid:${tab.dataset.tab}`);
+          setActiveTab(tab.dataset.tab);
           return;
         }
         setActiveTab(tab.dataset.tab);
@@ -8198,12 +8156,12 @@
 
         const genericButton = event.target.closest('button');
         if (genericButton) {
-          console.warn('[CAUSAS][BOTONES] Acción genérica ejecutada para botón sin handler específico.', {
+          console.warn('[CAUSAS][BOTONES] Botón sin handler funcional detectado.', {
             text: genericButton.textContent?.trim() || '',
             id: genericButton.id || null,
             classes: genericButton.className || null,
           });
-          alert(`Acción funcional disponible: ${genericButton.textContent.trim()}. Esta acción quedó conectada al módulo y puede ampliarse sin romper el diseño.`);
+          setDetailStatus('Se detectó un botón sin acción asignada. Revisa la consola para vincular su handler.', 'warn');
         }
       });
 

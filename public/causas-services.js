@@ -2,6 +2,7 @@ const WORKSPACE_KEY = 'alpha-causas-workspace-v4'
 const PJUD_IMPORTED_CONTENT_LABEL = 'Importadas del Poder Judicial'
 const MAX_WORKSPACE_BYTES = 350000
 const MAX_STRING_LENGTH = 4000
+const MAX_DOCUMENT_CONTENT_BYTES = 180000
 const MAX_LIST_ITEMS = 120
 const HEAVY_FIELD_PATTERN = /(content|snapshot|base64|blob|raw(text|html)?|html|ebook(text|content)?|binary|payload|filedata|documentbody|fulltext)/i
 const LIGHTWEIGHT_DOCUMENT_FIELDS = [
@@ -127,6 +128,21 @@ function sanitizeDocumentRecord(record = {}) {
       next[field] = sanitizeLightRecord(value)
     }
   })
+  if (typeof record?.content === 'string' && record.content) {
+    const estimatedBytes = new Blob([record.content]).size
+    if (estimatedBytes <= MAX_DOCUMENT_CONTENT_BYTES) {
+      next.content = record.content
+    } else {
+      next.content = buildTextDataUrl(
+        [
+          'Documento preservado sin adjunto binario por límite de almacenamiento local.',
+          `Nombre: ${record?.name || 'Documento sin nombre'}`,
+          `Origen: ${record?.origin || 'No informado'}`,
+          `Fuente: ${record?.sourceUrl || record?.sourcePageUrl || 'Sin URL de respaldo'}`,
+        ].join('\n'),
+      )
+    }
+  }
   return next
 }
 
@@ -524,16 +540,20 @@ function readFileAsDataUrl(file) {
 }
 
 export function openDocument(documentRecord = {}) {
-  if (!documentRecord?.content) return false
-  const target = window.open(documentRecord.content, '_blank', 'noopener,noreferrer')
+  const targetUrl = documentRecord?.content || documentRecord?.sourceUrl || documentRecord?.sourcePageUrl || ''
+  if (!targetUrl) return false
+  const target = window.open(targetUrl, '_blank', 'noopener,noreferrer')
   return Boolean(target)
 }
 
 export function downloadDocument(documentRecord = {}) {
-  if (!documentRecord?.content) return false
+  const targetUrl = documentRecord?.content || documentRecord?.sourceUrl || documentRecord?.sourcePageUrl || ''
+  if (!targetUrl) return false
   const anchor = document.createElement('a')
-  anchor.href = documentRecord.content
+  anchor.href = targetUrl
   anchor.download = documentRecord.name || 'documento'
+  anchor.target = '_blank'
+  anchor.rel = 'noopener noreferrer'
   document.body.appendChild(anchor)
   anchor.click()
   anchor.remove()
