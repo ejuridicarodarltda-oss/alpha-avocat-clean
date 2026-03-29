@@ -1765,6 +1765,9 @@
             <div class="timeline-meta" id="diagVisibleTotal">Total causas visibles tras filtros: 0</div>
             <div class="timeline-meta" id="diagBatchApplied">Batch aplicado: —</div>
             <div class="timeline-meta" id="diagAutoSelectedCase">Primera causa seleccionada automáticamente: —</div>
+            <div class="timeline-meta" id="diagInteractiveAudit" hidden>Auditoría interactiva: —</div>
+            <div class="timeline-meta" id="diagCounterSources" hidden>Fuentes contadores: —</div>
+            <div class="timeline-meta" id="diagImportLifecycle" hidden>Ciclo importación: —</div>
             <div class="diagnostic-actions">
               <button id="btnVerCausasLote" class="btn btn-primary" type="button" hidden>Ver causas del lote importado</button>
             </div>
@@ -2222,6 +2225,10 @@
     const PJUD_HISTORY_PAGE_SIZE = 200;
     const EXPLORER_EXPANDED_SESSION_KEY = 'alpha-causas-explorer-expanded';
     const KARDEX_EXPANDED_SESSION_KEY = 'alpha-causas-kardex-expanded';
+    const CAUSAS_DIAGNOSTIC_FLAG = 'alpha-causas-diagnostic-mode';
+    const DIAGNOSTIC_MODE = new URLSearchParams(window.location.search).get('diag') === '1'
+      || window.localStorage.getItem(CAUSAS_DIAGNOSTIC_FLAG) === '1';
+    const EVENT_BINDING_REGISTRY = [];
 
     const C = {
       c_id: 'id',
@@ -4507,11 +4514,8 @@
       );
     }
 
-    function renderSummaryMetrics(){
-      const metricsNode = $('summaryMetrics');
-      if (!metricsNode) return;
-      const cases = getAllCases();
-      const safeCases = Array.isArray(cases) ? cases : [];
+    function computeSummaryMetricSources(){
+      const safeCases = getAllCases();
       const informacionBase = safeCases.length;
       const expedientesDigitales = safeCases.reduce((acc, item) => {
         const countByContainers = Object.values(item?.documentContainers || {}).reduce((containerAcc, container) => {
@@ -4521,15 +4525,74 @@
         const countByDocuments = Array.isArray(item?.documents) ? item.documents.filter((doc) => hasDocumentSource(doc)).length : 0;
         return acc + Math.max(countByContainers, countByDocuments);
       }, 0);
-      const asesorias = safeCases.reduce((acc, item) => acc + ((item?.asesorias || []).length), 0);
-      const inProduction = safeCases.reduce((acc, item) => acc + (item?.escritos || []).filter((w) => {
+      const asesoriasActivas = safeCases.reduce((acc, item) => {
+        const asesorias = Array.isArray(item?.asesorias) ? item.asesorias : [];
+        return acc + asesorias.filter((asesoria) => String(asesoria?.estado || '').toLowerCase() !== 'cerrada').length;
+      }, 0);
+      const escritosEnCurso = safeCases.reduce((acc, item) => acc + (item?.escritos || []).filter((w) => {
         const estado = String(w?.estado || '').toLowerCase();
-        return estado.includes('revisión') || estado.includes('borrador') || estado.includes('redacción');
+        return estado.includes('revisión') || estado.includes('revision') || estado.includes('borrador') || estado.includes('redacción') || estado.includes('redaccion');
       }).length, 0);
+      return {
+        informacionBase,
+        expedientesDigitales,
+        produccionEnCurso: escritosEnCurso + asesoriasActivas,
+        sources: {
+          informacionBase: `${T_CASES} + workspace (causas fusionadas por ID)`,
+          expedientesDigitales: 'documentContainers.docIds + documents con sourceUrl/sourcePageUrl/content',
+          produccionEnCurso: 'escritos en borrador/revisión/redacción + asesorías activas',
+        },
+      };
+    }
+
+    function computeImportLifecycleDiagnostics(){
+      const safeBatches = state.pjudHistory.items || [];
+      return safeBatches.reduce((acc, batch) => {
+        const summary = batch.summary || {};
+        const importedCount = Number(batch.imported_count || summary.imported || 0);
+        const updatedCount = Number(batch.updated_count || summary.updated || 0);
+        const createdCount = Number(summary.created ?? Math.max(0, importedCount - updatedCount));
+        acc.inserted += createdCount;
+        acc.updated += updatedCount;
+        acc.materialized += Number(summary.materialized || 0);
+        acc.materializationFailed += Number(summary.materializationFailed || 0);
+        return acc;
+      }, {
+        inserted: 0,
+        updated: 0,
+        materialized: 0,
+        materializationFailed: 0,
+      });
+    }
+
+    function runInteractiveAudit(){
+      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-detail-action-trigger], [data-resolution-action]';
+      const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
+        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
+      const deadNodes = interactiveNodes.filter((node) => {
+        if (node.closest('[disabled],[aria-disabled="true"]')) return false;
+        if (node.matches('[data-close],[data-modal-id]')) return false;
+        if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
+        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
+        const href = node.getAttribute('href');
+        if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
+        return true;
+      });
+      return {
+        totalInteractive: interactiveNodes.length,
+        correctlyWired: interactiveNodes.length - deadNodes.length,
+        dead: deadNodes.length,
+      };
+    }
+
+    function renderSummaryMetrics(){
+      const metricsNode = $('summaryMetrics');
+      if (!metricsNode) return;
+      const summary = computeSummaryMetricSources();
       metricsNode.innerHTML = [
-        { label:'Información base', value:informacionBase, helper:'Clientes, asesorías y causas reales activas dentro del módulo.' },
-        { label:'Expedientes digitales', value:expedientesDigitales, helper:'Documentos y expedientes con fuente real accesible.' },
-        { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.', fullWidth:true },
+        { label:'Información base', value:summary.informacionBase, helper:'Causas reales fusionadas desde Supabase + workspace por ID persistido.' },
+        { label:'Expedientes digitales', value:summary.expedientesDigitales, helper:'Documentos reales accesibles (URL, página origen o contenido local).' },
+        { label:'Producción en curso', value:summary.produccionEnCurso, helper:'Borradores/revisión/redacción + asesorías activas vinculadas a causa.', fullWidth:true },
       ].map(item => `
         <article class="metric ${item.fullWidth ? 'metric-wide' : ''}">
           <span class="mini-label">${escapeHtml(item.label)}</span>
@@ -4577,6 +4640,22 @@
       if ($('diagAutoSelectedCase')) $('diagAutoSelectedCase').textContent = `Primera causa seleccionada automáticamente: ${selectedLabel}`;
       const batchButton = $('btnVerCausasLote');
       if (batchButton) batchButton.hidden = !state.visibilityDiagnostics.lastBatchId;
+      if (!DIAGNOSTIC_MODE) return;
+      const interactiveAudit = runInteractiveAudit();
+      const lifecycle = computeImportLifecycleDiagnostics();
+      const summary = computeSummaryMetricSources();
+      if ($('diagInteractiveAudit')) {
+        $('diagInteractiveAudit').hidden = false;
+        $('diagInteractiveAudit').textContent = `Auditoría interactiva (DOM actual): total ${interactiveAudit.totalInteractive} · enlazados ${interactiveAudit.correctlyWired} · muertos ${interactiveAudit.dead}`;
+      }
+      if ($('diagCounterSources')) {
+        $('diagCounterSources').hidden = false;
+        $('diagCounterSources').textContent = `Fuentes contadores: Información base=${summary.sources.informacionBase}; Expedientes=${summary.sources.expedientesDigitales}; Producción=${summary.sources.produccionEnCurso}.`;
+      }
+      if ($('diagImportLifecycle')) {
+        $('diagImportLifecycle').hidden = false;
+        $('diagImportLifecycle').textContent = `Ciclo importación PJUD (historial cargado): insertadas ${lifecycle.inserted} · actualizadas ${lifecycle.updated} · materializadas ${lifecycle.materialized} · fallas materialización ${lifecycle.materializationFailed}`;
+      }
     }
 
     function renderList(){
@@ -7956,6 +8035,7 @@
         else console.warn(message);
         return false;
       }
+      EVENT_BINDING_REGISTRY.push({ elementId, eventName, scope });
       element.addEventListener(eventName, async (event) => {
         try {
           await handler(event);
@@ -8106,6 +8186,13 @@
           setDetailStatus('', '');
           renderAll();
         }
+      });
+      $('casesList')?.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) return;
+        const actionable = event.target.closest('[data-select],[data-jump],[data-kardex-toggle]');
+        if (!actionable) return;
+        event.preventDefault();
+        actionable.click();
       });
 
       $('tabBar')?.addEventListener('click', event => {
@@ -8281,6 +8368,13 @@
           });
           setDetailStatus('Se detectó un botón sin acción asignada. Revisa la consola para vincular su handler.', 'warn');
         }
+      });
+      $('detailContent')?.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) return;
+        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
+        if (!actionable) return;
+        event.preventDefault();
+        actionable.click();
       });
 
       bindEvent('k_fee', 'blur', () => {
