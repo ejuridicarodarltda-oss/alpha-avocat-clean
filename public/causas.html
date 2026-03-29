@@ -2427,6 +2427,7 @@
         branch,
         tabId,
       });
+      disableLandingMode();
       setActiveTab(tabId);
       requestAnimationFrame(() => {
         $('detailContent')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -3491,6 +3492,8 @@
         return '<div class="helper-box">Selecciona un archivador, carpeta o archivo para revisar su contexto documental.</div>';
       }
       const isFile = !['kardex','archivador','folder'].includes(node.type);
+      const fileRecord = isFile ? (cause.documents || []).find((item) => item.id === node.documentId) || {} : null;
+      const canOpenFile = isFile ? hasDocumentSource(fileRecord) : false;
       const isPjudFolder = isPjudImportedFolderNode(node);
       const isPjudFolderEmpty = isPjudFolder && (node.children?.length || 0) === 0;
       const breadcrumbs = (node.path || '').split(' / ').filter(Boolean).join(' / ');
@@ -3509,8 +3512,8 @@
           </div>
           ${isFile ? `
             <div class="document-actions">
-              <button class="btn btn-primary" data-doc-action="open" data-doc-id="${node.documentId}">Abrir archivo</button>
-              <button class="btn" data-doc-action="download" data-doc-id="${node.documentId}">Descargar</button>
+              <button class="btn btn-primary" data-doc-action="open" data-doc-id="${node.documentId}" ${canOpenFile ? '' : 'disabled aria-disabled="true" title="Archivo sin fuente accesible"'}>Abrir archivo</button>
+              <button class="btn" data-doc-action="download" data-doc-id="${node.documentId}" ${canOpenFile ? '' : 'disabled aria-disabled="true" title="No se puede descargar si el archivo no abre"'}>Descargar</button>
             </div>
           ` : `
             <div class="linked-note">
@@ -4496,14 +4499,36 @@
       return sortCases(getAllCases().filter(caseMatches));
     }
 
+    function hasDocumentSource(documentRecord = {}){
+      return Boolean(
+        String(documentRecord?.content || '').trim()
+        || String(documentRecord?.sourceUrl || '').trim()
+        || String(documentRecord?.sourcePageUrl || '').trim()
+      );
+    }
+
     function renderSummaryMetrics(){
+      const metricsNode = $('summaryMetrics');
+      if (!metricsNode) return;
       const cases = getAllCases();
-      const asesorias = cases.reduce((acc, item) => acc + ((item.asesorias || []).length), 0);
-      const tribunalFolders = cases.reduce((acc, item) => acc + ((item.expedienteDigital?.cliente?.tribunal?.carpetas || []).length), 0);
-      const inProduction = cases.reduce((acc, item) => acc + (item.escritos || []).filter(w => String(w.estado).toLowerCase().includes('revisión') || String(w.estado).toLowerCase().includes('borrador') || String(w.estado).toLowerCase().includes('redacción')).length, 0);
-      $('summaryMetrics').innerHTML = [
-        { label:'Información base', value:cases.length, helper:'Clientes, asesorías y causas activas dentro del módulo.' },
-        { label:'Expedientes digitales', value:tribunalFolders, helper:'Archivadores tribunal activos dentro de Cliente.' },
+      const safeCases = Array.isArray(cases) ? cases : [];
+      const informacionBase = safeCases.length;
+      const expedientesDigitales = safeCases.reduce((acc, item) => {
+        const countByContainers = Object.values(item?.documentContainers || {}).reduce((containerAcc, container) => {
+          const ids = Array.isArray(container?.docIds) ? container.docIds.filter(Boolean).length : 0;
+          return containerAcc + ids;
+        }, 0);
+        const countByDocuments = Array.isArray(item?.documents) ? item.documents.filter((doc) => hasDocumentSource(doc)).length : 0;
+        return acc + Math.max(countByContainers, countByDocuments);
+      }, 0);
+      const asesorias = safeCases.reduce((acc, item) => acc + ((item?.asesorias || []).length), 0);
+      const inProduction = safeCases.reduce((acc, item) => acc + (item?.escritos || []).filter((w) => {
+        const estado = String(w?.estado || '').toLowerCase();
+        return estado.includes('revisión') || estado.includes('borrador') || estado.includes('redacción');
+      }).length, 0);
+      metricsNode.innerHTML = [
+        { label:'Información base', value:informacionBase, helper:'Clientes, asesorías y causas reales activas dentro del módulo.' },
+        { label:'Expedientes digitales', value:expedientesDigitales, helper:'Documentos y expedientes con fuente real accesible.' },
         { label:'Producción en curso', value:inProduction + asesorias, helper:'Borradores, asesorías y producción jurídica conectada.', fullWidth:true },
       ].map(item => `
         <article class="metric ${item.fullWidth ? 'metric-wide' : ''}">
@@ -5121,8 +5146,8 @@
               <div class="timeline-meta">${escapeHtml(doc.type || 'Sin tipo')} · ${escapeHtml(doc.size ? `${Math.ceil(doc.size / 1024)} KB` : 'Tamaño no informado')} · ${escapeHtml(formatDate(doc.createdAt))}</div>
               <div class="case-meta">Origen: ${escapeHtml(doc.origin || 'Manual')} · Observación: ${escapeHtml(doc.observation || 'Sin observación')}.</div>
               <div class="document-actions">
-                <button class="btn" data-doc-action="open" data-doc-id="${doc.id}">Abrir</button>
-                <button class="btn" data-doc-action="download" data-doc-id="${doc.id}">Descargar</button>
+                <button class="btn" data-doc-action="open" data-doc-id="${doc.id}" ${hasDocumentSource(doc) ? '' : 'disabled aria-disabled="true" title="Sin fuente de apertura"'}>Abrir</button>
+                <button class="btn" data-doc-action="download" data-doc-id="${doc.id}" ${hasDocumentSource(doc) ? '' : 'disabled aria-disabled="true" title="No se puede descargar si el archivo no abre"'}>Descargar</button>
                 <button class="btn" data-doc-action="edit" data-doc-id="${doc.id}">Renombrar / clasificar</button>
                 <button class="btn" data-doc-action="delete" data-doc-id="${doc.id}">Eliminar</button>
               </div>
@@ -5733,6 +5758,7 @@
       const label = MEDIA_TYPE_LABELS[type] || type;
       const role = MEDIA_ROLE_LABELS[asset.media_role || 'attachment'] || 'Adjunto';
       const url = asset.file_url || '';
+      const hasUrl = Boolean(String(url).trim());
       const preview = type === 'photo'
         ? `<img class="media-asset-thumb" src="${url}" alt="${label} asociada a la causa." />`
         : type === 'audio'
@@ -5749,8 +5775,11 @@
             ${asset.notes ? `<span>Nota: ${asset.notes}</span>` : ''}
           </div>
           <div class="media-asset-actions">
-            <a class="btn-outline" href="${url}" target="_blank" rel="noopener">Abrir</a>
-            <a class="btn-save" href="${url}" download="${asset.file_name || 'media'}">Descargar</a>
+            ${hasUrl
+              ? `<a class="btn-outline" href="${url}" target="_blank" rel="noopener">Abrir</a>
+                 <a class="btn-save" href="${url}" download="${asset.file_name || 'media'}">Descargar</a>`
+              : `<span class="btn-outline" aria-disabled="true" title="Archivo no disponible">Abrir</span>
+                 <span class="btn-save" aria-disabled="true" title="Archivo no disponible">Descargar</span>`}
           </div>
         </article>
       `;
@@ -6243,6 +6272,7 @@
 
     function setActiveTab(tab){
       state.activeTab = TAB_CONFIG.some(([id]) => id === tab) ? tab : 'informacion';
+      disableLandingMode();
       renderPillarCards();
       renderTabs();
       renderCurrentTab();
@@ -7680,6 +7710,11 @@
       const documentRecord = (current.documents || []).find((item) => item.id === documentId);
       if (!documentRecord) return;
 
+      if ((action === 'open' || action === 'download') && !hasDocumentSource(documentRecord) && documentRecord.category !== 'Ebook') {
+        setDetailStatus('Este archivo aún no tiene una fuente accesible para abrirse. Completa su URL o carga el documento real antes de descargar.', 'warn');
+        return;
+      }
+
       if (action === 'open') {
         if (documentRecord.category === 'Ebook') {
           if (shouldOpenStoredEbook(documentRecord)) {
@@ -7888,7 +7923,7 @@
       bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
       bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
-      bindEvent('btnQuickAlerts', 'click', () => setActiveTab('informacion'), { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'quick-nav' });
       bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
