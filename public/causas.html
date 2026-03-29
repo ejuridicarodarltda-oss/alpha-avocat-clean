@@ -4924,11 +4924,14 @@
 
     function mapBatchSummary(batch = {}){
       const summary = batch.summary || {};
+      const importedCount = Number(batch.imported_count || summary.imported || 0);
+      const updatedCount = Number(batch.updated_count || summary.updated || 0);
+      const createdCount = Number(summary.created ?? Math.max(0, importedCount - updatedCount));
       return {
         totalRowsAnalyzed: Number(batch.rows_processed || 0),
         validDetected: Number(batch.causes_consolidated || summary.imported || 0),
-        created: Number(batch.imported_count || summary.created || 0),
-        updated: Number(batch.updated_count || summary.updated || 0),
+        created: createdCount,
+        updated: updatedCount,
         duplicates: Number(summary.duplicates || 0),
         structuralErrors: Number(batch.rows_invalid || 0),
         failed: Number(summary.failed || 0),
@@ -6555,6 +6558,13 @@
       const representedClientName = primaryClientName || importData.representedClientName || null;
       const representedClientRole = importData.representedClientRole || null;
       const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
+      const destinationMap = buildPjudDestinationMap({
+        [C.k_rol]: rolComposite,
+        pjud_rit: importData.rit || importData.basic?.rit || null,
+        pjud_ruc: importData.ruc || null,
+        pjud_tribunal: tribunal || null,
+        pjud_materia: importData.materia || importData.basic?.materia || null,
+      }, importData);
       return {
         [C.k_client_id]: matchingClient?.[C.c_id] || null,
         [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
@@ -6599,6 +6609,8 @@
           pjud_case_key: importData.pjudCaseKey || null,
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
+          destination_path: destinationMap.logicalPath,
+          persistence: destinationMap.persistence,
         },
       };
     }
@@ -6692,6 +6704,32 @@
       };
     }
 
+    function buildPjudDestinationMap(rowPayload = {}, importData = {}){
+      const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
+      const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
+      const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
+      const rit = rowPayload?.pjud_rit || importData?.rit || importData?.basic?.rit || '';
+      const ruc = rowPayload?.pjud_ruc || importData?.ruc || '';
+      const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`;
+      const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
+      return {
+        tribunal,
+        materia,
+        folderName,
+        logicalPath,
+        persistence: {
+          caseTable: 'public.cases',
+          workspaceStore: 'window.localStorage',
+          workspaceKey: 'alpha-causas-workspace-v4',
+          importRowsTable: 'public.pjud_import_rows',
+          batchTable: 'public.pjud_import_batches',
+          documentContainer: 'importadosPjud',
+          storageBucket: null,
+          storagePath: null,
+        },
+      };
+    }
+
     function materializeImportedCaseWorkspace({
       caseRow,
       rowPayload,
@@ -6775,6 +6813,7 @@
           sheet_name: row.sheetName,
           stage: isValid ? 'accepted' : 'discarded',
           reason: row.reason || null,
+          ...((row.traceability && typeof row.traceability === 'object') ? row.traceability : {}),
         },
         payload: {
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || row.payload?.pjud_case_key || null,
@@ -6787,6 +6826,11 @@
           tribunal: row.tribunal || row.payload?.tribunal || null,
           represented_client_name: row.representedClientName || row.payload?.represented_client_name || null,
           materia: row.materia || row.payload?.materia || null,
+          case_id: row.caseId || row.payload?.case_id || null,
+          operation: row.operation || row.payload?.operation || null,
+          materialized: row.materialized ?? row.payload?.materialized ?? null,
+          destination: row.destination || row.payload?.destination || null,
+          persistence: row.persistence || row.payload?.persistence || null,
         },
       }));
       for (let index = 0; index < rowPayloads.length; index += PJUD_ROW_LOG_CHUNK_SIZE) {
@@ -6815,6 +6859,9 @@
           imported: Number(metadataPatch.imported || 0),
           created: Number(metadataPatch.created || 0),
           updated: Number(metadataPatch.updated || 0),
+          materialized: Number(metadataPatch.materialized || 0),
+          materializationFailed: Number(metadataPatch.materializationFailed || 0),
+          supabaseOnly: Number(metadataPatch.supabaseOnly || 0),
           duplicates: Number(metadataPatch.duplicates || 0),
           failed: Number(metadataPatch.failed || 0),
           discarded: Number(metadataPatch.discarded || 0),
@@ -7030,6 +7077,16 @@
             ruc: rowPayload.pjud_ruc,
             tribunal: rowPayload.pjud_tribunal,
             representedClientName: rowPayload.pjud_represented_client,
+            caseId: updatedRow?.id || null,
+            operation: 'update',
+            materialized: true,
+            destination: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).logicalPath,
+            persistence: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).persistence,
+            traceability: {
+              stage: 'updated_and_materialized',
+              linked_to_case: true,
+              linked_to_workspace: true,
+            },
             status: 'updated',
           });
         }
@@ -7105,6 +7162,16 @@
                 ruc: rowPayload.pjud_ruc,
                 tribunal: rowPayload.pjud_tribunal,
                 representedClientName: rowPayload.pjud_represented_client,
+                caseId: insertedRow?.id || null,
+                operation: 'insert',
+                materialized: true,
+                destination: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).logicalPath,
+                persistence: buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}).persistence,
+                traceability: {
+                  stage: 'inserted_and_materialized',
+                  linked_to_case: true,
+                  linked_to_workspace: true,
+                },
                 status: 'created',
               });
             }
@@ -7138,6 +7205,16 @@
               }
               processedRows.push({
                 pjudCaseKey: savedRow.pjud_case_key,
+                caseId: savedRow?.id || null,
+                operation: 'insert',
+                materialized: true,
+                destination: buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}).logicalPath,
+                persistence: buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}).persistence,
+                traceability: {
+                  stage: 'inserted_and_materialized',
+                  linked_to_case: true,
+                  linked_to_workspace: true,
+                },
                 status: 'created',
               });
             });
@@ -7180,7 +7257,10 @@
           reason: item.reason || '',
           payload: {
             status: item.status,
+            operation: item.operation || null,
+            materialized: item.materialized ?? null,
             reason: item.reason || '',
+            case_id: item.caseId || null,
             pjud_case_key: item.pjudCaseKey || '',
             rol: item.rol || '',
             rit: item.rit || '',
@@ -7188,7 +7268,10 @@
             tribunal: item.tribunal || '',
             represented_client_name: item.representedClientName || '',
             materia: item.materia || '',
+            destination: item.destination || null,
+            persistence: item.persistence || null,
           },
+          traceability: item.traceability || null,
         })), { isValid: true });
       }
 
