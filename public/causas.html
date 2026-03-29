@@ -2073,7 +2073,8 @@
               <button type="button" id="btnConectarPjud" class="btn">Conectar con PJUD</button>
               <button type="button" id="btnAbrirCausaPjud" class="btn">Abrir causa en PJUD</button>
               <button type="button" id="btnDescargarContenidoPjud" class="btn">Descargar contenido del expediente</button>
-              <button type="button" id="btnVincularContenidoPjud" class="btn btn-primary">Vincular contenido descargado a Expedientes Digitales</button>
+              <button type="button" id="btnVincularContenidoPjudActual" class="btn btn-primary">Vincular archivos a esta causa</button>
+              <button type="button" id="btnVincularContenidoPjudLote" class="btn">Vincular lote descargado a Expedientes Digitales</button>
             </div>
           </div>
         </div>
@@ -2354,6 +2355,8 @@
       pendingImport: null,
       pendingDownloadedPjudDocs: [],
       pendingPjudManualLinkPrompt: false,
+      pendingPjudManualLinkMode: 'individual',
+      pendingPjudBatchManualAssignments: [],
       pendingBatchImports: [],
       pendingPjudWorkbook: null,
       pendingPjudBatchId: null,
@@ -2591,7 +2594,8 @@
         { id: 'btnConectarPjud', scope: 'flujo-2', handler: () => connectWithPjud() },
         { id: 'btnAbrirCausaPjud', scope: 'flujo-2', handler: () => openCauseInPjudFromImport() },
         { id: 'btnDescargarContenidoPjud', scope: 'flujo-2', handler: () => downloadPjudContentForCurrentCause() },
-        { id: 'btnVincularContenidoPjud', scope: 'flujo-2', handler: () => linkDownloadedFilesToDigitalFolder() },
+        { id: 'btnVincularContenidoPjudActual', scope: 'flujo-2', handler: () => linkDownloadedFilesToDigitalFolder({ mode: 'individual' }) },
+        { id: 'btnVincularContenidoPjudLote', scope: 'flujo-2', handler: () => linkDownloadedFilesToDigitalFolder({ mode: 'batch' }) },
       ];
       buttonSpecs.forEach((spec) => {
         const button = $(spec.id);
@@ -6903,6 +6907,108 @@
       });
     }
 
+    function normalizePjudKey(value = ''){
+      return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
+    }
+
+    function extractPjudIdentifiersFromText(value = ''){
+      const text = String(value || '');
+      const normalized = normalizePjudKey(text);
+      const identifiers = {
+        rol: '',
+        rit: '',
+        ruc: '',
+        tribunal: '',
+        pjudCaseKey: '',
+      };
+      const rolMatch = text.match(/\brol\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i);
+      const ritMatch = text.match(/\brit\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i);
+      const rucMatch = text.match(/\bruc\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i);
+      const keyMatch = text.match(/\bpjud(?:[_\-\s]?case(?:[_\-\s]?key)?)\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i);
+      identifiers.rol = normalizeIdentifierValue(rolMatch?.[1] || '');
+      identifiers.rit = normalizeIdentifierValue(ritMatch?.[1] || '');
+      identifiers.ruc = normalizeIdentifierValue(rucMatch?.[1] || '');
+      identifiers.pjudCaseKey = normalizeIdentifierValue(keyMatch?.[1] || '');
+      identifiers.tribunal = normalized;
+      return identifiers;
+    }
+
+    function buildPjudCaseMatcherIndex(cases = []){
+      const index = new Map();
+      const add = (key, cause) => {
+        if (!key) return;
+        if (!index.has(key)) index.set(key, []);
+        index.get(key).push(cause);
+      };
+      cases.forEach((cause) => {
+        const keys = [
+          normalizePjudKey(cause?.rol),
+          normalizePjudKey(cause?.rit),
+          normalizePjudKey(cause?.ruc),
+          normalizePjudKey(cause?.pjudCaseKey || cause?.pjud_case_key),
+          normalizePjudKey(cause?.tribunal),
+          normalizePjudKey(cause?.caratula),
+          normalizePjudKey(cause?.importBatchId || cause?.import_batch_id),
+        ].filter(Boolean);
+        keys.forEach((key) => add(key, cause));
+      });
+      return index;
+    }
+
+    function scoreCauseCandidate(cause, identifiers = {}, normalizedName = ''){
+      let score = 0;
+      if (!cause) return score;
+      if (identifiers.pjudCaseKey && normalizePjudKey(cause?.pjudCaseKey || cause?.pjud_case_key) === normalizePjudKey(identifiers.pjudCaseKey)) score += 60;
+      if (identifiers.ruc && normalizePjudKey(cause?.ruc) === normalizePjudKey(identifiers.ruc)) score += 45;
+      if (identifiers.rit && normalizePjudKey(cause?.rit) === normalizePjudKey(identifiers.rit)) score += 35;
+      if (identifiers.rol && normalizePjudKey(cause?.rol) === normalizePjudKey(identifiers.rol)) score += 35;
+      if (identifiers.tribunal && normalizePjudKey(cause?.tribunal).includes(identifiers.tribunal)) score += 15;
+      if (normalizedName) {
+        const caratula = normalizePjudKey(cause?.caratula);
+        if (caratula && normalizedName.includes(caratula)) score += 20;
+      }
+      return score;
+    }
+
+    function resolveBatchCaseForFile(fileName = '', cases = getAllCases()){
+      const identifiers = extractPjudIdentifiersFromText(fileName);
+      const normalizedName = normalizePjudKey(fileName);
+      const index = buildPjudCaseMatcherIndex(cases);
+      const directKeys = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.pjudCaseKey].map(normalizePjudKey).filter(Boolean);
+      const candidates = new Set();
+      directKeys.forEach((key) => (index.get(key) || []).forEach((cause) => candidates.add(cause)));
+      if (!candidates.size) cases.forEach((cause) => candidates.add(cause));
+      let best = null;
+      let bestScore = 0;
+      [...candidates].forEach((cause) => {
+        const score = scoreCauseCandidate(cause, identifiers, normalizedName);
+        if (score > bestScore) {
+          best = cause;
+          bestScore = score;
+        }
+      });
+      const requiresConfirmation = bestScore > 0 && bestScore < 60;
+      return {
+        suggestedCase: best,
+        identifiers,
+        confidence: bestScore,
+        method: bestScore >= 60 ? 'automatico-por-identificador' : (bestScore > 0 ? 'requiere-confirmacion' : 'pendiente'),
+        requiresConfirmation,
+      };
+    }
+
+    function queuePjudBatchManualAssignments(items = []){
+      state.pendingPjudBatchManualAssignments = items.map((item) => ({
+        ...item,
+        selectedCaseId: item.suggestedCase?.id ? String(item.suggestedCase.id) : '',
+      }));
+      if (!state.pendingPjudBatchManualAssignments.length) return;
+      const summary = state.pendingPjudBatchManualAssignments
+        .map((item, index) => `${index + 1}. ${item.fileName} → sugerida: ${item.suggestedCase?.rol || item.suggestedCase?.caratula || 'sin sugerencia'} (${item.method})`)
+        .join('\n');
+      setDetailStatus(`Validación masiva requerida:\n${summary}`, 'warn');
+    }
+
     async function downloadPjudContentForCurrentCause(){
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
@@ -6924,10 +7030,13 @@
         .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
         .slice(0, 20);
       if (!candidates.length) {
-        await openCauseInPjudFromImport();
         state.pendingPjudManualLinkPrompt = true;
-        $('import_support_files')?.click();
-        setMessage('importMsg', 'No existe URL directa de descarga para esta causa; se abrió PJUD/Mis Causas. Selecciona ahora los archivos descargados para vincularlos al expediente digital.', 'warn');
+        state.pendingPjudManualLinkMode = 'individual';
+        const input = $('import_support_files');
+        if (input) input.value = '';
+        input?.click();
+        setTimeout(() => { openCauseInPjudFromImport(); }, 0);
+        setMessage('importMsg', 'No existe URL directa de descarga para esta causa. Selecciona ahora los archivos descargados desde PJUD; además se abrirá PJUD/Mis Causas en una nueva pestaña.', 'warn');
         return;
       }
 
@@ -6953,8 +7062,15 @@
             sourceUrl,
             sourcePageUrl: doc.sourcePageUrl || importData.sourceUrl || '',
             destinationModule: 'Causas',
-            caseId: current.id,
-            linkedClient: current.cliente,
+            caseId: current?.id || null,
+            linkedClient: current?.cliente || '',
+            pjudTraceability: {
+              batch_id: current?.importBatchId || current?.import_batch_id || state.pendingPjudBatchId || null,
+              case_id: current?.id || null,
+              resolution_method: 'automatico-por-identificador',
+              destination_container: 'documentContainers.importadosPjud',
+              linked_client: current?.cliente || '',
+            },
             content,
           });
         } catch (error) {
@@ -6982,12 +7098,15 @@
 
       const msg = current
         ? `Descarga PJUD finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/session.`
-        : `Descarga PJUD finalizada en modo manual: ${linkedDocs.length} documento(s) descargado(s). Selecciona una causa y usa “Vincular contenido descargado a Expedientes Digitales”.`;
+        : `Descarga PJUD finalizada en modo manual: ${linkedDocs.length} documento(s) descargado(s). Selecciona una causa y usa “Vincular archivos a esta causa” o “Vincular lote descargado a Expedientes Digitales”.`;
       setMessage('importMsg', msg, linkedDocs.length ? (failedDocs.length ? 'warn' : 'ok') : 'warn');
       if (!linkedDocs.length) {
-        await openCauseInPjudFromImport();
         state.pendingPjudManualLinkPrompt = true;
-        $('import_support_files')?.click();
+        state.pendingPjudManualLinkMode = 'individual';
+        const input = $('import_support_files');
+        if (input) input.value = '';
+        input?.click();
+        setTimeout(() => { openCauseInPjudFromImport(); }, 0);
         setDetailStatus('No fue posible descargar automáticamente. Adjunta archivos descargados manualmente desde PJUD.', 'warn');
       }
       registerJudicialTrace({
@@ -7000,62 +7119,230 @@
       });
     }
 
-    async function linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection = false } = {}){
+    async function linkDownloadedFilesToCurrentCause({ initiatedByFileSelection = false } = {}){
       const current = getCurrentCause();
       if (!current) {
         setMessage('importMsg', 'Selecciona primero una causa para vincular archivos descargados desde PJUD.', 'warn');
-        return;
+        return false;
       }
-      const files = $('import_support_files')?.files;
+      const input = $('import_support_files');
+      const files = input?.files;
       const queuedDocs = Array.isArray(state.pendingDownloadedPjudDocs) ? state.pendingDownloadedPjudDocs : [];
       if (!files?.length && !queuedDocs.length) {
         if (initiatedByFileSelection) {
           setMessage('importMsg', 'No se seleccionaron archivos. Repite la selección para vincular contenido descargado desde PJUD.', 'warn');
-          return;
+          return false;
         }
         state.pendingPjudManualLinkPrompt = true;
-        $('import_support_files')?.click();
-        setMessage('importMsg', 'Selecciona ahora los archivos descargados desde PJUD para vincularlos al expediente digital.', 'ok');
-        return;
+        state.pendingPjudManualLinkMode = 'individual';
+        if (input) input.value = '';
+        input?.click();
+        setMessage('importMsg', 'Selecciona los archivos descargados para vincularlos a esta causa.', 'ok');
+        return false;
       }
-      try {
-        const fileDocuments = files?.length
-          ? await filesToDocumentInputs(files, {
-            category: 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
-            observation: 'Archivo descargado por el usuario desde PJUD y vinculado desde el flujo de conexión.',
-            origin: 'Archivo descargado por usuario (PJUD)',
-            destinationModule: 'Causas',
-            caseId: current.id,
-            linkedClient: current.cliente,
-          })
-          : [];
-        const queuedDocuments = queuedDocs.length
-          ? queuedDocs.map((doc) => ({
-            ...doc,
-            category: 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
-            destinationModule: 'Causas',
-            caseId: current.id,
-            linkedClient: current.cliente,
-          }))
-          : [];
-        const allDocuments = [...fileDocuments, ...queuedDocuments];
-        persistCurrentCause((entry) => {
+      const fileDocuments = files?.length
+        ? await filesToDocumentInputs(files, {
+          category: 'Importadas del Poder Judicial',
+          destinationContainer: 'importadosPjud',
+          observation: 'Archivo descargado por el usuario desde PJUD y vinculado a la causa activa.',
+          origin: 'Archivo descargado por usuario (PJUD)',
+          destinationModule: 'Causas',
+          caseId: current.id,
+          linkedClient: current.cliente,
+        })
+        : [];
+      const queuedDocuments = queuedDocs.length
+        ? queuedDocs.map((doc) => ({
+          ...doc,
+          category: 'Importadas del Poder Judicial',
+          destinationContainer: 'importadosPjud',
+          destinationModule: 'Causas',
+          caseId: current.id,
+          linkedClient: current.cliente,
+        }))
+        : [];
+      const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => ({
+        ...doc,
+        pjudTraceability: {
+          ...(doc.pjudTraceability || {}),
+          batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
+          case_id: current.id,
+          resolution_method: 'confirmado-manualmente',
+          destination_container: 'documentContainers.importadosPjud',
+          linked_client: current.cliente || '',
+        },
+      }));
+      if (!allDocuments.length) return false;
+      persistCurrentCause((entry) => {
+        let next = entry;
+        allDocuments.forEach((doc) => {
+          next = upsertDocument(next, doc);
+        });
+        return markManualEdit(next);
+      });
+      await loadCases();
+      renderAll();
+      state.pendingDownloadedPjudDocs = [];
+      state.pendingPjudManualLinkPrompt = false;
+      state.pendingPjudManualLinkMode = 'individual';
+      if (input) input.value = '';
+      setMessage('importMsg', `Se vincularon ${allDocuments.length} archivos a Importadas del Poder Judicial.`, 'ok');
+      return true;
+    }
+
+    async function linkDownloadedFilesToBatchCauses({ initiatedByFileSelection = false } = {}){
+      const input = $('import_support_files');
+      const files = input?.files;
+      const queuedDocs = Array.isArray(state.pendingDownloadedPjudDocs) ? state.pendingDownloadedPjudDocs : [];
+      if (!files?.length && !queuedDocs.length) {
+        if (initiatedByFileSelection) {
+          setMessage('importMsg', 'No se seleccionaron archivos. Repite la selección para vincular el lote PJUD.', 'warn');
+          return false;
+        }
+        state.pendingPjudManualLinkPrompt = true;
+        state.pendingPjudManualLinkMode = 'batch';
+        if (input) input.value = '';
+        input?.click();
+        setMessage('importMsg', 'Selecciona los archivos descargados del lote PJUD para distribuirlos entre las causas correspondientes.', 'ok');
+        return false;
+      }
+
+      const fileDocuments = files?.length
+        ? await filesToDocumentInputs(files, {
+          category: 'Importadas del Poder Judicial',
+          destinationContainer: 'importadosPjud',
+          observation: 'Archivo descargado por el usuario desde PJUD (lote).',
+          origin: 'Archivo descargado por usuario (PJUD lote)',
+          destinationModule: 'Causas',
+        })
+        : [];
+      const queuedDocuments = queuedDocs.length
+        ? queuedDocs.map((doc) => ({
+          ...doc,
+          category: 'Importadas del Poder Judicial',
+          destinationContainer: 'importadosPjud',
+          destinationModule: 'Causas',
+        }))
+        : [];
+      const allDocuments = [...fileDocuments, ...queuedDocuments];
+      if (!allDocuments.length) return false;
+
+      const allCases = getAllCases();
+      const autoAssignments = [];
+      const pendingAssignments = [];
+      allDocuments.forEach((doc) => {
+        const resolution = resolveBatchCaseForFile(doc.name || doc.fileName || '');
+        const assignment = {
+          document: doc,
+          fileName: doc.name || doc.fileName || 'archivo-sin-nombre',
+          suggestedCase: resolution.suggestedCase,
+          identifiers: resolution.identifiers,
+          method: resolution.method,
+          confidence: resolution.confidence,
+        };
+        if (resolution.suggestedCase && !resolution.requiresConfirmation) autoAssignments.push(assignment);
+        else pendingAssignments.push(assignment);
+      });
+
+      const updatesByCase = new Map();
+      autoAssignments.forEach((assignment) => {
+        const cause = assignment.suggestedCase;
+        if (!cause?.id) return;
+        const caseId = String(cause.id);
+        if (!updatesByCase.has(caseId)) updatesByCase.set(caseId, { cause, docs: [] });
+        updatesByCase.get(caseId).docs.push({
+          ...assignment.document,
+          caseId: caseId,
+          linkedClient: cause.cliente,
+          pjudTraceability: {
+            ...(assignment.document.pjudTraceability || {}),
+            batch_id: cause.importBatchId || cause.import_batch_id || state.pendingPjudBatchId || null,
+            case_id: caseId,
+            resolution_method: 'automatico-por-identificador',
+            destination_container: 'documentContainers.importadosPjud',
+            linked_client: cause.cliente || '',
+          },
+        });
+      });
+
+      updatesByCase.forEach(({ cause, docs }) => {
+        updateWorkspaceEntry(cause.id, (entry) => {
           let next = entry;
-          allDocuments.forEach((doc) => {
+          docs.forEach((doc) => {
             next = upsertDocument(next, doc);
           });
           return markManualEdit(next);
         });
-        await loadCases();
-        renderAll();
-        state.pendingDownloadedPjudDocs = [];
-        state.pendingPjudManualLinkPrompt = false;
-        if ($('import_support_files')) $('import_support_files').value = '';
-        setMessage('importMsg', `Se vincularon ${allDocuments.length} archivo(s) descargados a Expedientes Digitales en “Importadas del Poder Judicial”.`, 'ok');
+      });
+
+      state.pendingPjudBatchManualAssignments = [];
+      if (pendingAssignments.length) {
+        queuePjudBatchManualAssignments(pendingAssignments);
+        const options = allCases.map((cause) => `${cause.id}: ${cause.rol || cause.caratula || cause.id}`).join('\n');
+        for (const item of state.pendingPjudBatchManualAssignments) {
+          const suggested = item.suggestedCase?.id ? `Sugerida ${item.suggestedCase.id}` : 'Sin sugerencia';
+          const chosen = window.prompt(`Archivo: ${item.fileName}\n${suggested}\nIdentificadores: ${JSON.stringify(item.identifiers)}\nSelecciona ID de causa:\n${options}`,
+            item.selectedCaseId || '');
+          if (chosen) item.selectedCaseId = String(chosen).trim();
+        }
+        state.pendingPjudBatchManualAssignments.forEach((item) => {
+          const selectedCause = allCases.find((cause) => String(cause.id) === String(item.selectedCaseId));
+          if (!selectedCause) return;
+          const caseId = String(selectedCause.id);
+          if (!updatesByCase.has(caseId)) updatesByCase.set(caseId, { cause: selectedCause, docs: [] });
+          updatesByCase.get(caseId).docs.push({
+            ...item.document,
+            caseId,
+            linkedClient: selectedCause.cliente,
+            pjudTraceability: {
+              ...(item.document.pjudTraceability || {}),
+              batch_id: selectedCause.importBatchId || selectedCause.import_batch_id || state.pendingPjudBatchId || null,
+              case_id: caseId,
+              resolution_method: 'confirmado-manualmente',
+              destination_container: 'documentContainers.importadosPjud',
+              linked_client: selectedCause.cliente || '',
+            },
+          });
+          item.method = 'confirmado-manualmente';
+        });
+
+        updatesByCase.forEach(({ cause, docs }) => {
+          updateWorkspaceEntry(cause.id, (entry) => {
+            let next = entry;
+            docs.forEach((doc) => {
+              next = upsertDocument(next, doc);
+            });
+            return markManualEdit(next);
+          });
+        });
+      }
+
+      await loadCases();
+      renderAll();
+      const unresolved = (state.pendingPjudBatchManualAssignments || []).filter((item) => !item.selectedCaseId);
+      state.pendingPjudBatchManualAssignments = unresolved.map((item) => ({ ...item, method: 'pendiente' }));
+      state.pendingDownloadedPjudDocs = [];
+      state.pendingPjudManualLinkPrompt = false;
+      state.pendingPjudManualLinkMode = 'individual';
+      if (input) input.value = '';
+
+      const linkedCount = [...updatesByCase.values()].reduce((acc, value) => acc + value.docs.length, 0);
+      if (unresolved.length) {
+        setMessage('importMsg', 'Algunos archivos no pudieron asociarse automáticamente. Revísalos y asigna la causa correcta.', 'warn');
+        setDetailStatus(`Pendientes sin identificar: ${unresolved.map((item) => item.fileName).join(', ')}`, 'warn');
+      } else {
+        setMessage('importMsg', `Se vincularon ${linkedCount} archivos a Importadas del Poder Judicial.`, 'ok');
+      }
+      return true;
+    }
+
+    async function linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection = false, mode = 'individual' } = {}){
+      try {
+        if (mode === 'batch') return await linkDownloadedFilesToBatchCauses({ initiatedByFileSelection });
+        return await linkDownloadedFilesToCurrentCause({ initiatedByFileSelection });
       } catch (error) {
         setMessage('importMsg', `No fue posible vincular el contenido descargado: ${error?.message || 'error desconocido'}`, 'error');
+        return false;
       }
     }
 
@@ -8642,7 +8929,8 @@
       bindEvent('btnConectarPjud', 'click', () => connectWithPjud(), { scope: 'importacion' });
       bindEvent('btnAbrirCausaPjud', 'click', () => openCauseInPjudFromImport(), { scope: 'importacion' });
       bindEvent('btnDescargarContenidoPjud', 'click', () => downloadPjudContentForCurrentCause(), { scope: 'importacion' });
-      bindEvent('btnVincularContenidoPjud', 'click', () => linkDownloadedFilesToDigitalFolder(), { scope: 'importacion' });
+      bindEvent('btnVincularContenidoPjudActual', 'click', () => linkDownloadedFilesToDigitalFolder({ mode: 'individual' }), { scope: 'importacion' });
+      bindEvent('btnVincularContenidoPjudLote', 'click', () => linkDownloadedFilesToDigitalFolder({ mode: 'batch' }), { scope: 'importacion' });
       bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
       bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
       auditAndRepairAutomaticFlowButtons();
@@ -8654,7 +8942,8 @@
       });
       $('import_support_files')?.addEventListener('change', async () => {
         if (!state.pendingPjudManualLinkPrompt) return;
-        await linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection: true });
+        const mode = state.pendingPjudManualLinkMode === 'batch' ? 'batch' : 'individual';
+        await linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection: true, mode });
       });
       $('batchImportPreview')?.addEventListener('click', (event) => {
         const actionButton = event.target.closest('[data-import-summary-action]');
