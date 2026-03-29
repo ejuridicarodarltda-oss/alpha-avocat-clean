@@ -2549,6 +2549,61 @@
       console.info('[CAUSAS][DIAGNÓSTICO] Botón operativo detectado.', { buttonId, expectedBranch });
     }
 
+    function forceButtonEnabled(button, scope = 'general'){
+      if (!button) return false;
+      const hasDisabled = button.disabled || button.getAttribute('aria-disabled') === 'true';
+      if (!hasDisabled && button.style.pointerEvents !== 'none') return false;
+      button.disabled = false;
+      button.removeAttribute('disabled');
+      button.setAttribute('aria-disabled', 'false');
+      if (button.style.pointerEvents === 'none') button.style.pointerEvents = 'auto';
+      console.info('[CAUSAS][BOTONES] Botón reactivado automáticamente.', {
+        scope,
+        id: button.id || null,
+        text: button.textContent?.trim() || '',
+      });
+      return true;
+    }
+
+    function bindFallbackClick(buttonId, handler, scope){
+      const button = $(buttonId);
+      if (!button) return;
+      if (button.dataset.primaryBound_click === '1') return;
+      const fallbackKey = `fallbackBound_${scope}`;
+      if (button.dataset[fallbackKey] === '1') return;
+      button.dataset[fallbackKey] = '1';
+      button.addEventListener('click', async (event) => {
+        if (event.defaultPrevented) return;
+        try {
+          await handler(event);
+        } catch (error) {
+          console.error(`[CAUSAS][BOTONES][${scope}] Falló fallback de #${buttonId}.`, error);
+        }
+      });
+    }
+
+    function auditAndRepairAutomaticFlowButtons(){
+      const buttonSpecs = [
+        { id: 'btnSistemaAutomatico', scope: 'topbar-auto', handler: () => openImportModal() },
+        { id: 'btnImportarExcelLocal', scope: 'flujo-1', handler: async () => { await analyzeBatchImport(); await transferBatchImport(); } },
+        { id: 'btnConectarPjud', scope: 'flujo-2', handler: () => connectWithPjud() },
+        { id: 'btnAbrirCausaPjud', scope: 'flujo-2', handler: () => openCauseInPjudFromImport() },
+        { id: 'btnDescargarContenidoPjud', scope: 'flujo-2', handler: () => downloadPjudContentForCurrentCause() },
+        { id: 'btnVincularContenidoPjud', scope: 'flujo-2', handler: () => linkDownloadedFilesToDigitalFolder() },
+      ];
+      buttonSpecs.forEach((spec) => {
+        const button = $(spec.id);
+        if (!button) {
+          console.error('[CAUSAS][BOTONES] Botón requerido no existe en DOM.', { id: spec.id, scope: spec.scope });
+          return;
+        }
+        forceButtonEnabled(button, spec.scope);
+        bindFallbackClick(spec.id, spec.handler, spec.scope);
+        const computed = window.getComputedStyle(button);
+        if (computed.pointerEvents === 'none') button.style.pointerEvents = 'auto';
+      });
+    }
+
     function formatDate(value){
       if (!value) return '—';
       const date = new Date(value + (value.length <= 10 ? 'T00:00:00Z' : ''));
@@ -7887,6 +7942,7 @@
       renderImportPreview(null);
       renderBatchImportPreview([], null);
       setMessage('importMsg', '', '');
+      auditAndRepairAutomaticFlowButtons();
       openManagedModal('modalImportacion');
     }
 
@@ -8423,6 +8479,7 @@
         return false;
       }
       EVENT_BINDING_REGISTRY.push({ elementId, eventName, scope });
+      element.dataset[`primaryBound_${eventName}`] = '1';
       element.addEventListener(eventName, async (event) => {
         try {
           await handler(event);
@@ -8453,6 +8510,7 @@
       bindEvent('btnVincularContenidoPjud', 'click', () => linkDownloadedFilesToDigitalFolder(), { scope: 'importacion' });
       bindEvent('btnAnalizarLoteImportacion', 'click', () => analyzeBatchImport(), { scope: 'importacion' });
       bindEvent('btnTransferirLoteImportacion', 'click', () => transferBatchImport(), { scope: 'importacion' });
+      auditAndRepairAutomaticFlowButtons();
       $('batch_excel_file')?.addEventListener('change', () => {
         state.pendingPjudWorkbook = null;
         state.pendingBatchImports = [];
