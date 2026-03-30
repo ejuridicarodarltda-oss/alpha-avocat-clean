@@ -2069,12 +2069,14 @@
           <div class="selection-card">
             <strong>Flujo 2 · Conexión real PJUD</strong>
             <div class="timeline-meta">Conecta con la causa real para abrir PJUD y poblar contenido judicial real en la carpeta correcta.</div>
+            <div class="timeline-meta"><strong>Web → Web (principal):</strong> Conectar, abrir y descargar intenta primero desde PJUD/OJV directo a Expedientes Digitales.</div>
+            <div class="timeline-meta"><strong>PC → Web (respaldo manual):</strong> Vincular archivos locales solo se usa si la descarga directa no es técnicamente posible.</div>
             <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
               <button type="button" id="btnConectarPjud" class="btn">Conectar con PJUD</button>
               <button type="button" id="btnAbrirCausaPjud" class="btn">Abrir causa en PJUD</button>
               <button type="button" id="btnDescargarContenidoPjud" class="btn">Descargar contenido del expediente</button>
-              <button type="button" id="btnVincularContenidoPjudActual" class="btn btn-primary">Vincular archivos a esta causa</button>
-              <button type="button" id="btnVincularContenidoPjudLote" class="btn">Vincular lote descargado a Expedientes Digitales</button>
+              <button type="button" id="btnVincularContenidoPjudActual" class="btn btn-primary">Vincular archivos a esta causa (respaldo manual)</button>
+              <button type="button" id="btnVincularContenidoPjudLote" class="btn">Vincular lote descargado a Expedientes Digitales (respaldo manual)</button>
             </div>
           </div>
         </div>
@@ -2138,7 +2140,7 @@
         <div class="field">
           <label for="import_support_files">Archivos descargados desde PJUD (opcional)</label>
           <input id="import_support_files" class="input" type="file" multiple />
-          <div class="small-note">Los archivos que adjuntes aquí se vincularán automáticamente al expediente digital en la subcarpeta “Importadas del Poder Judicial”.</div>
+          <div class="small-note">Uso subsidiario/manual: adjunta aquí solo archivos descargados manualmente desde PJUD cuando la descarga web→web no sea posible.</div>
         </div>
         <div class="helper-box" id="pjudBatchValidationPanel" style="display:none;">
           <strong>Validación masiva de documentos PJUD</strong>
@@ -7209,6 +7211,87 @@
       summaryNode.textContent = `Autoasignadas: ${autoCount} · Requieren confirmación: ${reviewCount} · No identificadas: ${unresolvedCount}.`;
     }
 
+    function extractOfficialPjudLinksFromHtml(htmlText = '', baseUrl = ''){
+      if (!String(htmlText || '').trim()) return [];
+      try {
+        const parser = new DOMParser();
+        const doc = parser.parseFromString(String(htmlText || ''), 'text/html');
+        const links = new Set();
+        doc.querySelectorAll('a[href]').forEach((anchor) => {
+          const href = normalizeDownloadUrl(anchor.getAttribute('href') || '');
+          if (!href) return;
+          if (!isOfficialPjudUrl(href)) return;
+          links.add(href);
+        });
+        if (baseUrl && isOfficialPjudUrl(baseUrl)) links.add(normalizeDownloadUrl(baseUrl));
+        return [...links];
+      } catch (error) {
+        logPjudTrace('error-parsear-html-pjud', { message: error?.message || 'Error desconocido', baseUrl });
+        return baseUrl && isOfficialPjudUrl(baseUrl) ? [normalizeDownloadUrl(baseUrl)] : [];
+      }
+    }
+
+    async function discoverPjudCandidatesFromWeb(importData, current, identifiers){
+      const docCandidates = [...(importData?.documents || [])]
+        .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
+        .map((doc) => ({
+          name: doc.name || '',
+          sourceUrl: normalizeDownloadUrl(doc.sourceUrl),
+          sourcePageUrl: normalizeDownloadUrl(doc.sourcePageUrl || importData?.sourceUrl || ''),
+          category: doc.category || 'Importadas del Poder Judicial',
+          observation: doc.observation || '',
+          from: 'importData.documents',
+        }));
+      const seedUrls = new Set([
+        importData?.sourceUrl,
+        current?.poderJudicial?.link,
+        current?.tribunalData?.poderJudicial,
+        buildPjudPublicSearchUrl({
+          rol: identifiers?.rol || current?.rol || '',
+          rit: identifiers?.rit || current?.rit || '',
+          tribunal: identifiers?.tribunal || current?.tribunal || '',
+        }),
+      ].map(normalizeDownloadUrl).filter((url) => isOfficialPjudUrl(url)));
+      const discovered = [];
+      for (const url of seedUrls) {
+        try {
+          const response = await fetch(url, { method: 'GET', credentials: 'include' });
+          if (!response.ok) continue;
+          const contentType = String(response.headers.get('content-type') || '').toLowerCase();
+          if (!contentType.includes('text/html')) {
+            discovered.push({
+              name: `documento-pjud-${Date.now()}.pdf`,
+              sourceUrl: url,
+              sourcePageUrl: url,
+              category: 'Importadas del Poder Judicial',
+              observation: 'Detectado desde navegación web PJUD/OJV.',
+              from: 'seed-direct',
+            });
+            continue;
+          }
+          const htmlText = await response.text();
+          const links = extractOfficialPjudLinksFromHtml(htmlText, url);
+          links.forEach((link) => discovered.push({
+            name: `documento-pjud-${Date.now()}.pdf`,
+            sourceUrl: link,
+            sourcePageUrl: url,
+            category: 'Importadas del Poder Judicial',
+            observation: 'URL detectada automáticamente desde PJUD/OJV.',
+            from: 'seed-html',
+          }));
+        } catch (error) {
+          logPjudTrace('error-descubrir-url-pjud', { url, message: error?.message || 'Error desconocido' });
+        }
+      }
+      const dedup = new Map();
+      [...docCandidates, ...discovered].forEach((item) => {
+        const key = normalizeDownloadUrl(item.sourceUrl || '');
+        if (!key || !isOfficialPjudUrl(key)) return;
+        if (!dedup.has(key)) dedup.set(key, { ...item, sourceUrl: key });
+      });
+      return [...dedup.values()].slice(0, 30);
+    }
+
     async function downloadPjudContentForCurrentCause(){
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
@@ -7226,9 +7309,7 @@
         return;
       }
 
-      const candidates = [...(importData.documents || [])]
-        .filter((doc) => isHttpUrl(doc?.sourceUrl || '') && isOfficialPjudUrl(doc?.sourceUrl || ''))
-        .slice(0, 20);
+      const candidates = await discoverPjudCandidatesFromWeb(importData, current, identifiers);
       if (!candidates.length) {
         state.pendingPjudManualLinkPrompt = true;
         state.pendingPjudManualLinkMode = 'individual';
@@ -7236,7 +7317,7 @@
         if (input) input.value = '';
         input?.click();
         setTimeout(() => { openCauseInPjudFromImport(); }, 0);
-        setMessage('importMsg', 'No existe URL directa de descarga para esta causa. Selecciona ahora los archivos descargados desde PJUD; además se abrirá PJUD/Mis Causas en una nueva pestaña.', 'warn');
+        setMessage('importMsg', 'No fue posible materializar contenido web→web desde PJUD/OJV para esta causa. Se activa respaldo manual: descarga en PJUD y luego vincula desde tu PC.', 'warn');
         return;
       }
 
@@ -7297,8 +7378,8 @@
       }
 
       const msg = current
-        ? `Descarga PJUD finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/session.`
-        : `Descarga PJUD finalizada en modo manual: ${linkedDocs.length} documento(s) descargado(s). Selecciona una causa y usa “Vincular archivos a esta causa” o “Vincular lote descargado a Expedientes Digitales”.`;
+        ? `Descarga PJUD web→web finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/sesión.`
+        : `Descarga PJUD finalizada sin causa activa: ${linkedDocs.length} documento(s). Usa vinculación manual solo como respaldo si corresponde.`;
       setMessage('importMsg', msg, linkedDocs.length ? (failedDocs.length ? 'warn' : 'ok') : 'warn');
       if (!linkedDocs.length) {
         state.pendingPjudManualLinkPrompt = true;
@@ -7307,7 +7388,7 @@
         if (input) input.value = '';
         input?.click();
         setTimeout(() => { openCauseInPjudFromImport(); }, 0);
-        setDetailStatus('No fue posible descargar automáticamente. Adjunta archivos descargados manualmente desde PJUD.', 'warn');
+        setDetailStatus('No fue posible materializar automáticamente desde PJUD/OJV. Se habilita respaldo manual para adjuntar archivos descargados por el usuario.', 'warn');
       }
       registerJudicialTrace({
         scope: 'pjud',
@@ -7337,7 +7418,7 @@
         state.pendingPjudManualLinkMode = 'individual';
         if (input) input.value = '';
         input?.click();
-        setMessage('importMsg', 'Selecciona los archivos descargados para vincularlos a esta causa.', 'ok');
+        setMessage('importMsg', 'Respaldo manual activo: selecciona los archivos descargados en PJUD para vincularlos a esta causa.', 'ok');
         return false;
       }
       const fileDocuments = files?.length
@@ -7404,7 +7485,7 @@
         state.pendingPjudManualLinkMode = 'batch';
         if (input) input.value = '';
         input?.click();
-        setMessage('importMsg', 'Selecciona los archivos descargados del lote PJUD para distribuirlos entre las causas correspondientes.', 'ok');
+        setMessage('importMsg', 'Respaldo manual activo: selecciona archivos del lote PJUD descargado para distribuirlos entre las causas correspondientes.', 'ok');
         return false;
       }
 
