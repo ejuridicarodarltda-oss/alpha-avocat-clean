@@ -2083,39 +2083,79 @@
       </div>
       <form id="formImportacionMasiva" class="form">
         <div class="helper-box">
-          <strong>Conexión</strong>
+          <strong>Paso 1: Seleccionar Excel PJUD del lote desde este PC</strong>
+          <div class="timeline-meta">Este Excel se cargará como archivo base del lote masivo.</div>
+          <div class="timeline-meta">Su destino es la entrada del procesamiento masivo de causas.</div>
+          <div class="timeline-meta">No se incorporará como documento del expediente ni como archivo manual de una causa.</div>
+          <div class="field" style="margin-top:10px;">
+            <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" />
+            <div class="small-note">Se procesan automáticamente las hojas Corte Suprema, Corte Apelaciones, Civil, Laboral, Penal, Cobranza y Familia.</div>
+          </div>
+          <div class="helper-box" style="margin-top:8px;">
+            <strong>DESTINO DEL ARCHIVO SELECCIONADO</strong>
+            <div class="timeline-meta">Entrada del lote masivo PJUD.</div>
+            <div class="timeline-meta">Uso: archivo base para identificar, validar y procesar masivamente las causas.</div>
+            <div class="timeline-meta">No se usará como documento del expediente ni como archivo manual.</div>
+          </div>
+          <div class="helper-box" id="batchExcelBasePanel" style="margin-top:8px;">Archivo base del lote actual: pendiente.</div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 2: Conectar con PJUD</strong>
           <div class="timeline-meta">Estado PJUD/OJV: sesión del usuario requerida para descarga automática.</div>
           <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="btnConectarPjudMasivo" class="btn">Conectar con PJUD</button>
-            <button type="button" id="btnIniciarDescargaMasivaPjud" class="btn btn-primary">Iniciar descarga masiva</button>
-            <button type="button" id="btnProcesarLotePjud" class="btn">Procesar lote de causas</button>
-            <button type="button" id="btnReintentarCausasFallidas" class="btn">Reintentar causas fallidas</button>
-            <button type="button" id="btnCerrarLoteMasivoPjud" class="btn">Cerrar lote</button>
+            <button type="button" id="btnConectarPjudMasivo" class="btn">Paso 2: Conectar con PJUD</button>
           </div>
         </div>
 
         <div class="helper-box">
-          <strong>Lote</strong>
-          <div class="timeline-meta">Importa el Excel oficial de Mis Causas para detectar, recorrer y descargar automáticamente causas del lote.</div>
-        </div>
-
-        <div class="grid-2">
-          <div class="field">
-            <label for="batch_excel_file">Excel oficial de Mis Causas</label>
-            <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" />
-            <div class="small-note">Se procesan automáticamente las hojas Corte Suprema, Corte Apelaciones, Civil, Laboral, Penal, Cobranza y Familia.</div>
-          </div>
-          <div class="field">
-            <label for="batch_raw">Consolidado manual OJV / Poder Judicial</label>
-            <textarea id="batch_raw" class="textarea" placeholder="Opcional: pega aquí varias causas si no usarás el Excel oficial."></textarea>
+          <strong>Paso 3: Validar lote</strong>
+          <div class="timeline-meta">Leer Excel base, validar causas, eliminar duplicados y preparar la cola de procesamiento.</div>
+          <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="btnAnalizarLoteImportacion" class="btn">Paso 3: Validar lote</button>
           </div>
         </div>
 
-        <div class="modal-actions">
-          <button type="button" id="btnAnalizarLoteImportacion" class="btn">Ver estado del lote</button>
-          <button type="button" id="btnVerCausasProcesadas" class="btn">Ver causas procesadas</button>
-          <button type="button" id="btnVerCausasPendientes" class="btn">Ver causas pendientes</button>
-          <button type="button" id="btnTransferirLoteImportacion" class="btn btn-primary">Guardar automáticamente en Expedientes Digitales</button>
+        <div class="helper-box">
+          <strong>Paso 4: Iniciar descarga masiva</strong>
+          <div class="timeline-meta">Inicia el procesamiento completo del lote, sin adjuntar archivos manuales causa por causa.</div>
+          <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="btnIniciarDescargaMasivaPjud" class="btn btn-primary">Paso 4: Iniciar descarga masiva</button>
+          </div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 5: Procesar lote</strong>
+          <div class="timeline-meta">Recorre automáticamente las causas del lote en orden.</div>
+          <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="btnProcesarLotePjud" class="btn">Paso 5: Procesar lote</button>
+          </div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 6: Descargar contenidos automáticamente</strong>
+          <div class="timeline-meta">Intenta descargar EBOOK, resoluciones, escritos, anexos y demás documentos disponibles.</div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 7: Guardar en Expedientes Digitales</strong>
+          <div class="timeline-meta">Guarda automáticamente en la causa correspondiente dentro de Alpha Avocat.</div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 8: Clasificar automáticamente</strong>
+          <div class="timeline-meta">Clasifica contenido por carpeta o subcarpeta de la causa correcta; no clasificados quedan en “Pendientes de clasificación automática”.</div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 9: Ver resumen del lote</strong>
+          <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+            <button type="button" id="btnVerCausasProcesadas" class="btn">Paso 9: Ver resumen del lote</button>
+            <button type="button" id="btnVerCausasPendientes" class="btn">Paso 9: Ver resumen del lote (pendientes)</button>
+            <button type="button" id="btnTransferirLoteImportacion" class="btn">Paso 7: Guardar en Expedientes Digitales</button>
+            <button type="button" id="btnReintentarCausasFallidas" class="btn">Reintentar fallidas</button>
+            <button type="button" id="btnCerrarLoteMasivoPjud" class="btn">Cerrar lote</button>
+          </div>
         </div>
 
         <div class="helper-box" id="batchImportPreview">Aún no se ha analizado un lote de causas judiciales.</div>
@@ -2133,11 +2173,27 @@
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalDescargaManualPjud" aria-label="Cerrar">✕</button>
       </div>
       <form id="formImportacionManual" class="form">
-        <div class="modal-actions" style="gap:8px;flex-wrap:wrap;">
-          <button type="button" id="btnAbrirCausaPjudManual" class="btn">Abrir causa en PJUD</button>
-          <button type="button" id="btnDescargarContenidoPjudManual" class="btn">Descargar expediente de esta causa</button>
-          <button type="button" id="btnGuardarExpedienteDigitalManual" class="btn btn-primary">Guardar en Expediente Digital</button>
-          <button type="button" id="btnVincularArchivoManualDesdePc" class="btn">Vincular archivo manual desde este PC</button>
+        <div class="helper-box">
+          <strong>Paso 1: Seleccionar causa individual</strong>
+          <div class="timeline-meta">Selecciona una causa específica por rol, tribunal, carátula o desde el listado interno antes de habilitar acciones manuales.</div>
+          <div class="field" style="margin-top:10px;">
+            <label for="manual_single_case_selector">Causa individual del flujo manual</label>
+            <select id="manual_single_case_selector" class="input">
+              <option value="">Selecciona una causa individual</option>
+            </select>
+          </div>
+          <div class="small-note" id="manualModeStatus">Acciones manuales bloqueadas hasta seleccionar una causa individual.</div>
+        </div>
+
+        <div class="helper-box">
+          <strong>Paso 2: Elegir la acción manual para esa causa</strong>
+          <div class="timeline-meta">Solo en este modo se puede abrir el explorador del PC para subir o adjuntar archivos manualmente.</div>
+          <div class="modal-actions" style="gap:8px;flex-wrap:wrap;">
+            <button type="button" id="btnAbrirCausaPjudManual" class="btn" disabled aria-disabled="true">Abrir esa causa específica en PJUD</button>
+            <button type="button" id="btnDescargarContenidoPjudManual" class="btn" disabled aria-disabled="true">Descargar manualmente esta causa</button>
+            <button type="button" id="btnGuardarExpedienteDigitalManual" class="btn btn-primary" disabled aria-disabled="true">Guardar en expediente digital</button>
+            <button type="button" id="btnVincularArchivoManualDesdePc" class="btn" disabled aria-disabled="true">Subir archivo desde este PC</button>
+          </div>
         </div>
 
         <div class="grid-3">
@@ -2396,7 +2452,9 @@
       pendingPjudBatchValidation: null,
       pendingBatchImports: [],
       pendingPjudWorkbook: null,
+      pendingMassiveExcelBase: null,
       pendingPjudBatchId: null,
+      manualSelectedCauseId: '',
       importModalLocked: false,
       importTargetCaseId: null,
       currentDocumentId: null,
@@ -2631,9 +2689,6 @@
         { id: 'btnAbrirModalDescargaManual', scope: 'selector', handler: () => openManualDownloadModal() },
         { id: 'btnConectarPjudMasivo', scope: 'masivo', handler: () => connectWithPjud() },
         { id: 'btnIniciarDescargaMasivaPjud', scope: 'masivo', handler: () => startMassivePjudDownloadFlow() },
-        { id: 'btnAbrirCausaPjudManual', scope: 'manual', handler: () => openCauseInPjudFromImport() },
-        { id: 'btnDescargarContenidoPjudManual', scope: 'manual', handler: () => downloadPjudContentForCurrentCause() },
-        { id: 'btnVincularArchivoManualDesdePc', scope: 'manual', handler: () => linkDownloadedFilesToCurrentCause({}) },
       ];
       buttonSpecs.forEach((spec) => {
         const button = $(spec.id);
@@ -3911,18 +3966,22 @@
         updated_count: 0,
         [discardedColumn]: 0,
         summary: {
-          mode: summary.mode || 'mis_causas_excel',
+          mode: 'massive_auto',
+          sourceOrigin: 'pjud_auto',
           fileName: summary.fileName || null,
           rowsProcessed: summary.rowsProcessed || 0,
           invalidRows: summary.invalidRows || 0,
           consolidatedCount: summary.consolidatedCount || 0,
+          batchExcelBase: state.pendingMassiveExcelBase || null,
         },
         error_summary: (errorSummary || []).slice(0, 20),
         metadata: {
-          mode: summary.mode || 'mis_causas_excel',
+          mode: 'massive_auto',
+          sourceOrigin: 'pjud_auto',
           importedAtClient: new Date().toISOString(),
           status,
           errorSummary: (errorSummary || []).slice(0, 20),
+          batchExcelBase: state.pendingMassiveExcelBase || null,
         },
       };
     }
@@ -6791,6 +6850,8 @@
           tribunal: $('import_tribunal')?.value || '',
           rawText: $('import_raw')?.value || '',
         });
+        importData.mode = 'manual_single';
+        importData.origin = 'manual_upload';
         const hasMinimumIdentity = Boolean(importData.basic?.rol || importData.basic?.rit || importData.basic?.caratula || importData.basic?.tribunal || importData.sourceUrl);
         if (!hasMinimumIdentity) {
           state.pendingImport = null;
@@ -6824,6 +6885,58 @@
       return { payload, hasReference };
     }
 
+    function formatDateTimeLabel(value){
+      if (!value) return '—';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return String(value);
+      return date.toLocaleString('es-CL', { hour12: false, timeZone: 'UTC' });
+    }
+
+    function renderMassiveExcelBasePanel(){
+      const panel = $('batchExcelBasePanel');
+      if (!panel) return;
+      const meta = state.pendingMassiveExcelBase;
+      if (!meta) {
+        panel.innerHTML = 'Archivo base del lote actual: pendiente.';
+        return;
+      }
+      panel.innerHTML = `
+        <strong>Archivo base del lote actual: ${escapeHtml(meta.fileName || 'Sin nombre')}</strong>
+        <div class="timeline-meta">Fecha/hora de carga: ${escapeHtml(formatDateTimeLabel(meta.loadedAt))}</div>
+        <div class="timeline-meta">Cantidad estimada de filas o causas detectadas: ${escapeHtml(meta.estimatedRows ?? 0)}</div>
+        <div class="timeline-meta">Estado: Excel base cargado correctamente.</div>
+      `;
+    }
+
+    async function registerMassiveExcelBaseFile(file){
+      if (!file) {
+        state.pendingMassiveExcelBase = null;
+        renderMassiveExcelBasePanel();
+        return;
+      }
+      const loadedAt = new Date().toISOString();
+      let estimatedRows = 0;
+      try {
+        const xlsxModule = await ensureXlsxModule();
+        const summary = await parsePjudMisCausasWorkbook(file, xlsxModule, {
+          includeConsolidatedCases: false,
+          includeRawRows: false,
+          includeInvalidDetails: false,
+          previewLimit: 1,
+        });
+        estimatedRows = Number(summary?.rowsProcessed || summary?.consolidatedCount || 0);
+      } catch (error) {
+        console.warn('[Alpha Avocat][pjud-batch] No fue posible estimar filas al cargar Excel base.', error);
+      }
+      state.pendingMassiveExcelBase = {
+        fileName: file.name || 'archivo.xlsx',
+        loadedAt,
+        estimatedRows,
+      };
+      renderMassiveExcelBasePanel();
+      setMessage('importMsg', 'Excel base cargado correctamente en la entrada del lote masivo PJUD.', 'ok');
+    }
+
     function buildImportDataFromCause(cause){
       if (!cause) return null;
       const sourceUrl = cause?.poderJudicial?.link
@@ -6855,7 +6968,10 @@
     }
 
     function resolvePjudFlowContext(){
-      const currentCause = getCurrentCause();
+      const selectedManualCause = state.manualSelectedCauseId
+        ? state.caseMap.get(String(state.manualSelectedCauseId)) || null
+        : null;
+      const currentCause = selectedManualCause || getCurrentCause();
       const causeImport = buildImportDataFromCause(currentCause);
       const hasCauseContext = Boolean(currentCause && (
         currentCause?.id
@@ -6886,6 +7002,16 @@
     async function connectWithPjud(){
       const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
+      const massiveModalOpen = $('modalDescargaMasivaPjud')?.getAttribute('aria-hidden') === 'false';
+      if (massiveModalOpen && context.mode === 'none') {
+        const popupMassive = window.open(PJUD_MIS_CAUSAS_URL, '_blank', 'noopener,noreferrer');
+        if (!popupMassive) {
+          setMessage('importMsg', 'El navegador bloqueó la apertura de OJV/Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return null;
+        }
+        setMessage('importMsg', 'Conexión PJUD abierta para el lote masivo. Continúa con Paso 3: Validar lote.', 'ok');
+        return { mode: 'massive_auto', sourceUrl: PJUD_MIS_CAUSAS_URL };
+      }
       if (context.mode === 'none') {
         setMessage('importMsg', 'No hay una causa seleccionada. Ingresa URL/Rol/RIT/tribunal o selecciona una causa ya importada.', 'warn');
         return null;
@@ -6912,6 +7038,10 @@
     }
 
     async function openCauseInPjudFromImport(){
+      if (!state.manualSelectedCauseId) {
+        setMessage('importMsg', 'Paso 1 obligatorio: selecciona primero una causa individual en el flujo manual.', 'warn');
+        return false;
+      }
       const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
@@ -7312,6 +7442,10 @@
     }
 
     async function downloadPjudContentForCurrentCause(){
+      if (!state.manualSelectedCauseId) {
+        setMessage('importMsg', 'Paso 1 obligatorio: selecciona primero una causa individual en el flujo manual.', 'warn');
+        return;
+      }
       const context = resolvePjudFlowContext();
       if (context.mode === 'none') {
         setMessage('importMsg', 'Debes seleccionar una causa importada o abrir una causa activa antes de usar la conexión PJUD.', 'warn');
@@ -7367,6 +7501,8 @@
             pjudTraceability: {
               batch_id: current?.importBatchId || current?.import_batch_id || state.pendingPjudBatchId || null,
               case_id: current?.id || null,
+              origin: 'pjud_auto',
+              mode: 'manual_single',
               resolution_method: 'automatico-por-identificador',
               destination_container: 'documentContainers.importadosPjud',
               linked_client: current?.cliente || '',
@@ -7420,7 +7556,9 @@
     }
 
     async function linkDownloadedFilesToCurrentCause({ initiatedByFileSelection = false } = {}){
-      const current = getCurrentCause();
+      const current = state.manualSelectedCauseId
+        ? state.caseMap.get(String(state.manualSelectedCauseId)) || getCurrentCause()
+        : getCurrentCause();
       if (!current) {
         setMessage('importMsg', 'Selecciona primero una causa para vincular archivos descargados desde PJUD a esta causa.', 'warn');
         return false;
@@ -7467,6 +7605,8 @@
           ...(doc.pjudTraceability || {}),
           batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
           case_id: current.id,
+          origin: doc.content ? 'pjud_auto' : 'manual_upload',
+          mode: 'manual_single',
           resolution_method: 'confirmado-manualmente',
           destination_container: 'documentContainers.importadosPjud',
           linked_client: current.cliente || '',
@@ -7619,6 +7759,8 @@
             ...(item.document.pjudTraceability || {}),
             batch_id: selectedCase.importBatchId || selectedCase.import_batch_id || state.pendingPjudBatchId || null,
             case_id: caseId,
+            origin: item.document?.content ? 'pjud_auto' : 'manual_upload',
+            mode: 'massive_auto',
             resolution_method: resolutionMethod,
             destination_container: 'documentContainers.importadosPjud',
             linked_client: selectedCase.cliente || '',
@@ -7671,7 +7813,7 @@
     function renderBatchImportPreview(items = [], summary = null){
       const preview = $('batchImportPreview');
       if (!preview) return;
-      const hasRawText = Boolean($('batch_raw')?.value.trim());
+      const hasRawText = Boolean($('batch_raw')?.value?.trim());
       const hasWorkbook = Boolean($('batch_excel_file')?.files?.length);
       if (!hasRawText && !hasWorkbook && !items.length && !summary) {
         preview.innerHTML = 'Aún no se ha analizado un lote de causas judiciales.';
@@ -7822,13 +7964,17 @@
         pjud_documents_count: importedDocumentsCount,
         pjud_traceability: {
           source: 'pjud_excel_mis_causas',
-          mode: importData.mode || 'manual',
+          mode: importData.mode || 'massive_auto',
+          origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
           pjud_case_key: importData.pjudCaseKey || null,
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
           destination_path: destinationMap.logicalPath,
           persistence: destinationMap.persistence,
+          batch_excel_base_file_name: state.pendingMassiveExcelBase?.fileName || null,
+          batch_excel_loaded_at: state.pendingMassiveExcelBase?.loadedAt || null,
+          batch_excel_detected_rows: state.pendingMassiveExcelBase?.estimatedRows ?? null,
         },
       };
     }
@@ -8651,35 +8797,55 @@
           return;
         }
       }
-
-      const items = parseJudicialBatchImportInput({
-        rawText: $('batch_raw').value,
-        actorName: operatorName || 'Usuario autenticado',
-      });
       state.pendingPjudWorkbook = null;
-      state.pendingBatchImports = items;
-      renderBatchImportPreview(items, {
-        rowsProcessed: items.length,
-        consolidatedCount: items.length,
-        invalidRows: 0,
-        countsByMateria: items.reduce((acc, item) => {
-          const key = item.basic?.materia || item.materia || 'Sin materia';
-          acc[key] = (acc[key] || 0) + 1;
-          return acc;
-        }, {}),
-      });
-      if (!items.length) {
-        setMessage('importMsg', 'No se detectaron causas judiciales válidas en el lote manual.', 'warn');
-        return;
-      }
-      setMessage('importMsg', `Lote manual analizado: filas analizadas ${items.length}, causas únicas ${items.length}, duplicados internos 0, descartadas por estructura 0.`, 'ok');
+      state.pendingBatchImports = [];
+      renderBatchImportPreview([], null);
+      setMessage('importMsg', 'Debes cargar el Excel PJUD del lote en el Paso 1 para continuar con la descarga masiva automática.', 'warn');
     }
 
     function openMassiveDownloadModal(){
+      renderMassiveExcelBasePanel();
       openManagedModal('modalDescargaMasivaPjud');
     }
 
+    function fillManualImportFieldsFromCause(cause){
+      if (!cause) return;
+      if ($('import_rol')) $('import_rol').value = cause.rol || '';
+      if ($('import_rit')) $('import_rit').value = cause.rit || '';
+      if ($('import_tribunal')) $('import_tribunal').value = cause.tribunal || '';
+      if ($('import_url')) $('import_url').value = cause?.poderJudicial?.link || cause?.tribunalData?.poderJudicial || '';
+    }
+
+    function renderManualCaseSelector(){
+      const selector = $('manual_single_case_selector');
+      if (!selector) return;
+      const options = getAllCases()
+        .map((cause) => `<option value="${escapeHtml(cause.id)}">${escapeHtml(formatPjudCaseLabel(cause))} · ${escapeHtml(cause.tribunal || 'Sin tribunal')}</option>`)
+        .join('');
+      selector.innerHTML = `<option value="">Selecciona una causa individual</option>${options}`;
+      if (state.manualSelectedCauseId) selector.value = String(state.manualSelectedCauseId);
+    }
+
+    function updateManualActionState(){
+      const hasSelectedCause = Boolean(state.manualSelectedCauseId);
+      ['btnAbrirCausaPjudManual', 'btnDescargarContenidoPjudManual', 'btnGuardarExpedienteDigitalManual', 'btnVincularArchivoManualDesdePc']
+        .forEach((id) => {
+          const button = $(id);
+          if (!button) return;
+          button.disabled = !hasSelectedCause;
+          button.setAttribute('aria-disabled', hasSelectedCause ? 'false' : 'true');
+        });
+      const status = $('manualModeStatus');
+      if (status) {
+        status.textContent = hasSelectedCause
+          ? 'Causa individual seleccionada. Las acciones manuales están habilitadas para esta causa.'
+          : 'Acciones manuales bloqueadas hasta seleccionar una causa individual.';
+      }
+    }
+
     function openManualDownloadModal(){
+      renderManualCaseSelector();
+      updateManualActionState();
       openManagedModal('modalDescargaManualPjud');
     }
 
@@ -8694,11 +8860,16 @@
       state.pendingImport = null;
       state.pendingBatchImports = [];
       state.pendingPjudWorkbook = null;
+      state.pendingMassiveExcelBase = null;
       state.pendingPjudBatchId = null;
+      state.manualSelectedCauseId = '';
       lockImportModalInteractions(false);
       state.importTargetCaseId = null;
       renderImportPreview(null);
       renderBatchImportPreview([], null);
+      renderMassiveExcelBasePanel();
+      renderManualCaseSelector();
+      updateManualActionState();
       setMessage('importMsg', '', '');
       auditAndRepairAutomaticFlowButtons();
       openManagedModal('modalImportacion');
@@ -8732,7 +8903,7 @@
           category: 'Importadas del Poder Judicial',
           destinationContainer: 'importadosPjud',
           observation: 'Archivo adjuntado por el usuario desde importación PJUD.',
-          origin: 'Archivo descargado por usuario (PJUD)',
+          origin: 'manual_upload',
         });
         console.info('[CAUSAS][IMPORTACIÓN PJUD] Archivos descargados vinculados.', {
           fileCount: fileDocuments.length,
@@ -8752,6 +8923,10 @@
 
     async function createOrUpdateImportedCase(event){
       event.preventDefault();
+      if (!state.manualSelectedCauseId) {
+        setMessage('importMsg', 'Paso 1 obligatorio: selecciona primero una causa individual antes de crear o actualizar manualmente.', 'warn');
+        return null;
+      }
       if (!state.pendingImport) analyzeImport();
       let importData = state.pendingImport;
       if (!importData) {
@@ -9274,11 +9449,22 @@
       bindEvent('btnGuardarExpedienteDigitalManual', 'click', () => linkDownloadedFilesToCurrentCause({}), { scope: 'importacion-manual' });
       bindEvent('btnVincularArchivoManualDesdePc', 'click', () => linkDownloadedFilesToCurrentCause({}), { scope: 'importacion-manual' });
       auditAndRepairAutomaticFlowButtons();
-      $('batch_excel_file')?.addEventListener('change', () => {
+      $('batch_excel_file')?.addEventListener('change', async () => {
         state.pendingPjudWorkbook = null;
         state.pendingBatchImports = [];
         renderBatchImportPreview([], null);
-        setMessage('importMsg', '', '');
+        await registerMassiveExcelBaseFile($('batch_excel_file')?.files?.[0] || null);
+      });
+      $('manual_single_case_selector')?.addEventListener('change', (event) => {
+        const selectedId = String(event?.target?.value || '').trim();
+        state.manualSelectedCauseId = selectedId;
+        if (selectedId) {
+          state.selectedId = selectedId;
+          const cause = state.caseMap.get(selectedId) || null;
+          fillManualImportFieldsFromCause(cause);
+          setMessage('importMsg', `Causa individual seleccionada para modo manual: ${formatPjudCaseLabel(cause)}.`, 'ok');
+        }
+        updateManualActionState();
       });
       $('import_support_files')?.addEventListener('change', async () => {
         if (!state.pendingPjudManualLinkPrompt) return;
