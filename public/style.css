@@ -2213,3 +2213,119 @@ text-decoration:underline;
   .monitoreo-workspace{grid-template-columns:1fr;}
   .monitoreo-grid{grid-template-columns:1fr;}
 }
+
+/* ===== Auditoría visual: descarga automática masiva desde PJUD ===== */
+.massive-control__grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
+gap:12px;
+align-items:end;
+}
+
+.massive-control__actions{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+}
+
+.massive-audit__grid{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+gap:12px;
+}
+
+.massive-audit__card{
+border:1px solid rgba(15,23,42,.1);
+border-radius:14px;
+padding:12px;
+background:#fbfcff;
+}
+
+.massive-audit__card h3{
+margin:0 0 8px;
+font-size:1rem;
+}
+
+.massive-audit__card p{
+margin:4px 0;
+}
+
+.massive-audit__card--full{
+grid-column:1/-1;
+}
+
+.massive-highlight{
+font-weight:700;
+color:#163a5f;
+}
+
+.massive-stats{
+margin:0;
+padding-left:18px;
+display:grid;
+gap:4px;
+}
+
+.massive-steps{
+margin:0;
+padding:0;
+list-style:none;
+display:grid;
+gap:10px;
+}
+
+.massive-step{
+border:1px solid rgba(15,23,42,.12);
+border-radius:12px;
+padding:10px;
+background:#fff;
+}
+
+.massive-step__header{
+display:flex;
+justify-content:space-between;
+gap:8px;
+align-items:center;
+font-size:.92rem;
+margin-bottom:6px;
+}
+
+.massive-step__index{
+font-weight:700;
+}
+
+.massive-step__status{
+font-weight:700;
+}
+
+.massive-step__name{
+font-weight:600;
+margin-bottom:4px;
+}
+
+.massive-step__detail{
+font-size:.92rem;
+color:#46515f;
+}
+
+.massive-step--current{
+border-color:#163a5f;
+box-shadow:0 0 0 2px rgba(22,58,95,.12);
+}
+
+.massive-step--pending .massive-step__status{ color:#5f6d7a; }
+.massive-step--running .massive-step__status{ color:#135fb2; }
+.massive-step--success .massive-step__status{ color:#1d7a35; }
+.massive-step--warning .massive-step__status{ color:#9f5c00; }
+.massive-step--failed .massive-step__status{ color:#aa1f2d; }
+.massive-step--retrying .massive-step__status{ color:#5f2eb3; }
+.massive-step--blocked .massive-step__status{ color:#7e5f00; }
+
+.massive-log{
+margin:0;
+padding-left:18px;
+display:grid;
+gap:4px;
+max-height:280px;
+overflow:auto;
+}
