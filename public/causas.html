@@ -6935,6 +6935,57 @@
       return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     }
 
+    const STRUCTURAL_WORKBOOK_EXTENSIONS = new Set(['xlsx', 'xls', 'xlsm']);
+    const STRUCTURAL_WORKBOOK_MIME_TYPES = new Set([
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+      'application/vnd.ms-excel',
+    ]);
+    const PJUD_DOCUMENT_CANDIDATE_EXTENSIONS = new Set([
+      'pdf', 'doc', 'docx', 'jpg', 'jpeg', 'png', 'zip', 'txt', 'xml', 'csv',
+    ]);
+    const STRUCTURAL_WORKBOOK_SELECTION_MESSAGE = 'El archivo seleccionado es un Excel de Mis Causas o un archivo estructural. Ese archivo no se vincula como documento del expediente. Usa ese Excel solo en la importación estructural, no en la vinculación documental PJUD.';
+    const PJUD_BATCH_EMPTY_DOCUMENTS_MESSAGE = 'No hay documentos judiciales válidos para vincular. Los archivos seleccionados corresponden a Excel u otros archivos estructurales, no a contenido del expediente PJUD.';
+
+    function resolveFileLikeName(fileOrDoc = {}){
+      return String(fileOrDoc?.name || fileOrDoc?.fileName || '').trim();
+    }
+
+    function resolveFileLikeMimeType(fileOrDoc = {}){
+      return String(fileOrDoc?.type || fileOrDoc?.mimeType || fileOrDoc?.contentType || fileOrDoc?.metadata?.mimeType || '').trim().toLowerCase();
+    }
+
+    function resolveFileLikeExtension(fileOrDoc = {}){
+      const fileName = resolveFileLikeName(fileOrDoc);
+      if (!fileName || !fileName.includes('.')) return '';
+      return fileName.split('.').pop().trim().toLowerCase();
+    }
+
+    function isStructuralWorkbookFile(fileOrDoc = {}){
+      const extension = resolveFileLikeExtension(fileOrDoc);
+      const mimeType = resolveFileLikeMimeType(fileOrDoc);
+      return STRUCTURAL_WORKBOOK_EXTENSIONS.has(extension) || STRUCTURAL_WORKBOOK_MIME_TYPES.has(mimeType);
+    }
+
+    function isPjudDocumentCandidate(fileOrDoc = {}){
+      if (!fileOrDoc) return false;
+      if (isStructuralWorkbookFile(fileOrDoc)) return false;
+      const extension = resolveFileLikeExtension(fileOrDoc);
+      return PJUD_DOCUMENT_CANDIDATE_EXTENSIONS.has(extension);
+    }
+
+    function partitionPjudDocumentCandidates(entries = []){
+      return entries.reduce((acc, entry) => {
+        if (isPjudDocumentCandidate(entry)) acc.documentCandidates.push(entry);
+        else acc.nonDocumentalEntries.push(entry);
+        if (isStructuralWorkbookFile(entry)) acc.structuralWorkbookEntries.push(entry);
+        return acc;
+      }, {
+        documentCandidates: [],
+        nonDocumentalEntries: [],
+        structuralWorkbookEntries: [],
+      });
+    }
+
     function extractPjudIdentifiersFromText(value = ''){
       const text = String(value || '');
       const normalized = normalizePjudKey(text);
@@ -7342,8 +7393,9 @@
     async function linkDownloadedFilesToBatchCauses({ initiatedByFileSelection = false } = {}){
       const input = $('import_support_files');
       const files = input?.files;
+      const selectedFiles = files?.length ? Array.from(files) : [];
       const queuedDocs = Array.isArray(state.pendingDownloadedPjudDocs) ? state.pendingDownloadedPjudDocs : [];
-      if (!files?.length && !queuedDocs.length) {
+      if (!selectedFiles.length && !queuedDocs.length) {
         if (initiatedByFileSelection) {
           setMessage('importMsg', 'No se seleccionaron archivos. Repite la selección para vincular el lote PJUD.', 'warn');
           return false;
@@ -7356,8 +7408,14 @@
         return false;
       }
 
-      const fileDocuments = files?.length
-        ? await filesToDocumentInputs(files, {
+      const selectedFilesPartition = partitionPjudDocumentCandidates(selectedFiles);
+      const queuedDocsPartition = partitionPjudDocumentCandidates(queuedDocs);
+      if (selectedFilesPartition.structuralWorkbookEntries.length || queuedDocsPartition.structuralWorkbookEntries.length) {
+        setDetailStatus(STRUCTURAL_WORKBOOK_SELECTION_MESSAGE, 'warn');
+      }
+
+      const fileDocuments = selectedFilesPartition.documentCandidates.length
+        ? await filesToDocumentInputs(selectedFilesPartition.documentCandidates, {
           category: 'Importadas del Poder Judicial',
           destinationContainer: 'importadosPjud',
           observation: 'Archivo descargado por el usuario desde PJUD (lote).',
@@ -7365,8 +7423,8 @@
           destinationModule: 'Causas',
         })
         : [];
-      const queuedDocuments = queuedDocs.length
-        ? queuedDocs.map((doc) => ({
+      const queuedDocuments = queuedDocsPartition.documentCandidates.length
+        ? queuedDocsPartition.documentCandidates.map((doc) => ({
           ...doc,
           category: 'Importadas del Poder Judicial',
           destinationContainer: 'importadosPjud',
@@ -7374,7 +7432,17 @@
         }))
         : [];
       const allDocuments = [...fileDocuments, ...queuedDocuments];
-      if (!allDocuments.length) return false;
+      if (!allDocuments.length) {
+        state.pendingPjudBatchValidation = null;
+        state.pendingPjudBatchManualAssignments = [];
+        state.pendingDownloadedPjudDocs = [];
+        state.pendingPjudManualLinkPrompt = false;
+        state.pendingPjudManualLinkMode = 'batch';
+        renderPjudBatchValidationPanel();
+        if (input) input.value = '';
+        setMessage('importMsg', PJUD_BATCH_EMPTY_DOCUMENTS_MESSAGE, 'warn');
+        return false;
+      }
 
       const allCases = getAllCases();
       const assignments = allDocuments.map((doc) => {
