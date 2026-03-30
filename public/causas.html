@@ -2490,8 +2490,77 @@
       rectificationOpen: false,
       rectificationScope: 'general',
       rectificationValidation: null,
-      missingIdentifierWarnings: new Set()
+      missingIdentifierWarnings: new Set(),
+      massiveAudit: null,
     };
+
+    const MASSIVE_STEP_STATUS_LABELS = {
+      pending: 'Pendiente',
+      running: 'En ejecución',
+      success: 'Completado con éxito',
+      failed: 'Fallido',
+      warning: 'Con advertencia',
+      waiting: 'Esperando',
+      retrying: 'Reintentando',
+    };
+    const MASSIVE_FLOW_STEPS = [
+      { id: 1, name: 'Conectar con PJUD' },
+      { id: 2, name: 'Abrir Mis Causas / usar sesión activa' },
+      { id: 3, name: 'Resolver rutas PJUD' },
+      { id: 4, name: 'Recorrer causas del lote' },
+      { id: 5, name: 'Detectar contenido documental' },
+      { id: 6, name: 'Descargar contenido real desde PJUD' },
+      { id: 7, name: 'Guardar en Expedientes Digitales' },
+      { id: 8, name: 'Clasificar contenido' },
+      { id: 9, name: 'Ver resumen del lote' },
+    ];
+
+    function createDefaultMassiveAuditState({ totalCauses = 0, batchId = null } = {}){
+      return {
+        totalCauses: Number(totalCauses || 0),
+        processedCauses: 0,
+        batchId: batchId || null,
+        percentage: 0,
+        currentStepId: null,
+        currentStepName: 'Sin paso activo',
+        currentStepStatus: MASSIVE_STEP_STATUS_LABELS.pending,
+        currentCauseLabel: 'Sin causa en ejecución',
+        currentSubaction: 'Sin subacción activa',
+        currentInternalProgress: '',
+        currentError: '',
+        continueAfterError: null,
+        log: [],
+        steps: MASSIVE_FLOW_STEPS.map((step) => ({
+          ...step,
+          status: 'pending',
+          detail: '',
+        })),
+      };
+    }
+
+    function pushMassiveAuditLog(message = ''){
+      if (!message) return;
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      const timestamp = new Date().toLocaleTimeString('es-CL', { hour12: false, timeZone: 'UTC' });
+      state.massiveAudit.log.unshift(`${timestamp} · ${message}`);
+      state.massiveAudit.log = state.massiveAudit.log.slice(0, 80);
+    }
+
+    function setMassiveAuditStep(stepId, status = 'pending', detail = ''){
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      const step = state.massiveAudit.steps.find((item) => item.id === Number(stepId));
+      if (!step) return;
+      step.status = status;
+      step.detail = detail || step.detail || '';
+      state.massiveAudit.currentStepId = step.id;
+      state.massiveAudit.currentStepName = `Paso ${step.id}: ${step.name}`;
+      state.massiveAudit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS[status] || MASSIVE_STEP_STATUS_LABELS.pending;
+      if (status === 'running') pushMassiveAuditLog(`Paso ${step.id} iniciado: ${step.name}.`);
+      if (['success', 'failed', 'warning'].includes(status)) {
+        const closeLabel = status === 'success' ? 'completado con éxito' : (status === 'failed' ? 'fallido' : 'completado con advertencia');
+        pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}.`);
+      }
+    }
 
     const KARDEX_GROUPS = [
       'Causas Juzgados Civiles',
@@ -7854,15 +7923,83 @@
       `;
     }
 
-    function renderImportProgressPreview({ chunkNumber = 0, totalChunks = 0, processed = 0, totalItems = 0, batchId = null } = {}){
+    function renderMassiveAuditSteps(audit){
+      return (audit.steps || []).map((step) => `
+        <li class="timeline-item">
+          <strong>Paso ${escapeHtml(step.id)} · ${escapeHtml(step.name)}</strong>
+          <div class="timeline-meta">Estado: ${escapeHtml(MASSIVE_STEP_STATUS_LABELS[step.status] || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
+          <div class="timeline-meta">${escapeHtml(step.detail || 'Sin novedades todavía.')}</div>
+        </li>
+      `).join('');
+    }
+
+    function renderMassiveAuditLog(audit){
+      if (!audit.log?.length) return '<li class="timeline-item"><div class="timeline-meta">Sin eventos todavía.</div></li>';
+      return audit.log.map((entry) => `<li class="timeline-item"><div class="timeline-meta">${escapeHtml(entry)}</div></li>`).join('');
+    }
+
+    function renderImportProgressPreview({
+      chunkNumber = 0,
+      totalChunks = 0,
+      processed = 0,
+      totalItems = 0,
+      batchId = null,
+      currentCause = null,
+      currentSubaction = '',
+      currentStepId = null,
+      currentStepStatus = '',
+      stepDetail = '',
+      waitingReason = '',
+      errorDetail = '',
+      continueAfterError = null,
+      internalProgress = '',
+      logEvent = '',
+    } = {}){
       const preview = $('batchImportPreview');
       if (!preview) return;
+      if (!state.massiveAudit) {
+        state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: totalItems || state.massiveAudit?.totalCauses || 0, batchId: batchId || state.massiveAudit?.batchId || null });
+      }
+      const audit = state.massiveAudit;
+      if (Number(totalItems || 0) > 0) audit.totalCauses = Number(totalItems || 0);
+      if (Number(processed || 0) >= 0) audit.processedCauses = Math.max(0, Number(processed || 0));
+      if (batchId !== null) audit.batchId = batchId;
+      const denominator = Math.max(1, Number(audit.totalCauses || 0));
+      audit.percentage = Math.max(0, Math.min(100, Math.round((Number(audit.processedCauses || 0) / denominator) * 100)));
+      if (currentCause) audit.currentCauseLabel = currentCause;
+      if (currentSubaction) audit.currentSubaction = currentSubaction;
+      if (internalProgress) audit.currentInternalProgress = internalProgress;
+      if (errorDetail) audit.currentError = errorDetail;
+      if (typeof continueAfterError === 'boolean') audit.continueAfterError = continueAfterError;
+      if (waitingReason) {
+        audit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS.waiting;
+        audit.currentSubaction = waitingReason;
+      }
+      if (currentStepId) setMassiveAuditStep(currentStepId, currentStepStatus || 'running', stepDetail || '');
+      if (logEvent) pushMassiveAuditLog(logEvent);
       preview.innerHTML = `
-        <div class="selection-grid">
+        <div class="selection-grid" style="grid-template-columns:1fr;">
           <div class="selection-card">
-            <strong>Importando lote ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}...</strong>
-            <div class="case-meta">Progreso: ${escapeHtml(processed || 0)}/${escapeHtml(totalItems || 0)} causas procesadas.</div>
-            <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
+            <strong>Progreso total del lote: ${escapeHtml(audit.percentage)}%</strong>
+            <div style="margin-top:10px;background:rgba(15,23,42,.08);border-radius:999px;height:14px;overflow:hidden;">
+              <div style="height:14px;background:linear-gradient(90deg,#2563eb,#22c55e);width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
+            </div>
+            <div class="case-meta" style="margin-top:10px;">Causas procesadas: ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
+            <div class="timeline-meta">Estado general: ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
+            <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
+            <div class="timeline-meta"><strong>Causa actual:</strong> ${escapeHtml(audit.currentCauseLabel || 'Sin causa en ejecución')}</div>
+            <div class="timeline-meta"><strong>Subacción actual:</strong> ${escapeHtml(audit.currentSubaction || 'Sin subacción activa')}</div>
+            <div class="timeline-meta"><strong>Indicador interno:</strong> ${escapeHtml(audit.currentInternalProgress || 'Sin indicador interno')}</div>
+            ${audit.currentError ? `<div class="timeline-meta"><strong>Error actual:</strong> ${escapeHtml(audit.currentError)} · ${audit.continueAfterError === true ? 'El lote continúa.' : (audit.continueAfterError === false ? 'El lote se detiene.' : 'Continuidad no determinada.')}</div>` : ''}
+            <div class="timeline-meta">Batch ID: ${escapeHtml(audit.batchId || 'sin registro de batch (modo tolerante)')}</div>
+          </div>
+          <div class="selection-card">
+            <strong>Estado por paso</strong>
+            <ul class="timeline" style="margin-top:8px;">${renderMassiveAuditSteps(audit)}</ul>
+          </div>
+          <div class="selection-card">
+            <strong>Bitácora breve de eventos</strong>
+            <ul class="timeline" style="margin-top:8px;">${renderMassiveAuditLog(audit)}</ul>
           </div>
         </div>
       `;
@@ -8483,6 +8620,20 @@
         importBatchId: batch?.id || null,
       }));
       const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
+      state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: casePayloads.length, batchId: batch?.id || null });
+      setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
+      renderImportProgressPreview({
+        chunkNumber: 0,
+        totalChunks,
+        processed: 0,
+        totalItems: casePayloads.length,
+        batchId: batch?.id || null,
+        currentStepId: 4,
+        currentStepStatus: 'running',
+        stepDetail: 'Recorriendo causas del lote',
+        currentSubaction: 'abriendo causa',
+        internalProgress: `Causa 0 de ${casePayloads.length}`,
+      });
       for (let index = 0; index < casePayloads.length; index += PJUD_IMPORT_CHUNK_SIZE) {
         const slice = casePayloads.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
         const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
@@ -8498,6 +8649,10 @@
           processed: Math.min(index + PJUD_IMPORT_CHUNK_SIZE, casePayloads.length),
           totalItems: casePayloads.length,
           batchId: batch?.id || null,
+          currentStepId: 4,
+          currentStepStatus: 'running',
+          stepDetail: `Recorriendo causas del lote ${Math.min(index + PJUD_IMPORT_CHUNK_SIZE, casePayloads.length)} de ${casePayloads.length}`,
+          currentSubaction: 'entrando a expediente',
         });
         const chunkPayload = slice.map((row) => ({
           ...row,
@@ -8546,6 +8701,20 @@
         for (const rowPayload of rowsToUpdate) {
           const destinationMap = buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
           const rowAudit = buildPjudContentAudit(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}, destinationMap);
+          const currentCauseLabel = [rowPayload[C.k_rol], rowPayload.pjud_tribunal, rowPayload.pjud_caratulado].filter(Boolean).join(' – ') || (rowPayload.pjud_case_key || 'Causa sin etiqueta');
+          renderImportProgressPreview({
+            chunkNumber,
+            totalChunks,
+            processed: imported + failed,
+            totalItems: casePayloads.length,
+            batchId: batch?.id || null,
+            currentStepId: 5,
+            currentStepStatus: 'running',
+            stepDetail: 'Detectando documentos disponibles',
+            currentCause: currentCauseLabel,
+            currentSubaction: 'detectando documentos',
+            internalProgress: `Causa ${Math.min(imported + failed + 1, casePayloads.length)} de ${casePayloads.length}`,
+          });
           const { data: updatedRow, error: updateError } = await supabase
             .from(T_CASES)
             .update(rowPayload)
@@ -8584,6 +8753,19 @@
           stageTrace.rowsUpdated += 1;
           if (updatedRow?.id) affectedCaseIds.add(String(updatedRow.id));
           try {
+            setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
+            renderImportProgressPreview({
+              chunkNumber,
+              totalChunks,
+              processed: imported + failed,
+              totalItems: casePayloads.length,
+              batchId: batch?.id || null,
+              currentStepId: 6,
+              currentStepStatus: 'running',
+              currentCause: currentCauseLabel,
+              currentSubaction: 'descargando contenido documental',
+              internalProgress: `Causa ${Math.min(imported + failed + 1, casePayloads.length)} de ${casePayloads.length}`,
+            });
             materializeImportedCaseWorkspace({
               caseRow: updatedRow,
               rowPayload,
@@ -8604,6 +8786,8 @@
             if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
             else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
             if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+            setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
+            setMassiveAuditStep(8, 'running', 'Clasificando contenido');
           } catch (materializationError) {
             materializationFailed += 1;
             stageTrace.rowsMaterializationFailed += 1;
@@ -8615,6 +8799,20 @@
               pjudCaseKey: rowPayload.pjud_case_key,
               caseId: updatedRow?.id || null,
               reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+            });
+            renderImportProgressPreview({
+              chunkNumber,
+              totalChunks,
+              processed: imported + failed,
+              totalItems: casePayloads.length,
+              batchId: batch?.id || null,
+              currentCause: currentCauseLabel,
+              currentSubaction: 'reintentando materialización',
+              currentStepId: 6,
+              currentStepStatus: 'warning',
+              stepDetail: 'Descarga con advertencia para la causa actual',
+              errorDetail: buildLoadError('la materialización de la causa PJUD', materializationError).message,
+              continueAfterError: true,
             });
           }
           processedRows.push({
@@ -8666,6 +8864,7 @@
             for (const rowPayload of rowsToCreate) {
               const destinationMap = buildPjudDestinationMap(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
               const rowAudit = buildPjudContentAudit(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {}, destinationMap);
+              const currentCauseLabel = [rowPayload[C.k_rol], rowPayload.pjud_tribunal, rowPayload.pjud_caratulado].filter(Boolean).join(' – ') || (rowPayload.pjud_case_key || 'Causa sin etiqueta');
               const { data: insertedRow, error: rowInsertError } = await supabase
                 .from(T_CASES)
                 .insert(rowPayload)
@@ -8702,6 +8901,7 @@
               stageTrace.rowsCreated += 1;
               if (insertedRow?.id) affectedCaseIds.add(String(insertedRow.id));
               try {
+                setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
                 materializeImportedCaseWorkspace({
                   caseRow: insertedRow,
                   rowPayload,
@@ -8722,6 +8922,8 @@
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
                 else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+                setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
+                setMassiveAuditStep(8, 'running', 'Clasificando contenido');
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
@@ -8733,6 +8935,20 @@
                   pjudCaseKey: rowPayload.pjud_case_key,
                   caseId: insertedRow?.id || null,
                   reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+                });
+                renderImportProgressPreview({
+                  chunkNumber,
+                  totalChunks,
+                  processed: imported + failed,
+                  totalItems: casePayloads.length,
+                  batchId: batch?.id || null,
+                  currentCause: currentCauseLabel,
+                  currentSubaction: 'reintentando materialización',
+                  currentStepId: 6,
+                  currentStepStatus: 'warning',
+                  stepDetail: 'Descarga con advertencia para la causa actual',
+                  errorDetail: buildLoadError('la materialización de la causa PJUD', materializationError).message,
+                  continueAfterError: true,
                 });
               }
               processedRows.push({
@@ -8784,6 +9000,7 @@
               const destinationMap = buildPjudDestinationMap(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {});
               const rowAudit = buildPjudContentAudit(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}, destinationMap);
               try {
+                setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
                 materializeImportedCaseWorkspace({
                   caseRow: savedRow,
                   rowPayload: sourcePayload,
@@ -8804,6 +9021,8 @@
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
                 else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+                setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
+                setMassiveAuditStep(8, 'running', 'Clasificando contenido');
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
@@ -8815,6 +9034,20 @@
                   pjudCaseKey: savedRow.pjud_case_key,
                   caseId: savedRow?.id || null,
                   reason: `${warningMessage} ${buildLoadError('la materialización de la causa PJUD', materializationError).message}`,
+                });
+                renderImportProgressPreview({
+                  chunkNumber,
+                  totalChunks,
+                  processed: imported + failed,
+                  totalItems: casePayloads.length,
+                  batchId: batch?.id || null,
+                  currentCause: [sourcePayload?.[C.k_rol], sourcePayload?.pjud_tribunal, sourcePayload?.pjud_caratulado].filter(Boolean).join(' – ') || (savedRow.pjud_case_key || 'Causa sin etiqueta'),
+                  currentSubaction: 'reintentando materialización',
+                  currentStepId: 6,
+                  currentStepStatus: 'warning',
+                  stepDetail: 'Descarga con advertencia para la causa actual',
+                  errorDetail: buildLoadError('la materialización de la causa PJUD', materializationError).message,
+                  continueAfterError: true,
                 });
               }
               processedRows.push({
@@ -8853,6 +9086,11 @@
           }
         }
       }
+      setMassiveAuditStep(4, 'success', 'Recorrido de causas completado');
+      setMassiveAuditStep(5, 'success', 'Detección de documentos completada');
+      setMassiveAuditStep(6, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Descarga completada con advertencias' : 'Descarga completada con éxito');
+      setMassiveAuditStep(7, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Guardado completado con advertencias' : 'Guardado completado con éxito');
+      setMassiveAuditStep(8, causesWithClassificationError ? 'warning' : 'success', causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
         materia: row.sheetName || 'Sin materia',
@@ -9013,6 +9251,14 @@
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
       if (excelFile) {
         try {
+          setMassiveAuditStep(3, 'running', 'Resolviendo rutas PJUD desde manifiesto Excel');
+          renderImportProgressPreview({
+            currentStepId: 3,
+            currentStepStatus: 'running',
+            stepDetail: 'Resolviendo rutas PJUD desde manifiesto Excel',
+            currentSubaction: 'resolviendo URL PJUD',
+            waitingReason: 'esperando carga de la página',
+          });
           const xlsxModule = await ensureXlsxModule();
           const summary = await parsePjudMisCausasWorkbook(excelFile, xlsxModule, {
             includeConsolidatedCases: false,
@@ -9022,6 +9268,7 @@
           });
           state.pendingPjudWorkbook = summary;
           state.pendingBatchImports = [];
+          setMassiveAuditStep(3, 'success', `Rutas analizadas para ${summary.consolidatedCount || 0} causas`);
           renderBatchImportPreview(summary.previewCases || [], summary);
           if (!summary.consolidatedCount) {
             setMessage('importMsg', 'El Excel fue leído, pero no entregó causas válidas. Revisa si el archivo tiene filas vacías o un error estructural real.', 'warn');
@@ -9034,6 +9281,7 @@
           console.error('[Alpha Avocat][pjud-excel] No fue posible analizar el Excel Mis Causas.', error);
           state.pendingPjudWorkbook = null;
           state.pendingBatchImports = [];
+          setMassiveAuditStep(3, 'failed', buildLoadError('el análisis del Excel PJUD', error).message);
           renderBatchImportPreview([], null);
           setMessage('importMsg', `No fue posible analizar el Excel Mis Causas: ${buildLoadError('el archivo Excel de Mis Causas', error).message}`, 'error');
           return;
@@ -9041,12 +9289,15 @@
       }
       state.pendingPjudWorkbook = null;
       state.pendingBatchImports = [];
+      setMassiveAuditStep(3, 'warning', 'Sin manifiesto Excel; se usará resolución directa de rutas');
       renderBatchImportPreview([], null);
       setMessage('importMsg', 'No se cargó Excel auxiliar. Puedes continuar: el motor masivo resolverá rutas reales en PJUD (Mis Causas/expediente/documentos) con sesión activa.', 'ok');
     }
 
     function openMassiveDownloadModal(){
       renderMassiveExcelBasePanel();
+      state.massiveAudit = createDefaultMassiveAuditState();
+      renderImportProgressPreview({ chunkNumber: 0, totalChunks: 0, processed: 0, totalItems: 0, currentStepStatus: 'pending' });
       openManagedModal('modalDescargaMasivaPjud');
     }
 
@@ -9092,7 +9343,17 @@
     }
 
     async function startMassivePjudDownloadFlow(){
+      state.massiveAudit = createDefaultMassiveAuditState();
+      setMassiveAuditStep(1, 'running', 'Conectando con PJUD');
+      renderImportProgressPreview({
+        currentStepId: 1,
+        currentStepStatus: 'running',
+        stepDetail: 'Conectando con PJUD',
+        waitingReason: 'esperando sesión activa',
+      });
       await connectWithPjud();
+      setMassiveAuditStep(1, 'success', 'Sesión PJUD validada');
+      setMassiveAuditStep(2, 'success', 'Mis Causas disponible con sesión activa');
       await analyzeBatchImport();
       await transferBatchImport();
     }
@@ -9106,10 +9367,12 @@
       state.pendingMassiveExcelBase = null;
       state.pendingPjudBatchId = null;
       state.manualSelectedCauseId = '';
+      state.massiveAudit = createDefaultMassiveAuditState();
       lockImportModalInteractions(false);
       state.importTargetCaseId = null;
       renderImportPreview(null);
       renderBatchImportPreview([], null);
+      renderImportProgressPreview({ chunkNumber: 0, totalChunks: 0, processed: 0, totalItems: 0, currentStepStatus: 'pending' });
       renderMassiveExcelBasePanel();
       renderManualCaseSelector();
       updateManualActionState();
@@ -9228,6 +9491,12 @@
 
     async function transferBatchImport(){
       lockImportModalInteractions(true);
+      renderImportProgressPreview({
+        currentStepId: 4,
+        currentStepStatus: 'running',
+        stepDetail: 'Recorriendo causas del lote',
+        currentSubaction: 'abriendo causa',
+      });
       if (!state.pendingBatchImports.length && !state.pendingPjudWorkbook) {
         await analyzeBatchImport();
       }
@@ -9237,6 +9506,7 @@
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const rowsAnalyzed = Number(summary?.rowsProcessed || 0);
           const uniqueCases = Number(summary?.consolidatedCount || 0);
+          const totalChunksWorkbook = Math.max(1, Math.ceil(uniqueCases / PJUD_IMPORT_CHUNK_SIZE));
           const completedCases = Number(stats.created || 0) + Number(stats.updated || 0);
           const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
           const warningMessages = [];
@@ -9277,6 +9547,18 @@
             warning,
             tone: (stats.rejected || stats.discarded || stats.materializationFailed) ? 'warn' : 'ok',
           });
+          setMassiveAuditStep(9, warning ? 'warning' : 'success', warning ? 'Resumen generado con advertencias' : 'Resumen generado con éxito');
+          renderImportProgressPreview({
+            chunkNumber: totalChunksWorkbook,
+            totalChunks: totalChunksWorkbook,
+            processed: uniqueCases,
+            totalItems: uniqueCases,
+            batchId: batch?.id || null,
+            currentStepId: 9,
+            currentStepStatus: warning ? 'warning' : 'success',
+            stepDetail: warning ? 'Resumen final con advertencias' : 'Resumen final completado con éxito',
+            currentSubaction: 'cerrando lote',
+          });
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
             batchId: batch?.id || null,
             totalChunks: Math.max(1, Math.ceil(uniqueCases / PJUD_IMPORT_CHUNK_SIZE)),
@@ -9315,6 +9597,15 @@
         } catch (error) {
           console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
           const normalizedError = buildPjudInfrastructureError(error) || error;
+          setMassiveAuditStep(6, 'failed', buildLoadError('la importación PJUD', normalizedError).message);
+          renderImportProgressPreview({
+            currentStepId: 6,
+            currentStepStatus: 'failed',
+            stepDetail: 'Falla en ejecución masiva',
+            errorDetail: buildLoadError('la importación PJUD', normalizedError).message,
+            continueAfterError: false,
+            currentSubaction: 'proceso detenido',
+          });
           setMessage('importMsg', `No fue posible importar el lote PJUD: ${buildLoadError('la importación PJUD', normalizedError).message}`, 'error');
           return;
         } finally {
@@ -9324,6 +9615,13 @@
 
       const items = state.pendingBatchImports || [];
       if (!items.length) {
+        renderImportProgressPreview({
+          currentStepId: 4,
+          currentStepStatus: 'waiting',
+          stepDetail: 'Sin causas disponibles en cola',
+          waitingReason: 'esperando resolución de ruta',
+          currentSubaction: 'sin causas para procesar',
+        });
         setMessage('importMsg', 'Sin ruta documental: no hay causas del lote para resolver URL PJUD. Carga un manifiesto auxiliar o selecciona causas con identificadores judiciales.', 'warn');
         lockImportModalInteractions(false);
         return;
@@ -9335,11 +9633,27 @@
       let lastSelectedId = null;
       const affectedCaseIds = new Set();
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
+      state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
+      setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
           const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
           const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
           for (const importData of slice) {
+            const currentCauseLabel = [importData.rol || importData.basic?.rol, importData.tribunal || importData.basic?.tribunal, importData.caratulado || importData.basic?.caratula].filter(Boolean).join(' – ') || 'Causa sin etiqueta';
+            renderImportProgressPreview({
+              chunkNumber,
+              totalChunks,
+              processed: created + updated + failures,
+              totalItems: items.length,
+              batchId: state.pendingPjudBatchId || null,
+              currentStepId: 4,
+              currentStepStatus: 'running',
+              stepDetail: 'Recorriendo causas del lote',
+              currentCause: currentCauseLabel,
+              currentSubaction: 'abriendo causa',
+              internalProgress: `Causa ${Math.min(created + updated + failures + 1, items.length)} de ${items.length}`,
+            });
             const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
             const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
             const duplicate = findDuplicateCase(getAllCases(), importData);
@@ -9365,6 +9679,20 @@
             } catch (error) {
               console.error('[Alpha Avocat][batch-import] No fue posible transferir una causa del lote.', error);
               failures += 1;
+              renderImportProgressPreview({
+                chunkNumber,
+                totalChunks,
+                processed: created + updated + failures,
+                totalItems: items.length,
+                batchId: state.pendingPjudBatchId || null,
+                currentStepId: 4,
+                currentStepStatus: 'warning',
+                stepDetail: 'Transferencia parcial con advertencias',
+                currentCause: currentCauseLabel,
+                currentSubaction: 'reintentando',
+                errorDetail: buildLoadError('la transferencia de la causa del lote', error).message,
+                continueAfterError: true,
+              });
             }
           }
           await loadCases();
@@ -9400,6 +9728,18 @@
           batchId: state.pendingPjudBatchId || null,
           warning,
           tone: failures ? 'warn' : 'ok',
+        });
+        setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? 'Resumen final con advertencias' : 'Resumen final completado con éxito');
+        renderImportProgressPreview({
+          chunkNumber: totalChunks,
+          totalChunks,
+          processed: items.length,
+          totalItems: items.length,
+          batchId: state.pendingPjudBatchId || null,
+          currentStepId: 9,
+          currentStepStatus: failures ? 'warning' : 'success',
+          stepDetail: failures ? 'Resumen final con advertencias' : 'Resumen final completado con éxito',
+          currentSubaction: 'cerrando lote',
         });
         console.info('[Alpha Avocat][batch-import] Resultado importación manual.', {
           batchId: state.pendingPjudBatchId || null,
