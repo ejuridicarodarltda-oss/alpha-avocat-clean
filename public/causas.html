@@ -2083,21 +2083,21 @@
       </div>
       <form id="formImportacionMasiva" class="form">
         <div class="helper-box">
-          <strong>Paso 1: Seleccionar Excel PJUD del lote desde este PC</strong>
-          <div class="timeline-meta">Este Excel se cargará como archivo base del lote masivo.</div>
-          <div class="timeline-meta">Su destino es la entrada del procesamiento masivo de causas.</div>
-          <div class="timeline-meta">No se incorporará como documento del expediente ni como archivo manual de una causa.</div>
+          <strong>Paso 1 (auxiliar): Importar listado de causas desde Excel PJUD</strong>
+          <div class="timeline-meta">Este archivo es opcional y funciona solo como manifiesto/índice de causas.</div>
+          <div class="timeline-meta">El contenido documental real se obtiene navegando URLs de PJUD con sesión activa.</div>
+          <div class="timeline-meta">Nunca se usa este Excel como origen de documentos del expediente.</div>
           <div class="field" style="margin-top:10px;">
             <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" />
             <div class="small-note">Se procesan automáticamente las hojas Corte Suprema, Corte Apelaciones, Civil, Laboral, Penal, Cobranza y Familia.</div>
           </div>
           <div class="helper-box" style="margin-top:8px;">
-            <strong>DESTINO DEL ARCHIVO SELECCIONADO</strong>
-            <div class="timeline-meta">Entrada del lote masivo PJUD.</div>
-            <div class="timeline-meta">Uso: archivo base para identificar, validar y procesar masivamente las causas.</div>
-            <div class="timeline-meta">No se usará como documento del expediente ni como archivo manual.</div>
+            <strong>USO DEL EXCEL (AUXILIAR)</strong>
+            <div class="timeline-meta">Entrada opcional del lote masivo PJUD.</div>
+            <div class="timeline-meta">Uso: identificar causas, deduplicar y preparar manifiesto.</div>
+            <div class="timeline-meta">No se usará como documento del expediente ni como origen del contenido.</div>
           </div>
-          <div class="helper-box" id="batchExcelBasePanel" style="margin-top:8px;">Archivo base del lote actual: pendiente.</div>
+          <div class="helper-box" id="batchExcelBasePanel" style="margin-top:8px;">Manifiesto Excel del lote: no cargado (opcional).</div>
         </div>
 
         <div class="helper-box">
@@ -2109,18 +2109,18 @@
         </div>
 
         <div class="helper-box">
-          <strong>Paso 3: Validar lote</strong>
-          <div class="timeline-meta">Leer Excel base, validar causas, eliminar duplicados y preparar la cola de procesamiento.</div>
+          <strong>Paso 3: Resolver rutas de causas en PJUD</strong>
+          <div class="timeline-meta">Resolver URL real de causa/expediente/documentos en PJUD para cada causa del lote (con o sin Excel auxiliar).</div>
           <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="btnAnalizarLoteImportacion" class="btn">Paso 3: Validar lote</button>
+            <button type="button" id="btnAnalizarLoteImportacion" class="btn">Paso 3: Resolver rutas PJUD</button>
           </div>
         </div>
 
         <div class="helper-box">
-          <strong>Paso 4: Iniciar descarga masiva</strong>
-          <div class="timeline-meta">Inicia el procesamiento completo del lote, sin adjuntar archivos manuales causa por causa.</div>
+          <strong>Paso 4: Iniciar descarga desde URL PJUD</strong>
+          <div class="timeline-meta">Inicia el procesamiento del lote basado en ruta web real PJUD, no en archivos locales.</div>
           <div class="modal-actions" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
-            <button type="button" id="btnIniciarDescargaMasivaPjud" class="btn btn-primary">Paso 4: Iniciar descarga masiva</button>
+            <button type="button" id="btnIniciarDescargaMasivaPjud" class="btn btn-primary">Paso 4: Descargar desde PJUD</button>
           </div>
         </div>
 
@@ -2133,8 +2133,8 @@
         </div>
 
         <div class="helper-box">
-          <strong>Paso 6: Descargar contenidos automáticamente</strong>
-          <div class="timeline-meta">Intenta descargar EBOOK, resoluciones, escritos, anexos y demás documentos disponibles.</div>
+          <strong>Paso 6: Descargar contenido real desde PJUD</strong>
+          <div class="timeline-meta">Valida ruta documental y descarga EBOOK/resoluciones/escritos/anexos solo desde URL real PJUD.</div>
         </div>
 
         <div class="helper-box">
@@ -6897,14 +6897,14 @@
       if (!panel) return;
       const meta = state.pendingMassiveExcelBase;
       if (!meta) {
-        panel.innerHTML = 'Archivo base del lote actual: pendiente.';
+        panel.innerHTML = 'Manifiesto Excel del lote: no cargado (opcional).';
         return;
       }
       panel.innerHTML = `
-        <strong>Archivo base del lote actual: ${escapeHtml(meta.fileName || 'Sin nombre')}</strong>
+        <strong>Manifiesto Excel auxiliar cargado: ${escapeHtml(meta.fileName || 'Sin nombre')}</strong>
         <div class="timeline-meta">Fecha/hora de carga: ${escapeHtml(formatDateTimeLabel(meta.loadedAt))}</div>
         <div class="timeline-meta">Cantidad estimada de filas o causas detectadas: ${escapeHtml(meta.estimatedRows ?? 0)}</div>
-        <div class="timeline-meta">Estado: Excel base cargado correctamente.</div>
+        <div class="timeline-meta">Estado: manifiesto auxiliar cargado correctamente (el contenido real se resuelve vía URL PJUD).</div>
       `;
     }
 
@@ -6934,7 +6934,7 @@
         estimatedRows,
       };
       renderMassiveExcelBasePanel();
-      setMessage('importMsg', 'Excel base cargado correctamente en la entrada del lote masivo PJUD.', 'ok');
+      setMessage('importMsg', 'Manifiesto Excel auxiliar cargado correctamente. La descarga real seguirá rutas URL PJUD.', 'ok');
     }
 
     function buildImportDataFromCause(cause){
@@ -7886,6 +7886,11 @@
       documentsDownloadedTotal = 0,
       documentsSavedTotal = 0,
       documentsClassifiedTotal = 0,
+      routeResolvedCount = 0,
+      routeUnresolvedCount = 0,
+      caseUrlResolvedCount = 0,
+      caseDetailUrlResolvedCount = 0,
+      documentsUrlResolvedCount = 0,
       causesWithClassificationComplete = 0,
       causesWithClassificationPartial = 0,
       causesWithDownloadError = 0,
@@ -7906,7 +7911,7 @@
       const step8State = Number(documentsClassifiedTotal || 0) > 0
         ? (Number(documentsClassifiedTotal || 0) < Number(documentsSavedTotal || 0) ? 'parcial' : 'superado con éxito')
         : (Number(documentsDownloadedTotal || 0) === 0 ? 'fallido (sin contenido descargado)' : 'fallido');
-      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, rutas resueltas ${routeResolvedCount}, rutas sin resolver ${routeUnresolvedCount}, URL causa sí ${caseUrlResolvedCount}, URL expediente sí ${caseDetailUrlResolvedCount}, URL documental sí ${documentsUrlResolvedCount}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -7917,6 +7922,7 @@
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
             <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Estructura creada: ${escapeHtml(causesWithStructureCreated)}</div>
             <div class="timeline-meta">Con contenido descargado: ${escapeHtml(causesWithDownloadedContent)} · Sin contenido descargado: ${escapeHtml(causesWithoutDownloadedContent)}</div>
+            <div class="timeline-meta"><strong>Auditoría Paso 6:</strong> URL de causa resuelta ${escapeHtml(caseUrlResolvedCount)} · URL de expediente/eBook resuelta ${escapeHtml(caseDetailUrlResolvedCount)} · URL documental encontrada ${escapeHtml(documentsUrlResolvedCount)} · Rutas sin resolver ${escapeHtml(routeUnresolvedCount)}</div>
             <div class="timeline-meta">Docs detectados: ${escapeHtml(documentsDetectedTotal)} · Descargados: ${escapeHtml(documentsDownloadedTotal)} · Guardados: ${escapeHtml(documentsSavedTotal)} · Clasificados: ${escapeHtml(documentsClassifiedTotal)}</div>
             <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
             <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
@@ -7942,6 +7948,7 @@
       const representedClientName = primaryClientName || importData.representedClientName || null;
       const representedClientRole = importData.representedClientRole || null;
       const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
+      const routeData = resolvePjudRouteData({}, importData);
       const destinationMap = buildPjudDestinationMap({
         [C.k_rol]: rolComposite,
         pjud_rit: importData.rit || importData.basic?.rit || null,
@@ -7962,7 +7969,7 @@
         [C.k_withheld_by]: 'Retiene receptor',
         [C.k_notes]: null,
         owner_user_id: authenticatedUser.id,
-        source: 'pjud_excel_mis_causas',
+        source: 'pjud_index_manifest',
         source_confidence: 'high',
         import_batch_id: importBatchId,
         imported_at: new Date().toISOString(),
@@ -7986,8 +7993,17 @@
         pjud_represented_client: representedClientName,
         pjud_client_role: representedClientRole,
         pjud_documents_count: importedDocumentsCount,
+        pjud_case_url: routeData.pjudCaseUrl,
+        pjud_case_detail_url: routeData.pjudCaseDetailUrl,
+        pjud_ebook_url: routeData.pjudEbookUrl,
+        pjud_documents_url: routeData.pjudDocumentsUrl,
+        route_status: routeData.routeStatus,
+        route_error: routeData.routeError,
+        content_source: routeData.contentSource,
+        content_detected_count: importedDocumentsCount,
+        content_downloaded_count: Number((importData.documents || []).filter((doc) => doc?.content || doc?.sourceUrl || doc?.sourcePageUrl).length + (importData.ebook ? 1 : 0)),
         pjud_traceability: {
-          source: 'pjud_excel_mis_causas',
+          source: 'pjud_index_manifest',
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
@@ -7999,6 +8015,13 @@
           batch_excel_base_file_name: state.pendingMassiveExcelBase?.fileName || null,
           batch_excel_loaded_at: state.pendingMassiveExcelBase?.loadedAt || null,
           batch_excel_detected_rows: state.pendingMassiveExcelBase?.estimatedRows ?? null,
+          route_status: routeData.routeStatus,
+          route_error: routeData.routeError,
+          pjud_case_url: routeData.pjudCaseUrl,
+          pjud_case_detail_url: routeData.pjudCaseDetailUrl,
+          pjud_ebook_url: routeData.pjudEbookUrl,
+          pjud_documents_url: routeData.pjudDocumentsUrl,
+          content_source: routeData.contentSource,
         },
       };
     }
@@ -8118,8 +8141,44 @@
       };
     }
 
+    function resolvePjudRouteData(rowPayload = {}, importData = {}){
+      const safeImportData = importData || {};
+      const documents = [
+        ...(safeImportData.documents || []),
+        ...(safeImportData.ebook ? [safeImportData.ebook] : []),
+      ].filter(Boolean);
+      const pjudCaseUrl = rowPayload?.pjud_case_url
+        || safeImportData?.basic?.link
+        || safeImportData?.sourceUrl
+        || '';
+      const pjudCaseDetailUrl = rowPayload?.pjud_case_detail_url
+        || safeImportData?.detailUrl
+        || safeImportData?.basic?.detailUrl
+        || pjudCaseUrl
+        || '';
+      const pjudEbookUrl = rowPayload?.pjud_ebook_url
+        || safeImportData?.ebook?.sourceUrl
+        || safeImportData?.ebook?.url
+        || '';
+      const pjudDocumentsUrl = rowPayload?.pjud_documents_url
+        || documents.find((doc) => isHttpUrl(doc?.sourcePageUrl || doc?.sourceUrl || ''))?.sourcePageUrl
+        || documents.find((doc) => isHttpUrl(doc?.sourceUrl || ''))?.sourceUrl
+        || '';
+      const routeResolved = Boolean(isHttpUrl(pjudCaseUrl) || isHttpUrl(pjudCaseDetailUrl) || isHttpUrl(pjudEbookUrl) || isHttpUrl(pjudDocumentsUrl));
+      return {
+        pjudCaseUrl: pjudCaseUrl || null,
+        pjudCaseDetailUrl: pjudCaseDetailUrl || null,
+        pjudEbookUrl: pjudEbookUrl || null,
+        pjudDocumentsUrl: pjudDocumentsUrl || null,
+        routeStatus: routeResolved ? 'ruta_resuelta' : 'sin_ruta_documental',
+        routeError: routeResolved ? null : 'acceso_documental_no_encontrado',
+        contentSource: 'pjud_url',
+      };
+    }
+
     function buildPjudContentAudit(rowPayload = {}, importData = {}, destinationMap = null){
       const safeImportData = importData || {};
+      const routeData = resolvePjudRouteData(rowPayload, safeImportData);
       const documents = [
         ...(safeImportData.documents || []),
         ...(safeImportData.ebook ? [safeImportData.ebook] : []),
@@ -8168,6 +8227,16 @@
       ].filter(Boolean);
       return {
         pjudCaseKey: rowPayload?.pjud_case_key || safeImportData?.pjudCaseKey || null,
+        pjudCaseUrl: routeData.pjudCaseUrl,
+        pjudCaseDetailUrl: routeData.pjudCaseDetailUrl,
+        pjudEbookUrl: routeData.pjudEbookUrl,
+        pjudDocumentsUrl: routeData.pjudDocumentsUrl,
+        routeStatus: routeData.routeStatus,
+        routeError: routeData.routeError,
+        contentSource: routeData.contentSource,
+        caseUrlResolved: Boolean(routeData.pjudCaseUrl),
+        caseDetailUrlResolved: Boolean(routeData.pjudCaseDetailUrl || routeData.pjudEbookUrl),
+        documentsUrlResolved: Boolean(routeData.pjudDocumentsUrl || routeData.pjudEbookUrl),
         detectedDocuments: detectedDocuments.length,
         downloadedDocuments: downloadedDocuments.length,
         savedDocuments: downloadedDocuments.length,
@@ -8177,8 +8246,10 @@
         hasExternalLinks: originTypes.has('sourceUrl') || originTypes.has('sourcePageUrl'),
         hasPlaceholderContent: originTypes.has('content'),
         hasStorageFile: hasBinaryStorage,
-        finalCaseStatus: downloadedDocuments.length === 0
-          ? 'sin_contenido_descargado'
+        finalCaseStatus: routeData.routeStatus !== 'ruta_resuelta'
+          ? 'sin_ruta_documental'
+          : downloadedDocuments.length === 0
+            ? 'sin_contenido_descargado'
           : (classifiedDocuments.length === downloadedDocuments.length ? 'contenido_descargado_y_clasificado' : 'contenido_descargado_parcial'),
         originTypes: [...originTypes],
         destinationTypes,
@@ -8571,6 +8642,13 @@
             downloadedDocuments: rowAudit.downloadedDocuments,
             savedDocuments: rowAudit.savedDocuments,
             classifiedDocuments: rowAudit.classifiedDocuments,
+            routeStatus: rowAudit.routeStatus,
+            routeError: rowAudit.routeError,
+            pjudCaseUrl: rowAudit.pjudCaseUrl,
+            pjudCaseDetailUrl: rowAudit.pjudCaseDetailUrl,
+            pjudEbookUrl: rowAudit.pjudEbookUrl,
+            pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
+            contentSource: rowAudit.contentSource,
             finalCaseStatus: rowAudit.finalCaseStatus,
             traceability: {
               stage: rowAudit.materialized ? 'updated_and_materialized' : 'updated_without_materialization',
@@ -8682,6 +8760,13 @@
                 downloadedDocuments: rowAudit.downloadedDocuments,
                 savedDocuments: rowAudit.savedDocuments,
                 classifiedDocuments: rowAudit.classifiedDocuments,
+                routeStatus: rowAudit.routeStatus,
+                routeError: rowAudit.routeError,
+                pjudCaseUrl: rowAudit.pjudCaseUrl,
+                pjudCaseDetailUrl: rowAudit.pjudCaseDetailUrl,
+                pjudEbookUrl: rowAudit.pjudEbookUrl,
+                pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
+                contentSource: rowAudit.contentSource,
                 finalCaseStatus: rowAudit.finalCaseStatus,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
@@ -8751,6 +8836,13 @@
                 downloadedDocuments: rowAudit.downloadedDocuments,
                 savedDocuments: rowAudit.savedDocuments,
                 classifiedDocuments: rowAudit.classifiedDocuments,
+                routeStatus: rowAudit.routeStatus,
+                routeError: rowAudit.routeError,
+                pjudCaseUrl: rowAudit.pjudCaseUrl,
+                pjudCaseDetailUrl: rowAudit.pjudCaseDetailUrl,
+                pjudEbookUrl: rowAudit.pjudEbookUrl,
+                pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
+                contentSource: rowAudit.contentSource,
                 finalCaseStatus: rowAudit.finalCaseStatus,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
@@ -8779,6 +8871,11 @@
         ...materializationWarnings,
         ...invalidRows,
       ];
+      const routeResolvedCount = processedRows.filter((row) => row.routeStatus === 'ruta_resuelta').length;
+      const routeUnresolvedCount = processedRows.filter((row) => row.routeStatus && row.routeStatus !== 'ruta_resuelta').length;
+      const caseUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudCaseUrl)).length;
+      const caseDetailUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudCaseDetailUrl || row.pjudEbookUrl)).length;
+      const documentsUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudDocumentsUrl || row.pjudEbookUrl)).length;
       if (discardedRows.length) {
         await appendPjudImportRows(batch?.id || null, discardedRows.slice(0, 1000), { isValid: false });
       }
@@ -8797,11 +8894,18 @@
           ruc: item.ruc || '',
           tribunal: item.tribunal || '',
           reason: item.reason || '',
-          payload: {
-            status: item.status,
-            operation: item.operation || null,
-            materialized: item.materialized ?? null,
-            downloaded_real: item.downloadedReal ?? false,
+            payload: {
+              status: item.status,
+              operation: item.operation || null,
+              materialized: item.materialized ?? null,
+              route_status: item.routeStatus || null,
+              route_error: item.routeError || null,
+              pjud_case_url: item.pjudCaseUrl || null,
+              pjud_case_detail_url: item.pjudCaseDetailUrl || null,
+              pjud_ebook_url: item.pjudEbookUrl || null,
+              pjud_documents_url: item.pjudDocumentsUrl || null,
+              content_source: item.contentSource || 'pjud_url',
+              downloaded_real: item.downloadedReal ?? false,
             detected_documents: Number(item.detectedDocuments || 0),
             downloaded_documents: Number(item.downloadedDocuments || 0),
             saved_documents: Number(item.savedDocuments || 0),
@@ -8887,6 +8991,11 @@
           documentsDownloadedTotal,
           documentsSavedTotal,
           documentsClassifiedTotal,
+          routeResolvedCount,
+          routeUnresolvedCount,
+          caseUrlResolvedCount,
+          caseDetailUrlResolvedCount,
+          documentsUrlResolvedCount,
           causesWithClassificationComplete,
           causesWithClassificationPartial,
           causesWithDownloadError,
@@ -8935,7 +9044,7 @@
       state.pendingPjudWorkbook = null;
       state.pendingBatchImports = [];
       renderBatchImportPreview([], null);
-      setMessage('importMsg', 'Debes cargar el Excel PJUD del lote en el Paso 1 para continuar con la descarga masiva automática.', 'warn');
+      setMessage('importMsg', 'No se cargó Excel auxiliar. Puedes continuar: el motor masivo resolverá rutas reales en PJUD (Mis Causas/expediente/documentos) con sesión activa.', 'ok');
     }
 
     function openMassiveDownloadModal(){
@@ -8985,6 +9094,7 @@
     }
 
     async function startMassivePjudDownloadFlow(){
+      await connectWithPjud();
       await analyzeBatchImport();
       await transferBatchImport();
     }
@@ -9155,6 +9265,11 @@
             documentsDownloadedTotal: Number(stats.documentsDownloadedTotal || 0),
             documentsSavedTotal: Number(stats.documentsSavedTotal || 0),
             documentsClassifiedTotal: Number(stats.documentsClassifiedTotal || 0),
+            routeResolvedCount: Number(stats.routeResolvedCount || 0),
+            routeUnresolvedCount: Number(stats.routeUnresolvedCount || 0),
+            caseUrlResolvedCount: Number(stats.caseUrlResolvedCount || 0),
+            caseDetailUrlResolvedCount: Number(stats.caseDetailUrlResolvedCount || 0),
+            documentsUrlResolvedCount: Number(stats.documentsUrlResolvedCount || 0),
             causesWithClassificationComplete: Number(stats.causesWithClassificationComplete || 0),
             causesWithClassificationPartial: Number(stats.causesWithClassificationPartial || 0),
             causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
@@ -9211,6 +9326,7 @@
 
       const items = state.pendingBatchImports || [];
       if (!items.length) {
+        setMessage('importMsg', 'Sin ruta documental: no hay causas del lote para resolver URL PJUD. Carga un manifiesto auxiliar o selecciona causas con identificadores judiciales.', 'warn');
         lockImportModalInteractions(false);
         return;
       }
