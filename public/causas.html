@@ -7879,6 +7879,17 @@
       materialized = 0,
       materializationFailed = 0,
       supabaseOnly = 0,
+      causesWithStructureCreated = 0,
+      causesWithDownloadedContent = 0,
+      causesWithoutDownloadedContent = 0,
+      documentsDetectedTotal = 0,
+      documentsDownloadedTotal = 0,
+      documentsSavedTotal = 0,
+      documentsClassifiedTotal = 0,
+      causesWithClassificationComplete = 0,
+      causesWithClassificationPartial = 0,
+      causesWithDownloadError = 0,
+      causesWithClassificationError = 0,
       errors = 0,
       batchId = null,
       warning = '',
@@ -7886,7 +7897,16 @@
     } = {}){
       const firstImportedCaseId = resolveImportedCaseId();
       const hasMaterializedOnlyUpdates = Number(materialized || 0) > 0 && Number(inserted || 0) === 0;
-      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const step6State = Number(causesWithDownloadedContent || 0) > 0
+        ? (Number(causesWithoutDownloadedContent || 0) > 0 ? 'parcial' : 'superado con éxito')
+        : 'fallido';
+      const step7State = Number(documentsSavedTotal || 0) > 0
+        ? (Number(documentsSavedTotal || 0) < Number(documentsDownloadedTotal || 0) ? 'parcial' : 'superado con éxito')
+        : 'fallido';
+      const step8State = Number(documentsClassifiedTotal || 0) > 0
+        ? (Number(documentsClassifiedTotal || 0) < Number(documentsSavedTotal || 0) ? 'parcial' : 'superado con éxito')
+        : (Number(documentsDownloadedTotal || 0) === 0 ? 'fallido (sin contenido descargado)' : 'fallido');
+      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -7895,7 +7915,11 @@
           <div class="selection-card">
             <strong>Resumen final importación PJUD</strong>
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
-            <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Materializadas: ${escapeHtml(materialized)}</div>
+            <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Estructura creada: ${escapeHtml(causesWithStructureCreated)}</div>
+            <div class="timeline-meta">Con contenido descargado: ${escapeHtml(causesWithDownloadedContent)} · Sin contenido descargado: ${escapeHtml(causesWithoutDownloadedContent)}</div>
+            <div class="timeline-meta">Docs detectados: ${escapeHtml(documentsDetectedTotal)} · Descargados: ${escapeHtml(documentsDownloadedTotal)} · Guardados: ${escapeHtml(documentsSavedTotal)} · Clasificados: ${escapeHtml(documentsClassifiedTotal)}</div>
+            <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
+            <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
@@ -8100,6 +8124,28 @@
         ...(safeImportData.documents || []),
         ...(safeImportData.ebook ? [safeImportData.ebook] : []),
       ].filter(Boolean);
+      const isPlaceholderDocument = (documentRecord = {}) => {
+        const observation = String(documentRecord?.observation || '').toLowerCase();
+        const origin = String(documentRecord?.origin || '').toLowerCase();
+        const name = String(documentRecord?.name || '').toLowerCase();
+        return observation.includes('placeholder')
+          || observation.includes('resumen automático')
+          || origin.includes('placeholder')
+          || name.startsWith('resumen-pjud-');
+      };
+      const hasEffectiveBinaryContent = (documentRecord = {}) => {
+        const content = String(documentRecord?.content || '').trim();
+        if (!content) return false;
+        if (content.startsWith('data:text/plain')) return false;
+        return content.startsWith('data:');
+      };
+      const detectedDocuments = documents.filter((documentRecord) => !isPlaceholderDocument(documentRecord));
+      const downloadedDocuments = detectedDocuments.filter((documentRecord) => (
+        hasEffectiveBinaryContent(documentRecord)
+        || Number(documentRecord?.size || 0) > 0
+        || (String(documentRecord?.storageBucket || '').trim() && String(documentRecord?.storagePath || '').trim())
+      ));
+      const classifiedDocuments = downloadedDocuments.filter((documentRecord) => String(documentRecord?.destinationContainer || '').trim());
       const originTypes = new Set();
       let hasBinaryStorage = false;
       documents.forEach((documentRecord) => {
@@ -8122,11 +8168,18 @@
       ].filter(Boolean);
       return {
         pjudCaseKey: rowPayload?.pjud_case_key || safeImportData?.pjudCaseKey || null,
-        downloadedReal: false,
+        detectedDocuments: detectedDocuments.length,
+        downloadedDocuments: downloadedDocuments.length,
+        savedDocuments: downloadedDocuments.length,
+        classifiedDocuments: classifiedDocuments.length,
+        downloadedReal: downloadedDocuments.length > 0,
         persistedReal: Boolean(hasBinaryStorage),
         hasExternalLinks: originTypes.has('sourceUrl') || originTypes.has('sourcePageUrl'),
         hasPlaceholderContent: originTypes.has('content'),
         hasStorageFile: hasBinaryStorage,
+        finalCaseStatus: downloadedDocuments.length === 0
+          ? 'sin_contenido_descargado'
+          : (classifiedDocuments.length === downloadedDocuments.length ? 'contenido_descargado_y_clasificado' : 'contenido_descargado_parcial'),
         originTypes: [...originTypes],
         destinationTypes,
         storageBucket: persistence.storageBucket || null,
@@ -8157,10 +8210,6 @@
         createdNewCase: operationMode === 'create',
         importBatchId,
       }));
-      if (!nextDetail?.documents?.length) throw new Error('Materialización incompleta: no se registraron documentos en el expediente digital.');
-      if (!(nextDetail?.documentContainers?.importadosPjud?.docIds || []).length) {
-        throw new Error('Materialización incompleta: no se registró contenido en Importadas del Poder Judicial.');
-      }
       return nextDetail;
     }
 
@@ -8347,6 +8396,17 @@
       let failed = 0;
       let materialized = 0;
       let materializationFailed = 0;
+      let causesWithStructureCreated = 0;
+      let causesWithDownloadedContent = 0;
+      let causesWithoutDownloadedContent = 0;
+      let causesWithDownloadError = 0;
+      let causesWithClassificationError = 0;
+      let causesWithClassificationComplete = 0;
+      let causesWithClassificationPartial = 0;
+      let documentsDetectedTotal = 0;
+      let documentsDownloadedTotal = 0;
+      let documentsSavedTotal = 0;
+      let documentsClassifiedTotal = 0;
       const affectedCaseIds = new Set();
       const consolidatedCaseMap = new Map((summary.consolidatedCases || []).map((item) => [String(item.pjudCaseKey || ''), item]));
       const casePayloads = (summary.consolidatedCases || []).map((item) => buildPjudStructuredPayload(item, {
@@ -8465,11 +8525,22 @@
             materialized += 1;
             stageTrace.rowsMaterialized += 1;
             rowAudit.materialized = true;
+            causesWithStructureCreated += 1;
+            documentsDetectedTotal += Number(rowAudit.detectedDocuments || 0);
+            documentsDownloadedTotal += Number(rowAudit.downloadedDocuments || 0);
+            documentsSavedTotal += Number(rowAudit.savedDocuments || 0);
+            documentsClassifiedTotal += Number(rowAudit.classifiedDocuments || 0);
+            if (rowAudit.downloadedReal) causesWithDownloadedContent += 1;
+            else causesWithoutDownloadedContent += 1;
+            if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
+            else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
+            if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
           } catch (materializationError) {
             materializationFailed += 1;
             stageTrace.rowsMaterializationFailed += 1;
             stageTrace.rowsSupabaseOnly += 1;
             rowAudit.materialized = false;
+            causesWithDownloadError += 1;
             const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
             materializationWarnings.push({
               pjudCaseKey: rowPayload.pjud_case_key,
@@ -8496,6 +8567,11 @@
             persistence: destinationMap.persistence,
             storageBucket: rowAudit.storageBucket,
             storagePath: rowAudit.storagePath,
+            detectedDocuments: rowAudit.detectedDocuments,
+            downloadedDocuments: rowAudit.downloadedDocuments,
+            savedDocuments: rowAudit.savedDocuments,
+            classifiedDocuments: rowAudit.classifiedDocuments,
+            finalCaseStatus: rowAudit.finalCaseStatus,
             traceability: {
               stage: rowAudit.materialized ? 'updated_and_materialized' : 'updated_without_materialization',
               linked_to_case: true,
@@ -8560,11 +8636,22 @@
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
+                causesWithStructureCreated += 1;
+                documentsDetectedTotal += Number(rowAudit.detectedDocuments || 0);
+                documentsDownloadedTotal += Number(rowAudit.downloadedDocuments || 0);
+                documentsSavedTotal += Number(rowAudit.savedDocuments || 0);
+                documentsClassifiedTotal += Number(rowAudit.classifiedDocuments || 0);
+                if (rowAudit.downloadedReal) causesWithDownloadedContent += 1;
+                else causesWithoutDownloadedContent += 1;
+                if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
+                else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
+                if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
                 stageTrace.rowsSupabaseOnly += 1;
                 rowAudit.materialized = false;
+                causesWithDownloadError += 1;
                 const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
                 materializationWarnings.push({
                   pjudCaseKey: rowPayload.pjud_case_key,
@@ -8591,6 +8678,11 @@
                 persistence: destinationMap.persistence,
                 storageBucket: rowAudit.storageBucket,
                 storagePath: rowAudit.storagePath,
+                detectedDocuments: rowAudit.detectedDocuments,
+                downloadedDocuments: rowAudit.downloadedDocuments,
+                savedDocuments: rowAudit.savedDocuments,
+                classifiedDocuments: rowAudit.classifiedDocuments,
+                finalCaseStatus: rowAudit.finalCaseStatus,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
@@ -8619,11 +8711,22 @@
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
+                causesWithStructureCreated += 1;
+                documentsDetectedTotal += Number(rowAudit.detectedDocuments || 0);
+                documentsDownloadedTotal += Number(rowAudit.downloadedDocuments || 0);
+                documentsSavedTotal += Number(rowAudit.savedDocuments || 0);
+                documentsClassifiedTotal += Number(rowAudit.classifiedDocuments || 0);
+                if (rowAudit.downloadedReal) causesWithDownloadedContent += 1;
+                else causesWithoutDownloadedContent += 1;
+                if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
+                else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
+                if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
               } catch (materializationError) {
                 materializationFailed += 1;
                 stageTrace.rowsMaterializationFailed += 1;
                 stageTrace.rowsSupabaseOnly += 1;
                 rowAudit.materialized = false;
+                causesWithDownloadError += 1;
                 const warningMessage = 'La causa fue actualizada en Supabase, pero no se pudo materializar su contenido en Expedientes Digitales.';
                 materializationWarnings.push({
                   pjudCaseKey: savedRow.pjud_case_key,
@@ -8644,6 +8747,11 @@
                 persistence: destinationMap.persistence,
                 storageBucket: rowAudit.storageBucket,
                 storagePath: rowAudit.storagePath,
+                detectedDocuments: rowAudit.detectedDocuments,
+                downloadedDocuments: rowAudit.downloadedDocuments,
+                savedDocuments: rowAudit.savedDocuments,
+                classifiedDocuments: rowAudit.classifiedDocuments,
+                finalCaseStatus: rowAudit.finalCaseStatus,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
@@ -8694,6 +8802,11 @@
             operation: item.operation || null,
             materialized: item.materialized ?? null,
             downloaded_real: item.downloadedReal ?? false,
+            detected_documents: Number(item.detectedDocuments || 0),
+            downloaded_documents: Number(item.downloadedDocuments || 0),
+            saved_documents: Number(item.savedDocuments || 0),
+            classified_documents: Number(item.classifiedDocuments || 0),
+            final_case_status: item.finalCaseStatus || null,
             persisted_real: item.persistedReal ?? false,
             origin_types: item.originTypes || [],
             destination_types: item.destinationTypes || [],
@@ -8723,6 +8836,17 @@
         materialized,
         materializationFailed,
         supabaseOnly: Math.max(0, imported - materialized),
+        causesWithStructureCreated,
+        causesWithDownloadedContent,
+        causesWithoutDownloadedContent,
+        documentsDetectedTotal,
+        documentsDownloadedTotal,
+        documentsSavedTotal,
+        documentsClassifiedTotal,
+        causesWithClassificationComplete,
+        causesWithClassificationPartial,
+        causesWithDownloadError,
+        causesWithClassificationError,
         duplicates: duplicated,
         failed,
         discarded: discardedRows.length,
@@ -8756,6 +8880,17 @@
           materialized,
           materializationFailed,
           supabaseOnly: Math.max(0, imported - materialized),
+          causesWithStructureCreated,
+          causesWithDownloadedContent,
+          causesWithoutDownloadedContent,
+          documentsDetectedTotal,
+          documentsDownloadedTotal,
+          documentsSavedTotal,
+          documentsClassifiedTotal,
+          causesWithClassificationComplete,
+          causesWithClassificationPartial,
+          causesWithDownloadError,
+          causesWithClassificationError,
           duplicated,
           failed,
           structuralErrors: invalidRows.length,
@@ -8999,6 +9134,10 @@
           const warningMessages = [];
           if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
           if (Number(stats.materializationFailed || 0) > 0) warningMessages.push(`Advertencia: ${Number(stats.materializationFailed || 0)} causa(s) fueron actualizadas en Supabase, pero no se pudieron materializar en Expedientes Digitales.`);
+          if (Number(stats.causesWithDownloadedContent || 0) === 0) {
+            warningMessages.push(`Se actualizaron/materializaron ${Number(stats.causesWithStructureCreated || 0)} causas como estructura interna, pero no se descargó contenido real del expediente en el Paso 6.`);
+            warningMessages.push('La clasificación automática del Paso 8 no se ejecutó con contenido real porque no hubo archivos descargados.');
+          }
           const warning = warningMessages.join(' ');
           renderImportFinalSummary({
             rowsAnalyzed,
@@ -9009,6 +9148,17 @@
             materialized: Number(stats.materialized || 0),
             materializationFailed: Number(stats.materializationFailed || 0),
             supabaseOnly: Number(stats.supabaseOnly || 0),
+            causesWithStructureCreated: Number(stats.causesWithStructureCreated || 0),
+            causesWithDownloadedContent: Number(stats.causesWithDownloadedContent || 0),
+            causesWithoutDownloadedContent: Number(stats.causesWithoutDownloadedContent || 0),
+            documentsDetectedTotal: Number(stats.documentsDetectedTotal || 0),
+            documentsDownloadedTotal: Number(stats.documentsDownloadedTotal || 0),
+            documentsSavedTotal: Number(stats.documentsSavedTotal || 0),
+            documentsClassifiedTotal: Number(stats.documentsClassifiedTotal || 0),
+            causesWithClassificationComplete: Number(stats.causesWithClassificationComplete || 0),
+            causesWithClassificationPartial: Number(stats.causesWithClassificationPartial || 0),
+            causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
+            causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
             errors: Number(stats.rejected || 0),
             batchId: batch?.id || null,
             warning,

@@ -1765,34 +1765,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   })
 
   const importedDocIds = []
-  const primaryRole = options.selectedClientParties?.[0] || options.primaryClientName || next.cliente || 'Por definir'
-  const summaryBody = [
-    'Resumen materializado de importación PJUD',
-    '',
-    `Carátula: ${importData.basic?.caratula || importData.caratulado || next.caratula || 'Pendiente'}`,
-    `Rol: ${importData.basic?.rol || importData.rol || next.rol || 'Pendiente'}`,
-    `RIT: ${importData.basic?.rit || importData.rit || next.rit || 'Pendiente'}`,
-    `RUC: ${importData.ruc || next.ruc || 'Pendiente'}`,
-    `Tribunal: ${importData.basic?.tribunal || importData.tribunal || next.tribunal || 'Pendiente'}`,
-    `Materia: ${importData.basic?.materia || importData.materia || next.materia || 'Pendiente'}`,
-    `Estado causa: ${importData.estadoCausa || next.estadoCausa || 'Pendiente'}`,
-    `Estado procesal: ${importData.basic?.estadoProcesal || importData.estadoProcesal || next.estadoProcesal || 'Pendiente'}`,
-    `Cliente representado: ${options.primaryClientName || next.cliente || 'Pendiente'}`,
-    `Calidad procesal: ${next.clientProceduralRole || primaryRole}`,
-    `Ubicación en Kárdex: ${next.kardex?.grupo || next.grupo || 'Pendiente'}`,
-    '',
-    'Este documento deja evidencia útil de la importación cuando la fuente PJUD no entrega automáticamente todo el expediente completo.',
-  ].join('\n')
-  const summaryDocInput = {
-    name: `resumen-pjud-${(importData.basic?.rol || importData.rol || `caso-${Date.now()}`).toString().replace(/[^\w.-]+/g, '-')}.txt`,
-    category: PJUD_IMPORTED_CONTENT_LABEL,
-    destinationContainer: 'importadosPjud',
-    observation: 'Resumen automático de importación judicial para materializar contenido mínimo utilizable.',
-    origin: 'Importación PJUD',
-    placeholderText: summaryBody,
-  }
   const allDocuments = [
-    summaryDocInput,
     importData.ebook ? { ...importData.ebook, destinationContainer: 'importadosPjud', category: PJUD_IMPORTED_CONTENT_LABEL } : null,
     ...(importData.documents || [])
       .filter((documentRecord) => documentRecord.category !== 'Ebook')
@@ -1819,6 +1792,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
     pjudCaseKey: next.pjudCaseKey || null,
     importedMovements: importedMovementIds.length,
     importedDocuments: importedDocIds.length,
+    structureOnly: importedDocIds.length === 0,
     representedClientName: next.representedClientName || null,
     clientProceduralRole: next.clientProceduralRole || null,
     missingCoreFields: {
