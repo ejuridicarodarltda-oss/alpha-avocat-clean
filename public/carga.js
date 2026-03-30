@@ -12,12 +12,12 @@ const STEP_STATUS = {
 }
 
 const MASSIVE_STEPS = [
-  { id: 1, name: 'Seleccionar Excel PJUD del lote desde este PC' },
-  { id: 2, name: 'Conectar con PJUD' },
-  { id: 3, name: 'Leer y validar el lote' },
-  { id: 4, name: 'Iniciar procesamiento masivo' },
-  { id: 5, name: 'Recorrer automáticamente las causas del lote' },
-  { id: 6, name: 'Descargar automáticamente el contenido disponible' },
+  { id: 1, name: 'Conectar con PJUD' },
+  { id: 2, name: 'Abrir Mis Causas / usar sesión activa' },
+  { id: 3, name: 'Resolver rutas reales de causas/documentos' },
+  { id: 4, name: 'Recorrer automáticamente las causas del lote' },
+  { id: 5, name: 'Detectar contenido documental disponible' },
+  { id: 6, name: 'Descargar automáticamente el contenido real desde PJUD' },
   { id: 7, name: 'Guardar automáticamente en Expedientes Digitales' },
   { id: 8, name: 'Clasificar automáticamente dentro de la causa correcta' },
   { id: 9, name: 'Mostrar resumen del lote y permitir reintento' }
@@ -186,8 +186,9 @@ function buildUI(container) {
         <h2 style="margin:0;font-size:1.06rem;">Inicio de lote masivo</h2>
         <div class="massive-control__grid">
           <label style="display:grid;gap:6px;">
-            <span>Excel PJUD del lote</span>
+            <span>Opcional: importar manifiesto Excel del lote</span>
             <input id="massiveExcelInput" class="input" type="file" accept=".xlsx,.xls,.csv">
+            <small class="muted">Usar Excel solo como índice auxiliar del lote (no como origen del contenido).</small>
           </label>
           <label style="display:grid;gap:6px;">
             <span>Total de causas del lote (simulado)</span>
