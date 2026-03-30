@@ -2558,7 +2558,7 @@
       if (status === 'running') pushMassiveAuditLog(`Paso ${step.id} iniciado: ${step.name}.`);
       if (['success', 'failed', 'warning'].includes(status)) {
         const closeLabel = status === 'success' ? 'completado con éxito' : (status === 'failed' ? 'fallido' : 'completado con advertencia');
-        pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}.`);
+        pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}: ${step.name}.`);
       }
     }
 
@@ -7971,22 +7971,29 @@
       if (internalProgress) audit.currentInternalProgress = internalProgress;
       if (errorDetail) audit.currentError = errorDetail;
       if (typeof continueAfterError === 'boolean') audit.continueAfterError = continueAfterError;
+      const hasActiveError = Boolean(audit.currentError || errorDetail);
+      const isWaiting = Boolean(waitingReason);
+      const progressBarColor = hasActiveError
+        ? 'linear-gradient(90deg,#dc2626,#f97316)'
+        : (isWaiting ? 'linear-gradient(90deg,#f59e0b,#eab308)' : 'linear-gradient(90deg,#2563eb,#22c55e)');
       if (waitingReason) {
         audit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS.waiting;
         audit.currentSubaction = waitingReason;
+        pushMassiveAuditLog(`Esperando: ${waitingReason}.`);
       }
       if (currentStepId) setMassiveAuditStep(currentStepId, currentStepStatus || 'running', stepDetail || '');
       if (logEvent) pushMassiveAuditLog(logEvent);
       preview.innerHTML = `
         <div class="selection-grid" style="grid-template-columns:1fr;">
           <div class="selection-card">
-            <strong>Progreso total del lote: ${escapeHtml(audit.percentage)}%</strong>
-            <div style="margin-top:10px;background:rgba(15,23,42,.08);border-radius:999px;height:14px;overflow:hidden;">
-              <div style="height:14px;background:linear-gradient(90deg,#2563eb,#22c55e);width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
+            <strong style="font-size:1.06rem;">Progreso total del lote: ${escapeHtml(audit.percentage)}%</strong>
+            <div style="margin-top:10px;background:rgba(15,23,42,.08);border-radius:999px;height:18px;overflow:hidden;border:1px solid rgba(15,23,42,.12);">
+              <div style="height:18px;background:${progressBarColor};width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
             </div>
-            <div class="case-meta" style="margin-top:10px;">Causas procesadas: ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
-            <div class="timeline-meta">Estado general: ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
+            <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
+            <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
             <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
+            <div class="timeline-meta"><strong>Estado del paso actual:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
             <div class="timeline-meta"><strong>Causa actual:</strong> ${escapeHtml(audit.currentCauseLabel || 'Sin causa en ejecución')}</div>
             <div class="timeline-meta"><strong>Subacción actual:</strong> ${escapeHtml(audit.currentSubaction || 'Sin subacción activa')}</div>
             <div class="timeline-meta"><strong>Indicador interno:</strong> ${escapeHtml(audit.currentInternalProgress || 'Sin indicador interno')}</div>
