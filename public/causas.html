@@ -2504,6 +2504,7 @@
       warning: 'Con advertencia',
       waiting: 'Esperando',
       retrying: 'Reintentando',
+      skipped: 'Omitido por modo manifiesto',
     };
     const MASSIVE_FLOW_STEPS = [
       { id: 1, name: 'Conectar con PJUD' },
@@ -2522,6 +2523,9 @@
         totalCauses: Number(totalCauses || 0),
         processedCauses: 0,
         batchId: batchId || null,
+        executionMode: 'pjud_direct_session',
+        sourceLabel: 'Sesión activa PJUD',
+        accounting: null,
         percentage: 0,
         currentStepId: null,
         currentStepName: 'Sin paso activo',
@@ -2532,6 +2536,7 @@
         currentError: '',
         continueAfterError: null,
         log: [],
+        lastLogEvent: null,
         steps: MASSIVE_FLOW_STEPS.map((step) => ({
           ...step,
           status: 'pending',
@@ -2543,9 +2548,25 @@
     function pushMassiveAuditLog(message = ''){
       if (!message) return;
       if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      if (state.massiveAudit.lastLogEvent?.message === message) {
+        const elapsedMs = Date.now() - Number(state.massiveAudit.lastLogEvent.timestamp || 0);
+        if (elapsedMs <= 1500) return;
+      }
       const timestamp = new Date().toLocaleTimeString('es-CL', { hour12: false, timeZone: 'UTC' });
       state.massiveAudit.log.unshift(`${timestamp} · ${message}`);
       state.massiveAudit.log = state.massiveAudit.log.slice(0, 80);
+      state.massiveAudit.lastLogEvent = { message, timestamp: Date.now() };
+    }
+
+    function configureMassiveExecutionMode(mode = 'pjud_direct_session', sourceLabel = ''){
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      state.massiveAudit.executionMode = mode;
+      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'excel_manifest_hyperlinks' ? 'Manifiesto Excel con hipervínculos' : 'Sesión activa PJUD');
+      if (mode === 'excel_manifest_hyperlinks') {
+        setMassiveAuditStep(1, 'skipped', 'Omitido por modo manifiesto (no requerido).');
+        setMassiveAuditStep(2, 'skipped', 'No requerido: el índice de causas se resuelve por manifiesto auxiliar.');
+        setMassiveAuditStep(3, 'skipped', 'Resuelto desde manifiesto auxiliar con hipervínculos.');
+      }
     }
 
     function setMassiveAuditStep(stepId, status = 'pending', detail = ''){
@@ -8219,6 +8240,8 @@
               <div style="height:18px;background:${progressBarColor};width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
             </div>
             <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(audit.sourceLabel || 'No informada')}</div>
             <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
             <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
             <div class="timeline-meta"><strong>Estado del paso actual:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
@@ -8266,6 +8289,10 @@
       causesWithClassificationPartial = 0,
       causesWithDownloadError = 0,
       causesWithClassificationError = 0,
+      accounting = null,
+      executionMode = 'pjud_direct_session',
+      sourceLabel = '',
+      fabocatValidation = null,
       errors = 0,
       batchId = null,
       warning = '',
@@ -8282,7 +8309,7 @@
       const step8State = Number(documentsClassifiedTotal || 0) > 0
         ? (Number(documentsClassifiedTotal || 0) < Number(documentsSavedTotal || 0) ? 'parcial' : 'superado con éxito')
         : (Number(documentsDownloadedTotal || 0) === 0 ? 'fallido (sin contenido descargado)' : 'fallido');
-      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, rutas resueltas ${routeResolvedCount}, rutas sin resolver ${routeUnresolvedCount}, URL causa sí ${caseUrlResolvedCount}, URL expediente sí ${caseDetailUrlResolvedCount}, URL documental sí ${documentsUrlResolvedCount}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const summaryText = `Resumen final importación PJUD (${executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión'}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${warning ? `Motivo de advertencia: ${warning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -8290,7 +8317,10 @@
         <div class="selection-grid">
           <div class="selection-card">
             <strong>Resumen final importación PJUD</strong>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(sourceLabel || 'No informada')}</div>
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
+            <div class="timeline-meta"><strong>Contabilidad:</strong> leídas ${escapeHtml(accounting?.rowsRead ?? rowsAnalyzed)} · válidas ${escapeHtml(accounting?.rowsValid ?? uniqueCases)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)} · duplicadas ${escapeHtml(accounting?.rowsDuplicated ?? duplicatedInternal)} · sin URL PJUD ${escapeHtml(accounting?.rowsWithoutUrl ?? routeUnresolvedCount)} · error de resolución ${escapeHtml(accounting?.rowsResolutionError ?? 0)} · efectivamente procesadas ${escapeHtml(accounting?.rowsProcessedEffective ?? inserted + updated)} · pendientes ${escapeHtml(accounting?.rowsPending ?? causesWithClassificationPartial)} · fallidas ${escapeHtml(accounting?.rowsFailed ?? errors)}</div>
             <div class="timeline-meta">Insertadas: ${escapeHtml(inserted)} · Actualizadas: ${escapeHtml(updated)} · Estructura creada: ${escapeHtml(causesWithStructureCreated)}</div>
             <div class="timeline-meta">Con contenido descargado: ${escapeHtml(causesWithDownloadedContent)} · Sin contenido descargado: ${escapeHtml(causesWithoutDownloadedContent)}</div>
             <div class="timeline-meta"><strong>Auditoría Paso 6:</strong> URL de causa resuelta ${escapeHtml(caseUrlResolvedCount)} · URL de expediente/eBook resuelta ${escapeHtml(caseDetailUrlResolvedCount)} · URL documental encontrada ${escapeHtml(documentsUrlResolvedCount)} · Rutas sin resolver ${escapeHtml(routeUnresolvedCount)}</div>
@@ -8298,6 +8328,8 @@
             <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
             <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
+            <div class="timeline-meta"><strong>Resumen jurídico útil:</strong> causas detectadas ${escapeHtml(rowsAnalyzed)} · incorporadas a Fabocat ${escapeHtml(inserted + updated)} · clasificadas automáticamente ${escapeHtml(causesWithClassificationComplete)} · clasificación pendiente ${escapeHtml(causesWithClassificationPartial)} · guardadas en Expedientes Digitales ${escapeHtml(materialized)} · fallidas ${escapeHtml(errors)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)}</div>
+            ${fabocatValidation ? `<div class="timeline-meta"><strong>Validación real en Fabocat:</strong> materia principal inválida ${escapeHtml(fabocatValidation.invalidMainMateria || 0)} · tribunal incompleto ${escapeHtml(fabocatValidation.invalidTribunal || 0)} · rol/rit/año incompleto ${escapeHtml(fabocatValidation.invalidRoleTuple || 0)} · materias incompatibles simultáneas ${escapeHtml(fabocatValidation.incompatibleMateria || 0)}</div>` : ''}
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
             ${warning ? `<div class="timeline-meta"><strong>${escapeHtml(warning)}</strong></div>` : ''}
@@ -8309,6 +8341,35 @@
           </div>
         </div>
       `;
+    }
+
+    function evaluateFabocatClassificationAudit(processedRows = []){
+      const result = {
+        invalidMainMateria: 0,
+        invalidTribunal: 0,
+        invalidRoleTuple: 0,
+        incompatibleMateria: 0,
+      };
+      const incompatiblePairs = [
+        ['familia', 'penal'],
+        ['laboral', 'penal'],
+        ['civil', 'penal'],
+      ];
+      processedRows.forEach((row) => {
+        if (!row || row.status === 'error') return;
+        const materia = String(row.materia || '').trim();
+        const tribunal = String(row.tribunal || '').trim();
+        const roleTupleComplete = Boolean(String(row.rol || '').trim() && String(row.rit || '').trim());
+        if (!materia) result.invalidMainMateria += 1;
+        if (!tribunal) result.invalidTribunal += 1;
+        if (!roleTupleComplete) result.invalidRoleTuple += 1;
+        const destinationTypes = (row.destinationTypes || []).map((item) => String(item || '').toLowerCase());
+        if (incompatiblePairs.some(([left, right]) => destinationTypes.includes(left) && destinationTypes.includes(right))) {
+          result.incompatibleMateria += 1;
+        }
+      });
+      result.totalIssues = result.invalidMainMateria + result.invalidTribunal + result.invalidRoleTuple + result.incompatibleMateria;
+      return result;
     }
 
     function buildPjudStructuredPayload(importData, { primaryClientName, importBatchId = null } = {}){
@@ -8857,6 +8918,7 @@
       }));
       const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: casePayloads.length, batchId: batch?.id || null });
+      configureMassiveExecutionMode('excel_manifest_hyperlinks', summary?.fileName || excelFile?.name || 'manifiesto Excel');
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       renderImportProgressPreview({
         chunkNumber: 0,
@@ -9345,9 +9407,25 @@
       ];
       const routeResolvedCount = processedRows.filter((row) => row.routeStatus === 'ruta_resuelta').length;
       const routeUnresolvedCount = processedRows.filter((row) => row.routeStatus && row.routeStatus !== 'ruta_resuelta').length;
+      const rowsResolutionError = processedRows.filter((row) => Boolean(row.routeError)).length;
       const caseUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudCaseUrl)).length;
       const caseDetailUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudCaseDetailUrl || row.pjudEbookUrl)).length;
       const documentsUrlResolvedCount = processedRows.filter((row) => Boolean(row.pjudDocumentsUrl || row.pjudEbookUrl)).length;
+      const accounting = {
+        rowsRead: Number(stageTrace.rowsRead || 0),
+        rowsValid: Number(summary.rowsProcessed || 0),
+        rowsDiscarded: discardedRows.length,
+        rowsDuplicated: duplicated,
+        rowsWithoutUrl: routeUnresolvedCount,
+        rowsResolutionError,
+        rowsProcessedEffective: imported,
+        rowsPending: causesWithClassificationPartial,
+        rowsFailed: failed + materializationFailed,
+      };
+      const fabocatValidation = evaluateFabocatClassificationAudit(processedRows);
+      if (fabocatValidation.totalIssues > 0) {
+        setMassiveAuditStep(8, 'warning', `Clasificación con validaciones pendientes en Fabocat (${fabocatValidation.totalIssues} observaciones).`);
+      }
       if (discardedRows.length) {
         await appendPjudImportRows(batch?.id || null, discardedRows.slice(0, 1000), { isValid: false });
       }
@@ -9478,6 +9556,8 @@
           rejected: failed + invalidRows.length + materializationWarnings.length,
           discarded: discardedRows.length,
           discardedRows: discardedRows.slice(0, 25),
+          accounting,
+          fabocatValidation,
           stageTrace,
         },
       };
@@ -9488,6 +9568,7 @@
       state.pendingPjudRouteDiagnostics = null;
       if (excelFile) {
         try {
+          configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
           setMassiveAuditStep(3, 'running', 'Resolviendo rutas PJUD desde manifiesto Excel');
           renderImportProgressPreview({
             currentStepId: 3,
@@ -9505,7 +9586,7 @@
           });
           state.pendingPjudWorkbook = summary;
           state.pendingBatchImports = [];
-          setMassiveAuditStep(3, 'success', `Rutas analizadas para ${summary.consolidatedCount || 0} causas`);
+          setMassiveAuditStep(3, 'skipped', `Resuelto desde manifiesto auxiliar: ${summary.consolidatedCount || 0} causas con URL PJUD.`);
           renderBatchImportPreview(summary.previewCases || [], summary);
           if (!summary.consolidatedCount) {
             setMessage('importMsg', 'El Excel fue leído, pero no entregó causas válidas. Revisa si el archivo tiene filas vacías o un error estructural real.', 'warn');
@@ -9525,6 +9606,7 @@
         }
       }
       state.pendingPjudWorkbook = null;
+      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
@@ -9588,6 +9670,14 @@
 
     async function startMassivePjudDownloadFlow(){
       state.massiveAudit = createDefaultMassiveAuditState();
+      const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      if (excelFile) {
+        configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
+        await analyzeBatchImport();
+        await transferBatchImport();
+        return;
+      }
+      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
       setMassiveAuditStep(1, 'running', 'Conectando con PJUD');
       renderImportProgressPreview({
         currentStepId: 1,
@@ -9752,6 +9842,10 @@
           const warningMessages = [];
           if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
           if (Number(stats.materializationFailed || 0) > 0) warningMessages.push(`Advertencia: ${Number(stats.materializationFailed || 0)} causa(s) fueron actualizadas en Supabase, pero no se pudieron materializar en Expedientes Digitales.`);
+          if (Number(stats.accounting?.rowsWithoutUrl || 0) > 0) warningMessages.push(`${Number(stats.accounting.rowsWithoutUrl || 0)} fila(s) descartadas por falta de URL PJUD resoluble.`);
+          if (Number(stats.duplicated || 0) > 0) warningMessages.push(`${Number(stats.duplicated || 0)} fila(s) duplicadas en manifiesto.`);
+          if (Number(stats.causesWithClassificationPartial || 0) > 0) warningMessages.push(`${Number(stats.causesWithClassificationPartial || 0)} causa(s) con clasificación pendiente.`);
+          if (Number(stats.materializationFailed || 0) > 0) warningMessages.push(`${Number(stats.materializationFailed || 0)} causa(s) con descarga/guardado incompleto.`);
           if (Number(stats.causesWithDownloadedContent || 0) === 0) {
             warningMessages.push(`Se actualizaron/materializaron ${Number(stats.causesWithStructureCreated || 0)} causas como estructura interna, pero no se descargó contenido real del expediente en el Paso 6.`);
             warningMessages.push('La clasificación automática del Paso 8 no se ejecutó con contenido real porque no hubo archivos descargados.');
@@ -9782,6 +9876,10 @@
             causesWithClassificationPartial: Number(stats.causesWithClassificationPartial || 0),
             causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
             causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
+            accounting: stats.accounting || null,
+            executionMode: 'excel_manifest_hyperlinks',
+            sourceLabel: summary?.fileName || excelFile.name || 'manifiesto Excel',
+            fabocatValidation: stats.fabocatValidation || null,
             errors: Number(stats.rejected || 0),
             batchId: batch?.id || null,
             warning,
@@ -9964,12 +10062,26 @@
         const warning = suspiciousLow
           ? 'La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.'
           : '';
+        const accounting = {
+          rowsRead: uniqueCases,
+          rowsValid: uniqueCases,
+          rowsDiscarded: failures,
+          rowsDuplicated: 0,
+          rowsWithoutUrl: 0,
+          rowsResolutionError: 0,
+          rowsProcessedEffective: completedCases,
+          rowsPending: 0,
+          rowsFailed: failures,
+        };
         renderImportFinalSummary({
           rowsAnalyzed: uniqueCases,
           uniqueCases,
           duplicatedInternal: 0,
           inserted: created,
           updated,
+          accounting,
+          executionMode: 'pjud_direct_session',
+          sourceLabel: 'Sesión activa PJUD / Mis Causas',
           errors: failures,
           batchId: state.pendingPjudBatchId || null,
           warning,
