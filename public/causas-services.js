@@ -415,6 +415,11 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
     next.documentContainers.importadosPjud = { label: PJUD_IMPORTED_CONTENT_LABEL, docIds: [] }
   }
   next.selectedClientParties = Array.isArray(next.selectedClientParties) ? next.selectedClientParties : []
+  const safeCauseId = String(next.id || causeId || '').trim()
+  if (!next.expedienteDigital || typeof next.expedienteDigital !== 'object') next.expedienteDigital = {}
+  if (!String(next.expedienteDigital.id || '').trim() && safeCauseId) {
+    next.expedienteDigital.id = `expediente-${safeCauseId}`
+  }
   return next
 }
 
@@ -427,6 +432,9 @@ export function upsertDocument(detail = {}, input = {}) {
   const id = input.id || `doc-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`
   const hash = input.hash || quickHash(`${name}|${input.size || ''}|${input.content || ''}|${input.origin || ''}|${input.caseId || ''}`)
   const existingIndex = next.documents.findIndex((doc) => doc.id === id || doc.hash === hash)
+  const resolvedCaseId = String(input.caseId || next.id || '')
+  const resolvedExpedienteId = String(input.expedienteDigitalId || next.expedienteDigitalId || next.expedienteDigital?.id || (resolvedCaseId ? `expediente-${resolvedCaseId}` : ''))
+  const linkageStatus = input.estadoVinculacion || input.linkageStatus || (resolvedCaseId && resolvedExpedienteId ? 'vinculado' : 'pendiente_vinculacion')
   const documentRecord = {
     id,
     name,
@@ -438,7 +446,26 @@ export function upsertDocument(detail = {}, input = {}) {
     origin: input.origin || 'Carga manual',
     destinationModule: input.destinationModule || 'Causas',
     destinationContainer: input.destinationContainer || containerIdForCategory(category),
-    caseId: String(input.caseId || next.id || ''),
+    caseId: resolvedCaseId,
+    cause_id: resolvedCaseId,
+    expedienteDigitalId: resolvedExpedienteId,
+    expediente_digital_id: resolvedExpedienteId,
+    batchId: input.batchId || input.batch_id || next.importBatchId || null,
+    batch_id: input.batch_id || input.batchId || next.importBatchId || null,
+    tipoDocumento: input.tipoDocumento || input.tipo_documento || category,
+    tipo_documento: input.tipo_documento || input.tipoDocumento || category,
+    storagePath: input.storagePath || input.storage_path || '',
+    storage_path: input.storage_path || input.storagePath || '',
+    tribunal: input.tribunal || next.tribunal || '',
+    materia: input.materia || next.materia || '',
+    fechaDocumento: input.fechaDocumento || input.fecha_documento || input.fechaIngreso || input.fecha_ingreso || null,
+    fecha_documento: input.fecha_documento || input.fechaDocumento || null,
+    fechaIngreso: input.fechaIngreso || input.fecha_ingreso || null,
+    fecha_ingreso: input.fecha_ingreso || input.fechaIngreso || null,
+    estadoVinculacion: linkageStatus,
+    estado_vinculacion: linkageStatus,
+    linkingAttemptedAt: now,
+    linkingErrorReason: input.linkingErrorReason || input.motivoVinculacion || '',
     linkedClient: input.linkedClient || '',
     createdAt: input.createdAt || now,
     updatedAt: now,
@@ -527,6 +554,15 @@ export async function filesToDocumentInputs(fileList = [], meta = {}) {
     linkedClient: meta.linkedClient || '',
     content: await readFileAsDataUrl(file),
     hash: quickHash(`${file.name}|${file.size}|${file.lastModified}|${meta.caseId || ''}`),
+    expedienteDigitalId: meta.expedienteDigitalId || '',
+    batchId: meta.batchId || null,
+    tipoDocumento: meta.tipoDocumento || meta.category || inferCategory(file.name),
+    storagePath: meta.storagePath || '',
+    tribunal: meta.tribunal || '',
+    materia: meta.materia || '',
+    fechaDocumento: meta.fechaDocumento || null,
+    fechaIngreso: meta.fechaIngreso || null,
+    estadoVinculacion: meta.estadoVinculacion || 'pendiente_vinculacion',
   })))
 }
 
@@ -1426,6 +1462,9 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
   const ruc = importData.ruc || next.ruc || ''
   const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`
   next.expedienteDigital = next.expedienteDigital || {}
+  if (!String(next.expedienteDigital.id || '').trim() && next.id) {
+    next.expedienteDigital.id = `expediente-${next.id}`
+  }
   next.expedienteDigital.cliente = next.expedienteDigital.cliente || {}
   next.expedienteDigital.cliente.tribunal = {
     editable: true,
@@ -1787,6 +1826,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   })
 
   materializePjudDigitalFolder(next, importData)
+  next.expedienteDigitalId = next.expedienteDigital?.id || next.expedienteDigitalId || (next.id ? `expediente-${next.id}` : '')
 
   console.info('[CAUSAS][IMPORTACIÓN PJUD] Materialización de expediente digital', {
     caseId: next.id,
