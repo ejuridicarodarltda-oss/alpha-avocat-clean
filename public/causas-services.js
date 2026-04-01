@@ -910,21 +910,81 @@ function normalizePjudRol(value = '') {
     .replace(/\s+/g, ' ')
     .trim()
 
-  const patternedMatch = normalized.match(/^([A-Z]{1,6})[-/]?(\d{1,8})[-/](\d{2,4})$/)
-  if (patternedMatch) {
-    const prefix = patternedMatch[1]
-    const sequence = patternedMatch[2]
-    const year = patternedMatch[3].length === 2 ? `20${patternedMatch[3]}` : patternedMatch[3]
-    return `${prefix}-${sequence}-${year}`
-  }
+  const parsed = parsePjudRolComponents(normalized)
+  if (parsed.isStructured) return parsed.normalizedRol
 
   return normalized.toUpperCase()
 }
 
+export function parsePjudRolComponents(value = '') {
+  const raw = sanitizeVisibleText(value)
+  if (!raw) {
+    return {
+      rolLetter: '',
+      rolNumber: '',
+      rolYear: '',
+      normalizedRol: '',
+      isStructured: false,
+      missingLetter: false,
+    }
+  }
+
+  const compact = raw
+    .toUpperCase()
+    .replace(/[–—−]/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const normalized = compact
+    .replace(/\s*([\-\/])\s*/g, '$1')
+    .replace(/\s+/g, ' ')
+    .trim()
+
+  const fullMatch = normalized.match(/^([A-Z]{1,6})[-/]?(\d{1,8})[-/](\d{2,4})$/)
+  if (fullMatch) {
+    const rolLetter = fullMatch[1]
+    const rolNumber = String(Number(fullMatch[2]))
+    const rolYear = fullMatch[3].length === 2 ? `20${fullMatch[3]}` : fullMatch[3]
+    return {
+      rolLetter,
+      rolNumber,
+      rolYear,
+      normalizedRol: `${rolLetter}-${rolNumber}-${rolYear}`,
+      isStructured: true,
+      missingLetter: false,
+    }
+  }
+
+  const missingLetterMatch = normalized.match(/^(\d{1,8})[-/](\d{2,4})$/)
+  if (missingLetterMatch) {
+    const rolNumber = String(Number(missingLetterMatch[1]))
+    const rolYear = missingLetterMatch[2].length === 2 ? `20${missingLetterMatch[2]}` : missingLetterMatch[2]
+    return {
+      rolLetter: '',
+      rolNumber,
+      rolYear,
+      normalizedRol: '',
+      isStructured: false,
+      missingLetter: true,
+    }
+  }
+
+  return {
+    rolLetter: '',
+    rolNumber: '',
+    rolYear: '',
+    normalizedRol: normalized.toUpperCase(),
+    isStructured: false,
+    missingLetter: false,
+  }
+}
+
 function buildPjudCaseDedupeKey(materia = '', row = {}, fallbackCandidates = []) {
   const tribunal = normalizeForComparison(row.tribunal || row.corte || '')
-  const normalizedRol = normalizePjudRol(row.rol || row.rit || '')
-  const normalizedRolForKey = normalizeForComparison(normalizedRol)
+  const rolParts = parsePjudRolComponents(row.rol || '')
+  const normalizedRolForKey = rolParts.isStructured
+    ? normalizeForComparison([rolParts.rolLetter, rolParts.rolNumber, rolParts.rolYear].join('-'))
+    : normalizeForComparison(normalizePjudRol(row.rol || row.rit || ''))
   if (tribunal && normalizedRolForKey) {
     return [materia, tribunal, normalizedRolForKey].join('|')
   }
@@ -1228,6 +1288,11 @@ function mapPjudSheetRow(rawRow = {}, config = {}, headerLookup = new Map()) {
   })
 
   mapped.rol = normalizePjudRol(mapped.rol || mapped.rit || '')
+  const rolParsed = parsePjudRolComponents(mapped.rol)
+  mapped.rolLetter = rolParsed.rolLetter
+  mapped.rolNumber = rolParsed.rolNumber
+  mapped.rolYear = rolParsed.rolYear
+  mapped.rolPendingIdentification = rolParsed.missingLetter
   mapped.caratulado = normalizeCaratula(mapped.caratulado)
   return mapped
 }
@@ -1492,6 +1557,7 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
   const demandantes = parties.filter((party) => ['demandante', 'actor', 'querellante'].includes(party.role)).map((party) => party.name)
   const demandados = parties.filter((party) => ['demandado', 'querellado'].includes(party.role)).map((party) => party.name)
   const parsedRol = normalizeParticipantLabel(rol || parseSimpleField(raw, ['rol']))
+  const parsedRolComponents = parsePjudRolComponents(parsedRol)
   const parsedRit = normalizeParticipantLabel(rit || parseSimpleField(raw, ['rit']))
   const parsedTribunal = normalizeParticipantLabel(tribunal || parseSimpleField(raw, ['tribunal']))
   const materia = normalizeParticipantLabel(parseSimpleField(raw, ['materia', 'asunto']))
@@ -1574,6 +1640,9 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
       '',
       `Carátula: ${caratula || 'Pendiente'}`,
       `Rol: ${parsedRol || 'Pendiente'}`,
+      `Rol letra: ${parsedRolComponents.rolLetter || 'Pendiente'}`,
+      `Rol número: ${parsedRolComponents.rolNumber || 'Pendiente'}`,
+      `Rol año: ${parsedRolComponents.rolYear || 'Pendiente'}`,
       `RIT: ${parsedRit || 'Pendiente'}`,
       `Tribunal: ${parsedTribunal || 'Pendiente'}`,
       `Fuente: ${sourceUrl || 'Datos ingresados manualmente'}`,
@@ -1598,6 +1667,10 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
     corte,
     era,
     ruc,
+    rolLetter: parsedRolComponents.rolLetter,
+    rolNumber: parsedRolComponents.rolNumber,
+    rolYear: parsedRolComponents.rolYear,
+    rolPendingIdentification: parsedRolComponents.missingLetter,
     tipoCausa,
     submateria,
     estadoCausa,
@@ -1607,6 +1680,10 @@ export function parseJudicialImportInput({ url = '', rol = '', rit = '', tribuna
     institucion,
     basic: {
       rol: parsedRol,
+      rolLetter: parsedRolComponents.rolLetter,
+      rolNumber: parsedRolComponents.rolNumber,
+      rolYear: parsedRolComponents.rolYear,
+      rolPendingIdentification: parsedRolComponents.missingLetter,
       rit: parsedRit,
       tribunal: parsedTribunal,
       procedimiento,
@@ -1677,6 +1754,7 @@ export function findDuplicateCase(cases = [], importData = {}) {
   const normalizedCaratula = normalizeForComparison(basic.caratula || '')
   const normalizedPjudKey = normalizeJudicialId(importData.pjudCaseKey || basic.pjudCaseKey || '')
   const rolYear = extractYear(basic.rol || importData.rol || '')
+  const importRolParts = parsePjudRolComponents(basic.rol || importData.rol || '')
 
   return cases.find((item) => {
     const link = normalizeForComparison(item.poderJudicial?.link || item.tribunalData?.poderJudicial || '')
@@ -1687,11 +1765,21 @@ export function findDuplicateCase(cases = [], importData = {}) {
     const caratula = normalizeForComparison(item.caratula || '')
     const pjudCaseKey = normalizeJudicialId(item.pjudCaseKey || item.pjud_case_key || '')
     const itemRolYear = extractYear(item.rol || '')
+    const itemRolParts = parsePjudRolComponents(item.rol || '')
 
     if (normalizedPjudKey && pjudCaseKey && normalizedPjudKey === pjudCaseKey) return true
     if (normalizedRuc && ruc && normalizedRuc === ruc) return true
     if (normalizedLink && link && normalizedLink === link) return true
     if (normalizedRol && rol && normalizedRol === rol && normalizedTribunal && tribunal === normalizedTribunal) return true
+    if (
+      importRolParts.isStructured
+      && itemRolParts.isStructured
+      && importRolParts.rolLetter === itemRolParts.rolLetter
+      && importRolParts.rolNumber === itemRolParts.rolNumber
+      && importRolParts.rolYear === itemRolParts.rolYear
+      && normalizedTribunal
+      && tribunal === normalizedTribunal
+    ) return true
     if (normalizedRol && rol && normalizedRol === rol && rolYear && itemRolYear && rolYear === itemRolYear) return true
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
     return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula && normalizedTribunal && tribunal === normalizedTribunal)
@@ -1706,6 +1794,10 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
 
   next.caratula = importData.basic?.caratula || importData.caratulado || next.caratula
   next.rol = importData.basic?.rol || importData.rol || next.rol
+  next.rolLetter = importData.basic?.rolLetter || importData.rolLetter || next.rolLetter || ''
+  next.rolNumber = importData.basic?.rolNumber || importData.rolNumber || next.rolNumber || ''
+  next.rolYear = importData.basic?.rolYear || importData.rolYear || next.rolYear || ''
+  next.rolPendingIdentification = Boolean(importData.basic?.rolPendingIdentification ?? importData.rolPendingIdentification ?? next.rolPendingIdentification)
   next.rit = importData.basic?.rit || importData.rit || next.rit
   next.ruc = importData.ruc || next.ruc
   next.era = importData.era || next.era
