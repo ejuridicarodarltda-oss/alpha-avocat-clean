@@ -12,23 +12,25 @@ const STEP_STATUS = {
 }
 
 const MASSIVE_STEPS = [
-  { id: 1, name: 'Conectar con PJUD' },
-  { id: 2, name: 'Abrir Mis Causas / usar sesión activa' },
-  { id: 3, name: 'Resolver rutas reales de causas/documentos' },
-  { id: 4, name: 'Recorrer automáticamente las causas del lote' },
-  { id: 5, name: 'Detectar contenido documental disponible' },
-  { id: 6, name: 'Descargar automáticamente el contenido real desde PJUD' },
-  { id: 7, name: 'Guardar automáticamente en Expedientes Digitales' },
-  { id: 8, name: 'Clasificar automáticamente dentro de la causa correcta' },
-  { id: 9, name: 'Mostrar resumen del lote y permitir reintento' }
+  { id: 1, name: 'Importar lista fuente de causas' },
+  { id: 2, name: 'Normalizar datos por causa (competencia, tribunal, ROL/RIT, año)' },
+  { id: 3, name: 'Resolver estrategia PJUD por competencia y filtros reales' },
+  { id: 4, name: 'Abrir causa validada en PJUD (carátula + tribunal)' },
+  { id: 5, name: 'Descargar a almacenamiento temporal del sistema' },
+  { id: 6, name: 'Crear/actualizar causa madre en Fabocat' },
+  { id: 7, name: 'Clasificar automáticamente la causa madre' },
+  { id: 8, name: 'Mover documentos al expediente digital canónico' },
+  { id: 9, name: 'Publicar en visor solo si validación interna está completa' },
+  { id: 10, name: 'Resumen del lote, trazabilidad y reintento controlado' }
 ]
 
 const DEFAULT_STEP_DETAIL = {
-  4: 'Preparando procesamiento del lote',
-  5: 'Recorriendo causa',
-  6: 'Descargando contenido de la causa',
-  7: 'Guardando contenido descargado de la causa',
-  8: 'Clasificando documentos de la causa'
+  4: 'Abriendo causa validada por tribunal y carátula',
+  5: 'Descargando contenido a almacenamiento temporal interno',
+  6: 'Creando o actualizando causa madre en Fabocat',
+  7: 'Clasificando causa madre automáticamente',
+  8: 'Moviendo documentos al expediente digital correcto',
+  9: 'Validación interna previa a publicación'
 }
 
 function resolveContainer(containerOrSelector = '#cargaModuleRoot') {
@@ -283,64 +285,64 @@ async function executeMassiveFlow(root, state, options = {}) {
   }
 
   try {
-    setRunningStep(1, 'seleccionando archivo base del lote', `Archivo: ${excelFile?.name || 'no informado'}`)
+    setRunningStep(1, 'importando lista base del lote', `Archivo: ${excelFile?.name || 'no informado'}`)
     await delay(260)
-    closeStep(1, 'success', 'superado con éxito', `Archivo seleccionado: ${excelFile?.name || 'simulado'}`)
+    closeStep(1, 'success', 'superado con éxito', `Lista fuente cargada: ${excelFile?.name || 'simulada'}`)
 
-    setRunningStep(2, 'validando sesión PJUD', 'Conectando con PJUD')
+    setRunningStep(2, 'normalizando atributos judiciales por causa', 'Persistiendo competencia, tribunal, identificador y año')
     await delay(320)
-    closeStep(2, 'success', 'superado con éxito', 'Sesión PJUD validada')
+    closeStep(2, 'success', 'superado con éxito', 'Normalización estructural completada')
 
-    setRunningStep(3, 'leyendo y validando lote', `Leyendo ${state.batch.total} causas del lote`)
+    setRunningStep(3, 'resolviendo estrategia de búsqueda PJUD', `Aplicando filtros por competencia para ${state.batch.total} causas`)
     await delay(380)
-    closeStep(3, 'success', 'superado con éxito', `Lote validado: ${state.batch.total} causas detectadas`)
+    closeStep(3, 'success', 'superado con éxito', `Estrategia PJUD resuelta: ${state.batch.total} causas detectadas`)
 
-    setRunningStep(4, 'procesando lote masivo', `${DEFAULT_STEP_DETAIL[4]} 1 de ${state.batch.total}`)
+    setRunningStep(4, 'abriendo causas validadas en PJUD', `${DEFAULT_STEP_DETAIL[4]} 1 de ${state.batch.total}`)
     await delay(300)
-    closeStep(4, 'success', 'superado con éxito', `Preparación completada para ${state.batch.total} causas`)
+    closeStep(4, 'success', 'superado con éxito', `Validación de carátula/tribunal completada para ${state.batch.total} causas`)
 
     const queue = retryOnlyFailed
       ? state.causes.filter((cause) => cause.downloadStatus === 'failed')
       : [...state.causes]
 
-    setRunningStep(5, 'recorriendo causas del lote', `${DEFAULT_STEP_DETAIL[5]} 1 de ${queue.length || state.batch.total}`)
+    setRunningStep(5, 'descargando en carpeta temporal controlada', `${DEFAULT_STEP_DETAIL[5]} 1 de ${queue.length || state.batch.total}`)
 
     for (let index = 0; index < queue.length; index += 1) {
       const cause = queue[index]
       state.currentCause = cause
-      state.currentSubaction = 'abriendo causa'
+      state.currentSubaction = 'descargando documento temporal'
       setStepStatus(state, 5, 'running', `${DEFAULT_STEP_DETAIL[5]} ${index + 1} de ${queue.length}: ${cause.rol}`)
-      appendAuditLog(state, `Paso 5 en ejecución: recorriendo causa ${index + 1} de ${queue.length} (${cause.rol}).`)
+      appendAuditLog(state, `Paso 5 en ejecución: descarga temporal ${index + 1} de ${queue.length} (${cause.rol}).`)
       refreshAuditUI(root, state)
       await delay(200)
     }
 
-    closeStep(5, 'success', 'superado con éxito', `Se recorrieron ${queue.length} causas del lote`)
+    closeStep(5, 'success', 'superado con éxito', `Descarga temporal completada para ${queue.length} causas`)
 
     if (!queue.length) {
       state.currentStepId = 6
       setStepStatus(state, 6, 'blocked', 'Paso bloqueado por dependencia', 'Paso 6 bloqueado: no existen causas válidas en cola')
       appendAuditLog(state, 'Paso 6 bloqueado: no existen causas válidas en cola.')
-      closeStep(9, 'warning', 'completado con advertencia', 'No hubo causas para procesar en descarga')
+      closeStep(10, 'warning', 'completado con advertencia', 'No hubo causas para procesar en descarga')
       state.processOutcome = 'Completado con advertencia'
       state.isRunning = false
       refreshAuditUI(root, state)
       return
     }
 
-    setRunningStep(6, 'descargando contenido disponible', `${DEFAULT_STEP_DETAIL[6]} 1 de ${queue.length}`)
+    setRunningStep(6, 'creando o actualizando causa madre', `${DEFAULT_STEP_DETAIL[6]} 1 de ${queue.length}`)
 
     for (let index = 0; index < queue.length; index += 1) {
       const cause = queue[index]
       state.currentCause = cause
-      state.currentSubaction = 'descargando resolución'
+      state.currentSubaction = 'sincronizando causa madre'
       setStepStatus(state, 6, 'running', `${DEFAULT_STEP_DETAIL[6]} ${index + 1} de ${queue.length}: ${cause.rol}`)
       refreshAuditUI(root, state)
       await delay(210)
 
       if (cause.hasDownloadIssue) {
         cause.downloadStatus = 'failed'
-        appendAuditLog(state, `Paso 6 fallido en causa ${cause.rol}: no se encontró enlace válido.`)
+        appendAuditLog(state, `Paso 6 fallido en causa ${cause.rol}: no fue posible crear/actualizar la causa madre.`)
       } else {
         cause.downloadStatus = 'success'
       }
@@ -348,32 +350,32 @@ async function executeMassiveFlow(root, state, options = {}) {
 
     const failedDownloads = queue.filter((cause) => cause.downloadStatus === 'failed').length
     if (failedDownloads > 0) {
-      closeStep(6, 'warning', 'completado con advertencia', `Descarga parcial: ${failedDownloads} causa(s) con error`) 
+      closeStep(6, 'warning', 'completado con advertencia', `Sincronización parcial: ${failedDownloads} causa(s) con error`) 
     } else {
-      closeStep(6, 'success', 'superado con éxito', 'Descarga de contenido finalizada sin errores')
+      closeStep(6, 'success', 'superado con éxito', 'Causa madre actualizada sin errores')
     }
 
-    setRunningStep(7, 'guardando contenido en Expedientes Digitales', `${DEFAULT_STEP_DETAIL[7]} 1 de ${queue.length}`)
+    setRunningStep(7, 'clasificando causa madre por reglas automáticas', `${DEFAULT_STEP_DETAIL[7]} 1 de ${queue.length}`)
 
     for (let index = 0; index < queue.length; index += 1) {
       const cause = queue[index]
       state.currentCause = cause
-      state.currentSubaction = 'guardando archivo'
+      state.currentSubaction = 'asignando materia canónica'
       setStepStatus(state, 7, 'running', `${DEFAULT_STEP_DETAIL[7]} ${index + 1} de ${queue.length}: ${cause.rol}`)
       refreshAuditUI(root, state)
       await delay(200)
       cause.saveStatus = cause.downloadStatus === 'failed' ? 'skipped' : 'success'
     }
 
-    closeStep(7, failedDownloads > 0 ? 'warning' : 'success', failedDownloads > 0 ? 'completado con advertencia' : 'superado con éxito', failedDownloads > 0 ? `Guardado parcial: ${failedDownloads} causa(s) sin archivo` : 'Guardado completado en Expedientes Digitales')
+    closeStep(7, failedDownloads > 0 ? 'warning' : 'success', failedDownloads > 0 ? 'completado con advertencia' : 'superado con éxito', failedDownloads > 0 ? `Clasificación parcial: ${failedDownloads} causa(s) en pendiente de validación` : 'Clasificación canónica completada')
 
-    setRunningStep(8, 'clasificando documentos por causa', `${DEFAULT_STEP_DETAIL[8]} 1 de ${queue.length}`)
+    setRunningStep(8, 'moviendo documentos al expediente canónico', `${DEFAULT_STEP_DETAIL[8]} 1 de ${queue.length}`)
 
     let warningClassifications = 0
     for (let index = 0; index < queue.length; index += 1) {
       const cause = queue[index]
       state.currentCause = cause
-      state.currentSubaction = 'clasificando documento'
+      state.currentSubaction = 'moviendo documento clasificado'
       setStepStatus(state, 8, 'running', `${DEFAULT_STEP_DETAIL[8]} ${index + 1} de ${queue.length}: ${cause.rol}`)
       refreshAuditUI(root, state)
       await delay(170)
@@ -389,9 +391,9 @@ async function executeMassiveFlow(root, state, options = {}) {
     }
 
     if (warningClassifications > 0) {
-      closeStep(8, 'warning', 'completado con advertencia', `Clasificación con advertencia: ${warningClassifications} causa(s)`) 
+      closeStep(8, 'warning', 'completado con advertencia', `Movimiento con advertencia: ${warningClassifications} causa(s)`) 
     } else {
-      closeStep(8, 'success', 'superado con éxito', 'Clasificación completada')
+      closeStep(8, 'success', 'superado con éxito', 'Movimiento al expediente digital completado')
     }
 
     state.batch.success = state.causes.filter((cause) => cause.downloadStatus === 'success' && cause.classificationStatus === 'success').length
@@ -399,14 +401,18 @@ async function executeMassiveFlow(root, state, options = {}) {
     state.batch.failed = state.causes.filter((cause) => cause.downloadStatus === 'failed').length
     updateBatchCounters(state)
 
-    setRunningStep(9, 'consolidando resumen del lote', 'Registrando resultado del lote y estado de reintento')
+    setRunningStep(9, 'validando consistencia antes de publicar', `${DEFAULT_STEP_DETAIL[9]} para ${queue.length} causas`)
     await delay(250)
+    closeStep(9, failedDownloads > 0 ? 'warning' : 'success', failedDownloads > 0 ? 'completado con advertencia' : 'superado con éxito', failedDownloads > 0 ? 'Algunas causas siguen en pendiente de clasificación/validación' : 'Validación interna completada')
 
-    const status9 = state.batch.failed > 0 || state.batch.partial > 0 ? 'warning' : 'success'
-    const summaryMessage = status9 === 'success'
+    setRunningStep(10, 'consolidando resumen del lote', 'Registrando trazabilidad, estado de publicación y reintentos')
+    await delay(150)
+
+    const status10 = state.batch.failed > 0 || state.batch.partial > 0 ? 'warning' : 'success'
+    const summaryMessage = status10 === 'success'
       ? 'superado con éxito'
       : `completado con advertencia: ${state.batch.failed} fallida(s), ${state.batch.partial} parcial(es)`
-    closeStep(9, status9, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas`)
+    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas`)
 
     state.currentSubaction = state.batch.failed > 0
       ? 'Finalizado con causas marcadas para reintento'
@@ -444,7 +450,7 @@ function renderCarga(container, context = {}) {
 
   retryBtn?.addEventListener('click', () => {
     if (state.isRunning || state.batch.failed === 0) return
-    setStepStatus(state, 6, 'retrying', 'Reintentando descarga de causas fallidas')
+    setStepStatus(state, 5, 'retrying', 'Reintentando descarga temporal de causas fallidas')
     appendAuditLog(state, `Reintento iniciado sobre ${state.batch.failed} causa(s) fallida(s).`)
     refreshAuditUI(container, state)
     executeMassiveFlow(container, state, { retryOnlyFailed: true })
