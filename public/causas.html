@@ -2353,6 +2353,7 @@
       openDocument,
       parseJudicialBatchImportInput,
       parseJudicialImportInput,
+      parsePjudRolComponents,
       parsePjudMisCausasWorkbook,
       recordDownload,
       removeDocument,
@@ -3278,8 +3279,13 @@
     function resolvePjudIdentifiers(importData = null, cause = null){
       const source = importData || {};
       const basic = source.basic || {};
+      const parsedRol = parsePjudRolComponents(String(basic.rol || cause?.rol || '').trim());
       return {
         rol: String(basic.rol || cause?.rol || '').trim(),
+        rolLetter: String(basic.rolLetter || source.rolLetter || cause?.rolLetter || parsedRol.rolLetter || '').trim(),
+        rolNumber: String(basic.rolNumber || source.rolNumber || cause?.rolNumber || parsedRol.rolNumber || '').trim(),
+        rolYear: String(basic.rolYear || source.rolYear || cause?.rolYear || parsedRol.rolYear || '').trim(),
+        rolPendingIdentification: Boolean(basic.rolPendingIdentification ?? source.rolPendingIdentification ?? cause?.rolPendingIdentification ?? (parsedRol.missingLetter && !parsedRol.rolLetter)),
         rit: String(basic.rit || cause?.rit || '').trim(),
         ruc: String(basic.ruc || cause?.ruc || '').trim(),
         tribunal: String(basic.tribunal || cause?.tribunal || '').trim(),
@@ -6897,6 +6903,7 @@
             <strong>Datos detectados</strong>
             <div class="case-meta">Carátula: ${escapeHtml(importData.basic?.caratula || 'Pendiente')}</div>
             <div class="timeline-meta">Rol: ${escapeHtml(importData.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(importData.basic?.rit || 'Pendiente')} · Tribunal: ${escapeHtml(importData.basic?.tribunal || 'Pendiente')}</div>
+            <div class="timeline-meta">Letra detectada: ${escapeHtml(importData.basic?.rolLetter || 'Pendiente')} · Número detectado: ${escapeHtml(importData.basic?.rolNumber || 'Pendiente')} · Año detectado: ${escapeHtml(importData.basic?.rolYear || 'Pendiente')}</div>
             <div class="timeline-meta">Materia: ${escapeHtml(importData.basic?.materia || 'Pendiente')} · Procedimiento: ${escapeHtml(importData.basic?.procedimiento || 'Pendiente')} · Estado: ${escapeHtml(importData.basic?.estadoProcesal || 'Pendiente')}</div>
           </div>
           <div class="selection-card">
@@ -6929,6 +6936,11 @@
 
         state.pendingImport = importData;
         renderImportPreview(importData);
+        if (importData.basic?.rol && importData.basic?.rolPendingIdentification) {
+          setMessage('importMsg', 'ROL detectado sin letra. La causa queda pendiente de identificación y no se ejecutará búsqueda defectuosa en PJUD hasta completar letra/número/año.', 'warn');
+          setDetailStatus(`Diagnóstico: letra ${importData.basic?.rolLetter || 'pendiente'} · número ${importData.basic?.rolNumber || 'pendiente'} · año ${importData.basic?.rolYear || 'pendiente'}.`, 'warn');
+          return importData;
+        }
         setMessage('importMsg', `Análisis completado: ${importData.parties?.length || 0} parte(s), ${importData.movements?.length || 0} movimiento(s) y ${(importData.documents?.length || 0) + (importData.ebook ? 1 : 0)} documento(s).`, 'ok');
         return importData;
       } catch (error) {
@@ -7056,10 +7068,13 @@
       return { mode: 'none', cause: null, importData: null };
     }
 
-    function buildPjudPublicSearchUrl({ rol = '', rit = '', tribunal = '' } = {}){
+    function buildPjudPublicSearchUrl({ rol = '', rolLetter = '', rolNumber = '', rolYear = '', rit = '', tribunal = '' } = {}){
       const base = 'https://oficinajudicialvirtual.pjud.cl/home/index.php';
       const params = new URLSearchParams();
-      if (rol) params.set('rol', rol);
+      if (rolLetter) params.set('rol_letter', rolLetter);
+      if (rolNumber) params.set('rol_number', rolNumber);
+      if (rolYear) params.set('rol_year', rolYear);
+      if (!rolLetter && !rolNumber && !rolYear && rol) params.set('rol', rol);
       if (rit) params.set('rit', rit);
       if (tribunal) params.set('tribunal', tribunal);
       const query = params.toString();
@@ -7088,6 +7103,11 @@
         : analyzeImport();
       if (!importData) return null;
       const identifiers = resolvePjudIdentifiers(importData, context.cause || getCurrentCause());
+      if (identifiers.rol && identifiers.rolPendingIdentification) {
+        setMessage('importMsg', 'ROL sin letra detectada. Estado: pendiente de identificación. Completa letra/número/año antes de abrir búsqueda PJUD.', 'warn');
+        setDetailStatus(`Diagnóstico ROL: letra ${identifiers.rolLetter || 'pendiente'} · número ${identifiers.rolNumber || 'pendiente'} · año ${identifiers.rolYear || 'pendiente'}.`, 'warn');
+        return importData;
+      }
       if (!hasPjudIdentity(identifiers)) {
         setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
         return importData;
@@ -7120,12 +7140,26 @@
         : (state.pendingImport || await connectWithPjud());
       if (!importData) return false;
       const identifiers = resolvePjudIdentifiers(importData, context.cause || getCurrentCause());
+      if (identifiers.rol && identifiers.rolPendingIdentification) {
+        setMessage('importMsg', 'ROL sin letra detectada. Estado: pendiente de identificación. Completa letra/número/año antes de abrir búsqueda PJUD.', 'warn');
+        setDetailStatus(`Diagnóstico ROL: letra ${identifiers.rolLetter || 'pendiente'} · número ${identifiers.rolNumber || 'pendiente'} · año ${identifiers.rolYear || 'pendiente'}.`, 'warn');
+        return false;
+      }
       if (!hasPjudIdentity(identifiers)) {
         setMessage('importMsg', 'No fue posible localizar la causa en Mis Causas con los identificadores disponibles.', 'warn');
         return false;
       }
+      const parsedRol = parsePjudRolComponents(identifiers.rol || '');
+      if (identifiers.rol && !parsedRol.isStructured) {
+        setMessage('importMsg', 'El ROL no está estructurado (letra/número/año). La causa queda pendiente de identificación y no se ejecuta búsqueda defectuosa en PJUD.', 'warn');
+        setDetailStatus(`Diagnóstico ROL: letra ${parsedRol.rolLetter || 'pendiente'} · número ${parsedRol.rolNumber || 'pendiente'} · año ${parsedRol.rolYear || 'pendiente'}.`, 'warn');
+        return false;
+      }
       const finalUrl = buildPjudPublicSearchUrl({
-        rol: identifiers.rol || '',
+        rol: '',
+        rolLetter: parsedRol.rolLetter || '',
+        rolNumber: parsedRol.rolNumber || '',
+        rolYear: parsedRol.rolYear || '',
         rit: identifiers.rit || '',
         tribunal: identifiers.tribunal || '',
       }) || PJUD_MIS_CAUSAS_URL;
@@ -7135,8 +7169,8 @@
         return false;
       }
       const resolvedIdentity = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.tribunal, identifiers.pjudCaseKey].filter(Boolean).join(' · ');
-      setMessage('importMsg', 'Causa abierta en nueva pestaña con búsqueda PJUD y acceso a Mis Causas. Si PJUD no resuelve directo, ubícala con los identificadores informados.', 'ok');
-      setDetailStatus(`Se abrió Mis Causas. Ubica la causa con estos identificadores: ${resolvedIdentity}.`, 'ok');
+      setMessage('importMsg', `Causa abierta en nueva pestaña con búsqueda PJUD estructurada. Letra ${parsedRol.rolLetter || '—'} · número ${parsedRol.rolNumber || '—'} · año ${parsedRol.rolYear || '—'}.`, 'ok');
+      setDetailStatus(`Búsqueda enviada a PJUD: letra ${parsedRol.rolLetter || '—'} · rol/número ${parsedRol.rolNumber || '—'} · año ${parsedRol.rolYear || '—'} · referencia ${resolvedIdentity}.`, 'ok');
       return true;
     }
 
@@ -8086,6 +8120,7 @@
       const matchingClient = state.clients.find((client) => String(client.display_name || '').toLowerCase() === String(primaryClientName || '').toLowerCase());
       const tribunal = importData.tribunal || importData.basic?.tribunal || '';
       const corte = importData.corte || '';
+      const rolParts = parsePjudRolComponents(importData.rol || importData.basic?.rol || '');
       const rolComposite = [importData.rol || importData.basic?.rol, importData.era, importData.rit, importData.ruc].filter(Boolean).join(' / ') || null;
       const representedClientName = primaryClientName || importData.representedClientName || null;
       const representedClientRole = importData.representedClientRole || null;
@@ -8150,6 +8185,10 @@
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
           pjud_case_key: importData.pjudCaseKey || null,
+          rol_letter: importData.rolLetter || importData.basic?.rolLetter || rolParts.rolLetter || null,
+          rol_number: importData.rolNumber || importData.basic?.rolNumber || rolParts.rolNumber || null,
+          rol_year: importData.rolYear || importData.basic?.rolYear || rolParts.rolYear || null,
+          rol_pending_identification: Boolean(importData.rolPendingIdentification ?? importData.basic?.rolPendingIdentification ?? rolParts.missingLetter),
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
           destination_path: destinationMap.logicalPath,
@@ -8174,6 +8213,10 @@
         cliente: primaryClientName || state.clientMap.get(baseRow[C.k_client_id]) || SAFE_CLIENT_LABEL,
         caratula: importData.basic?.caratula || importData.caratulado || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
         rol: importData.rol || importData.basic?.rol || '',
+        rolLetter: importData.rolLetter || importData.basic?.rolLetter || '',
+        rolNumber: importData.rolNumber || importData.basic?.rolNumber || '',
+        rolYear: importData.rolYear || importData.basic?.rolYear || '',
+        rolPendingIdentification: Boolean(importData.rolPendingIdentification ?? importData.basic?.rolPendingIdentification),
         rit: importData.rit || importData.basic?.rit || '',
         ruc: importData.ruc || '',
         era: importData.era || '',
@@ -8202,6 +8245,7 @@
       const safeFallback = fallbackImportData || {};
       const basicFallback = safeFallback.basic || {};
       const rol = rowPayload?.[C.k_rol] || safeFallback.rol || basicFallback.rol || '';
+      const parsedRol = parsePjudRolComponents(rol);
       const rit = rowPayload?.pjud_rit || safeFallback.rit || basicFallback.rit || '';
       const ruc = rowPayload?.pjud_ruc || safeFallback.ruc || basicFallback.ruc || '';
       const tribunal = rowPayload?.pjud_tribunal || safeFallback.tribunal || basicFallback.tribunal || '';
@@ -8216,6 +8260,10 @@
         importBatchId: importBatchId || safeFallback.importBatchId || null,
         pjudCaseKey,
         rol,
+        rolLetter: rowPayload?.pjud_rol_letter || safeFallback.rolLetter || basicFallback.rolLetter || parsedRol.rolLetter || '',
+        rolNumber: rowPayload?.pjud_rol_number || safeFallback.rolNumber || basicFallback.rolNumber || parsedRol.rolNumber || '',
+        rolYear: rowPayload?.pjud_rol_year || safeFallback.rolYear || basicFallback.rolYear || parsedRol.rolYear || '',
+        rolPendingIdentification: Boolean(rowPayload?.pjud_rol_pending_identification ?? safeFallback.rolPendingIdentification ?? basicFallback.rolPendingIdentification ?? parsedRol.missingLetter),
         rit,
         ruc,
         era: rowPayload?.pjud_era || safeFallback.era || '',
@@ -8243,6 +8291,10 @@
         rawText: safeFallback.rawText || '',
         basic: {
           rol,
+          rolLetter: rowPayload?.pjud_rol_letter || safeFallback.rolLetter || basicFallback.rolLetter || parsedRol.rolLetter || '',
+          rolNumber: rowPayload?.pjud_rol_number || safeFallback.rolNumber || basicFallback.rolNumber || parsedRol.rolNumber || '',
+          rolYear: rowPayload?.pjud_rol_year || safeFallback.rolYear || basicFallback.rolYear || parsedRol.rolYear || '',
+          rolPendingIdentification: Boolean(rowPayload?.pjud_rol_pending_identification ?? safeFallback.rolPendingIdentification ?? basicFallback.rolPendingIdentification ?? parsedRol.missingLetter),
           rit,
           tribunal,
           procedimiento: rowPayload?.pjud_tipo_causa || safeFallback.tipoCausa || basicFallback.procedimiento || '',
