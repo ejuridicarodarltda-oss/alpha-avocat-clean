@@ -163,6 +163,8 @@ function createInitialAuditState() {
     currentSubaction: 'Sin actividad',
     processOutcome: 'Sin ejecución',
     auditLog: [],
+    summarizedAuditLog: [],
+    stepRunCounts: {},
     pjud: {
       sessionState: 'not_authenticated',
       paused: false,
@@ -195,6 +197,28 @@ function appendAuditLog(state, message) {
   const timestamp = new Date().toLocaleTimeString('es-CL')
   state.auditLog.unshift(`${timestamp} · ${message}`)
   if (state.auditLog.length > 120) state.auditLog = state.auditLog.slice(0, 120)
+}
+
+function appendSummarizedAuditLog(state, { key = '', message = '', count = 1, replaceCount = false } = {}) {
+  if (!message) return
+  const normalizedKey = String(key || '').trim()
+  const existingIndex = state.summarizedAuditLog.findIndex((entry) => normalizedKey && entry.key === normalizedKey)
+  if (existingIndex >= 0) {
+    const current = state.summarizedAuditLog[existingIndex]
+    current.message = message
+    current.count = replaceCount ? Number(count || 1) : (Number(current.count || 1) + Number(count || 1))
+    current.updatedAt = Date.now()
+    state.summarizedAuditLog.splice(existingIndex, 1)
+    state.summarizedAuditLog.unshift(current)
+  } else {
+    state.summarizedAuditLog.unshift({
+      key: normalizedKey || null,
+      message,
+      count: Number(count || 1),
+      updatedAt: Date.now()
+    })
+  }
+  state.summarizedAuditLog = state.summarizedAuditLog.slice(0, 40)
 }
 
 function getPjudSessionStateLabel(sessionState) {
@@ -252,11 +276,17 @@ function renderStepList(state) {
 }
 
 function renderLog(state) {
-  if (!state.auditLog.length) {
+  if (!state.summarizedAuditLog.length) {
     return '<li class="muted">Sin eventos registrados todavía.</li>'
   }
 
-  return state.auditLog.map((entry) => `<li>${escapeHtml(entry)}</li>`).join('')
+  return state.summarizedAuditLog
+    .slice()
+    .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0))
+    .map((entry) => {
+      const repeated = Number(entry.count || 1) > 1 ? ` (x${Number(entry.count || 1)})` : ''
+      return `<li>${escapeHtml(entry.message)}${escapeHtml(repeated)}</li>`
+    }).join('')
 }
 
 function refreshAuditUI(root, state) {
@@ -402,6 +432,8 @@ async function executeMassiveFlow(root, state, options = {}) {
 
   if (!retryOnlyFailed && !resumePaused) {
     state.steps = MASSIVE_STEPS.map((step) => ({ ...step, status: 'pending', detail: '', startedAt: null, endedAt: null, blockReason: '' }))
+    state.summarizedAuditLog = []
+    state.stepRunCounts = {}
     state.causes = createMockCauses(totalCauses)
     state.batch = {
       total: state.causes.length,
@@ -434,12 +466,31 @@ async function executeMassiveFlow(root, state, options = {}) {
     state.currentSubaction = startedMessage
     setStepStatus(state, stepId, 'running', detailMessage)
     appendAuditLog(state, `Paso ${stepId} iniciado: ${startedMessage}.`)
+    state.stepRunCounts[stepId] = Number(state.stepRunCounts[stepId] || 0) + 1
+    appendSummarizedAuditLog(state, {
+      key: `step-${stepId}-runs`,
+      message: `Paso ${stepId} ejecutado sobre ${state.stepRunCounts[stepId]} causa(s).`,
+      count: state.stepRunCounts[stepId],
+      replaceCount: true
+    })
     refreshAuditUI(root, state)
   }
 
   const closeStep = (stepId, status, message, detail = message) => {
     setStepStatus(state, stepId, status, detail)
     appendAuditLog(state, `Paso ${stepId} ${status === 'failed' ? 'fallido' : 'superado'}: ${message}.`)
+    appendSummarizedAuditLog(state, {
+      key: `step-${stepId}-${status}`,
+      message: `Paso ${stepId} ${status === 'failed' ? 'fallido' : (status === 'warning' ? 'completado con advertencia' : 'completado con éxito')}.`,
+      replaceCount: true
+    })
+    if (status === 'warning' && detail) {
+      appendSummarizedAuditLog(state, {
+        key: `step-${stepId}-warning-detail`,
+        message: `Paso ${stepId} advertencia: ${detail}`,
+        replaceCount: true
+      })
+    }
     refreshAuditUI(root, state)
   }
 
