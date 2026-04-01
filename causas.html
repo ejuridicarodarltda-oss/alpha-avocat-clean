@@ -2536,7 +2536,9 @@
         currentError: '',
         continueAfterError: null,
         log: [],
+        summarizedLog: [],
         lastLogEvent: null,
+        stepRunCounts: {},
         steps: MASSIVE_FLOW_STEPS.map((step) => ({
           ...step,
           status: 'pending',
@@ -2556,6 +2558,28 @@
       state.massiveAudit.log.unshift(`${timestamp} · ${message}`);
       state.massiveAudit.log = state.massiveAudit.log.slice(0, 80);
       state.massiveAudit.lastLogEvent = { message, timestamp: Date.now() };
+    }
+
+    function pushMassiveAuditSummary(stepId, message = ''){
+      if (!message) return;
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      const audit = state.massiveAudit;
+      const existingIndex = audit.summarizedLog.findIndex((entry) => entry.stepId === Number(stepId) && entry.message === message);
+      if (existingIndex >= 0) {
+        const current = audit.summarizedLog[existingIndex];
+        current.count = Number(current.count || 1) + 1;
+        current.updatedAt = Date.now();
+        audit.summarizedLog.splice(existingIndex, 1);
+        audit.summarizedLog.unshift(current);
+      } else {
+        audit.summarizedLog.unshift({
+          stepId: Number(stepId) || null,
+          message,
+          count: 1,
+          updatedAt: Date.now(),
+        });
+      }
+      audit.summarizedLog = audit.summarizedLog.slice(0, 30);
     }
 
     function configureMassiveExecutionMode(mode = 'pjud_direct_session', sourceLabel = ''){
@@ -2578,10 +2602,16 @@
       state.massiveAudit.currentStepId = step.id;
       state.massiveAudit.currentStepName = `Paso ${step.id}: ${step.name}`;
       state.massiveAudit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS[status] || MASSIVE_STEP_STATUS_LABELS.pending;
-      if (status === 'running') pushMassiveAuditLog(`Paso ${step.id} iniciado: ${step.name}.`);
+      if (status === 'running') {
+        state.massiveAudit.stepRunCounts[step.id] = Number(state.massiveAudit.stepRunCounts[step.id] || 0) + 1;
+        pushMassiveAuditLog(`Paso ${step.id} iniciado: ${step.name}.`);
+        pushMassiveAuditSummary(step.id, `Paso ${step.id} ejecutado sobre ${state.massiveAudit.stepRunCounts[step.id]} causa(s).`);
+      }
       if (['success', 'failed', 'warning'].includes(status)) {
         const closeLabel = status === 'success' ? 'completado con éxito' : (status === 'failed' ? 'fallido' : 'completado con advertencia');
         pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}: ${step.name}.`);
+        pushMassiveAuditSummary(step.id, `Paso ${step.id} ${closeLabel}.`);
+        if (detail && status === 'warning') pushMassiveAuditSummary(step.id, `Paso ${step.id} advertencia: ${detail}`);
       }
     }
 
@@ -8183,8 +8213,12 @@
     }
 
     function renderMassiveAuditLog(audit){
-      if (!audit.log?.length) return '<li class="timeline-item"><div class="timeline-meta">Sin eventos todavía.</div></li>';
-      return audit.log.map((entry) => `<li class="timeline-item"><div class="timeline-meta">${escapeHtml(entry)}</div></li>`).join('');
+      const summaryEntries = audit.summarizedLog || [];
+      if (!summaryEntries.length) return '<li class="timeline-item"><div class="timeline-meta">Sin eventos todavía.</div></li>';
+      return summaryEntries.map((entry) => {
+        const repeated = Number(entry.count || 1) > 1 ? ` (x${Number(entry.count || 1)})` : '';
+        return `<li class="timeline-item"><div class="timeline-meta">${escapeHtml(entry.message)}${escapeHtml(repeated)}</div></li>`;
+      }).join('');
     }
 
     function renderImportProgressPreview({
@@ -8258,6 +8292,7 @@
           <div class="selection-card">
             <strong>Bitácora breve de eventos</strong>
             <ul class="timeline" style="margin-top:8px;">${renderMassiveAuditLog(audit)}</ul>
+            <div class="timeline-meta" style="margin-top:8px;">Bitácora técnica detallada disponible internamente para auditoría completa.</div>
           </div>
           ${renderRouteDiagnosticsPanel()}
         </div>
@@ -9885,7 +9920,8 @@
             warning,
             tone: (stats.rejected || stats.discarded || stats.materializationFailed) ? 'warn' : 'ok',
           });
-          setMassiveAuditStep(9, warning ? 'warning' : 'success', warning ? 'Resumen generado con advertencias' : 'Resumen generado con éxito');
+          const step9Detail = warning ? `Resumen generado con advertencias: ${warning}` : 'Resumen generado con éxito';
+          setMassiveAuditStep(9, warning ? 'warning' : 'success', step9Detail);
           renderImportProgressPreview({
             chunkNumber: totalChunksWorkbook,
             totalChunks: totalChunksWorkbook,
@@ -9894,7 +9930,7 @@
             batchId: batch?.id || null,
             currentStepId: 9,
             currentStepStatus: warning ? 'warning' : 'success',
-            stepDetail: warning ? 'Resumen final con advertencias' : 'Resumen final completado con éxito',
+            stepDetail: warning ? `Resumen final con advertencias: ${warning}` : 'Resumen final completado con éxito',
             currentSubaction: 'cerrando lote',
           });
           console.info('[Alpha Avocat][pjud-batch] Resultado importación por lotes.', {
@@ -10059,9 +10095,10 @@
         const uniqueCases = Number(items.length || 0);
         const completedCases = Number(created || 0) + Number(updated || 0);
         const suspiciousLow = uniqueCases > 0 && (completedCases < uniqueCases || completedCases <= Math.floor(uniqueCases * 0.35));
-        const warning = suspiciousLow
-          ? 'La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.'
-          : '';
+        const warningMessages = [];
+        if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
+        if (Number(failures || 0) > 0) warningMessages.push(`${Number(failures || 0)} causa(s) con error durante transferencia/importación.`);
+        const warning = warningMessages.join(' ');
         const accounting = {
           rowsRead: uniqueCases,
           rowsValid: uniqueCases,
@@ -10087,7 +10124,7 @@
           warning,
           tone: failures ? 'warn' : 'ok',
         });
-        setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? 'Resumen final con advertencias' : 'Resumen final completado con éxito');
+        setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
         renderImportProgressPreview({
           chunkNumber: totalChunks,
           totalChunks,
@@ -10096,7 +10133,7 @@
           batchId: state.pendingPjudBatchId || null,
           currentStepId: 9,
           currentStepStatus: failures ? 'warning' : 'success',
-          stepDetail: failures ? 'Resumen final con advertencias' : 'Resumen final completado con éxito',
+          stepDetail: failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito',
           currentSubaction: 'cerrando lote',
         });
         console.info('[Alpha Avocat][batch-import] Resultado importación manual.', {
