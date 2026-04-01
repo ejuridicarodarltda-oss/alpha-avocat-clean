@@ -3275,15 +3275,54 @@
       return cause?.misCausasResolved ? PJUD_MIS_CAUSAS_URL : PJUD_OJV_URL || PJUD_ENTRY_URL;
     }
 
+    function parsePjudSearchComponents(rawIdentifier = ''){
+      const cleaned = String(rawIdentifier || '')
+        .trim()
+        .toUpperCase()
+        .replace(/[–—−]/g, '-')
+        .replace(/\s+/g, '');
+      if (!cleaned) return { rit: '', rol: '', year: '' };
+
+      const compact = cleaned.replace(/[^A-Z0-9]/g, '');
+      const compactMatch = compact.match(/^([A-Z]{1,6})(\d{1,8})(\d{4})$/);
+      if (compactMatch) {
+        return {
+          rit: compactMatch[1],
+          rol: compactMatch[2],
+          year: compactMatch[3],
+        };
+      }
+
+      const dashedMatch = cleaned.match(/^([A-Z]{1,6})[-\/]?(\d{1,8})[-\/](\d{2,4})$/);
+      if (!dashedMatch) return { rit: '', rol: '', year: '' };
+
+      const resolvedYear = dashedMatch[3].length === 2 ? `20${dashedMatch[3]}` : dashedMatch[3];
+      return {
+        rit: dashedMatch[1],
+        rol: dashedMatch[2],
+        year: resolvedYear,
+      };
+    }
+
     function resolvePjudIdentifiers(importData = null, cause = null){
       const source = importData || {};
       const basic = source.basic || {};
+      const rolRaw = String(basic.rol || cause?.rol || '').trim();
+      const ritRaw = String(basic.rit || cause?.rit || '').trim();
+      const parsedFromRol = parsePjudSearchComponents(rolRaw);
+      const parsedFromRit = parsePjudSearchComponents(ritRaw);
+      const parsed = parsedFromRol.rit ? parsedFromRol : parsedFromRit;
       return {
-        rol: String(basic.rol || cause?.rol || '').trim(),
-        rit: String(basic.rit || cause?.rit || '').trim(),
+        rol: rolRaw,
+        rit: ritRaw,
         ruc: String(basic.ruc || cause?.ruc || '').trim(),
         tribunal: String(basic.tribunal || cause?.tribunal || '').trim(),
         pjudCaseKey: String(source.pjudCaseKey || cause?.pjudCaseKey || cause?.pjud_case_key || '').trim(),
+        pjudSearch: {
+          rit: parsed.rit || '',
+          rol: parsed.rol || '',
+          year: parsed.year || '',
+        },
       };
     }
 
@@ -7056,11 +7095,15 @@
       return { mode: 'none', cause: null, importData: null };
     }
 
-    function buildPjudPublicSearchUrl({ rol = '', rit = '', tribunal = '' } = {}){
+    function buildPjudPublicSearchUrl({ rol = '', rit = '', tribunal = '', year = '' } = {}){
       const base = 'https://oficinajudicialvirtual.pjud.cl/home/index.php';
       const params = new URLSearchParams();
       if (rol) params.set('rol', rol);
       if (rit) params.set('rit', rit);
+      if (year) {
+        params.set('ano', year);
+        params.set('era', year);
+      }
       if (tribunal) params.set('tribunal', tribunal);
       const query = params.toString();
       return query ? `${base}?${query}` : base;
@@ -7125,8 +7168,9 @@
         return false;
       }
       const finalUrl = buildPjudPublicSearchUrl({
-        rol: identifiers.rol || '',
-        rit: identifiers.rit || '',
+        rol: identifiers.pjudSearch?.rol || identifiers.rol || '',
+        rit: identifiers.pjudSearch?.rit || identifiers.rit || '',
+        year: identifiers.pjudSearch?.year || '',
         tribunal: identifiers.tribunal || '',
       }) || PJUD_MIS_CAUSAS_URL;
       const popup = window.open(finalUrl, '_blank', 'noopener,noreferrer');
@@ -7135,8 +7179,14 @@
         return false;
       }
       const resolvedIdentity = [identifiers.rol, identifiers.rit, identifiers.ruc, identifiers.tribunal, identifiers.pjudCaseKey].filter(Boolean).join(' · ');
+      const diagnosticSummary = [
+        `RIT detectado: ${identifiers.pjudSearch?.rit || 'Pendiente'}`,
+        `ROL detectado: ${identifiers.pjudSearch?.rol || 'Pendiente'}`,
+        `AÑO detectado: ${identifiers.pjudSearch?.year || 'Pendiente'}`,
+        `Búsqueda enviada: RIT=${identifiers.pjudSearch?.rit || identifiers.rit || '—'}, ROL=${identifiers.pjudSearch?.rol || identifiers.rol || '—'}, AÑO=${identifiers.pjudSearch?.year || '—'}`,
+      ].join(' · ');
       setMessage('importMsg', 'Causa abierta en nueva pestaña con búsqueda PJUD y acceso a Mis Causas. Si PJUD no resuelve directo, ubícala con los identificadores informados.', 'ok');
-      setDetailStatus(`Se abrió Mis Causas. Ubica la causa con estos identificadores: ${resolvedIdentity}.`, 'ok');
+      setDetailStatus(`Se abrió Mis Causas. Ubica la causa con estos identificadores: ${resolvedIdentity}. ${diagnosticSummary}.`, 'ok');
       return true;
     }
 
