@@ -826,7 +826,8 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
     nodes,
     nodeMap: Object.fromEntries(nodes.map((node) => [node.id, node])),
     hasFiles: nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file', 'book', 'book-doctrina', 'book-jurisprudencia', 'booklet-acta', 'booklet-informe', 'booklet-escrito', 'booklet-certificado', 'booklet-declaracion', 'booklet-peritaje'].includes(node.type)),
-    hasContent: nodes.length > 1,
+    hasContent: nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file', 'book', 'book-doctrina', 'book-jurisprudencia', 'booklet-acta', 'booklet-informe', 'booklet-escrito', 'booklet-certificado', 'booklet-declaracion', 'booklet-peritaje'].includes(node.type)),
+    hasStructureOnly: nodes.length > 1 && !nodes.some((node) => ['pdf', 'word', 'image', 'zip', 'file', 'book', 'book-doctrina', 'book-jurisprudencia', 'booklet-acta', 'booklet-informe', 'booklet-escrito', 'booklet-certificado', 'booklet-declaracion', 'booklet-peritaje'].includes(node.type)),
   }
 }
 
