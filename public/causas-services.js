@@ -423,6 +423,57 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   return next
 }
 
+
+export function repairCauseDocumentLinkage(detail = {}, options = {}) {
+  const next = ensureCauseStorage(detail)
+  const now = new Date().toISOString()
+  const causeId = String(next.id || options.causeId || '').trim()
+  const expedienteDigitalId = String(next.expedienteDigitalId || next.expedienteDigital?.id || options.expedienteDigitalId || (causeId ? `expediente-${causeId}` : '')).trim()
+  if (expedienteDigitalId && (!next.expedienteDigital || !String(next.expedienteDigital.id || '').trim())) {
+    next.expedienteDigital = { ...(next.expedienteDigital || {}), id: expedienteDigitalId }
+  }
+  next.expedienteDigitalId = expedienteDigitalId
+  let repairedCount = 0
+  let unresolvedCount = 0
+  next.documents = (next.documents || []).map((doc) => {
+    const currentCauseId = String(doc?.cause_id || doc?.caseId || '').trim()
+    const currentExpedienteId = String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()
+    const isForeignDocument = Boolean(currentCauseId && causeId && currentCauseId !== causeId)
+    if (isForeignDocument) {
+      unresolvedCount += 1
+      return doc
+    }
+    const resolvedCauseId = currentCauseId || causeId
+    const resolvedExpedienteId = currentExpedienteId || expedienteDigitalId
+    const shouldRepair = (!currentCauseId && resolvedCauseId) || (!currentExpedienteId && resolvedExpedienteId)
+    const linkageStatus = resolvedCauseId && resolvedExpedienteId ? 'vinculado' : 'pendiente_vinculacion'
+    if (!resolvedCauseId || !resolvedExpedienteId) unresolvedCount += 1
+    if (!shouldRepair && String(doc?.estado_vinculacion || doc?.estadoVinculacion || '') === linkageStatus) return doc
+    if (shouldRepair) repairedCount += 1
+    return {
+      ...doc,
+      caseId: resolvedCauseId || doc?.caseId || '',
+      cause_id: resolvedCauseId || doc?.cause_id || '',
+      expedienteDigitalId: resolvedExpedienteId || doc?.expedienteDigitalId || '',
+      expediente_digital_id: resolvedExpedienteId || doc?.expediente_digital_id || '',
+      batchId: doc?.batchId || doc?.batch_id || next.importBatchId || options.batchId || null,
+      batch_id: doc?.batch_id || doc?.batchId || next.importBatchId || options.batchId || null,
+      tipoDocumento: doc?.tipoDocumento || doc?.tipo_documento || doc?.category || 'Documento',
+      tipo_documento: doc?.tipo_documento || doc?.tipoDocumento || doc?.category || 'Documento',
+      tribunal: doc?.tribunal || next.tribunal || options.tribunal || '',
+      materia: doc?.materia || next.materia || options.materia || '',
+      fechaIngreso: doc?.fechaIngreso || doc?.fecha_ingreso || next.fechaInicio || null,
+      fecha_ingreso: doc?.fecha_ingreso || doc?.fechaIngreso || next.fechaInicio || null,
+      estadoVinculacion: linkageStatus,
+      estado_vinculacion: linkageStatus,
+      linkingAttemptedAt: now,
+      linkingErrorReason: linkageStatus === 'vinculado' ? '' : (doc?.linkingErrorReason || 'No fue posible vincular automáticamente.'),
+      updatedAt: now,
+    }
+  })
+  return { detail: next, repairedCount, unresolvedCount }
+}
+
 export function upsertDocument(detail = {}, input = {}) {
   const next = ensureCauseStorage(detail)
   const now = new Date().toISOString()
@@ -1827,6 +1878,10 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
 
   materializePjudDigitalFolder(next, importData)
   next.expedienteDigitalId = next.expedienteDigital?.id || next.expedienteDigitalId || (next.id ? `expediente-${next.id}` : '')
+  const linkageRepair = repairCauseDocumentLinkage(next, { batchId: next.importBatchId, tribunal: next.tribunal, materia: next.materia })
+  next.documents = linkageRepair.detail.documents
+  next.expedienteDigital = linkageRepair.detail.expedienteDigital
+  next.expedienteDigitalId = linkageRepair.detail.expedienteDigitalId
 
   console.info('[CAUSAS][IMPORTACIÓN PJUD] Materialización de expediente digital', {
     caseId: next.id,

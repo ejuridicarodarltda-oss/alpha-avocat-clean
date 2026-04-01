@@ -2356,6 +2356,7 @@
       parsePjudMisCausasWorkbook,
       recordDownload,
       removeDocument,
+      repairCauseDocumentLinkage,
       revertLastImport,
       saveWorkspace as saveWorkspaceState,
       slugId,
@@ -3961,22 +3962,31 @@
 
     function getExplorerState(cause){
       if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[], trace:getCaseLinkageTrace({}) };
+      let resolvedCause = cause;
+      const linkageRepair = repairCauseDocumentLinkage(cause, {
+        batchId: cause.importBatchId || cause.import_batch_id || null,
+        tribunal: cause.tribunal || '',
+        materia: cause.materia || '',
+      });
+      if (linkageRepair.repairedCount > 0) {
+        resolvedCause = updateWorkspaceEntry(cause.id, () => linkageRepair.detail) || linkageRepair.detail;
+      }
       const explorerSignature = [
-        cause.id,
-        (cause.documents || []).length,
-        (cause.documents || []).map((item) => `${item.id}:${item.updatedAt || item.createdAt || ''}:${item.destinationContainer || ''}`).join('|'),
+        resolvedCause.id,
+        (resolvedCause.documents || []).length,
+        (resolvedCause.documents || []).map((item) => `${item.id}:${item.updatedAt || item.createdAt || ''}:${item.destinationContainer || ''}`).join('|'),
       ].join('::');
-      if (state.explorer.causeId !== cause.id || state.explorer.signature !== explorerSignature) {
+      if (state.explorer.causeId !== resolvedCause.id || state.explorer.signature !== explorerSignature) {
         try {
-          const model = buildDocumentExplorer(cause, {
-            rootName: `Expedientes digitales · ${cause.caratula || cause.rol || 'Causa'}`,
-            clientName: cause.cliente,
+          const model = buildDocumentExplorer(resolvedCause, {
+            rootName: `Expedientes digitales · ${resolvedCause.caratula || resolvedCause.rol || 'Causa'}`,
+            clientName: resolvedCause.cliente,
           });
           const selectedNodeId = model.nodeMap[state.explorer.selectedNodeId] ? state.explorer.selectedNodeId : model.rootId;
           const expandedNodeIds = Array.from(new Set([model.rootId, ...(state.explorer.expandedNodeIds || [])].filter((nodeId) => model.nodeMap[nodeId])));
           state.explorer = {
             ...state.explorer,
-            causeId: cause.id,
+            causeId: resolvedCause.id,
             signature: explorerSignature,
             selectedNodeId,
             expandedNodeIds,
@@ -4010,7 +4020,7 @@
         }
       }
       const items = currentNode?.children?.map((nodeId) => model.nodeMap[nodeId]).filter(Boolean) || [];
-      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs, trace:getCaseLinkageTrace(cause) };
+      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs, trace:getCaseLinkageTrace(resolvedCause) };
     }
 
     function renderExplorerTree(model, nodeId, depth = 0){
@@ -9086,6 +9096,7 @@
       let causesWithClassificationError = 0;
       let causesWithClassificationComplete = 0;
       let causesWithClassificationPartial = 0;
+      let causesWithOrphanLinkage = 0;
       let documentsDetectedTotal = 0;
       let documentsDownloadedTotal = 0;
       let documentsSavedTotal = 0;
@@ -9244,13 +9255,15 @@
               currentSubaction: 'descargando contenido documental',
               internalProgress: `Causa ${Math.min(imported + failed + 1, casePayloads.length)} de ${casePayloads.length}`,
             });
-            materializeImportedCaseWorkspace({
+            const materializedDetail = materializeImportedCaseWorkspace({
               caseRow: updatedRow,
               rowPayload,
               operationMode: 'update',
               importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
               importBatchId: batch?.id || null,
             });
+            const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+            if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
             materialized += 1;
             stageTrace.rowsMaterialized += 1;
             rowAudit.materialized = true;
@@ -9380,13 +9393,15 @@
               if (insertedRow?.id) affectedCaseIds.add(String(insertedRow.id));
               try {
                 setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
-                materializeImportedCaseWorkspace({
+                const materializedDetail = materializeImportedCaseWorkspace({
                   caseRow: insertedRow,
                   rowPayload,
                   operationMode: 'create',
                   importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
                   importBatchId: batch?.id || null,
                 });
+                const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+                if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
@@ -9479,13 +9494,15 @@
               const rowAudit = buildPjudContentAudit(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}, destinationMap);
               try {
                 setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
-                materializeImportedCaseWorkspace({
+                const materializedDetail = materializeImportedCaseWorkspace({
                   caseRow: savedRow,
                   rowPayload: sourcePayload,
                   operationMode: 'create',
                   importData: consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || null,
                   importBatchId: batch?.id || null,
                 });
+                const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+                if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
@@ -9566,7 +9583,7 @@
       }
       setMassiveAuditStep(4, 'success', 'Recorrido de causas completado');
       setMassiveAuditStep(5, 'success', 'Detección de documentos completada');
-      const linkageIntegrityFailed = causesWithoutDownloadedContent > 0 || causesWithClassificationError > 0;
+      const linkageIntegrityFailed = causesWithoutDownloadedContent > 0 || causesWithClassificationError > 0 || causesWithOrphanLinkage > 0;
       setMassiveAuditStep(6, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Descarga completada con advertencias de vinculación' : 'Descarga completada con éxito');
       setMassiveAuditStep(7, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Guardado completado con advertencias de vinculación' : 'Guardado completado con éxito');
       setMassiveAuditStep(8, causesWithClassificationError ? 'warning' : 'success', causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
@@ -9680,6 +9697,7 @@
         documentsClassifiedTotal,
         causesWithClassificationComplete,
         causesWithClassificationPartial,
+        causesWithOrphanLinkage,
         causesWithDownloadError,
         causesWithClassificationError,
         duplicates: duplicated,
@@ -9729,6 +9747,7 @@
           documentsUrlResolvedCount,
           causesWithClassificationComplete,
           causesWithClassificationPartial,
+          causesWithOrphanLinkage,
           causesWithDownloadError,
           causesWithClassificationError,
           duplicated,
