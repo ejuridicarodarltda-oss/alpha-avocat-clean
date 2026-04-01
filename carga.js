@@ -61,6 +61,75 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
+function normalizeText(value = '') {
+  return String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
+}
+
+function inferMatterFromStructuredIdentifier(identifier = '') {
+  const normalized = normalizeText(identifier)
+  const leadingToken = normalized.match(/^([a-z]+)/i)?.[1] || ''
+  if (!leadingToken) return ''
+  if (leadingToken.startsWith('f')) return 'Familia'
+  if (leadingToken.startsWith('c')) return 'Civil'
+  if (leadingToken.startsWith('t') || leadingToken.startsWith('l')) return 'Laboral'
+  if (leadingToken.startsWith('r')) return 'Penal'
+  return ''
+}
+
+function inferMatterByHierarchy(cause, { knownBatchMatter = '' } = {}) {
+  const tribunal = normalizeText(cause?.tribunal)
+  const competencia = normalizeText(cause?.competencia)
+  const organo = normalizeText(cause?.organoJurisdiccional)
+  const materiaLote = normalizeText(knownBatchMatter || cause?.knownBatchMatter || cause?.materia)
+  const rol = String(cause?.rol || '')
+
+  if (/familia/.test(tribunal) || /familia/.test(competencia)) {
+    return { matter: 'Familia', level: 'a', reason: 'competencia/tribunal explícito: Familia' }
+  }
+  if (/laboral|trabajo/.test(tribunal) || /laboral|trabajo/.test(competencia)) {
+    return { matter: 'Laboral', level: 'a', reason: 'competencia/tribunal explícito: Laboral' }
+  }
+  if (/penal|garantia|oral en lo penal/.test(tribunal) || /penal/.test(competencia)) {
+    return { matter: 'Penal', level: 'a', reason: 'competencia/tribunal explícito: Penal' }
+  }
+
+  if (/juzgado de familia/.test(organo)) {
+    return { matter: 'Familia', level: 'b', reason: 'órgano jurisdiccional: Juzgado de Familia' }
+  }
+  if (/juzgado civil/.test(organo)) {
+    return { matter: 'Civil', level: 'b', reason: 'órgano jurisdiccional: Juzgado Civil' }
+  }
+
+  if (materiaLote) {
+    if (/familia/.test(materiaLote)) return { matter: 'Familia', level: 'c', reason: 'materia conocida del lote: Familia' }
+    if (/civil/.test(materiaLote)) return { matter: 'Civil', level: 'c', reason: 'materia conocida del lote: Civil' }
+    if (/laboral|trabajo/.test(materiaLote)) return { matter: 'Laboral', level: 'c', reason: 'materia conocida del lote: Laboral' }
+    if (/penal/.test(materiaLote)) return { matter: 'Penal', level: 'c', reason: 'materia conocida del lote: Penal' }
+  }
+
+  const fallbackStructured = inferMatterFromStructuredIdentifier(rol)
+  if (fallbackStructured) {
+    return { matter: fallbackStructured, level: 'd', reason: 'fallback por identificador estructurado (ROL/RIT/AÑO)' }
+  }
+
+  return { matter: '', level: '', reason: 'sin evidencia suficiente de clasificación' }
+}
+
+function classifyCauseInFabocat(cause, options = {}) {
+  const inference = inferMatterByHierarchy(cause, options)
+  const structuredMatter = inferMatterFromStructuredIdentifier(cause?.rol || '')
+  const hasConflict = Boolean(inference.matter && structuredMatter && inference.matter !== structuredMatter)
+  const validated = Boolean(inference.matter)
+  return {
+    ...inference,
+    validated,
+    hasConflict,
+    observation: hasConflict
+      ? `conflicto controlado: identificador sugiere ${structuredMatter}, pero prevalece ${inference.matter} por jerarquía`
+      : ''
+  }
+}
+
 function createInitialAuditState() {
   return {
     currentStepId: null,
@@ -83,7 +152,9 @@ function createInitialAuditState() {
       pending: 0,
       autoClassified: 0,
       pendingClassification: 0,
-      withObservation: 0
+      withObservation: 0,
+      notValidated: 0,
+      discarded: 0
     },
     causes: [],
     currentCause: null,
@@ -108,7 +179,7 @@ function createMockCauses(total = 13) {
     return {
       id,
       rol: `C-${1200 + id}-2024`,
-      tribunal: `Juzgado Civil ${((id - 1) % 3) + 1}`,
+      tribunal: id === 3 ? 'Juzgado de Familia Ovalle' : `Juzgado Civil ${((id - 1) % 3) + 1}`,
       caratula: `Demandante ${id} c/ Demandado ${id}`,
       hasDownloadIssue: id % 6 === 0,
       hasClassificationWarning: id % 5 === 0
@@ -214,6 +285,8 @@ function refreshAuditUI(root, state) {
   root.querySelector('#massiveBatchAutoClassified').textContent = String(state.batch.autoClassified || 0)
   root.querySelector('#massiveBatchPendingClassification').textContent = String(state.batch.pendingClassification || 0)
   root.querySelector('#massiveBatchWithObservation').textContent = String(state.batch.withObservation || 0)
+  root.querySelector('#massiveBatchNotValidated').textContent = String(state.batch.notValidated || 0)
+  root.querySelector('#massiveBatchDiscarded').textContent = String(state.batch.discarded || 0)
   root.querySelector('#massiveFinalWarningReason').textContent = state.finalWarningReason || 'Sin advertencias'
 
   root.querySelector('#massiveStepList').innerHTML = renderStepList(state)
@@ -281,6 +354,8 @@ function buildUI(container) {
               <li>Clasificadas automáticamente: <strong id="massiveBatchAutoClassified">0</strong></li>
               <li>Pendientes de clasificación: <strong id="massiveBatchPendingClassification">0</strong></li>
               <li>Con observación: <strong id="massiveBatchWithObservation">0</strong></li>
+              <li>No validadas en Fabocat: <strong id="massiveBatchNotValidated">0</strong></li>
+              <li>Descartadas: <strong id="massiveBatchDiscarded">0</strong></li>
               <li>Motivo advertencia final: <strong id="massiveFinalWarningReason">Sin advertencias</strong></li>
             </ul>
           </article>
@@ -337,7 +412,9 @@ async function executeMassiveFlow(root, state, options = {}) {
       pending: state.causes.length,
       autoClassified: 0,
       pendingClassification: 0,
-      withObservation: 0
+      withObservation: 0,
+      notValidated: 0,
+      discarded: 0
     }
     state.finalWarningReason = 'Sin advertencias'
     appendAuditLog(state, `Excel cargado correctamente: ${excelFile?.name || 'sin archivo seleccionado (modo simulado)'}.`)
@@ -497,6 +574,7 @@ async function executeMassiveFlow(root, state, options = {}) {
     setRunningStep(8, 'moviendo documentos al expediente canónico', `${DEFAULT_STEP_DETAIL[8]} 1 de ${queue.length}`)
 
     let warningClassifications = 0
+    let pendingClassifications = 0
     for (let index = 0; index < queue.length; index += 1) {
       const cause = queue[index]
       state.currentCause = cause
@@ -505,33 +583,42 @@ async function executeMassiveFlow(root, state, options = {}) {
       refreshAuditUI(root, state)
       await delay(170)
 
-      if (cause.classificationStatus === 'success' || cause.classificationStatus === 'warning') continue
-      if (cause.hasClassificationWarning && cause.downloadStatus !== 'failed') {
-        cause.classificationStatus = 'warning'
-        cause.classificationReason = 'materia principal detectada con observación de consistencia'
-        cause.primaryMatter = 'Civil'
-        cause.incompatibleMatterDuplication = false
-        warningClassifications += 1
-        appendAuditLog(state, `clasificación pendiente: ${cause.rol}.`)
-      } else if (cause.downloadStatus === 'failed') {
+      if (cause.downloadStatus === 'failed') {
         cause.classificationStatus = 'skipped'
         cause.classificationReason = 'no clasificable por descarga fallida'
         cause.primaryMatter = null
         cause.incompatibleMatterDuplication = false
+        cause.fabocatValidated = false
+        pendingClassifications += 1
         appendAuditLog(state, `clasificación pendiente: ${cause.rol} (descarga fallida).`)
+        continue
+      }
+
+      const classification = classifyCauseInFabocat(cause)
+      cause.primaryMatter = classification.matter || null
+      cause.classificationReason = classification.reason
+      cause.incompatibleMatterDuplication = false
+      cause.fabocatValidated = classification.validated && Boolean(cause.primaryMatter)
+
+      if (!cause.fabocatValidated) {
+        cause.classificationStatus = 'pending'
+        pendingClassifications += 1
+        appendAuditLog(state, `clasificación pendiente: ${cause.rol} (sin materia principal única en Fabocat).`)
+      } else if (cause.hasClassificationWarning || classification.observation) {
+        cause.classificationStatus = 'warning'
+        warningClassifications += 1
+        const warningReason = classification.observation || 'clasificación con observación de consistencia'
+        appendAuditLog(state, `clasificación observada: ${cause.rol} (${warningReason}).`)
       } else {
         cause.classificationStatus = 'success'
-        cause.classificationReason = 'clasificación automática válida'
-        cause.primaryMatter = 'Civil'
-        cause.incompatibleMatterDuplication = false
-        appendAuditLog(state, `clasificación completada: ${cause.rol}.`)
+        appendAuditLog(state, `clasificación completada y validada en Fabocat: ${cause.rol} → ${cause.primaryMatter} (${classification.reason}).`)
       }
     }
 
-    if (warningClassifications > 0) {
-      closeStep(8, 'warning', 'completado con advertencia', `Movimiento con advertencia: ${warningClassifications} causa(s)`) 
+    if (warningClassifications > 0 || pendingClassifications > 0) {
+      closeStep(8, 'warning', 'completado con advertencia', `Clasificación con advertencia: ${warningClassifications} observada(s), ${pendingClassifications} pendiente(s) de validación en Fabocat`)
     } else {
-      closeStep(8, 'success', 'superado con éxito', 'Movimiento al expediente digital completado')
+      closeStep(8, 'success', 'superado con éxito', 'Clasificación completada con validación Fabocat y materia principal única')
     }
 
     state.batch.success = state.causes.filter((cause) => cause.downloadStatus === 'success' && cause.classificationStatus === 'success').length
@@ -543,21 +630,28 @@ async function executeMassiveFlow(root, state, options = {}) {
     await delay(250)
     const invalidPrimaryMatter = state.causes.filter((cause) => cause.downloadStatus === 'success' && !cause.primaryMatter).length
     const duplicatedIncompatible = state.causes.filter((cause) => cause.incompatibleMatterDuplication === true).length
-    const pendingClassification = state.causes.filter((cause) => cause.classificationStatus === 'skipped').length
+    const pendingClassification = state.causes.filter((cause) => ['skipped', 'pending'].includes(cause.classificationStatus)).length
     const withObservation = state.causes.filter((cause) => cause.classificationStatus === 'warning').length
     const autoClassified = state.causes.filter((cause) => cause.classificationStatus === 'success').length
+    const notValidated = state.causes.filter((cause) => cause.fabocatValidated !== true).length
+    const discarded = state.causes.filter((cause) => cause.classificationStatus === 'discarded').length
 
     state.batch.autoClassified = autoClassified
     state.batch.pendingClassification = pendingClassification
     state.batch.withObservation = withObservation
+    state.batch.notValidated = notValidated
+    state.batch.discarded = discarded
 
     const validationWarnings = []
     if (invalidPrimaryMatter > 0) validationWarnings.push(`${invalidPrimaryMatter} sin materia principal`)
     if (duplicatedIncompatible > 0) validationWarnings.push(`${duplicatedIncompatible} duplicada(s) en materias incompatibles`)
-    if (pendingClassification > 0) validationWarnings.push(`${pendingClassification} en "Pendiente de clasificación"`)
+    if (pendingClassification > 0) validationWarnings.push(`${pendingClassification} pendiente(s) de clasificación`)
+    if (withObservation > 0) validationWarnings.push(`${withObservation} con observación`)
+    if (notValidated > 0) validationWarnings.push(`${notValidated} no validada(s) en Fabocat`)
+    if (discarded > 0) validationWarnings.push(`${discarded} descartada(s)`)
 
     if (validationWarnings.length > 0) {
-      state.finalWarningReason = `Validación Fabocat: ${validationWarnings.join('; ')}`
+      state.finalWarningReason = `Advertencia final: ${validationWarnings.join('; ')}`
       closeStep(9, 'warning', 'completado con advertencia', state.finalWarningReason)
     } else {
       state.finalWarningReason = 'Sin advertencias'
@@ -570,8 +664,8 @@ async function executeMassiveFlow(root, state, options = {}) {
     const status10 = state.batch.failed > 0 || state.batch.partial > 0 || state.finalWarningReason !== 'Sin advertencias' ? 'warning' : 'success'
     const summaryMessage = status10 === 'success'
       ? 'superado con éxito'
-      : `completado con advertencia: ${state.batch.failed} fallida(s), ${state.batch.partial} parcial(es), motivo: ${state.finalWarningReason}`
-    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas, ${state.batch.autoClassified} auto-clasificadas, ${state.batch.pendingClassification} pendientes de clasificación, ${state.batch.withObservation} con observación. Motivo final: ${state.finalWarningReason}`)
+      : `completado con advertencia: pendientes ${state.batch.pendingClassification}, observadas ${state.batch.withObservation}, no validadas ${state.batch.notValidated}, descartadas ${state.batch.discarded}, motivo: ${state.finalWarningReason}`
+    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas, ${state.batch.autoClassified} auto-clasificadas, ${state.batch.pendingClassification} pendientes de clasificación, ${state.batch.withObservation} con observación, ${state.batch.notValidated} no validadas en Fabocat, ${state.batch.discarded} descartadas. Motivo final: ${state.finalWarningReason}`)
 
     state.queueCursor = state.queue.length
     state.currentSubaction = state.batch.failed > 0
@@ -580,7 +674,7 @@ async function executeMassiveFlow(root, state, options = {}) {
     state.processOutcome = state.batch.failed > 0
       ? 'Descarga parcial (lote continúa)'
       : (state.batch.partial > 0 ? 'Completado con advertencias de clasificación' : 'Completado con éxito')
-    appendAuditLog(state, `Lote finalizado. Correctas: ${state.batch.success}, parciales: ${state.batch.partial}, fallidas: ${state.batch.failed}, auto-clasificadas: ${state.batch.autoClassified}, pendientes clasificación: ${state.batch.pendingClassification}, con observación: ${state.batch.withObservation}. Motivo advertencia final: ${state.finalWarningReason}.`)
+    appendAuditLog(state, `Lote finalizado. Correctas: ${state.batch.success}, parciales: ${state.batch.partial}, fallidas: ${state.batch.failed}, auto-clasificadas: ${state.batch.autoClassified}, pendientes clasificación: ${state.batch.pendingClassification}, con observación: ${state.batch.withObservation}, no validadas: ${state.batch.notValidated}, descartadas: ${state.batch.discarded}. Motivo advertencia final: ${state.finalWarningReason}.`)
   } catch (error) {
     const stepId = state.currentStepId || 1
     state.processOutcome = 'Error total del lote'
