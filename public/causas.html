@@ -3440,6 +3440,57 @@
       };
     }
 
+    function normalizeRoleStructure(rawRole = '', rawRit = ''){
+      const primary = parsePjudSearchComponents(rawRole);
+      const fallback = parsePjudSearchComponents(rawRit);
+      const selected = primary.rit ? primary : fallback;
+      return {
+        ritLetra: selected.rit || '',
+        rolNumero: selected.rol || '',
+        rolAnio: selected.year || '',
+      };
+    }
+
+    function inferCompetenciaMateria({ tribunal = '', materia = '', procedimiento = '', roleStructure = {} } = {}){
+      const text = `${tribunal} ${materia} ${procedimiento}`.toLowerCase();
+      if (/suprema/.test(text)) return { materia: 'CORTE SUPREMA', criterion: 'tribunal: corte suprema', confidence: 'high' };
+      if (/apelaciones/.test(text)) return { materia: 'CORTE DE APELACIONES', criterion: 'tribunal: corte de apelaciones', confidence: 'high' };
+      if (/penal|garant[ií]a|oral en lo penal/.test(text)) return { materia: 'PENAL', criterion: 'tribunal/materia penal', confidence: 'high' };
+      if (/familia/.test(text)) return { materia: 'FAMILIA', criterion: 'tribunal/materia familia', confidence: 'high' };
+      if (/laboral|trabajo|cobranza laboral/.test(text)) return { materia: 'LABORAL', criterion: 'tribunal/materia laboral', confidence: 'high' };
+      if (/cobranza/.test(text)) return { materia: 'COBRANZA', criterion: 'materia/procedimiento cobranza', confidence: 'high' };
+      if (/civil|juzgado civil/.test(text) || roleStructure.ritLetra === 'C') return { materia: 'CIVIL', criterion: roleStructure.ritLetra === 'C' ? 'RIT letra C' : 'tribunal/formato civil', confidence: 'high' };
+      return { materia: 'PENDIENTE DE CLASIFICACIÓN', criterion: 'sin inferencia confiable', confidence: 'low' };
+    }
+
+    function buildClassificationEnvelope(importData = {}, destinationMap = null){
+      const tribunal = importData.tribunal || importData.basic?.tribunal || '';
+      const caratula = importData.caratulado || importData.basic?.caratula || '';
+      const procedimiento = importData.tipoCausa || importData.basic?.procedimiento || '';
+      const roleStructure = normalizeRoleStructure(importData.rol || importData.basic?.rol || '', importData.rit || importData.basic?.rit || '');
+      const inferred = inferCompetenciaMateria({
+        tribunal,
+        materia: importData.materia || importData.basic?.materia || '',
+        procedimiento,
+        roleStructure,
+      });
+      const hasCore = Boolean(inferred.materia && tribunal && roleStructure.ritLetra && roleStructure.rolNumero && roleStructure.rolAnio && caratula && destinationMap?.logicalPath?.length);
+      const estado = hasCore && inferred.materia !== 'PENDIENTE DE CLASIFICACIÓN' ? 'clasificada_correctamente' : 'pendiente_de_clasificacion';
+      return {
+        competenciaMateria: inferred.materia,
+        tribunal,
+        roleStructure,
+        caratula,
+        tipoProcedimiento: procedimiento || null,
+        estadoClasificacion: estado,
+        bandejaEstado: estado === 'clasificada_correctamente' ? 'Clasificadas correctamente' : 'Pendientes de clasificación',
+        carpetaDestino: destinationMap?.logicalPath || [],
+        clasificacionAutomatica: true,
+        criterioClasificacion: inferred.criterion,
+        motivoNoClasificada: estado === 'clasificada_correctamente' ? null : 'Faltan campos estructurados o inferencia de materia confiable.',
+      };
+    }
+
     function hasPjudIdentity(identifiers = {}){
       return Boolean(
         identifiers.rol
@@ -8264,6 +8315,8 @@
       documentsUrlResolvedCount = 0,
       causesWithClassificationComplete = 0,
       causesWithClassificationPartial = 0,
+      causesPendingClassification = 0,
+      causesFailedClassification = 0,
       causesWithDownloadError = 0,
       causesWithClassificationError = 0,
       errors = 0,
@@ -8282,7 +8335,7 @@
       const step8State = Number(documentsClassifiedTotal || 0) > 0
         ? (Number(documentsClassifiedTotal || 0) < Number(documentsSavedTotal || 0) ? 'parcial' : 'superado con éxito')
         : (Number(documentsDownloadedTotal || 0) === 0 ? 'fallido (sin contenido descargado)' : 'fallido');
-      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, rutas resueltas ${routeResolvedCount}, rutas sin resolver ${routeUnresolvedCount}, URL causa sí ${caseUrlResolvedCount}, URL expediente sí ${caseDetailUrlResolvedCount}, URL documental sí ${documentsUrlResolvedCount}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const summaryText = `Resumen final importación PJUD: filas analizadas ${rowsAnalyzed}, causas únicas ${uniqueCases}, duplicados internos ${duplicatedInternal}, insertadas ${inserted}, actualizadas ${updated}, estructura creada ${causesWithStructureCreated}, con contenido descargado ${causesWithDownloadedContent}, sin contenido descargado ${causesWithoutDownloadedContent}, rutas resueltas ${routeResolvedCount}, rutas sin resolver ${routeUnresolvedCount}, URL causa sí ${caseUrlResolvedCount}, URL expediente sí ${caseDetailUrlResolvedCount}, URL documental sí ${documentsUrlResolvedCount}, docs detectados ${documentsDetectedTotal}, docs descargados ${documentsDownloadedTotal}, docs guardados ${documentsSavedTotal}, docs clasificados ${documentsClassifiedTotal}, clasificación completa ${causesWithClassificationComplete}, clasificación parcial ${causesWithClassificationPartial}, pendientes clasificación ${causesPendingClassification}, fallidas clasificación ${causesFailedClassification}, error descarga ${causesWithDownloadError}, error clasificación ${causesWithClassificationError}, materializadas ${materialized}, solo Supabase ${supabaseOnly}, fallas de materialización ${materializationFailed}, errores ${errors}. ${warning ? warning : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, warning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -8295,7 +8348,7 @@
             <div class="timeline-meta">Con contenido descargado: ${escapeHtml(causesWithDownloadedContent)} · Sin contenido descargado: ${escapeHtml(causesWithoutDownloadedContent)}</div>
             <div class="timeline-meta"><strong>Auditoría Paso 6:</strong> URL de causa resuelta ${escapeHtml(caseUrlResolvedCount)} · URL de expediente/eBook resuelta ${escapeHtml(caseDetailUrlResolvedCount)} · URL documental encontrada ${escapeHtml(documentsUrlResolvedCount)} · Rutas sin resolver ${escapeHtml(routeUnresolvedCount)}</div>
             <div class="timeline-meta">Docs detectados: ${escapeHtml(documentsDetectedTotal)} · Descargados: ${escapeHtml(documentsDownloadedTotal)} · Guardados: ${escapeHtml(documentsSavedTotal)} · Clasificados: ${escapeHtml(documentsClassifiedTotal)}</div>
-            <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
+            <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Pendientes: ${escapeHtml(causesPendingClassification)} · Fallidas: ${escapeHtml(causesFailedClassification)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
             <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
@@ -8327,12 +8380,16 @@
         pjud_tribunal: tribunal || null,
         pjud_materia: importData.materia || importData.basic?.materia || null,
       }, importData);
+      const classification = buildClassificationEnvelope({
+        ...importData,
+        tribunal,
+      }, destinationMap);
       return {
         [C.k_client_id]: matchingClient?.[C.c_id] || null,
         [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
         [C.k_court]: tribunal || corte || null,
         [C.k_rol]: rolComposite,
-        [C.k_subject]: importData.materia || importData.basic?.materia || null,
+        [C.k_subject]: classification.competenciaMateria || importData.materia || importData.basic?.materia || null,
         [C.k_fee_total]: null,
         [C.k_fee_type]: 'Fijo',
         [C.k_payment]: 'Único pago',
@@ -8346,7 +8403,7 @@
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         pjud_case_key: importData.pjudCaseKey || null,
-        pjud_materia: importData.materia || importData.basic?.materia || null,
+        pjud_materia: classification.competenciaMateria || importData.materia || importData.basic?.materia || null,
         pjud_submateria: importData.submateria || null,
         pjud_tribunal: tribunal || null,
         pjud_corte: corte || null,
@@ -8393,6 +8450,23 @@
           pjud_ebook_url: routeData.pjudEbookUrl,
           pjud_documents_url: routeData.pjudDocumentsUrl,
           content_source: routeData.contentSource,
+          classification: {
+            competencia_materia: classification.competenciaMateria,
+            tribunal: classification.tribunal,
+            rit_letra: classification.roleStructure.ritLetra || null,
+            rol_numero: classification.roleStructure.rolNumero || null,
+            rol_anio: classification.roleStructure.rolAnio || null,
+            caratula: classification.caratula || null,
+            tipo_procedimiento: classification.tipoProcedimiento,
+            estado_clasificacion: classification.estadoClasificacion,
+            carpeta_destino: classification.carpetaDestino,
+            fuente_origen: 'PJUD',
+            batch_id: importBatchId,
+            clasificacion_automatica: classification.clasificacionAutomatica,
+            criterio_clasificacion: classification.criterioClasificacion,
+            bandeja_estado: classification.bandejaEstado,
+            motivo_no_clasificada: classification.motivoNoClasificada,
+          },
         },
       };
     }
@@ -8437,6 +8511,7 @@
       const materia = rowPayload?.pjud_materia || safeFallback.materia || basicFallback.materia || '';
       const estadoProcesal = rowPayload?.pjud_estado_procesal || safeFallback.estadoProcesal || basicFallback.estadoProcesal || '';
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
+      const classification = rowPayload?.pjud_traceability?.classification || safeFallback?.classification || {};
       return {
         ...safeFallback,
         source: 'pjud_excel_mis_causas',
@@ -8463,6 +8538,7 @@
         representedClientName: rowPayload?.pjud_represented_client || safeFallback.representedClientName || 'Cliente por inferir desde PJUD',
         representedClientRole: rowPayload?.pjud_client_role || safeFallback.representedClientRole || 'Por definir',
         representedByLawyer: safeFallback.representedByLawyer ?? true,
+        classification,
         parties: safeFallback.parties || [],
         demandantes: safeFallback.demandantes || [],
         demandados: safeFallback.demandados || [],
@@ -8596,6 +8672,16 @@
         persistence.workspaceStore && persistence.workspaceKey ? `${persistence.workspaceStore}:${persistence.workspaceKey}` : null,
         persistence.documentContainer ? `documentContainers.${persistence.documentContainer}` : null,
       ].filter(Boolean);
+      const classification = rowPayload?.pjud_traceability?.classification || safeImportData?.classification || {};
+      const classificationValid = Boolean(
+        classification.competencia_materia
+        && classification.tribunal
+        && classification.rit_letra
+        && classification.rol_numero
+        && classification.rol_anio
+        && Array.isArray(classification.carpeta_destino)
+        && classification.carpeta_destino.length > 0
+      );
       return {
         pjudCaseKey: rowPayload?.pjud_case_key || safeImportData?.pjudCaseKey || null,
         pjudCaseUrl: routeData.pjudCaseUrl,
@@ -8617,6 +8703,11 @@
         hasExternalLinks: originTypes.has('sourceUrl') || originTypes.has('sourcePageUrl'),
         hasPlaceholderContent: originTypes.has('content'),
         hasStorageFile: hasBinaryStorage,
+        classificationState: classification.estado_clasificacion || 'pendiente_de_clasificacion',
+        classificationBucket: classification.bandeja_estado || 'Pendientes de clasificación',
+        classificationValid,
+        classificationReason: classification.criterio_clasificacion || null,
+        classificationFailureReason: classification.motivo_no_clasificada || null,
         finalCaseStatus: routeData.routeStatus !== 'ruta_resuelta'
           ? 'sin_ruta_documental'
           : downloadedDocuments.length === 0
@@ -8845,6 +8936,8 @@
       let causesWithClassificationError = 0;
       let causesWithClassificationComplete = 0;
       let causesWithClassificationPartial = 0;
+      let causesPendingClassification = 0;
+      let causesFailedClassification = 0;
       let documentsDetectedTotal = 0;
       let documentsDownloadedTotal = 0;
       let documentsSavedTotal = 0;
@@ -9022,6 +9115,8 @@
             if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
             else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
             if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+            if (!rowAudit.classificationValid || rowAudit.classificationState !== 'clasificada_correctamente') causesPendingClassification += 1;
+            if (rowAudit.classificationState === 'fallida_de_clasificacion') causesFailedClassification += 1;
             setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
             setMassiveAuditStep(8, 'running', 'Clasificando contenido');
           } catch (materializationError) {
@@ -9082,6 +9177,11 @@
             pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
             contentSource: rowAudit.contentSource,
             finalCaseStatus: rowAudit.finalCaseStatus,
+            classificationState: rowAudit.classificationState,
+            classificationBucket: rowAudit.classificationBucket,
+            classificationValid: rowAudit.classificationValid,
+            classificationReason: rowAudit.classificationReason,
+            classificationFailureReason: rowAudit.classificationFailureReason,
             traceability: {
               stage: rowAudit.materialized ? 'updated_and_materialized' : 'updated_without_materialization',
               linked_to_case: true,
@@ -9158,6 +9258,8 @@
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
                 else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+                if (!rowAudit.classificationValid || rowAudit.classificationState !== 'clasificada_correctamente') causesPendingClassification += 1;
+                if (rowAudit.classificationState === 'fallida_de_clasificacion') causesFailedClassification += 1;
                 setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
                 setMassiveAuditStep(8, 'running', 'Clasificando contenido');
               } catch (materializationError) {
@@ -9218,6 +9320,11 @@
                 pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
                 contentSource: rowAudit.contentSource,
                 finalCaseStatus: rowAudit.finalCaseStatus,
+                classificationState: rowAudit.classificationState,
+                classificationBucket: rowAudit.classificationBucket,
+                classificationValid: rowAudit.classificationValid,
+                classificationReason: rowAudit.classificationReason,
+                classificationFailureReason: rowAudit.classificationFailureReason,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
@@ -9257,6 +9364,8 @@
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments === rowAudit.downloadedDocuments) causesWithClassificationComplete += 1;
                 else if (rowAudit.downloadedDocuments > 0) causesWithClassificationPartial += 1;
                 if (rowAudit.downloadedDocuments > 0 && rowAudit.classifiedDocuments < rowAudit.downloadedDocuments) causesWithClassificationError += 1;
+                if (!rowAudit.classificationValid || rowAudit.classificationState !== 'clasificada_correctamente') causesPendingClassification += 1;
+                if (rowAudit.classificationState === 'fallida_de_clasificacion') causesFailedClassification += 1;
                 setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
                 setMassiveAuditStep(8, 'running', 'Clasificando contenido');
               } catch (materializationError) {
@@ -9311,6 +9420,11 @@
                 pjudDocumentsUrl: rowAudit.pjudDocumentsUrl,
                 contentSource: rowAudit.contentSource,
                 finalCaseStatus: rowAudit.finalCaseStatus,
+                classificationState: rowAudit.classificationState,
+                classificationBucket: rowAudit.classificationBucket,
+                classificationValid: rowAudit.classificationValid,
+                classificationReason: rowAudit.classificationReason,
+                classificationFailureReason: rowAudit.classificationFailureReason,
                 traceability: {
                   stage: rowAudit.materialized ? 'inserted_and_materialized' : 'inserted_without_materialization',
                   linked_to_case: true,
@@ -9421,6 +9535,8 @@
         documentsClassifiedTotal,
         causesWithClassificationComplete,
         causesWithClassificationPartial,
+        causesPendingClassification,
+        causesFailedClassification,
         causesWithDownloadError,
         causesWithClassificationError,
         duplicates: duplicated,
@@ -9470,6 +9586,8 @@
           documentsUrlResolvedCount,
           causesWithClassificationComplete,
           causesWithClassificationPartial,
+          causesPendingClassification,
+          causesFailedClassification,
           causesWithDownloadError,
           causesWithClassificationError,
           duplicated,
@@ -9780,6 +9898,8 @@
             documentsUrlResolvedCount: Number(stats.documentsUrlResolvedCount || 0),
             causesWithClassificationComplete: Number(stats.causesWithClassificationComplete || 0),
             causesWithClassificationPartial: Number(stats.causesWithClassificationPartial || 0),
+            causesPendingClassification: Number(stats.causesPendingClassification || 0),
+            causesFailedClassification: Number(stats.causesFailedClassification || 0),
             causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
             causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
             errors: Number(stats.rejected || 0),
