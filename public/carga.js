@@ -80,7 +80,10 @@ function createInitialAuditState() {
       success: 0,
       partial: 0,
       failed: 0,
-      pending: 0
+      pending: 0,
+      autoClassified: 0,
+      pendingClassification: 0,
+      withObservation: 0
     },
     causes: [],
     currentCause: null,
@@ -94,7 +97,8 @@ function createInitialAuditState() {
       paused: false,
       pauseReason: '',
       resumeFromCauseId: null
-    }
+    },
+    finalWarningReason: 'Sin advertencias'
   }
 }
 
@@ -207,6 +211,10 @@ function refreshAuditUI(root, state) {
   root.querySelector('#massiveBatchPartial').textContent = String(state.batch.partial)
   root.querySelector('#massiveBatchFailed').textContent = String(state.batch.failed)
   root.querySelector('#massiveBatchPending').textContent = String(state.batch.pending)
+  root.querySelector('#massiveBatchAutoClassified').textContent = String(state.batch.autoClassified || 0)
+  root.querySelector('#massiveBatchPendingClassification').textContent = String(state.batch.pendingClassification || 0)
+  root.querySelector('#massiveBatchWithObservation').textContent = String(state.batch.withObservation || 0)
+  root.querySelector('#massiveFinalWarningReason').textContent = state.finalWarningReason || 'Sin advertencias'
 
   root.querySelector('#massiveStepList').innerHTML = renderStepList(state)
   root.querySelector('#massiveAuditLog').innerHTML = renderLog(state)
@@ -270,6 +278,10 @@ function buildUI(container) {
               <li>Parciales: <strong id="massiveBatchPartial">0</strong></li>
               <li>Fallidas: <strong id="massiveBatchFailed">0</strong></li>
               <li>Pendientes: <strong id="massiveBatchPending">0</strong></li>
+              <li>Clasificadas automáticamente: <strong id="massiveBatchAutoClassified">0</strong></li>
+              <li>Pendientes de clasificación: <strong id="massiveBatchPendingClassification">0</strong></li>
+              <li>Con observación: <strong id="massiveBatchWithObservation">0</strong></li>
+              <li>Motivo advertencia final: <strong id="massiveFinalWarningReason">Sin advertencias</strong></li>
             </ul>
           </article>
 
@@ -316,7 +328,18 @@ async function executeMassiveFlow(root, state, options = {}) {
   if (!retryOnlyFailed && !resumePaused) {
     state.steps = MASSIVE_STEPS.map((step) => ({ ...step, status: 'pending', detail: '', startedAt: null, endedAt: null, blockReason: '' }))
     state.causes = createMockCauses(totalCauses)
-    state.batch = { total: state.causes.length, processed: 0, success: 0, partial: 0, failed: 0, pending: state.causes.length }
+    state.batch = {
+      total: state.causes.length,
+      processed: 0,
+      success: 0,
+      partial: 0,
+      failed: 0,
+      pending: state.causes.length,
+      autoClassified: 0,
+      pendingClassification: 0,
+      withObservation: 0
+    }
+    state.finalWarningReason = 'Sin advertencias'
     appendAuditLog(state, `Excel cargado correctamente: ${excelFile?.name || 'sin archivo seleccionado (modo simulado)'}.`)
   }
   refreshPjudSessionState(state, { force: true })
@@ -485,13 +508,22 @@ async function executeMassiveFlow(root, state, options = {}) {
       if (cause.classificationStatus === 'success' || cause.classificationStatus === 'warning') continue
       if (cause.hasClassificationWarning && cause.downloadStatus !== 'failed') {
         cause.classificationStatus = 'warning'
+        cause.classificationReason = 'materia principal detectada con observación de consistencia'
+        cause.primaryMatter = 'Civil'
+        cause.incompatibleMatterDuplication = false
         warningClassifications += 1
         appendAuditLog(state, `clasificación pendiente: ${cause.rol}.`)
       } else if (cause.downloadStatus === 'failed') {
         cause.classificationStatus = 'skipped'
+        cause.classificationReason = 'no clasificable por descarga fallida'
+        cause.primaryMatter = null
+        cause.incompatibleMatterDuplication = false
         appendAuditLog(state, `clasificación pendiente: ${cause.rol} (descarga fallida).`)
       } else {
         cause.classificationStatus = 'success'
+        cause.classificationReason = 'clasificación automática válida'
+        cause.primaryMatter = 'Civil'
+        cause.incompatibleMatterDuplication = false
         appendAuditLog(state, `clasificación completada: ${cause.rol}.`)
       }
     }
@@ -509,16 +541,37 @@ async function executeMassiveFlow(root, state, options = {}) {
 
     setRunningStep(9, 'validando consistencia antes de publicar', `${DEFAULT_STEP_DETAIL[9]} para ${queue.length} causas`)
     await delay(250)
-    closeStep(9, failedDownloads > 0 ? 'warning' : 'success', failedDownloads > 0 ? 'completado con advertencia' : 'superado con éxito', failedDownloads > 0 ? 'Algunas causas siguen en pendiente de clasificación/validación' : 'Validación interna completada')
+    const invalidPrimaryMatter = state.causes.filter((cause) => cause.downloadStatus === 'success' && !cause.primaryMatter).length
+    const duplicatedIncompatible = state.causes.filter((cause) => cause.incompatibleMatterDuplication === true).length
+    const pendingClassification = state.causes.filter((cause) => cause.classificationStatus === 'skipped').length
+    const withObservation = state.causes.filter((cause) => cause.classificationStatus === 'warning').length
+    const autoClassified = state.causes.filter((cause) => cause.classificationStatus === 'success').length
+
+    state.batch.autoClassified = autoClassified
+    state.batch.pendingClassification = pendingClassification
+    state.batch.withObservation = withObservation
+
+    const validationWarnings = []
+    if (invalidPrimaryMatter > 0) validationWarnings.push(`${invalidPrimaryMatter} sin materia principal`)
+    if (duplicatedIncompatible > 0) validationWarnings.push(`${duplicatedIncompatible} duplicada(s) en materias incompatibles`)
+    if (pendingClassification > 0) validationWarnings.push(`${pendingClassification} en "Pendiente de clasificación"`)
+
+    if (validationWarnings.length > 0) {
+      state.finalWarningReason = `Validación Fabocat: ${validationWarnings.join('; ')}`
+      closeStep(9, 'warning', 'completado con advertencia', state.finalWarningReason)
+    } else {
+      state.finalWarningReason = 'Sin advertencias'
+      closeStep(9, 'success', 'superado con éxito', 'Validación Fabocat completada: materia principal única y sin duplicidades incompatibles')
+    }
 
     setRunningStep(10, 'consolidando resumen del lote', 'Registrando trazabilidad, estado de publicación y reintentos')
     await delay(150)
 
-    const status10 = state.batch.failed > 0 || state.batch.partial > 0 ? 'warning' : 'success'
+    const status10 = state.batch.failed > 0 || state.batch.partial > 0 || state.finalWarningReason !== 'Sin advertencias' ? 'warning' : 'success'
     const summaryMessage = status10 === 'success'
       ? 'superado con éxito'
-      : `completado con advertencia: ${state.batch.failed} fallida(s), ${state.batch.partial} parcial(es)`
-    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas`)
+      : `completado con advertencia: ${state.batch.failed} fallida(s), ${state.batch.partial} parcial(es), motivo: ${state.finalWarningReason}`
+    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas, ${state.batch.autoClassified} auto-clasificadas, ${state.batch.pendingClassification} pendientes de clasificación, ${state.batch.withObservation} con observación. Motivo final: ${state.finalWarningReason}`)
 
     state.queueCursor = state.queue.length
     state.currentSubaction = state.batch.failed > 0
@@ -527,7 +580,7 @@ async function executeMassiveFlow(root, state, options = {}) {
     state.processOutcome = state.batch.failed > 0
       ? 'Descarga parcial (lote continúa)'
       : (state.batch.partial > 0 ? 'Completado con advertencias de clasificación' : 'Completado con éxito')
-    appendAuditLog(state, `Lote finalizado. Correctas: ${state.batch.success}, parciales: ${state.batch.partial}, fallidas: ${state.batch.failed}.`)
+    appendAuditLog(state, `Lote finalizado. Correctas: ${state.batch.success}, parciales: ${state.batch.partial}, fallidas: ${state.batch.failed}, auto-clasificadas: ${state.batch.autoClassified}, pendientes clasificación: ${state.batch.pendingClassification}, con observación: ${state.batch.withObservation}. Motivo advertencia final: ${state.finalWarningReason}.`)
   } catch (error) {
     const stepId = state.currentStepId || 1
     state.processOutcome = 'Error total del lote'
