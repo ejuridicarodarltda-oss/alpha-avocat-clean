@@ -1703,6 +1703,7 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   const now = new Date().toISOString()
   const operationId = `imp-${Date.now()}`
   const previousSnapshot = structuredClone(next)
+  const classification = importData.classification || {}
 
   next.caratula = importData.basic?.caratula || importData.caratulado || next.caratula
   next.rol = importData.basic?.rol || importData.rol || next.rol
@@ -1741,6 +1742,14 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
     importedAt: importData.basic?.importedAt || now,
     lastSyncAt: importData.basic?.importedAt || now,
   }
+  next.competenciaMateria = classification.competencia_materia || next.competenciaMateria || next.materia || 'PENDIENTE DE CLASIFICACIÓN'
+  next.estadoClasificacion = classification.estado_clasificacion || next.estadoClasificacion || 'pendiente_de_clasificacion'
+  next.carpetaDestino = Array.isArray(classification.carpeta_destino) ? classification.carpeta_destino : (next.carpetaDestino || [])
+  next.rolEstructurado = {
+    rit_letra: classification.rit_letra || '',
+    rol_numero: classification.rol_numero || '',
+    rol_anio: classification.rol_anio || '',
+  }
   next.poderJudicial = {
     link: importData.basic?.link || next.poderJudicial?.link || '',
     sourceType: importData.mode || 'manual',
@@ -1777,7 +1786,16 @@ export function applyImportToDetail(detail = {}, importData = {}, options = {}) 
   ].filter(Boolean)
   allDocuments.forEach((documentRecord) => {
     const before = new Set((next.documents || []).map((item) => item.id))
-    const updated = upsertDocument(next, { ...documentRecord, caseId: next.id, linkedClient: options.primaryClientName || next.cliente })
+    const updated = upsertDocument(next, {
+      ...documentRecord,
+      caseId: next.id,
+      linkedClient: options.primaryClientName || next.cliente,
+      competenciaMateria: next.competenciaMateria,
+      tribunal: next.tribunal,
+      carpetaDestino: next.carpetaDestino,
+      batchId: next.importBatchId || null,
+      estadoClasificacion: next.estadoClasificacion,
+    })
     next.documents = updated.documents
     next.documentContainers = updated.documentContainers
     next.ebookDocumentId = updated.ebookDocumentId
