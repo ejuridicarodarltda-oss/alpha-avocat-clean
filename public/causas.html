@@ -4091,6 +4091,8 @@
           <div class="explorer-state">
             Esta causa fue creada, pero su contenido aún no ha sido vinculado.
             <div class="timeline-meta">cause_id: ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id: ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · actualización real: ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')}</div>
+            <div class="timeline-meta">archivos vinculados: ${escapeHtml(trace.linkedDocuments || 0)} · archivos huérfanos detectados: ${escapeHtml(trace.orphanDocuments || 0)} · último intento de vinculación: ${escapeHtml(trace.lastLinkageAttempt ? formatDate(trace.lastLinkageAttempt) : 'No informado')}</div>
+            ${trace.linkageReason ? `<div class="timeline-meta">motivo exacto: ${escapeHtml(trace.linkageReason)}</div>` : ''}
             ${reasonList ? `<ul class="bullet-list">${reasonList}</ul>` : '<div class="timeline-meta">Motivo exacto no informado (consulta vacía por bug o causa sin archivos).</div>'}
           </div>
         `;
@@ -5095,6 +5097,25 @@
       return Array.isArray(cause?.documents) && cause.documents.some((doc) => hasDocumentSource(doc));
     }
 
+    function buildDocumentLinkagePayload(cause = {}, overrides = {}){
+      const causeId = String(overrides.causeId || cause?.id || '');
+      const expedienteDigitalId = String(overrides.expedienteDigitalId || cause?.expedienteDigitalId || cause?.expedienteDigital?.id || (causeId ? `expediente-${causeId}` : ''));
+      const linked = Boolean(causeId && expedienteDigitalId);
+      return {
+        caseId: causeId,
+        cause_id: causeId,
+        expedienteDigitalId,
+        expediente_digital_id: expedienteDigitalId,
+        batchId: overrides.batchId || cause?.importBatchId || cause?.import_batch_id || state.pendingPjudBatchId || null,
+        batch_id: overrides.batchId || cause?.importBatchId || cause?.import_batch_id || state.pendingPjudBatchId || null,
+        tribunal: overrides.tribunal || cause?.tribunal || '',
+        materia: overrides.materia || cause?.materia || '',
+        fechaDocumento: overrides.fechaDocumento || null,
+        fechaIngreso: overrides.fechaIngreso || cause?.fechaInicio || null,
+        estadoVinculacion: overrides.estadoVinculacion || (linked ? 'vinculado' : 'pendiente_vinculacion'),
+      };
+    }
+
     function getCaseLinkageTrace(cause = {}){
       const documents = Array.isArray(cause?.documents) ? cause.documents : [];
       const realDocuments = documents.filter((doc) => hasDocumentSource(doc));
@@ -5113,26 +5134,39 @@
       ];
       const lastRealUpdate = realDocuments.map((doc) => doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || cause?.updatedAt || '';
       const expedienteDigitalId = cause?.expedienteDigitalId || cause?.expedienteDigital?.id || cause?.expediente || '';
-      const status = realDocuments.length
+      const linkedDocuments = documents.filter((doc) => {
+        const docCauseId = String(doc?.cause_id || doc?.caseId || '').trim();
+        const docExpId = String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim();
+        return Boolean(docCauseId && docExpId && docCauseId === String(cause?.id || ''));
+      });
+      const orphanDocuments = documents.filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim());
+      const lastLinkageAttempt = documents.map((doc) => doc?.linkingAttemptedAt || doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || '';
+      const lastLinkageReason = orphanDocuments.map((doc) => doc?.linkingErrorReason).filter(Boolean).at(-1) || '';
+      const status = realDocuments.length && linkedDocuments.length
         ? 'vinculado'
         : (folderCount > 0 || cause?.expedienteDigital ? 'estructura_creada_contenido_pendiente' : 'sin_expediente_vinculado');
       const reasons = [];
       if (!realDocuments.length) {
         if (!documents.length) reasons.push('causa sin archivos');
         else reasons.push('archivos no descargados o no vinculados');
-        if (!expedienteDigitalId) reasons.push('expediente digital huérfano');
-        if (folderCount > 0) reasons.push('estructura creada, contenido pendiente de vinculación');
       }
+      if (orphanDocuments.length) reasons.push(`documentos descargados sin vinculación: ${orphanDocuments.length}`);
+      if (!expedienteDigitalId) reasons.push('expediente digital huérfano');
+      if (folderCount > 0 && (!realDocuments.length || orphanDocuments.length)) reasons.push('estructura creada, contenido pendiente de vinculación');
       return {
         causeId: cause?.id || '',
         expedienteDigitalId: expedienteDigitalId || 'No informado',
         realDocuments: realDocuments.length,
+        linkedDocuments: linkedDocuments.length,
+        orphanDocuments: orphanDocuments.length,
         realFolders: folderCount,
         ebookAssociated: ebooks.length > 0,
         productionAssociated: productionItems.length > 0,
         lastRealUpdate: lastRealUpdate || '',
         linkageStatus: status,
         emptyReasons: reasons,
+        lastLinkageAttempt: lastLinkageAttempt || '',
+        linkageReason: lastLinkageReason || '',
       };
     }
 
@@ -7903,6 +7937,7 @@
             destinationModule: 'Causas',
             caseId: current?.id || null,
             linkedClient: current?.cliente || '',
+            ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
             pjudTraceability: {
               batch_id: current?.importBatchId || current?.import_batch_id || state.pendingPjudBatchId || null,
               case_id: current?.id || null,
@@ -7992,6 +8027,7 @@
           destinationModule: 'Causas',
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
         })
         : [];
       const queuedDocuments = queuedDocs.length
@@ -8002,10 +8038,12 @@
           destinationModule: 'Causas',
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
         }))
         : [];
       const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => ({
         ...doc,
+        ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
         pjudTraceability: {
           ...(doc.pjudTraceability || {}),
           batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
@@ -8066,6 +8104,7 @@
           observation: 'Archivo descargado por el usuario desde PJUD (lote).',
           origin: 'Archivo descargado por usuario (PJUD lote)',
           destinationModule: 'Causas',
+          estadoVinculacion: 'pendiente_vinculacion',
         })
         : [];
       const queuedDocuments = queuedDocsPartition.documentCandidates.length
@@ -8160,6 +8199,7 @@
           ...item.document,
           caseId,
           linkedClient: selectedCase.cliente,
+          ...buildDocumentLinkagePayload(selectedCase, { estadoVinculacion: 'vinculado' }),
           pjudTraceability: {
             ...(item.document.pjudTraceability || {}),
             batch_id: selectedCase.importBatchId || selectedCase.import_batch_id || state.pendingPjudBatchId || null,
@@ -9480,8 +9520,9 @@
       }
       setMassiveAuditStep(4, 'success', 'Recorrido de causas completado');
       setMassiveAuditStep(5, 'success', 'Detección de documentos completada');
-      setMassiveAuditStep(6, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Descarga completada con advertencias' : 'Descarga completada con éxito');
-      setMassiveAuditStep(7, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Guardado completado con advertencias' : 'Guardado completado con éxito');
+      const linkageIntegrityFailed = causesWithoutDownloadedContent > 0 || causesWithClassificationError > 0;
+      setMassiveAuditStep(6, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Descarga completada con advertencias de vinculación' : 'Descarga completada con éxito');
+      setMassiveAuditStep(7, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Guardado completado con advertencias de vinculación' : 'Guardado completado con éxito');
       setMassiveAuditStep(8, causesWithClassificationError ? 'warning' : 'success', causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
@@ -9577,7 +9618,7 @@
       }
 
       await updatePjudBatchMetadata(batch?.id || null, {
-        status: discardedRows.length ? 'completed_with_warnings' : 'completed',
+        status: (discardedRows.length || linkageIntegrityFailed) ? 'completed_with_warnings' : 'completed',
         imported,
         created,
         updated,
@@ -10382,6 +10423,7 @@
           observation: $('doc_observation').value.trim(),
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
           origin: 'Registro manual',
           placeholderText: [
             'Documento generado manualmente desde Alpha Avocat.',
