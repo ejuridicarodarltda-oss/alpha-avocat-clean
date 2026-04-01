@@ -2492,6 +2492,8 @@
       rectificationValidation: null,
       missingIdentifierWarnings: new Set(),
       massiveAudit: null,
+      pjudMisCausasWindow: null,
+      pendingPjudRouteDiagnostics: null,
     };
 
     const MASSIVE_STEP_STATUS_LABELS = {
@@ -2560,6 +2562,118 @@
         const closeLabel = status === 'success' ? 'completado con éxito' : (status === 'failed' ? 'fallido' : 'completado con advertencia');
         pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}: ${step.name}.`);
       }
+    }
+
+    function createDefaultRouteDiagnostics(){
+      return {
+        totalRowsDetected: 0,
+        rowsWithHref: 0,
+        rowsWithOnclick: 0,
+        rowsConvertedToRoute: 0,
+        rowsDiscarded: 0,
+        discardedReasons: [],
+      };
+    }
+
+    function pushRouteDiscardReason(diag, rowIndex, reason, snapshot = {}){
+      if (!diag) return;
+      diag.rowsDiscarded += 1;
+      diag.discardedReasons.push({
+        rowIndex: Number(rowIndex || 0),
+        reason: String(reason || 'motivo_desconocido'),
+        snapshot: snapshot || {},
+      });
+    }
+
+    function parsePjudFieldsFromVisibleText(visibleText = ''){
+      const text = String(visibleText || '');
+      const parse = (regex) => {
+        const match = text.match(regex);
+        return normalizeIdentifierValue(match?.[1] || '');
+      };
+      return {
+        rol: parse(/\brol\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
+        rit: parse(/\brit\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
+        ruc: parse(/\bruc\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
+        tribunal: parse(/(?:tribunal|juzgado|corte)\s*[:\-]?\s*([^\n|·;,]+)/i),
+        caratula: parse(/(?:caratula|carátula)\s*[:\-]?\s*([^\n|·;,]+)/i),
+        materia: parse(/\bmateria\s*[:\-]?\s*([^\n|·;,]+)/i),
+      };
+    }
+
+    function renderRouteDiagnosticsPanel(){
+      const diagnostics = state.pendingPjudRouteDiagnostics;
+      if (!diagnostics) return '';
+      const discarded = (diagnostics.discardedReasons || []).slice(0, 20);
+      return `
+        <div class="selection-card">
+          <strong>Diagnóstico técnico de extracción PJUD</strong>
+          <div class="timeline-meta">Filas detectadas en “Mis Causas”: ${escapeHtml(diagnostics.totalRowsDetected || 0)}</div>
+          <div class="timeline-meta">Filas con href: ${escapeHtml(diagnostics.rowsWithHref || 0)}</div>
+          <div class="timeline-meta">Filas con onclick: ${escapeHtml(diagnostics.rowsWithOnclick || 0)}</div>
+          <div class="timeline-meta">Filas convertidas en rutas válidas: ${escapeHtml(diagnostics.rowsConvertedToRoute || 0)}</div>
+          <div class="timeline-meta">Filas descartadas: ${escapeHtml(diagnostics.rowsDiscarded || 0)}</div>
+          ${discarded.length ? `<div class="timeline-meta" style="margin-top:8px;"><strong>Motivos de descarte:</strong> ${discarded.map((entry) => `Fila ${escapeHtml(entry.rowIndex)}: ${escapeHtml(entry.reason)}`).join(' · ')}</div>` : '<div class="timeline-meta">Sin descartes reportados.</div>'}
+        </div>
+      `;
+    }
+
+    function buildCauseQueueFromPjudDomRows(rows = [], diagnostics = createDefaultRouteDiagnostics()){
+      const queue = [];
+      rows.forEach((row, idx) => {
+        const rowIndex = Number(row?.rowIndex || idx + 1);
+        const routeUrl = row?.routeUrl || '';
+        if (!routeUrl || !isHttpUrl(routeUrl)) {
+          pushRouteDiscardReason(diagnostics, rowIndex, 'sin enlace navegable', row);
+          return;
+        }
+        const visible = row.visibleText || '';
+        const parsed = parsePjudFieldsFromVisibleText(visible);
+        const roleLabel = row.rol || parsed.rol || '';
+        const ritLabel = row.rit || parsed.rit || '';
+        const rucLabel = row.ruc || parsed.ruc || '';
+        const tribunalLabel = row.tribunal || parsed.tribunal || '';
+        const caratulaLabel = row.caratula || parsed.caratula || '';
+        if (!roleLabel && !ritLabel && !rucLabel && !tribunalLabel && !caratulaLabel) {
+          pushRouteDiscardReason(diagnostics, rowIndex, 'fila no corresponde a causa válida', row);
+          return;
+        }
+        diagnostics.rowsConvertedToRoute += 1;
+        queue.push({
+          mode: 'massive_auto',
+          origin: 'pjud_dom_mis_causas',
+          sourceUrl: routeUrl,
+          routeUrl,
+          routeAction: row.routeAction || '',
+          rawText: visible,
+          pjudCaseKey: row.caseKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
+          rol: roleLabel,
+          rit: ritLabel,
+          ruc: rucLabel,
+          tribunal: tribunalLabel,
+          materia: row.materia || parsed.materia || '',
+          caratulado: caratulaLabel,
+          basic: {
+            rol: roleLabel,
+            rit: ritLabel,
+            ruc: rucLabel,
+            tribunal: tribunalLabel,
+            caratula: caratulaLabel,
+            materia: row.materia || parsed.materia || '',
+            link: routeUrl,
+          },
+          pjudRouteAudit: {
+            rowIndex,
+            rowVisibleText: visible,
+            href: row.href || '',
+            onclick: row.onclick || '',
+            dataset: row.dataset || {},
+            routeUrl,
+            routeAction: row.routeAction || '',
+          },
+        });
+      });
+      return queue;
     }
 
     const KARDEX_GROUPS = [
@@ -7109,6 +7223,68 @@
       return query ? `${base}?${query}` : base;
     }
 
+    function safeExtractMisCausasRowsFromWindow(misCausasWindow){
+      const diagnostics = createDefaultRouteDiagnostics();
+      if (!misCausasWindow || misCausasWindow.closed) {
+        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'ventana_mis_causas_no_disponible' });
+        return { queue: [], diagnostics, error: 'No hay ventana activa de Mis Causas para extraer filas.' };
+      }
+      let doc = null;
+      try {
+        doc = misCausasWindow.document;
+      } catch (error) {
+        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'acceso_dom_bloqueado_por_origen' });
+        return {
+          queue: [],
+          diagnostics,
+          error: 'No se pudo leer el DOM de Mis Causas desde esta pestaña (restricción de origen del navegador).',
+        };
+      }
+      if (!doc?.body) {
+        pushRouteDiscardReason(diagnostics, 0, 'PJUD devolvió vista vacía');
+        return { queue: [], diagnostics, error: 'La vista de Mis Causas está vacía o no terminó de cargar.' };
+      }
+
+      const candidateRows = [...doc.querySelectorAll('tr, [role="row"], .row, .table-row')]
+        .filter((node) => {
+          const text = String(node?.innerText || '').trim();
+          return text.length >= 10 && /(rol|rit|ruc|tribunal|caratula|carátula|causa|materia)/i.test(text);
+        });
+      diagnostics.totalRowsDetected = candidateRows.length;
+      if (!candidateRows.length) {
+        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'sin_filas_detectadas' });
+        return { queue: [], diagnostics, error: 'No se detectaron filas de causas en el DOM visible de Mis Causas.' };
+      }
+
+      const extractedRows = candidateRows.map((rowNode, index) => {
+        const anchor = rowNode.querySelector('a[href]');
+        const clickable = rowNode.querySelector('button,[onclick],[data-href],a') || rowNode;
+        const href = String(anchor?.getAttribute('href') || clickable?.getAttribute?.('href') || '').trim();
+        const onclick = String(clickable?.getAttribute?.('onclick') || rowNode.getAttribute?.('onclick') || '').trim();
+        if (href) diagnostics.rowsWithHref += 1;
+        if (onclick) diagnostics.rowsWithOnclick += 1;
+        const normalizedHref = href ? new URL(href, misCausasWindow.location.href).toString() : '';
+        const onclickUrlMatch = onclick.match(/https?:\/\/[^\s'"`]+/i);
+        const onclickUrl = onclickUrlMatch?.[0] || '';
+        const routeUrl = normalizedHref || onclickUrl || '';
+        return {
+          rowIndex: index + 1,
+          visibleText: String(rowNode.innerText || '').trim(),
+          href: normalizedHref,
+          onclick,
+          routeUrl,
+          routeAction: routeUrl ? 'href|onclick' : '',
+          dataset: rowNode?.dataset ? { ...rowNode.dataset } : {},
+        };
+      });
+
+      const queue = buildCauseQueueFromPjudDomRows(extractedRows, diagnostics);
+      const error = queue.length
+        ? ''
+        : 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.';
+      return { queue, diagnostics, error };
+    }
+
     async function connectWithPjud(){
       const PJUD_MIS_CAUSAS_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
       const context = resolvePjudFlowContext();
@@ -7119,6 +7295,7 @@
           setMessage('importMsg', 'El navegador bloqueó la apertura de OJV/Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
           return null;
         }
+        state.pjudMisCausasWindow = popupMassive;
         setMessage('importMsg', 'Conexión PJUD abierta para el lote masivo. Continúa con Paso 3: Validar lote.', 'ok');
         return { mode: 'massive_auto', sourceUrl: PJUD_MIS_CAUSAS_URL };
       }
@@ -7141,6 +7318,7 @@
         setMessage('importMsg', 'El navegador bloqueó la apertura de OJV/Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
         return importData;
       }
+      state.pjudMisCausasWindow = popup;
       logPjudTrace('flujo-conexion-real-iniciado', { step1: 'causa-activa', step2: 'identificadores', step3: PJUD_MIS_CAUSAS_URL, identifiers });
       setMessage('importMsg', 'OJV / Mis Causas abierto en nueva pestaña. Inicia sesión con ClaveÚnica para continuar el flujo PJUD real.', 'ok');
       setDetailStatus(`Identificadores judiciales preparados para Mis Causas: ${resolvedIdentity}.`, 'ok');
@@ -8058,6 +8236,7 @@
             <strong>Bitácora breve de eventos</strong>
             <ul class="timeline" style="margin-top:8px;">${renderMassiveAuditLog(audit)}</ul>
           </div>
+          ${renderRouteDiagnosticsPanel()}
         </div>
       `;
     }
@@ -9306,6 +9485,7 @@
 
     async function analyzeBatchImport(){
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      state.pendingPjudRouteDiagnostics = null;
       if (excelFile) {
         try {
           setMassiveAuditStep(3, 'running', 'Resolviendo rutas PJUD desde manifiesto Excel');
@@ -9345,15 +9525,22 @@
         }
       }
       state.pendingPjudWorkbook = null;
-      state.pendingBatchImports = [];
-      setMassiveAuditStep(3, 'warning', 'Sin manifiesto Excel; se usará resolución directa de rutas');
+      const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      state.pendingPjudRouteDiagnostics = diagnostics;
+      state.pendingBatchImports = queue;
+      setMassiveAuditStep(3, queue.length ? 'success' : 'warning', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
       renderBatchImportPreview([], null);
-      setMessage('importMsg', 'No se cargó Excel auxiliar. Puedes continuar: el motor masivo resolverá rutas reales en PJUD (Mis Causas/expediente/documentos) con sesión activa.', 'ok');
+      if (!queue.length) {
+        setMessage('importMsg', error || 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
+        return;
+      }
+      setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
     }
 
     function openMassiveDownloadModal(){
       renderMassiveExcelBasePanel();
       state.massiveAudit = createDefaultMassiveAuditState();
+      state.pendingPjudRouteDiagnostics = null;
       renderImportProgressPreview({ chunkNumber: 0, totalChunks: 0, processed: 0, totalItems: 0, currentStepStatus: 'pending' });
       openManagedModal('modalDescargaMasivaPjud');
     }
@@ -9423,6 +9610,8 @@
       state.pendingPjudWorkbook = null;
       state.pendingMassiveExcelBase = null;
       state.pendingPjudBatchId = null;
+      state.pendingPjudRouteDiagnostics = null;
+      state.pjudMisCausasWindow = null;
       state.manualSelectedCauseId = '';
       state.massiveAudit = createDefaultMassiveAuditState();
       lockImportModalInteractions(false);
@@ -9548,12 +9737,6 @@
 
     async function transferBatchImport(){
       lockImportModalInteractions(true);
-      renderImportProgressPreview({
-        currentStepId: 4,
-        currentStepStatus: 'running',
-        stepDetail: 'Recorriendo causas del lote',
-        currentSubaction: 'abriendo causa',
-      });
       if (!state.pendingBatchImports.length && !state.pendingPjudWorkbook) {
         await analyzeBatchImport();
       }
@@ -9674,16 +9857,22 @@
       if (!items.length) {
         renderImportProgressPreview({
           currentStepId: 4,
-          currentStepStatus: 'waiting',
-          stepDetail: 'Sin causas disponibles en cola',
-          waitingReason: 'esperando resolución de ruta',
+          currentStepStatus: 'failed',
+          stepDetail: 'Lote no inicializado correctamente: sin causas encoladas',
+          waitingReason: 'error de extracción de rutas',
           currentSubaction: 'sin causas para procesar',
         });
-        setMessage('importMsg', 'Sin ruta documental: no hay causas del lote para resolver URL PJUD. Carga un manifiesto auxiliar o selecciona causas con identificadores judiciales.', 'warn');
+        setMessage('importMsg', 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
         lockImportModalInteractions(false);
         return;
       }
 
+      renderImportProgressPreview({
+        currentStepId: 4,
+        currentStepStatus: 'running',
+        stepDetail: 'Recorriendo causas del lote',
+        currentSubaction: 'abriendo causa',
+      });
       let created = 0;
       let updated = 0;
       let failures = 0;
