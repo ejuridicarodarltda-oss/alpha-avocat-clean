@@ -3927,7 +3927,7 @@
     }
 
     function getExplorerState(cause){
-      if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[] };
+      if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[], trace:getCaseLinkageTrace({}) };
       const explorerSignature = [
         cause.id,
         (cause.documents || []).length,
@@ -3977,7 +3977,7 @@
         }
       }
       const items = currentNode?.children?.map((nodeId) => model.nodeMap[nodeId]).filter(Boolean) || [];
-      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs };
+      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs, trace:getCaseLinkageTrace(cause) };
     }
 
     function renderExplorerTree(model, nodeId, depth = 0){
@@ -4078,6 +4078,7 @@
 
     function renderDocumentExplorer(cause){
       const explorer = getExplorerState(cause);
+      const trace = explorer.trace || getCaseLinkageTrace(cause);
       if (explorer.status === 'loading') {
         return '<div class="explorer-state">Cargando archivos del expediente…</div>';
       }
@@ -4085,7 +4086,14 @@
         return `<div class="explorer-state error">No fue posible cargar la estructura documental de esta causa.<div class="timeline-meta">${escapeHtml(explorer.error || 'Revise la estructura del expediente digital.')}</div></div>`;
       }
       if (explorer.status === 'empty' || !explorer.model) {
-        return '<div class="explorer-state">Esta causa aún no contiene archivos en Expedientes Digitales.</div>';
+        const reasonList = (trace.emptyReasons || []).map((reason) => `<li>${escapeHtml(reason)}</li>`).join('');
+        return `
+          <div class="explorer-state">
+            Esta causa fue creada, pero su contenido aún no ha sido vinculado.
+            <div class="timeline-meta">cause_id: ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id: ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · actualización real: ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')}</div>
+            ${reasonList ? `<ul class="bullet-list">${reasonList}</ul>` : '<div class="timeline-meta">Motivo exacto no informado (consulta vacía por bug o causa sin archivos).</div>'}
+          </div>
+        `;
       }
       const currentNode = explorer.currentNode || explorer.model.nodeMap[explorer.model.rootId];
       const isPjudFolderSelected = isPjudImportedFolderNode(currentNode);
@@ -4149,6 +4157,7 @@
                 <div>
                   <h5 class="segment-title">${escapeHtml(currentNode?.name || 'Expedientes digitales')}${isPjudFolderSelected ? ' · Contenedor PJUD' : ''}</h5>
                   <p class="segment-copy">Vista principal del expediente con scroll, íconos por tipo y apertura por clic.</p>
+                  <p class="timeline-meta">Trazabilidad: cause_id ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · carpetas reales ${escapeHtml(trace.realFolders)} · archivos reales ${escapeHtml(trace.realDocuments)} · ebook ${trace.ebookAssociated ? 'sí' : 'no'} · producción ${trace.productionAssociated ? 'sí' : 'no'} · última actualización real ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')} · estado ${escapeHtml(trace.linkageStatus)}</p>
                 </div>
                 <span class="badge badge-active">${explorer.items.length} elemento(s)</span>
               </div>
@@ -5082,10 +5091,56 @@
       );
     }
 
+    function hasRealDocumentContent(cause = {}){
+      return Array.isArray(cause?.documents) && cause.documents.some((doc) => hasDocumentSource(doc));
+    }
+
+    function getCaseLinkageTrace(cause = {}){
+      const documents = Array.isArray(cause?.documents) ? cause.documents : [];
+      const realDocuments = documents.filter((doc) => hasDocumentSource(doc));
+      const ebooks = realDocuments.filter((doc) => {
+        const category = String(doc?.category || '').toLowerCase();
+        const name = String(doc?.name || '').toLowerCase();
+        return category.includes('ebook') || name.includes('ebook');
+      });
+      const folderCount = Object.values(cause?.documentContainers || {}).reduce((acc, container) => {
+        const ids = Array.isArray(container?.docIds) ? container.docIds.filter(Boolean).length : 0;
+        return acc + (ids > 0 ? 1 : 0);
+      }, 0);
+      const productionItems = [
+        ...(Array.isArray(cause?.escritos) ? cause.escritos : []),
+        ...(Array.isArray(cause?.asesorias) ? cause.asesorias : []),
+      ];
+      const lastRealUpdate = realDocuments.map((doc) => doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || cause?.updatedAt || '';
+      const expedienteDigitalId = cause?.expedienteDigitalId || cause?.expedienteDigital?.id || cause?.expediente || '';
+      const status = realDocuments.length
+        ? 'vinculado'
+        : (folderCount > 0 || cause?.expedienteDigital ? 'estructura_creada_contenido_pendiente' : 'sin_expediente_vinculado');
+      const reasons = [];
+      if (!realDocuments.length) {
+        if (!documents.length) reasons.push('causa sin archivos');
+        else reasons.push('archivos no descargados o no vinculados');
+        if (!expedienteDigitalId) reasons.push('expediente digital huérfano');
+        if (folderCount > 0) reasons.push('estructura creada, contenido pendiente de vinculación');
+      }
+      return {
+        causeId: cause?.id || '',
+        expedienteDigitalId: expedienteDigitalId || 'No informado',
+        realDocuments: realDocuments.length,
+        realFolders: folderCount,
+        ebookAssociated: ebooks.length > 0,
+        productionAssociated: productionItems.length > 0,
+        lastRealUpdate: lastRealUpdate || '',
+        linkageStatus: status,
+        emptyReasons: reasons,
+      };
+    }
+
     function computeSummaryMetricSources(){
       const safeCases = getAllCases();
       const informacionBase = safeCases.length;
       const expedientesDigitales = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
         const countByContainers = Object.values(item?.documentContainers || {}).reduce((containerAcc, container) => {
           const ids = Array.isArray(container?.docIds) ? container.docIds.filter(Boolean).length : 0;
           return containerAcc + ids;
@@ -5094,21 +5149,25 @@
         return acc + Math.max(countByContainers, countByDocuments);
       }, 0);
       const asesoriasActivas = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
         const asesorias = Array.isArray(item?.asesorias) ? item.asesorias : [];
         return acc + asesorias.filter((asesoria) => String(asesoria?.estado || '').toLowerCase() !== 'cerrada').length;
       }, 0);
-      const escritosEnCurso = safeCases.reduce((acc, item) => acc + (item?.escritos || []).filter((w) => {
-        const estado = String(w?.estado || '').toLowerCase();
-        return estado.includes('revisión') || estado.includes('revision') || estado.includes('borrador') || estado.includes('redacción') || estado.includes('redaccion');
-      }).length, 0);
+      const escritosEnCurso = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
+        return acc + (item?.escritos || []).filter((w) => {
+          const estado = String(w?.estado || '').toLowerCase();
+          return estado.includes('revisión') || estado.includes('revision') || estado.includes('borrador') || estado.includes('redacción') || estado.includes('redaccion');
+        }).length;
+      }, 0);
       return {
         informacionBase,
         expedientesDigitales,
         produccionEnCurso: escritosEnCurso + asesoriasActivas,
         sources: {
           informacionBase: `${T_CASES} + workspace (causas fusionadas por ID)`,
-          expedientesDigitales: 'documentContainers.docIds + documents con sourceUrl/sourcePageUrl/content',
-          produccionEnCurso: 'escritos en borrador/revisión/redacción + asesorías activas',
+          expedientesDigitales: 'solo causas con documentos reales accesibles (content/sourceUrl/sourcePageUrl)',
+          produccionEnCurso: 'solo producción vinculada a causas con contenido documental real',
         },
       };
     }
