@@ -2560,26 +2560,59 @@
       state.massiveAudit.lastLogEvent = { message, timestamp: Date.now() };
     }
 
-    function pushMassiveAuditSummary(stepId, message = ''){
+    function pushMassiveAuditSummary(stepId, message = '', { entryKey = '', count = 1, replaceCount = false } = {}){
       if (!message) return;
       if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
       const audit = state.massiveAudit;
-      const existingIndex = audit.summarizedLog.findIndex((entry) => entry.stepId === Number(stepId) && entry.message === message);
+      const normalizedKey = String(entryKey || '').trim();
+      const existingIndex = audit.summarizedLog.findIndex((entry) => {
+        if (normalizedKey) return entry.key === normalizedKey;
+        return entry.stepId === Number(stepId) && entry.message === message;
+      });
       if (existingIndex >= 0) {
         const current = audit.summarizedLog[existingIndex];
-        current.count = Number(current.count || 1) + 1;
+        current.message = message;
+        current.count = replaceCount ? Number(count || 1) : (Number(current.count || 1) + Number(count || 1));
         current.updatedAt = Date.now();
+        if (normalizedKey) current.key = normalizedKey;
         audit.summarizedLog.splice(existingIndex, 1);
         audit.summarizedLog.unshift(current);
       } else {
         audit.summarizedLog.unshift({
           stepId: Number(stepId) || null,
+          key: normalizedKey || null,
           message,
-          count: 1,
+          count: Number(count || 1),
           updatedAt: Date.now(),
         });
       }
       audit.summarizedLog = audit.summarizedLog.slice(0, 30);
+    }
+
+    function buildExplicitFinalWarningReason({
+      warning = '',
+      causesWithClassificationPartial = 0,
+      causesWithClassificationError = 0,
+      causesWithDownloadError = 0,
+      discardedRows = 0,
+      duplicatedRows = 0,
+      routeUnresolvedCount = 0,
+      notValidated = 0,
+      fabocatValidation = null,
+    } = {}){
+      const reasons = [];
+      if (Number(causesWithClassificationPartial || 0) > 0) reasons.push(`${Number(causesWithClassificationPartial || 0)} causa(s) pendiente(s) de clasificación`);
+      const validationObservations = Number(causesWithClassificationError || 0) + Number(notValidated || 0);
+      if (validationObservations > 0) reasons.push(`${validationObservations} observación(es) de validación`);
+      if (Number(discardedRows || 0) > 0) reasons.push(`${Number(discardedRows || 0)} descarte(s)`);
+      if (Number(duplicatedRows || 0) > 0) reasons.push(`${Number(duplicatedRows || 0)} duplicado(s)`);
+      if (Number(causesWithDownloadError || 0) > 0) reasons.push(`${Number(causesWithDownloadError || 0)} descarga(s)/guardado(s) con error`);
+      if (Number(routeUnresolvedCount || 0) > 0) reasons.push(`${Number(routeUnresolvedCount || 0)} ruta(s) PJUD sin resolver`);
+      const tribunalOrMateriaIssues = Number(fabocatValidation?.invalidTribunal || 0) + Number(fabocatValidation?.invalidMainMateria || 0) + Number(fabocatValidation?.incompatibleMateria || 0);
+      if (tribunalOrMateriaIssues > 0) reasons.push(`${tribunalOrMateriaIssues} inconsistencia(s) de tribunal/materia`);
+      const normalizedWarning = String(warning || '').trim();
+      if (normalizedWarning) reasons.push(normalizedWarning);
+      return [...new Set(reasons)].join(' · ');
     }
 
     function configureMassiveExecutionMode(mode = 'pjud_direct_session', sourceLabel = ''){
@@ -2605,13 +2638,13 @@
       if (status === 'running') {
         state.massiveAudit.stepRunCounts[step.id] = Number(state.massiveAudit.stepRunCounts[step.id] || 0) + 1;
         pushMassiveAuditLog(`Paso ${step.id} iniciado: ${step.name}.`);
-        pushMassiveAuditSummary(step.id, `Paso ${step.id} ejecutado sobre ${state.massiveAudit.stepRunCounts[step.id]} causa(s).`);
+        pushMassiveAuditSummary(step.id, `Paso ${step.id} ejecutado sobre ${state.massiveAudit.stepRunCounts[step.id]} causa(s).`, { entryKey: `step-${step.id}-runs`, count: state.massiveAudit.stepRunCounts[step.id], replaceCount: true });
       }
       if (['success', 'failed', 'warning'].includes(status)) {
         const closeLabel = status === 'success' ? 'completado con éxito' : (status === 'failed' ? 'fallido' : 'completado con advertencia');
         pushMassiveAuditLog(`Paso ${step.id} ${closeLabel}: ${step.name}.`);
-        pushMassiveAuditSummary(step.id, `Paso ${step.id} ${closeLabel}.`);
-        if (detail && status === 'warning') pushMassiveAuditSummary(step.id, `Paso ${step.id} advertencia: ${detail}`);
+        pushMassiveAuditSummary(step.id, `Paso ${step.id} ${closeLabel}.`, { entryKey: `step-${step.id}-${status}` });
+        if (detail && status === 'warning') pushMassiveAuditSummary(step.id, `Paso ${step.id} advertencia: ${detail}`, { entryKey: `step-${step.id}-warning-detail`, replaceCount: true });
       }
     }
 
@@ -8314,10 +8347,13 @@
     function renderMassiveAuditLog(audit){
       const summaryEntries = audit.summarizedLog || [];
       if (!summaryEntries.length) return '<li class="timeline-item"><div class="timeline-meta">Sin eventos todavía.</div></li>';
-      return summaryEntries.map((entry) => {
-        const repeated = Number(entry.count || 1) > 1 ? ` (x${Number(entry.count || 1)})` : '';
-        return `<li class="timeline-item"><div class="timeline-meta">${escapeHtml(entry.message)}${escapeHtml(repeated)}</div></li>`;
-      }).join('');
+      return summaryEntries
+        .slice()
+        .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0))
+        .map((entry) => {
+          const repeated = Number(entry.count || 1) > 1 ? ` (x${Number(entry.count || 1)})` : '';
+          return `<li class="timeline-item"><div class="timeline-meta">${escapeHtml(entry.message)}${escapeHtml(repeated)}</div></li>`;
+        }).join('');
     }
 
     function renderImportProgressPreview({
@@ -8443,8 +8479,18 @@
       const step8State = Number(documentsClassifiedTotal || 0) > 0
         ? (Number(documentsClassifiedTotal || 0) < Number(documentsSavedTotal || 0) ? 'parcial' : 'superado con éxito')
         : (Number(documentsDownloadedTotal || 0) === 0 ? 'fallido (sin contenido descargado)' : 'fallido');
-      const summaryText = `Resumen final importación PJUD (${executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión'}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${warning ? `Motivo de advertencia: ${warning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
-      setMessage('importMsg', summaryText, warning ? 'warn' : tone);
+      const explicitWarning = buildExplicitFinalWarningReason({
+        warning,
+        causesWithClassificationPartial,
+        causesWithClassificationError,
+        causesWithDownloadError,
+        discardedRows: accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases),
+        duplicatedRows: accounting?.rowsDuplicated ?? duplicatedInternal,
+        routeUnresolvedCount,
+        fabocatValidation,
+      });
+      const summaryText = `Resumen final importación PJUD (${executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión'}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      setMessage('importMsg', summaryText, explicitWarning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
       preview.innerHTML = `
@@ -8466,7 +8512,7 @@
             ${fabocatValidation ? `<div class="timeline-meta"><strong>Validación real en Fabocat:</strong> materia principal inválida ${escapeHtml(fabocatValidation.invalidMainMateria || 0)} · tribunal incompleto ${escapeHtml(fabocatValidation.invalidTribunal || 0)} · rol/rit/año incompleto ${escapeHtml(fabocatValidation.invalidRoleTuple || 0)} · materias incompatibles simultáneas ${escapeHtml(fabocatValidation.incompatibleMateria || 0)}</div>` : ''}
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
-            ${warning ? `<div class="timeline-meta"><strong>${escapeHtml(warning)}</strong></div>` : ''}
+            ${explicitWarning ? `<div class="timeline-meta"><strong>${escapeHtml(explicitWarning)}</strong></div>` : ''}
             <div class="modal-actions" style="margin-top:12px;">
               <button type="button" class="btn" data-import-summary-action="close-view-batch">Cerrar y ver causas del lote</button>
               <button type="button" class="btn btn-primary" data-import-summary-action="close-open-first" ${firstImportedCaseId ? '' : 'disabled aria-disabled="true"'}>Cerrar y abrir primera causa materializada</button>
@@ -9985,7 +10031,16 @@
             warningMessages.push(`Se actualizaron/materializaron ${Number(stats.causesWithStructureCreated || 0)} causas como estructura interna, pero no se descargó contenido real del expediente en el Paso 6.`);
             warningMessages.push('La clasificación automática del Paso 8 no se ejecutó con contenido real porque no hubo archivos descargados.');
           }
-          const warning = warningMessages.join(' ');
+          const warning = buildExplicitFinalWarningReason({
+            warning: warningMessages.join(' '),
+            causesWithClassificationPartial: Number(stats.causesWithClassificationPartial || 0),
+            causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
+            causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
+            discardedRows: Number(stats.accounting?.rowsDiscarded || 0),
+            duplicatedRows: Number(stats.duplicated || 0),
+            routeUnresolvedCount: Number(stats.routeUnresolvedCount || 0),
+            fabocatValidation: stats.fabocatValidation || null,
+          });
           renderImportFinalSummary({
             rowsAnalyzed,
             uniqueCases,
@@ -10198,7 +10253,11 @@
         const warningMessages = [];
         if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
         if (Number(failures || 0) > 0) warningMessages.push(`${Number(failures || 0)} causa(s) con error durante transferencia/importación.`);
-        const warning = warningMessages.join(' ');
+        const warning = buildExplicitFinalWarningReason({
+          warning: warningMessages.join(' '),
+          discardedRows: Number(failures || 0),
+          causesWithDownloadError: Number(failures || 0),
+        });
         const accounting = {
           rowsRead: uniqueCases,
           rowsValid: uniqueCases,
