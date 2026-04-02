@@ -2690,6 +2690,16 @@
 
     function createDefaultRouteDiagnostics(){
       return {
+        inspectedUrl: '',
+        finalUrl: '',
+        tablesDetected: 0,
+        tableRows: [],
+        anchorsDetected: 0,
+        buttonsWithOnclick: 0,
+        selectorsTried: [],
+        winnerSelector: '',
+        containerSnapshot: '',
+        exactFailureReason: '',
         totalRowsDetected: 0,
         rowsWithHref: 0,
         rowsWithOnclick: 0,
@@ -2725,6 +2735,36 @@
       };
     }
 
+    function parseRoleTokens(rawRole = ''){
+      const normalized = normalizeIdentifierValue(rawRole || '').toUpperCase();
+      if (!normalized) {
+        return {
+          roleType: '',
+          roleLetter: '',
+          roleNumber: null,
+          roleYear: null,
+        };
+      }
+      const roleTypeMatch = normalized.match(/\b(RIT|RUC|ROL)\b/);
+      const roleLetterMatch = normalized.match(/\b([A-Z])\s*[-/]/);
+      const roleNumberMatch = normalized.match(/(?:^|[-/\s])(\d{1,9})(?:[-/\s]\d{2,4})?$/);
+      const roleYearMatch = normalized.match(/[-/](\d{2,4})$/);
+      let roleYear = roleYearMatch ? Number(roleYearMatch[1]) : null;
+      if (Number.isFinite(roleYear) && roleYear < 100) roleYear += 2000;
+      return {
+        roleType: roleTypeMatch?.[1] || '',
+        roleLetter: roleLetterMatch?.[1] || '',
+        roleNumber: roleNumberMatch ? Number(roleNumberMatch[1]) : null,
+        roleYear: Number.isFinite(roleYear) ? roleYear : null,
+      };
+    }
+
+    function buildContainerSnapshot(node){
+      if (!node) return '';
+      const html = String(node.outerHTML || node.innerHTML || '').replace(/\s+/g, ' ').trim();
+      return html.slice(0, 900);
+    }
+
     function renderRouteDiagnosticsPanel(){
       const diagnostics = state.pendingPjudRouteDiagnostics;
       if (!diagnostics) return '';
@@ -2732,11 +2772,21 @@
       return `
         <div class="selection-card">
           <strong>Diagnóstico técnico de extracción PJUD</strong>
+          <div class="timeline-meta">URL inspeccionada: ${escapeHtml(diagnostics.inspectedUrl || 'No informada')}</div>
+          <div class="timeline-meta">URL final: ${escapeHtml(diagnostics.finalUrl || diagnostics.inspectedUrl || 'No informada')}</div>
+          <div class="timeline-meta">Tablas detectadas: ${escapeHtml(diagnostics.tablesDetected || 0)}</div>
+          <div class="timeline-meta">Filas por tabla: ${escapeHtml((diagnostics.tableRows || []).join(', ') || '0')}</div>
+          <div class="timeline-meta">Anchors detectados: ${escapeHtml(diagnostics.anchorsDetected || 0)}</div>
+          <div class="timeline-meta">Botones con onclick: ${escapeHtml(diagnostics.buttonsWithOnclick || 0)}</div>
+          <div class="timeline-meta">Selectores probados: ${escapeHtml((diagnostics.selectorsTried || []).join(' · ') || 'Sin registro')}</div>
+          <div class="timeline-meta">Selector ganador: ${escapeHtml(diagnostics.winnerSelector || 'Sin selector ganador')}</div>
           <div class="timeline-meta">Filas detectadas en “Mis Causas”: ${escapeHtml(diagnostics.totalRowsDetected || 0)}</div>
           <div class="timeline-meta">Filas con href: ${escapeHtml(diagnostics.rowsWithHref || 0)}</div>
           <div class="timeline-meta">Filas con onclick: ${escapeHtml(diagnostics.rowsWithOnclick || 0)}</div>
           <div class="timeline-meta">Filas convertidas en rutas válidas: ${escapeHtml(diagnostics.rowsConvertedToRoute || 0)}</div>
           <div class="timeline-meta">Filas descartadas: ${escapeHtml(diagnostics.rowsDiscarded || 0)}</div>
+          <div class="timeline-meta">Razón exacta de fallo: ${escapeHtml(diagnostics.exactFailureReason || 'No aplica')}</div>
+          <div class="timeline-meta">Snapshot técnico: ${escapeHtml(diagnostics.containerSnapshot || 'Sin snapshot')}</div>
           ${discarded.length ? `<div class="timeline-meta" style="margin-top:8px;"><strong>Motivos de descarte:</strong> ${discarded.map((entry) => `Fila ${escapeHtml(entry.rowIndex)}: ${escapeHtml(entry.reason)}`).join(' · ')}</div>` : '<div class="timeline-meta">Sin descartes reportados.</div>'}
         </div>
       `;
@@ -2747,7 +2797,9 @@
       rows.forEach((row, idx) => {
         const rowIndex = Number(row?.rowIndex || idx + 1);
         const routeUrl = row?.routeUrl || '';
-        if (!routeUrl || !isHttpUrl(routeUrl)) {
+        const hasUrl = routeUrl && isHttpUrl(routeUrl);
+        const hasIndirectAction = Boolean(row?.routeActionType && row.routeActionType !== 'none' && row.routeActionPayload);
+        if (!hasUrl && !hasIndirectAction) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'sin enlace navegable', row);
           return;
         }
@@ -2758,22 +2810,39 @@
         const rucLabel = row.ruc || parsed.ruc || '';
         const tribunalLabel = row.tribunal || parsed.tribunal || '';
         const caratulaLabel = row.caratula || parsed.caratula || '';
+        const roleTokens = parseRoleTokens(roleLabel || ritLabel || rucLabel);
         if (!roleLabel && !ritLabel && !rucLabel && !tribunalLabel && !caratulaLabel) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'fila no corresponde a causa válida', row);
           return;
         }
         diagnostics.rowsConvertedToRoute += 1;
+        const normalizedKey = normalizePjudKey([
+          roleTokens.roleType || '',
+          roleTokens.roleLetter || '',
+          roleTokens.roleNumber || '',
+          roleTokens.roleYear || '',
+          tribunalLabel || '',
+          caratulaLabel || '',
+        ].join('|'));
         queue.push({
           mode: 'massive_auto',
           origin: 'pjud_dom_mis_causas',
-          sourceUrl: routeUrl,
+          sourceUrl: routeUrl || row.currentPageUrl || '',
           routeUrl,
           routeAction: row.routeAction || '',
+          routeActionType: row.routeActionType || 'none',
+          routeActionPayload: row.routeActionPayload || null,
           rawText: visible,
-          pjudCaseKey: row.caseKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
+          pjudCaseKey: row.caseKey || normalizedKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
+          pjudNormalizedKey: normalizedKey || '',
           rol: roleLabel,
           rit: ritLabel,
           ruc: rucLabel,
+          pjudRoleType: roleTokens.roleType || '',
+          pjudRoleLetter: roleTokens.roleLetter || '',
+          pjudRoleNumber: roleTokens.roleNumber,
+          pjudRoleYear: roleTokens.roleYear,
+          pjudCourtName: tribunalLabel,
           tribunal: tribunalLabel,
           materia: row.materia || parsed.materia || '',
           caratulado: caratulaLabel,
@@ -2794,6 +2863,8 @@
             dataset: row.dataset || {},
             routeUrl,
             routeAction: row.routeAction || '',
+            routeActionType: row.routeActionType || 'none',
+            routeActionPayload: row.routeActionPayload || null,
           },
         });
       });
@@ -7671,13 +7742,17 @@
     function safeExtractMisCausasRowsFromWindow(misCausasWindow){
       const diagnostics = createDefaultRouteDiagnostics();
       if (!misCausasWindow || misCausasWindow.closed) {
+        diagnostics.exactFailureReason = 'ventana_mis_causas_no_disponible';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'ventana_mis_causas_no_disponible' });
         return { queue: [], diagnostics, error: 'No hay ventana activa de Mis Causas para extraer filas.' };
       }
       let doc = null;
       try {
         doc = misCausasWindow.document;
+        diagnostics.inspectedUrl = String(misCausasWindow.location?.href || '');
+        diagnostics.finalUrl = diagnostics.inspectedUrl;
       } catch (error) {
+        diagnostics.exactFailureReason = 'acceso_dom_bloqueado_por_origen';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'acceso_dom_bloqueado_por_origen' });
         return {
           queue: [],
@@ -7686,44 +7761,119 @@
         };
       }
       if (!doc?.body) {
+        diagnostics.exactFailureReason = 'vista_pjud_vacia';
         pushRouteDiscardReason(diagnostics, 0, 'PJUD devolvió vista vacía');
         return { queue: [], diagnostics, error: 'La vista de Mis Causas está vacía o no terminó de cargar.' };
       }
 
-      const candidateRows = [...doc.querySelectorAll('tr, [role="row"], .row, .table-row')]
-        .filter((node) => {
-          const text = String(node?.innerText || '').trim();
-          return text.length >= 10 && /(rol|rit|ruc|tribunal|caratula|carátula|causa|materia)/i.test(text);
-        });
+      const tableNodes = [...doc.querySelectorAll('table')];
+      diagnostics.tablesDetected = tableNodes.length;
+      diagnostics.tableRows = tableNodes.map((table) => table.querySelectorAll('tr').length);
+      diagnostics.anchorsDetected = doc.querySelectorAll('a[href]').length;
+      diagnostics.buttonsWithOnclick = doc.querySelectorAll('button[onclick],[onclick]').length;
+
+      const selectorLayers = [
+        'table tbody tr',
+        'table tr',
+        'tbody tr',
+        '[role="row"]',
+        '.grid-row, .ui-grid-row, .table-row, .row',
+        '[data-role],[data-rol],[data-rit],[data-ruc]',
+        '.listado-causas tr, .mis-causas tr, .causas-grid tr',
+      ];
+      diagnostics.selectorsTried = [...selectorLayers];
+
+      let winnerSelector = '';
+      let winnerContainer = null;
+      let candidateRows = [];
+      selectorLayers.forEach((selector) => {
+        if (candidateRows.length) return;
+        const nodes = [...doc.querySelectorAll(selector)]
+          .filter((node) => {
+            const text = String(node?.innerText || '').trim();
+            if (text.length < 10) return false;
+            if (/(rol|rit|ruc|tribunal|caratula|carátula|causa|materia)/i.test(text)) return true;
+            return /\b([a-z]\s*[-/]\s*\d+\s*[-/]\s*\d{2,4})\b/i.test(text);
+          });
+        if (nodes.length) {
+          winnerSelector = selector;
+          winnerContainer = nodes[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          candidateRows = nodes;
+        }
+      });
+
+      if (!candidateRows.length) {
+        const anchors = [...doc.querySelectorAll('a[href], a[onclick], button[onclick], [data-href], [data-url], [data-action], [onclick]')];
+        if (anchors.length) {
+          winnerSelector = 'anchors_indirectos';
+          winnerContainer = anchors[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          candidateRows = anchors.map((node) => node.closest('tr,[role="row"],.row,.table-row,li,article,div') || node)
+            .filter(Boolean)
+            .filter((node, idx, arr) => arr.indexOf(node) === idx);
+        }
+      }
+      diagnostics.winnerSelector = winnerSelector || '';
+      diagnostics.containerSnapshot = buildContainerSnapshot(winnerContainer || doc.body);
       diagnostics.totalRowsDetected = candidateRows.length;
       if (!candidateRows.length) {
+        diagnostics.exactFailureReason = 'sin_filas_detectadas_dom_pjud';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'sin_filas_detectadas' });
         return { queue: [], diagnostics, error: 'No se detectaron filas de causas en el DOM visible de Mis Causas.' };
       }
 
       const extractedRows = candidateRows.map((rowNode, index) => {
-        const anchor = rowNode.querySelector('a[href]');
-        const clickable = rowNode.querySelector('button,[onclick],[data-href],a') || rowNode;
+        const anchor = rowNode.querySelector('a[href],a[data-href],a[data-url],a[href*=\"causa\"],a[href*=\"detalle\"],a[href*=\"ebook\"],a[href*=\"consulta\"]');
+        const clickable = rowNode.querySelector('button,[onclick],[data-href],[data-url],[data-action],a') || rowNode;
         const href = String(anchor?.getAttribute('href') || clickable?.getAttribute?.('href') || '').trim();
         const onclick = String(clickable?.getAttribute?.('onclick') || rowNode.getAttribute?.('onclick') || '').trim();
+        const jsHref = String(anchor?.getAttribute('href') || '').trim().startsWith('javascript:') ? String(anchor?.getAttribute('href') || '').trim() : '';
+        const dataset = rowNode?.dataset ? { ...rowNode.dataset } : {};
+        const form = rowNode.closest('form') || doc.querySelector('form');
+        const hiddenInputs = form
+          ? [...form.querySelectorAll('input[type=\"hidden\"]')].slice(0, 12).reduce((acc, input) => {
+            const key = String(input?.name || input?.id || '').trim();
+            if (!key) return acc;
+            acc[key] = String(input?.value || '');
+            return acc;
+          }, {})
+          : {};
         if (href) diagnostics.rowsWithHref += 1;
         if (onclick) diagnostics.rowsWithOnclick += 1;
-        const normalizedHref = href ? new URL(href, misCausasWindow.location.href).toString() : '';
-        const onclickUrlMatch = onclick.match(/https?:\/\/[^\s'"`]+/i);
+        const normalizedHref = href && !href.toLowerCase().startsWith('javascript:') ? new URL(href, misCausasWindow.location.href).toString() : '';
+        const onclickUrlMatch = (onclick || jsHref).match(/https?:\/\/[^\s'"`]+/i);
         const onclickUrl = onclickUrlMatch?.[0] || '';
+        const postbackMatch = (onclick || jsHref).match(/__doPostBack\((['"])([^'"]+)\1,\s*(['"])([^'"]*)\3\)/i);
+        const routeActionType = normalizedHref || onclickUrl
+          ? 'href'
+          : (postbackMatch ? 'postback' : ((onclick || jsHref) ? 'onclick' : (Object.keys(hiddenInputs).length ? 'form_hidden' : 'none')));
+        const routeActionPayload = routeActionType === 'postback'
+          ? { target: postbackMatch?.[2] || '', argument: postbackMatch?.[4] || '', hiddenInputs }
+          : (routeActionType === 'onclick' ? { script: onclick || jsHref, hiddenInputs } : (routeActionType === 'form_hidden' ? { hiddenInputs } : null));
         const routeUrl = normalizedHref || onclickUrl || '';
+        const visibleText = String(rowNode.innerText || '').trim();
+        const parsed = parsePjudFieldsFromVisibleText(visibleText);
         return {
           rowIndex: index + 1,
-          visibleText: String(rowNode.innerText || '').trim(),
+          visibleText,
           href: normalizedHref,
           onclick,
           routeUrl,
-          routeAction: routeUrl ? 'href|onclick' : '',
-          dataset: rowNode?.dataset ? { ...rowNode.dataset } : {},
+          routeAction: routeUrl ? 'href|onclick' : routeActionType,
+          routeActionType,
+          routeActionPayload,
+          dataset,
+          currentPageUrl: diagnostics.inspectedUrl || '',
+          rol: parsed.rol || dataset?.rol || dataset?.role || '',
+          rit: parsed.rit || dataset?.rit || '',
+          ruc: parsed.ruc || dataset?.ruc || '',
+          tribunal: parsed.tribunal || dataset?.tribunal || dataset?.court || '',
+          caratula: parsed.caratula || dataset?.caratula || dataset?.caratulado || '',
+          materia: parsed.materia || dataset?.materia || '',
         };
       });
 
       const queue = buildCauseQueueFromPjudDomRows(extractedRows, diagnostics);
+      if (!queue.length && !diagnostics.exactFailureReason) diagnostics.exactFailureReason = 'sin_rutas_validas_despues_de_extraer';
       const error = queue.length
         ? ''
         : 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.';
@@ -8909,6 +9059,11 @@
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         pjud_case_key: importData.pjudCaseKey || null,
+        pjud_role_type: roleParts.roleType || null,
+        pjud_role_letter: roleParts.roleLetter || null,
+        pjud_role_number: roleParts.roleNumber ?? null,
+        pjud_role_year: roleParts.roleYear ?? null,
+        pjud_court_name: tribunal || corte || null,
         pjud_rol_tipo: roleParts.roleType || null,
         pjud_rol_letra: roleParts.roleLetter || null,
         pjud_rol_numero: roleParts.roleNumber ?? null,
@@ -8916,8 +9071,10 @@
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
-        pjud_estado_vinculo: 'unlinked',
-        pjud_link_status: 'unlinked',
+        pjud_estado_vinculo: 'sync_pending',
+        pjud_link_status: 'sync_pending',
+        pjud_last_sync_at: new Date().toISOString(),
+        pjud_ultima_sincronizacion: new Date().toISOString(),
         pjud_source_mode: 'modo_directo_pjud',
         pjud_last_error: null,
         pjud_files_downloaded_count: 0,
@@ -8957,8 +9114,8 @@
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
-        pjud_estado_vinculo: 'unlinked',
-        pjud_link_status: 'unlinked',
+        pjud_estado_vinculo: 'sync_pending',
+        pjud_link_status: 'sync_pending',
         pjud_source_mode: 'modo_directo_pjud',
         pjud_last_error: null,
         pjud_files_downloaded_count: 0,
@@ -10183,9 +10340,14 @@
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
-      setMassiveAuditStep(3, queue.length ? 'success' : 'warning', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
+      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
       renderBatchImportPreview([], null);
       if (!queue.length) {
+        setMassiveAuditStep(4, 'skipped', 'Paso 4 bloqueado: el Paso 3 no resolvió rutas válidas.');
+        setMassiveAuditStep(5, 'skipped', 'Paso 5 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(6, 'skipped', 'Paso 6 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(7, 'skipped', 'Paso 7 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(8, 'skipped', 'Paso 8 bloqueado por falla previa en resolución de rutas.');
         setMessage('importMsg', error || 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
         return;
       }
@@ -10266,6 +10428,10 @@
       setMassiveAuditStep(1, 'success', 'Sesión PJUD validada');
       setMassiveAuditStep(2, 'success', 'Mis Causas disponible con sesión activa');
       await analyzeBatchImport();
+      if (!state.pendingBatchImports.length) {
+        setMassiveAuditStep(9, 'warning', 'Ejecución detenida: Paso 3 no encontró rutas válidas en Mis Causas.');
+        return;
+      }
       await transferBatchImport();
     }
 
@@ -10540,6 +10706,11 @@
 
       const items = state.pendingBatchImports || [];
       if (!items.length) {
+        setMassiveAuditStep(4, 'failed', 'Paso 4 fallido: no hay causas válidas para recorrer.');
+        setMassiveAuditStep(5, 'skipped', 'Paso 5 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(6, 'skipped', 'Paso 6 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(7, 'skipped', 'Paso 7 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(8, 'skipped', 'Paso 8 omitido: no hay causas válidas en cola.');
         renderImportProgressPreview({
           currentStepId: 4,
           currentStepStatus: 'failed',
@@ -10566,6 +10737,10 @@
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
+      setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo PJUD');
+      setMassiveAuditStep(6, 'skipped', 'Descarga documental se mantiene pendiente en modo directo (solo vínculo PJUD ↔ Alpha).');
+      setMassiveAuditStep(7, 'skipped', 'Guardado en Expedientes Digitales pendiente de descarga real.');
+      setMassiveAuditStep(8, 'skipped', 'Clasificación pendiente de descarga real.');
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
           const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
@@ -10679,6 +10854,7 @@
           warning,
           tone: failures ? 'warn' : 'ok',
         });
+        setMassiveAuditStep(5, failures ? 'warning' : 'success', failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.');
         setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
         renderImportProgressPreview({
           chunkNumber: totalChunks,
