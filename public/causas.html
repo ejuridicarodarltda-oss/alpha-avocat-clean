@@ -2137,6 +2137,10 @@
         <details class="helper-box" style="margin-top:4px;">
           <summary><strong>Opcional: cargar manifiesto Excel del lote</strong></summary>
           <div class="timeline-meta" style="margin-top:8px;">Usar Excel solo como índice del lote. No se usa como origen del contenido documental.</div>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;">
+            <input id="batch_manifest_mode_enabled" type="checkbox" />
+            <span>Ejecutar en <strong>modo_manifiesto_excel</strong> (solo contingencia/histórico). Si está desmarcado, el sistema usa <strong>modo_directo_pjud</strong> por defecto.</span>
+          </label>
           <div class="field" style="margin-top:10px;">
             <button type="button" id="btnImportarManifiestoExcel" class="btn">Importar manifiesto Excel (opcional)</button>
             <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" style="display:none;" />
@@ -2555,7 +2559,7 @@
         totalCauses: Number(totalCauses || 0),
         processedCauses: 0,
         batchId: batchId || null,
-        executionMode: 'pjud_direct_session',
+        executionMode: 'modo_directo_pjud',
         sourceLabel: 'Sesión activa PJUD',
         accounting: null,
         percentage: 0,
@@ -2647,15 +2651,19 @@
       return [...new Set(reasons)].join(' · ');
     }
 
-    function configureMassiveExecutionMode(mode = 'pjud_direct_session', sourceLabel = ''){
+    function configureMassiveExecutionMode(mode = 'modo_directo_pjud', sourceLabel = ''){
       if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
       state.massiveAudit.executionMode = mode;
-      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'excel_manifest_hyperlinks' ? 'Manifiesto Excel con hipervínculos' : 'Sesión activa PJUD');
-      if (mode === 'excel_manifest_hyperlinks') {
+      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'modo_manifiesto_excel' ? 'Modo manifiesto Excel (contingencia)' : 'Modo directo PJUD (sesión activa)');
+      if (mode === 'modo_manifiesto_excel') {
         setMassiveAuditStep(1, 'skipped', 'Omitido por modo manifiesto (no requerido).');
         setMassiveAuditStep(2, 'skipped', 'No requerido: el índice de causas se resuelve por manifiesto auxiliar.');
         setMassiveAuditStep(3, 'skipped', 'Resuelto desde manifiesto auxiliar con hipervínculos.');
       }
+    }
+
+    function isManifestModeEnabled(){
+      return Boolean($('batch_manifest_mode_enabled')?.checked);
     }
 
     function setMassiveAuditStep(stepId, status = 'pending', detail = ''){
@@ -4752,6 +4760,9 @@
         pjudEbookUrl: baseCase.pjud_ebook_url || workspaceEntry?.pjudEbookUrl || baseCase.pjud_ebook_url || '',
         pjudLinkStatus: baseCase.pjud_estado_vinculo || baseCase.pjud_link_status || workspaceEntry?.pjudLinkStatus || 'unlinked',
         pjudLastSyncAt: baseCase.pjud_ultima_sincronizacion || baseCase.pjud_last_sync_at || workspaceEntry?.pjudLastSyncAt || null,
+        pjudSourceMode: baseCase.pjud_source_mode || workspaceEntry?.pjudSourceMode || 'modo_directo_pjud',
+        pjudLastError: baseCase.pjud_last_error || workspaceEntry?.pjudLastError || '',
+        pjudFilesDownloadedCount: Number(baseCase.pjud_files_downloaded_count ?? workspaceEntry?.pjudFilesDownloadedCount ?? 0),
         fee_total: baseCase[C.k_fee_total] ?? null,
         notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
         updatedAt: isoDate(baseCase.updated_at || baseCase[C.k_created]) || '2026-03-20',
@@ -6308,6 +6319,8 @@
       if (value === 'linked') return 'Vinculada';
       if (value === 'ambiguous') return 'Ambigua';
       if (value === 'needs_review') return 'Pendiente de revisión';
+      if (value === 'sync_pending') return 'Sincronización pendiente';
+      if (value === 'sync_failed') return 'Sincronización fallida';
       return 'Sin vincular';
     }
 
@@ -6331,6 +6344,9 @@
             ['URL PJUD', cause.pjudUrl || 'Sin URL PJUD'],
             ['Ebook', cause.pjudEbookUrl || 'Sin ebook'],
             ['Última sincronización', formatDate(cause.pjudLastSyncAt)],
+            ['Archivos reales descargados', Number(cause.pjudFilesDownloadedCount || 0)],
+            ['Modo de origen', cause.pjudSourceMode || 'modo_directo_pjud'],
+            ['Último error', cause.pjudLastError || 'Sin error registrado'],
           ])}
           <div class="toolbar">
             <button class="btn btn-primary" data-pjud-case-action="link">Vincular</button>
@@ -8702,7 +8718,7 @@
               <div style="height:18px;background:${progressBarColor};width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
             </div>
             <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
-            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'modo_manifiesto_excel' ? 'modo_manifiesto_excel (contingencia)' : 'modo_directo_pjud (principal)')}</div>
             <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(audit.sourceLabel || 'No informada')}</div>
             <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
             <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
@@ -8753,7 +8769,7 @@
       causesWithDownloadError = 0,
       causesWithClassificationError = 0,
       accounting = null,
-      executionMode = 'pjud_direct_session',
+      executionMode = 'modo_directo_pjud',
       sourceLabel = '',
       fabocatValidation = null,
       errors = 0,
@@ -8782,7 +8798,10 @@
         routeUnresolvedCount,
         fabocatValidation,
       });
-      const summaryText = `Resumen final importación PJUD (${executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión'}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const modeLabel = executionMode === 'modo_manifiesto_excel'
+        ? 'modo_manifiesto_excel (contingencia)'
+        : 'modo_directo_pjud (principal)';
+      const summaryText = `Resumen final importación PJUD (${modeLabel}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, explicitWarning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -8790,7 +8809,7 @@
         <div class="selection-grid">
           <div class="selection-card">
             <strong>Resumen final importación PJUD</strong>
-            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(modeLabel)}</div>
             <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(sourceLabel || 'No informada')}</div>
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
             <div class="timeline-meta"><strong>Contabilidad:</strong> leídas ${escapeHtml(accounting?.rowsRead ?? rowsAnalyzed)} · válidas ${escapeHtml(accounting?.rowsValid ?? uniqueCases)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)} · duplicadas ${escapeHtml(accounting?.rowsDuplicated ?? duplicatedInternal)} · sin URL PJUD ${escapeHtml(accounting?.rowsWithoutUrl ?? routeUnresolvedCount)} · error de resolución ${escapeHtml(accounting?.rowsResolutionError ?? 0)} · efectivamente procesadas ${escapeHtml(accounting?.rowsProcessedEffective ?? inserted + updated)} · pendientes ${escapeHtml(accounting?.rowsPending ?? causesWithClassificationPartial)} · fallidas ${escapeHtml(accounting?.rowsFailed ?? errors)}</div>
@@ -8801,7 +8820,8 @@
             <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
             <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
-            <div class="timeline-meta"><strong>Resumen jurídico útil:</strong> causas detectadas ${escapeHtml(rowsAnalyzed)} · incorporadas a Fabocat ${escapeHtml(inserted + updated)} · clasificadas automáticamente ${escapeHtml(causesWithClassificationComplete)} · clasificación pendiente ${escapeHtml(causesWithClassificationPartial)} · guardadas en Expedientes Digitales ${escapeHtml(materialized)} · fallidas ${escapeHtml(errors)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)}</div>
+            <div class="timeline-meta"><strong>Resumen jurídico útil:</strong> causas detectadas ${escapeHtml(rowsAnalyzed)} · estructura Alpha creada/actualizada ${escapeHtml(inserted + updated)} · materializadas realmente ${escapeHtml(materialized)} · clasificadas automáticamente ${escapeHtml(causesWithClassificationComplete)} · clasificación pendiente ${escapeHtml(causesWithClassificationPartial)} · fallidas ${escapeHtml(errors)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)}</div>
+            ${Number(materialized || 0) === 0 ? '<div class="timeline-meta"><strong>No hubo causas materializadas en la estructura interna de Alpha durante este lote.</strong></div>' : ''}
             ${fabocatValidation ? `<div class="timeline-meta"><strong>Validación real en Fabocat:</strong> materia principal inválida ${escapeHtml(fabocatValidation.invalidMainMateria || 0)} · tribunal incompleto ${escapeHtml(fabocatValidation.invalidTribunal || 0)} · rol/rit/año incompleto ${escapeHtml(fabocatValidation.invalidRoleTuple || 0)} · materias incompatibles simultáneas ${escapeHtml(fabocatValidation.incompatibleMateria || 0)}</div>` : ''}
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
@@ -8898,6 +8918,9 @@
         pjud_ebook_url: routeData.pjudEbookUrl,
         pjud_estado_vinculo: 'unlinked',
         pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
         pjud_materia: importData.materia || importData.basic?.materia || null,
         pjud_submateria: importData.submateria || null,
         pjud_tribunal: tribunal || null,
@@ -8936,6 +8959,9 @@
         pjud_ebook_url: routeData.pjudEbookUrl,
         pjud_estado_vinculo: 'unlinked',
         pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
           destination_path: destinationMap.logicalPath,
@@ -9415,7 +9441,7 @@
       }));
       const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: casePayloads.length, batchId: batch?.id || null });
-      configureMassiveExecutionMode('excel_manifest_hyperlinks', summary?.fileName || excelFile?.name || 'manifiesto Excel');
+      configureMassiveExecutionMode('modo_manifiesto_excel', summary?.fileName || excelFile?.name || 'manifiesto Excel');
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       renderImportProgressPreview({
         chunkNumber: 0,
@@ -9910,9 +9936,29 @@
       setMassiveAuditStep(4, 'success', 'Recorrido de causas completado');
       setMassiveAuditStep(5, 'success', 'Detección de documentos completada');
       const linkageIntegrityFailed = causesWithoutDownloadedContent > 0 || causesWithClassificationError > 0 || causesWithOrphanLinkage > 0;
-      setMassiveAuditStep(6, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Descarga completada con advertencias de vinculación' : 'Descarga completada con éxito');
-      setMassiveAuditStep(7, (materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success', (materializationWarnings.length || linkageIntegrityFailed) ? 'Guardado completado con advertencias de vinculación' : 'Guardado completado con éxito');
-      setMassiveAuditStep(8, causesWithClassificationError ? 'warning' : 'success', causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
+      const downloadedRealFiles = Number(documentsDownloadedTotal || 0);
+      const hasRealDownloads = downloadedRealFiles > 0;
+      const step6Status = !hasRealDownloads
+        ? 'warning'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success');
+      const step6Detail = !hasRealDownloads
+        ? 'Descarga documental real incompleta: 0 archivos reales descargados desde PJUD.'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'Descarga completada con advertencias de vinculación' : 'Descarga completada con éxito');
+      const step7Status = !hasRealDownloads
+        ? 'skipped'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success');
+      const step7Detail = !hasRealDownloads
+        ? 'Guardado omitido: sin archivos reales descargados en Paso 6.'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'Guardado completado con advertencias de vinculación' : 'Guardado completado con éxito');
+      const step8Status = !hasRealDownloads
+        ? 'skipped'
+        : (causesWithClassificationError ? 'warning' : 'success');
+      const step8Detail = !hasRealDownloads
+        ? 'Clasificación omitida: no existe contenido real descargado.'
+        : (causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
+      setMassiveAuditStep(6, step6Status, step6Detail);
+      setMassiveAuditStep(7, step7Status, step7Detail);
+      setMassiveAuditStep(8, step8Status, step8Detail);
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
         materia: row.sheetName || 'Sin materia',
@@ -10091,10 +10137,11 @@
 
     async function analyzeBatchImport(){
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      const useManifestMode = isManifestModeEnabled();
       state.pendingPjudRouteDiagnostics = null;
-      if (excelFile) {
+      if (excelFile && useManifestMode) {
         try {
-          configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
+          configureMassiveExecutionMode('modo_manifiesto_excel', excelFile.name || 'manifiesto Excel');
           setMassiveAuditStep(3, 'running', 'Resolviendo rutas PJUD desde manifiesto Excel');
           renderImportProgressPreview({
             currentStepId: 3,
@@ -10132,7 +10179,7 @@
         }
       }
       state.pendingPjudWorkbook = null;
-      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
+      configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
@@ -10142,7 +10189,11 @@
         setMessage('importMsg', error || 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
         return;
       }
-      setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+      if (excelFile && !useManifestMode) {
+        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}.`, 'ok');
+      } else {
+        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+      }
     }
 
     function openMassiveDownloadModal(){
@@ -10197,13 +10248,13 @@
     async function startMassivePjudDownloadFlow(){
       state.massiveAudit = createDefaultMassiveAuditState();
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
-      if (excelFile) {
-        configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
+      if (excelFile && isManifestModeEnabled()) {
+        configureMassiveExecutionMode('modo_manifiesto_excel', excelFile.name || 'manifiesto Excel');
         await analyzeBatchImport();
         await transferBatchImport();
         return;
       }
-      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
+      configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       setMassiveAuditStep(1, 'running', 'Conectando con PJUD');
       renderImportProgressPreview({
         currentStepId: 1,
@@ -10357,7 +10408,7 @@
         await analyzeBatchImport();
       }
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
-      if (excelFile) {
+      if (excelFile && isManifestModeEnabled()) {
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const rowsAnalyzed = Number(summary?.rowsProcessed || 0);
@@ -10412,7 +10463,7 @@
             causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
             causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
             accounting: stats.accounting || null,
-            executionMode: 'excel_manifest_hyperlinks',
+            executionMode: 'modo_manifiesto_excel',
             sourceLabel: summary?.fileName || excelFile.name || 'manifiesto Excel',
             fabocatValidation: stats.fabocatValidation || null,
             errors: Number(stats.rejected || 0),
@@ -10621,7 +10672,7 @@
           inserted: created,
           updated,
           accounting,
-          executionMode: 'pjud_direct_session',
+          executionMode: 'modo_directo_pjud',
           sourceLabel: 'Sesión activa PJUD / Mis Causas',
           errors: failures,
           batchId: state.pendingPjudBatchId || null,
@@ -11318,6 +11369,9 @@
               pjud_normalized_key: null,
               pjud_estado_vinculo: 'unlinked',
               pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
             }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
             if (current.pjudCaseId) {
               await supabase.from(T_PJUD_CASES).update({
@@ -11367,6 +11421,9 @@
                   pjud_normalized_key: null,
                   pjud_estado_vinculo: 'unlinked',
                   pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
                 }).eq('owner_user_id', authenticatedUser.id).eq('id', entry.alpha_case_id);
               }
               await supabase.from(T_PJUD_CASES).update({ alpha_case_id: null, link_status: 'unlinked', confidence: null }).eq('owner_user_id', authenticatedUser.id).eq('id', pjudCaseId);

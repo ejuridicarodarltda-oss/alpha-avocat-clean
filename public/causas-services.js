@@ -402,6 +402,11 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   next.reversionLog = Array.isArray(next.reversionLog) ? next.reversionLog : []
   next.importMeta = next.importMeta || { mode: 'manual', status: 'Sin importación judicial', importedAt: null, lastSyncAt: null }
   next.poderJudicial = next.poderJudicial || { link: '', sourceType: 'manual', importedAt: null, lastSyncAt: null, notes: '' }
+  next.pjudLinkStatus = next.pjudLinkStatus || next.pjud_link_status || 'unlinked'
+  next.pjudSourceMode = next.pjudSourceMode || next.pjud_source_mode || 'modo_directo_pjud'
+  next.pjudLastError = next.pjudLastError || next.pjud_last_error || ''
+  next.pjudFilesDownloadedCount = Number(next.pjudFilesDownloadedCount ?? next.pjud_files_downloaded_count ?? 0)
+  next.pjudLastSyncAt = next.pjudLastSyncAt || next.pjud_last_sync_at || null
   next.documentContainers = next.documentContainers || {
     ebook: { label: 'Ebook', docIds: [] },
     asociados: { label: 'Documentos asociados', docIds: [] },
