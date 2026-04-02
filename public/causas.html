@@ -4742,11 +4742,16 @@
         importBatchId: baseCase.import_batch_id || workspaceEntry?.importBatchId || null,
         pjudCaseKey: baseCase.pjud_case_key || workspaceEntry?.pjudCaseKey || '',
         pjudCaseId: baseCase.pjud_case_id || workspaceEntry?.pjudCaseId || null,
+        pjudTribunal: baseCase.pjud_tribunal || workspaceEntry?.pjudTribunal || baseCase[C.k_court] || '',
+        pjudRolTipo: baseCase.pjud_rol_tipo || workspaceEntry?.pjudRolTipo || '',
+        pjudRolLetra: baseCase.pjud_rol_letra || workspaceEntry?.pjudRolLetra || '',
+        pjudRolNumero: baseCase.pjud_rol_numero || workspaceEntry?.pjudRolNumero || null,
+        pjudRolAnio: baseCase.pjud_rol_anio || workspaceEntry?.pjudRolAnio || null,
         pjudNormalKey: baseCase.pjud_normalized_key || workspaceEntry?.pjudNormalKey || '',
         pjudUrl: baseCase.pjud_url || workspaceEntry?.pjudUrl || baseCase.pjud_case_url || '',
         pjudEbookUrl: baseCase.pjud_ebook_url || workspaceEntry?.pjudEbookUrl || baseCase.pjud_ebook_url || '',
-        pjudLinkStatus: baseCase.pjud_link_status || workspaceEntry?.pjudLinkStatus || 'unlinked',
-        pjudLastSyncAt: baseCase.pjud_last_sync_at || workspaceEntry?.pjudLastSyncAt || null,
+        pjudLinkStatus: baseCase.pjud_estado_vinculo || baseCase.pjud_link_status || workspaceEntry?.pjudLinkStatus || 'unlinked',
+        pjudLastSyncAt: baseCase.pjud_ultima_sincronizacion || baseCase.pjud_last_sync_at || workspaceEntry?.pjudLastSyncAt || null,
         fee_total: baseCase[C.k_fee_total] ?? null,
         notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
         updatedAt: isoDate(baseCase.updated_at || baseCase[C.k_created]) || '2026-03-20',
@@ -5708,6 +5713,7 @@
     function renderInformationPillar(cause){
       return `
         ${renderResumen(cause)}
+        ${renderPjudLinkagePanel(cause)}
         <section class="section-card">
           <div class="section-head">
             <div>
@@ -5965,10 +5971,17 @@
       const nowIso = new Date().toISOString();
       await supabase.from(T_CASES).update({
         pjud_case_id: pjudCase.id,
+        pjud_rol_tipo: pjudCase.role_type || null,
+        pjud_rol_letra: pjudCase.role_letter || null,
+        pjud_rol_numero: pjudCase.role_number ?? null,
+        pjud_rol_anio: pjudCase.role_year ?? null,
+        pjud_tribunal: pjudCase.court_name || null,
         pjud_normalized_key: normalizedKey,
         pjud_url: pjudCase.pjud_url || null,
         pjud_ebook_url: pjudCase.ebook_url || null,
+        pjud_estado_vinculo: 'linked',
         pjud_link_status: 'linked',
+        pjud_ultima_sincronizacion: nowIso,
         pjud_last_sync_at: nowIso,
       }).eq('owner_user_id', authenticatedUser.id).eq('id', alphaCaseId);
       await supabase.from(T_PJUD_CASES).update({
@@ -6275,6 +6288,57 @@
             ['Causa principal / relacionada', cause.causaRelacionada],
             ['Observaciones generales', cause.observaciones],
           ])}
+        </section>
+      `;
+    }
+
+    function buildPjudRoleDisplay(cause){
+      const parts = [
+        cause.pjudRolTipo || '',
+        cause.pjudRolLetra || '',
+        cause.pjudRolNumero != null ? String(cause.pjudRolNumero) : '',
+        cause.pjudRolAnio != null ? String(cause.pjudRolAnio) : '',
+      ].filter(Boolean);
+      if (parts.length) return parts.join(' ');
+      return cause.rol || 'Sin rol PJUD';
+    }
+
+    function formatPjudLinkStatus(status = ''){
+      const value = String(status || 'unlinked').toLowerCase();
+      if (value === 'linked') return 'Vinculada';
+      if (value === 'ambiguous') return 'Ambigua';
+      if (value === 'needs_review') return 'Pendiente de revisión';
+      return 'Sin vincular';
+    }
+
+    function renderPjudLinkagePanel(cause){
+      const hasLink = Boolean(cause.pjudCaseId || cause.pjudUrl || cause.pjudNormalKey);
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Vinculación PJUD</h4>
+              <p class="section-copy">Vinculación directa entre causa PJUD y causa Alpha Avocat. Excel queda como respaldo opcional, no como eje del flujo.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge ${computeBadgeClass(hasLink ? 'active' : 'warning', formatPjudLinkStatus(cause.pjudLinkStatus))}">${escapeHtml(formatPjudLinkStatus(cause.pjudLinkStatus))}</span>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Estado del vínculo', formatPjudLinkStatus(cause.pjudLinkStatus)],
+            ['Rol PJUD', buildPjudRoleDisplay(cause)],
+            ['Tribunal', cause.pjudTribunal || cause.tribunal || 'Sin tribunal'],
+            ['URL PJUD', cause.pjudUrl || 'Sin URL PJUD'],
+            ['Ebook', cause.pjudEbookUrl || 'Sin ebook'],
+            ['Última sincronización', formatDate(cause.pjudLastSyncAt)],
+          ])}
+          <div class="toolbar">
+            <button class="btn btn-primary" data-pjud-case-action="link">Vincular</button>
+            <button class="btn" data-pjud-case-action="relink">Re-vincular</button>
+            <button class="btn" data-pjud-case-action="sync">Sincronizar</button>
+            <button class="btn" data-pjud-case-action="open">Abrir PJUD</button>
+            <button class="btn btn-danger" data-pjud-case-action="unlink">Desvincular</button>
+          </div>
         </section>
       `;
     }
@@ -8825,9 +8889,14 @@
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         pjud_case_key: importData.pjudCaseKey || null,
+        pjud_rol_tipo: roleParts.roleType || null,
+        pjud_rol_letra: roleParts.roleLetter || null,
+        pjud_rol_numero: roleParts.roleNumber ?? null,
+        pjud_rol_anio: roleParts.roleYear ?? null,
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
+        pjud_estado_vinculo: 'unlinked',
         pjud_link_status: 'unlinked',
         pjud_materia: importData.materia || importData.basic?.materia || null,
         pjud_submateria: importData.submateria || null,
@@ -8865,6 +8934,7 @@
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
+        pjud_estado_vinculo: 'unlinked',
         pjud_link_status: 'unlinked',
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
@@ -10601,7 +10671,7 @@
       const current = getCurrentCause();
       if (!current) return;
       $('formSincronizacion').reset();
-      $('sync_url').value = current.poderJudicial?.link || '';
+      $('sync_url').value = current.pjudUrl || current.poderJudicial?.link || '';
       setMessage('syncMsg', '', '');
       openManagedModal('modalSincronizacion');
     }
@@ -10612,7 +10682,7 @@
 
       logPjudTrace('click recibido', {
         causeId: current.id,
-        sourceUrl: current?.poderJudicial?.link || current?.tribunalData?.poderJudicial || '',
+        sourceUrl: current?.pjudUrl || current?.poderJudicial?.link || current?.tribunalData?.poderJudicial || '',
       });
       const popup = openExternalPopup('pjud', 'Estamos preparando la navegación externa hacia la causa en el sitio oficial del Poder Judicial.');
       if (!popup) {
@@ -10797,10 +10867,15 @@
       event.preventDefault();
       const current = getCurrentCause();
       if (!current) return;
+      const nowIso = new Date().toISOString();
       persistCurrentCause((entry) => applyManualSync(entry, {
         rawText: $('sync_raw').value,
         sourceUrl: $('sync_url').value,
       }));
+      await supabase.from(T_CASES).update({
+        pjud_ultima_sincronizacion: nowIso,
+        pjud_last_sync_at: nowIso,
+      }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
       setMessage('syncMsg', 'Sincronización registrada. Se agregaron solo movimientos y documentos no duplicados.', 'ok');
       await loadCases();
       renderAll();
@@ -11206,6 +11281,58 @@
           }
         }
 
+        const pjudCaseAction = event.target.closest('[data-pjud-case-action]');
+        if (pjudCaseAction) {
+          const action = pjudCaseAction.dataset.pjudCaseAction;
+          const current = getCurrentCause();
+          if (!current) return;
+          if (action === 'link') {
+            await openPjudLinkingPanel();
+            return;
+          }
+          if (action === 'relink') {
+            setDetailStatus('Re-vinculación: selecciona la causa PJUD correcta y confirma el enlace.', 'warn');
+            await openPjudLinkingPanel();
+            return;
+          }
+          if (action === 'sync') {
+            openSyncModal();
+            return;
+          }
+          if (action === 'open') {
+            await openInPoderJudicial();
+            return;
+          }
+          if (action === 'unlink') {
+            const confirmed = window.confirm('Se desvinculará esta causa de PJUD. ¿Deseas continuar?');
+            if (!confirmed) return;
+            await supabase.from(T_CASES).update({
+              pjud_case_id: null,
+              pjud_rol_tipo: null,
+              pjud_rol_letra: null,
+              pjud_rol_numero: null,
+              pjud_rol_anio: null,
+              pjud_tribunal: null,
+              pjud_url: null,
+              pjud_ebook_url: null,
+              pjud_normalized_key: null,
+              pjud_estado_vinculo: 'unlinked',
+              pjud_link_status: 'unlinked',
+            }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
+            if (current.pjudCaseId) {
+              await supabase.from(T_PJUD_CASES).update({
+                alpha_case_id: null,
+                link_status: 'unlinked',
+                confidence: null,
+              }).eq('owner_user_id', authenticatedUser.id).eq('id', current.pjudCaseId);
+            }
+            await loadCases();
+            renderAll();
+            setDetailStatus('Vinculación PJUD eliminada para esta causa.', 'ok');
+            return;
+          }
+        }
+
         const pjudLinkAction = event.target.closest('[data-pjud-link-action]');
         if (pjudLinkAction) {
           const action = pjudLinkAction.dataset.pjudLinkAction;
@@ -11228,7 +11355,19 @@
             const entry = state.pjudLinking.items.find((item) => String(item.id) === pjudCaseId);
             if (entry) {
               if (entry.alpha_case_id) {
-                await supabase.from(T_CASES).update({ pjud_case_id: null, pjud_link_status: 'unlinked' }).eq('owner_user_id', authenticatedUser.id).eq('id', entry.alpha_case_id);
+                await supabase.from(T_CASES).update({
+                  pjud_case_id: null,
+                  pjud_rol_tipo: null,
+                  pjud_rol_letra: null,
+                  pjud_rol_numero: null,
+                  pjud_rol_anio: null,
+                  pjud_tribunal: null,
+                  pjud_url: null,
+                  pjud_ebook_url: null,
+                  pjud_normalized_key: null,
+                  pjud_estado_vinculo: 'unlinked',
+                  pjud_link_status: 'unlinked',
+                }).eq('owner_user_id', authenticatedUser.id).eq('id', entry.alpha_case_id);
               }
               await supabase.from(T_PJUD_CASES).update({ alpha_case_id: null, link_status: 'unlinked', confidence: null }).eq('owner_user_id', authenticatedUser.id).eq('id', pjudCaseId);
             }
@@ -11264,7 +11403,7 @@
       });
       $('detailContent')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
+        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
