@@ -2077,7 +2077,7 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Descarga masiva semiautomática desde PJUD</div>
-          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas > Civiles, procesamiento por hitos y guardado real en Expedientes Digitales.</p>
+          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas (todas las materias visibles), procesamiento por hitos y guardado real en Expedientes Digitales.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalDescargaMasivaPjud" aria-label="Cerrar">✕</button>
       </div>
@@ -2093,7 +2093,20 @@
 
         <div class="helper-box">
           <strong>Paso 2: Abrir Mis Causas / usar sesión activa</strong>
-          <div class="timeline-meta">Entrar a Mis Causas con sesión activa como fuente real del contenido judicial del lote.</div>
+          <div class="timeline-meta">Entrar a Mis Causas con sesión activa como fuente real del contenido judicial del lote para todas las materias visibles en la sesión.</div>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;">
+            <input id="batch_scope_all_materias" type="radio" name="batch_scope_mode" value="all" checked />
+            <span><strong>Extraer todas las materias visibles en Mis Causas</strong> (opción por defecto).</span>
+          </label>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;">
+            <input id="batch_scope_selected_materias" type="radio" name="batch_scope_mode" value="selected" />
+            <span><strong>Extraer solo materias seleccionadas</strong>.</span>
+          </label>
+          <div class="field" style="margin-top:8px;">
+            <label for="batch_scope_materias">Materias seleccionadas</label>
+            <input id="batch_scope_materias" class="input" placeholder="Ej: Civil, Familia, Laboral" disabled />
+            <div class="small-note">Si se activa “solo materias seleccionadas”, ingresa materias separadas por coma.</div>
+          </div>
         </div>
 
         <div class="helper-box">
@@ -2525,6 +2538,8 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
+      batchScopeMode: 'all',
+      batchScopeMaterias: [],
       pjudLinking: {
         loaded: false,
         loading: false,
@@ -2740,10 +2755,48 @@
         rol: parse(/\brol\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
         rit: parse(/\brit\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
         ruc: parse(/\bruc\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
+        competencia: parse(/\bcompetencia\s*[:\-]?\s*([^\n|·;,]+)/i),
         tribunal: parse(/(?:tribunal|juzgado|corte)\s*[:\-]?\s*([^\n|·;,]+)/i),
         caratula: parse(/(?:caratula|carátula)\s*[:\-]?\s*([^\n|·;,]+)/i),
         materia: parse(/\bmateria\s*[:\-]?\s*([^\n|·;,]+)/i),
       };
+    }
+
+    function normalizeMateriaLabel(value = ''){
+      return normalizePjudText(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    function parseBatchScopeMateriasInput(value = ''){
+      return String(value || '')
+        .split(',')
+        .map((item) => normalizePjudText(item))
+        .filter(Boolean);
+    }
+
+    function shouldIncludeRowByBatchScope(materia = ''){
+      if (state.batchScopeMode !== 'selected') return true;
+      if (!state.batchScopeMaterias.length) return true;
+      const normalized = normalizePjudText(materia);
+      if (!normalized) return false;
+      return state.batchScopeMaterias.includes(normalized);
+    }
+
+    function summarizeQueueByMateria(items = []){
+      const counts = {};
+      const duplicates = {};
+      const seenByMateria = new Map();
+      items.forEach((item) => {
+        const materia = String(item?.materia || item?.basic?.materia || 'Sin materia').trim() || 'Sin materia';
+        counts[materia] = Number(counts[materia] || 0) + 1;
+        const key = `${normalizePjudText(materia)}|${normalizePjudKey(item?.pjudCaseKey || item?.dedupeKey || '')}`;
+        if (!seenByMateria.has(key)) {
+          seenByMateria.set(key, 1);
+          return;
+        }
+        seenByMateria.set(key, seenByMateria.get(key) + 1);
+        duplicates[materia] = Number(duplicates[materia] || 0) + 1;
+      });
+      return { total: items.length, counts, duplicates };
     }
 
     function parseRoleTokens(rawRole = ''){
@@ -2820,14 +2873,24 @@
         const ritLabel = row.rit || parsed.rit || '';
         const rucLabel = row.ruc || parsed.ruc || '';
         const tribunalLabel = row.tribunal || parsed.tribunal || '';
+        const materiaLabel = row.materia || parsed.materia || '';
+        const competenciaLabel = row.competencia || parsed.competencia || materiaLabel || '';
         const caratulaLabel = row.caratula || parsed.caratula || '';
         const roleTokens = parseRoleTokens(roleLabel || ritLabel || rucLabel);
         if (!roleLabel && !ritLabel && !rucLabel && !tribunalLabel && !caratulaLabel) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'fila no corresponde a causa válida', row);
           return;
         }
+        if (!shouldIncludeRowByBatchScope(materiaLabel)) {
+          pushRouteDiscardReason(diagnostics, rowIndex, 'materia fuera de alcance seleccionado', {
+            materia: materiaLabel,
+            scopeMode: state.batchScopeMode,
+          });
+          return;
+        }
         diagnostics.rowsConvertedToRoute += 1;
         const normalizedKey = normalizePjudKey([
+          normalizeMateriaLabel(materiaLabel),
           roleTokens.roleType || '',
           roleTokens.roleLetter || '',
           roleTokens.roleNumber || '',
@@ -2855,7 +2918,8 @@
           pjudRoleYear: roleTokens.roleYear,
           pjudCourtName: tribunalLabel,
           tribunal: tribunalLabel,
-          materia: row.materia || parsed.materia || '',
+          materia: materiaLabel,
+          competencia: competenciaLabel,
           caratulado: caratulaLabel,
           basic: {
             rol: roleLabel,
@@ -2863,7 +2927,8 @@
             ruc: rucLabel,
             tribunal: tribunalLabel,
             caratula: caratulaLabel,
-            materia: row.materia || parsed.materia || '',
+            materia: materiaLabel,
+            competencia: competenciaLabel,
             link: routeUrl,
           },
           pjudRouteAudit: {
@@ -8834,9 +8899,18 @@
         return;
       }
 
-      const countsMarkup = Object.entries(summary?.countsByMateria || {})
+      const queueSummary = summarizeQueueByMateria(items);
+      const countsByMateriaSource = Object.keys(summary?.countsByMateria || {}).length
+        ? summary.countsByMateria
+        : queueSummary.counts;
+      const countsMarkup = Object.entries(countsByMateriaSource || {})
         .sort((left, right) => left[0].localeCompare(right[0], 'es'))
         .map(([materia, count]) => `<span class="badge badge-info">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
+        .join(' ');
+      const duplicatesByMateria = queueSummary.duplicates;
+      const duplicatesMarkup = Object.entries(duplicatesByMateria || {})
+        .sort((left, right) => left[0].localeCompare(right[0], 'es'))
+        .map(([materia, count]) => `<span class="badge badge-warning">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
         .join(' ');
       const sheetMarkup = (summary?.sheetsDetected || [])
         .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet)}</span>`)
@@ -8847,18 +8921,20 @@
           <div class="selection-card">
             <strong>Lote listo para importar</strong>
             <div class="case-meta">Filas analizadas: ${escapeHtml(summary?.rowsProcessed ?? items.length)} · Causas únicas: ${escapeHtml(summary?.consolidatedCount ?? items.length)} · Duplicados internos: ${escapeHtml(Math.max(0, Number(summary?.rowsProcessed ?? items.length) - Number(summary?.consolidatedCount ?? items.length)))}</div>
+            <div class="timeline-meta">Total general de causas en índice actual: ${escapeHtml(queueSummary.total)}</div>
             <div class="timeline-meta">Filas descartadas por estructura: ${escapeHtml(summary?.invalidRows ?? 0)}</div>
             <div class="timeline-meta">La vinculación se resuelve por origen confiable del archivo y no por coincidencia de nombre en caratulado o partes.</div>
           </div>
           <div class="selection-card">
             <strong>Hojas detectadas</strong>
             <div class="case-meta">${sheetMarkup || '<span class="badge badge-warning">Entrada manual</span>'}</div>
-            <div class="timeline-meta">${countsMarkup || 'Sin distribución por materia disponible.'}</div>
+            <div class="timeline-meta">Totales por materia: ${countsMarkup || 'Sin distribución por materia disponible.'}</div>
+            <div class="timeline-meta">Duplicados por materia: ${duplicatesMarkup || 'Sin duplicados detectados por materia.'}</div>
           </div>
           ${items.slice(0, 6).map((item) => `
             <div class="selection-card">
               <strong>${escapeHtml(item.basic?.caratula || item.basic?.rol || `Causa ${item.batchMeta?.blockIndex + 1 || ''}`)}</strong>
-              <div class="case-meta">Materia: ${escapeHtml(item.materia || item.basic?.materia || 'Pendiente')} · Rol: ${escapeHtml(item.rol || item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.rit || item.basic?.rit || 'Pendiente')}</div>
+              <div class="case-meta">Materia: ${escapeHtml(item.materia || item.basic?.materia || 'Pendiente')} · Competencia: ${escapeHtml(item.competencia || item.basic?.competencia || item.materia || item.basic?.materia || 'Pendiente')} · Rol: ${escapeHtml(item.rol || item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.rit || item.basic?.rit || 'Pendiente')}</div>
               <div class="timeline-meta">Tribunal: ${escapeHtml(item.tribunal || item.corte || item.basic?.tribunal || 'Pendiente')} · Estado: ${escapeHtml(item.estadoProcesal || item.estadoCausa || item.basic?.estadoProcesal || 'Pendiente')} · Consolidada desde ${escapeHtml(item.consolidatedFrom || 1)} fila(s)</div>
             </div>
           `).join('')}
@@ -8880,7 +8956,7 @@
     function getMassiveStepAction(stepId){
       const actions = {
         1: () => connectWithPjud(),
-        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas > Civiles con sesión activa.'),
+        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas (todas las materias visibles) con sesión activa.'),
         3: () => analyzeBatchImport(),
         4: () => transferBatchImport(),
         5: () => setMassiveAuditStep(5, 'running', 'Detectando causas y contenido documental del lote.'),
@@ -10457,6 +10533,7 @@
       state.pendingPjudWorkbook = null;
       configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      const queueSummary = summarizeQueueByMateria(queue);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
       setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
@@ -10471,9 +10548,9 @@
         return;
       }
       if (excelFile && !useManifestMode) {
-        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}.`, 'ok');
+        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       } else {
-        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       }
     }
 
@@ -10481,6 +10558,14 @@
       renderMassiveExcelBasePanel();
       state.massiveAudit = createDefaultMassiveAuditState();
       state.pendingPjudRouteDiagnostics = null;
+      state.batchScopeMode = 'all';
+      state.batchScopeMaterias = [];
+      if ($('batch_scope_all_materias')) $('batch_scope_all_materias').checked = true;
+      if ($('batch_scope_selected_materias')) $('batch_scope_selected_materias').checked = false;
+      if ($('batch_scope_materias')) {
+        $('batch_scope_materias').value = '';
+        $('batch_scope_materias').disabled = true;
+      }
       renderImportProgressPreview({ chunkNumber: 0, totalChunks: 0, processed: 0, totalItems: 0, currentStepStatus: 'pending' });
       openManagedModal('modalDescargaMasivaPjud');
     }
@@ -11375,6 +11460,21 @@
         state.pendingBatchImports = [];
         renderBatchImportPreview([], null);
         await registerMassiveExcelBaseFile($('batch_excel_file')?.files?.[0] || null);
+      });
+      $('batch_scope_all_materias')?.addEventListener('change', () => {
+        if (!$('batch_scope_all_materias')?.checked) return;
+        state.batchScopeMode = 'all';
+        state.batchScopeMaterias = [];
+        if ($('batch_scope_materias')) $('batch_scope_materias').disabled = true;
+      });
+      $('batch_scope_selected_materias')?.addEventListener('change', () => {
+        if (!$('batch_scope_selected_materias')?.checked) return;
+        state.batchScopeMode = 'selected';
+        if ($('batch_scope_materias')) $('batch_scope_materias').disabled = false;
+      });
+      $('batch_scope_materias')?.addEventListener('input', (event) => {
+        const value = String(event?.target?.value || '');
+        state.batchScopeMaterias = parseBatchScopeMateriasInput(value);
       });
       $('manual_single_case_selector')?.addEventListener('change', (event) => {
         const selectedId = String(event?.target?.value || '').trim();
