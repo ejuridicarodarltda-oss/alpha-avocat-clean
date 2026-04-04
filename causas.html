@@ -1676,7 +1676,7 @@
 
       <div class="causas-topbar-actions">
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
-        <button id="btnSistemaAutomatico" class="btn btn-primary">Sistema automático</button>
+        <button id="btnSistemaAutomatico" class="btn btn-primary">Sistema semiautomático</button>
         <button id="btnImportar" class="btn">Importar causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
@@ -2046,17 +2046,17 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Importación judicial PJUD</div>
-          <p class="panel-subtitle">Selecciona un flujo independiente. La descarga masiva automática y la descarga manual una a una están separadas en ventanas distintas.</p>
+          <p class="panel-subtitle">Selecciona un flujo independiente. La descarga masiva semiautomática y la descarga manual una a una están separadas en ventanas distintas.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalImportacion" aria-label="Cerrar">✕</button>
       </div>
       <div class="form">
         <div class="selection-grid">
           <div class="selection-card">
-            <strong>Descarga masiva automática desde PJUD</strong>
-            <div class="timeline-meta">Procesa lotes completos con conexión PJUD/OJV, descarga automática y guardado automático en Expedientes Digitales.</div>
+            <strong>Descarga masiva semiautomática desde PJUD</strong>
+            <div class="timeline-meta">Procesa lotes asistidos con conexión PJUD/OJV, intervención del usuario en hitos clave y guardado real en Expedientes Digitales.</div>
             <div class="modal-actions" style="margin-top:10px;">
-              <button type="button" id="btnAbrirModalDescargaMasiva" class="btn btn-primary">Descarga masiva automática desde PJUD</button>
+              <button type="button" id="btnAbrirModalDescargaMasiva" class="btn btn-primary">Descarga masiva semiautomática desde PJUD</button>
             </div>
           </div>
           <div class="selection-card">
@@ -2076,12 +2076,13 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Descarga masiva automática desde PJUD</div>
-          <p class="panel-subtitle">Flujo exclusivo por lote: conecta PJUD, procesa causas masivamente, descarga y guarda automáticamente en Expedientes Digitales.</p>
+          <div class="modal-title">Descarga masiva semiautomática desde PJUD</div>
+          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas > Civiles, procesamiento por hitos y guardado real en Expedientes Digitales.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalDescargaMasivaPjud" aria-label="Cerrar">✕</button>
       </div>
       <form id="formImportacionMasiva" class="form">
+        <div id="massiveFlowStepControls" class="helper-box">Panel de pasos semiautomáticos cargando...</div>
         <div class="helper-box">
           <strong>Paso 1: Conectar con PJUD</strong>
           <div class="timeline-meta">Validar o iniciar sesión real del usuario en PJUD/OJV para habilitar el flujo web→web.</div>
@@ -2137,6 +2138,10 @@
         <details class="helper-box" style="margin-top:4px;">
           <summary><strong>Opcional: cargar manifiesto Excel del lote</strong></summary>
           <div class="timeline-meta" style="margin-top:8px;">Usar Excel solo como índice del lote. No se usa como origen del contenido documental.</div>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:8px;">
+            <input id="batch_manifest_mode_enabled" type="checkbox" />
+            <span>Ejecutar en <strong>modo_manifiesto_excel</strong> (solo contingencia/histórico). Si está desmarcado, el sistema usa <strong>modo_directo_pjud</strong> por defecto.</span>
+          </label>
           <div class="field" style="margin-top:10px;">
             <button type="button" id="btnImportarManifiestoExcel" class="btn">Importar manifiesto Excel (opcional)</button>
             <input id="batch_excel_file" class="input" type="file" accept=".xlsx,.xls,.xlsm" style="display:none;" />
@@ -2332,6 +2337,29 @@
 
   <input id="caseFileInput" class="hidden-input" type="file" multiple />
 
+  <div id="modalPjudLinking" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Vinculación PJUD / Alpha</div>
+          <p class="muted">Panel exclusivo para vincular, revisar ambigüedades y gestionar enlaces PJUD.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalPjudLinking" aria-label="Cerrar">✕</button>
+      </div>
+      <div id="pjudLinkingSummary" class="helper-box">Cargando...</div>
+      <div class="explorer-list-wrap">
+        <table class="explorer-list-table">
+          <thead><tr><th>Grupo</th><th>Rol</th><th>Tribunal</th><th>Carátula</th><th>Materia</th><th>Estado</th><th>Causa Alpha</th><th>Acciones</th></tr></thead>
+          <tbody id="pjudLinkingRows"><tr><td colspan="8">Sin datos.</td></tr></tbody>
+        </table>
+      </div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-pjud-link-action="refresh">Actualizar</button>
+        <button type="button" class="btn" data-close="1" data-modal-id="modalPjudLinking">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
   <script type="module">
     import { supabase } from './app.js';
     import { appendRectificationLog, buildRectificationHistoryHtml, createRectificationEntries, getRectificationAccessState, escapeHtml as escapeRectificationHtml } from './rectification.js';
@@ -2356,6 +2384,7 @@
       parsePjudMisCausasWorkbook,
       recordDownload,
       removeDocument,
+      repairCauseDocumentLinkage,
       revertLastImport,
       saveWorkspace as saveWorkspaceState,
       slugId,
@@ -2393,6 +2422,8 @@
     const T_CASES = 'cases';
     const T_PJUD_IMPORT_BATCHES = 'pjud_import_batches';
     const T_PJUD_IMPORT_ROWS = 'pjud_import_rows';
+    const T_PJUD_CASES = 'pjud_cases';
+    const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
     const PJUD_ROW_LOG_CHUNK_SIZE = 200;
@@ -2494,17 +2525,25 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
+      pjudLinking: {
+        loaded: false,
+        loading: false,
+        error: '',
+        items: [],
+      },
     };
 
     const MASSIVE_STEP_STATUS_LABELS = {
       pending: 'Pendiente',
+      ready: 'Listo para iniciar',
       running: 'En ejecución',
-      success: 'Completado con éxito',
+      paused: 'Pausado',
+      success: 'Completado',
+      warning: 'Completado con advertencias',
       failed: 'Fallido',
-      warning: 'Con advertencia',
-      waiting: 'Esperando',
-      retrying: 'Reintentando',
-      skipped: 'Omitido por modo manifiesto',
+      waiting: 'Pausado',
+      retrying: 'En ejecución',
+      skipped: 'Pendiente',
     };
     const MASSIVE_FLOW_STEPS = [
       { id: 1, name: 'Conectar con PJUD' },
@@ -2523,7 +2562,7 @@
         totalCauses: Number(totalCauses || 0),
         processedCauses: 0,
         batchId: batchId || null,
-        executionMode: 'pjud_direct_session',
+        executionMode: 'modo_directo_pjud',
         sourceLabel: 'Sesión activa PJUD',
         accounting: null,
         percentage: 0,
@@ -2541,8 +2580,11 @@
         stepRunCounts: {},
         steps: MASSIVE_FLOW_STEPS.map((step) => ({
           ...step,
-          status: 'pending',
+          status: step.id === 1 ? 'ready' : 'pending',
           detail: '',
+          progress: 0,
+          progressText: '0%',
+          metricText: 'Pendiente de ejecución real',
         })),
       };
     }
@@ -2615,15 +2657,19 @@
       return [...new Set(reasons)].join(' · ');
     }
 
-    function configureMassiveExecutionMode(mode = 'pjud_direct_session', sourceLabel = ''){
+    function configureMassiveExecutionMode(mode = 'modo_directo_pjud', sourceLabel = ''){
       if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
       state.massiveAudit.executionMode = mode;
-      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'excel_manifest_hyperlinks' ? 'Manifiesto Excel con hipervínculos' : 'Sesión activa PJUD');
-      if (mode === 'excel_manifest_hyperlinks') {
+      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'modo_manifiesto_excel' ? 'Modo manifiesto Excel (contingencia)' : 'Modo directo PJUD (sesión activa)');
+      if (mode === 'modo_manifiesto_excel') {
         setMassiveAuditStep(1, 'skipped', 'Omitido por modo manifiesto (no requerido).');
         setMassiveAuditStep(2, 'skipped', 'No requerido: el índice de causas se resuelve por manifiesto auxiliar.');
         setMassiveAuditStep(3, 'skipped', 'Resuelto desde manifiesto auxiliar con hipervínculos.');
       }
+    }
+
+    function isManifestModeEnabled(){
+      return Boolean($('batch_manifest_mode_enabled')?.checked);
     }
 
     function setMassiveAuditStep(stepId, status = 'pending', detail = ''){
@@ -2632,6 +2678,11 @@
       if (!step) return;
       step.status = status;
       step.detail = detail || step.detail || '';
+      if (status === 'success') step.progress = 100;
+      if (status === 'warning') step.progress = Math.max(1, Number(step.progress || 0));
+      if (status === 'failed') step.progress = Math.max(1, Number(step.progress || 0));
+      step.progressText = `${Number(step.progress || 0)}%`;
+      step.metricText = detail || step.metricText || 'Pendiente de ejecución real';
       state.massiveAudit.currentStepId = step.id;
       state.massiveAudit.currentStepName = `Paso ${step.id}: ${step.name}`;
       state.massiveAudit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS[status] || MASSIVE_STEP_STATUS_LABELS.pending;
@@ -2650,6 +2701,16 @@
 
     function createDefaultRouteDiagnostics(){
       return {
+        inspectedUrl: '',
+        finalUrl: '',
+        tablesDetected: 0,
+        tableRows: [],
+        anchorsDetected: 0,
+        buttonsWithOnclick: 0,
+        selectorsTried: [],
+        winnerSelector: '',
+        containerSnapshot: '',
+        exactFailureReason: '',
         totalRowsDetected: 0,
         rowsWithHref: 0,
         rowsWithOnclick: 0,
@@ -2685,6 +2746,36 @@
       };
     }
 
+    function parseRoleTokens(rawRole = ''){
+      const normalized = normalizeIdentifierValue(rawRole || '').toUpperCase();
+      if (!normalized) {
+        return {
+          roleType: '',
+          roleLetter: '',
+          roleNumber: null,
+          roleYear: null,
+        };
+      }
+      const roleTypeMatch = normalized.match(/\b(RIT|RUC|ROL)\b/);
+      const roleLetterMatch = normalized.match(/\b([A-Z])\s*[-/]/);
+      const roleNumberMatch = normalized.match(/(?:^|[-/\s])(\d{1,9})(?:[-/\s]\d{2,4})?$/);
+      const roleYearMatch = normalized.match(/[-/](\d{2,4})$/);
+      let roleYear = roleYearMatch ? Number(roleYearMatch[1]) : null;
+      if (Number.isFinite(roleYear) && roleYear < 100) roleYear += 2000;
+      return {
+        roleType: roleTypeMatch?.[1] || '',
+        roleLetter: roleLetterMatch?.[1] || '',
+        roleNumber: roleNumberMatch ? Number(roleNumberMatch[1]) : null,
+        roleYear: Number.isFinite(roleYear) ? roleYear : null,
+      };
+    }
+
+    function buildContainerSnapshot(node){
+      if (!node) return '';
+      const html = String(node.outerHTML || node.innerHTML || '').replace(/\s+/g, ' ').trim();
+      return html.slice(0, 900);
+    }
+
     function renderRouteDiagnosticsPanel(){
       const diagnostics = state.pendingPjudRouteDiagnostics;
       if (!diagnostics) return '';
@@ -2692,11 +2783,21 @@
       return `
         <div class="selection-card">
           <strong>Diagnóstico técnico de extracción PJUD</strong>
+          <div class="timeline-meta">URL inspeccionada: ${escapeHtml(diagnostics.inspectedUrl || 'No informada')}</div>
+          <div class="timeline-meta">URL final: ${escapeHtml(diagnostics.finalUrl || diagnostics.inspectedUrl || 'No informada')}</div>
+          <div class="timeline-meta">Tablas detectadas: ${escapeHtml(diagnostics.tablesDetected || 0)}</div>
+          <div class="timeline-meta">Filas por tabla: ${escapeHtml((diagnostics.tableRows || []).join(', ') || '0')}</div>
+          <div class="timeline-meta">Anchors detectados: ${escapeHtml(diagnostics.anchorsDetected || 0)}</div>
+          <div class="timeline-meta">Botones con onclick: ${escapeHtml(diagnostics.buttonsWithOnclick || 0)}</div>
+          <div class="timeline-meta">Selectores probados: ${escapeHtml((diagnostics.selectorsTried || []).join(' · ') || 'Sin registro')}</div>
+          <div class="timeline-meta">Selector ganador: ${escapeHtml(diagnostics.winnerSelector || 'Sin selector ganador')}</div>
           <div class="timeline-meta">Filas detectadas en “Mis Causas”: ${escapeHtml(diagnostics.totalRowsDetected || 0)}</div>
           <div class="timeline-meta">Filas con href: ${escapeHtml(diagnostics.rowsWithHref || 0)}</div>
           <div class="timeline-meta">Filas con onclick: ${escapeHtml(diagnostics.rowsWithOnclick || 0)}</div>
           <div class="timeline-meta">Filas convertidas en rutas válidas: ${escapeHtml(diagnostics.rowsConvertedToRoute || 0)}</div>
           <div class="timeline-meta">Filas descartadas: ${escapeHtml(diagnostics.rowsDiscarded || 0)}</div>
+          <div class="timeline-meta">Razón exacta de fallo: ${escapeHtml(diagnostics.exactFailureReason || 'No aplica')}</div>
+          <div class="timeline-meta">Snapshot técnico: ${escapeHtml(diagnostics.containerSnapshot || 'Sin snapshot')}</div>
           ${discarded.length ? `<div class="timeline-meta" style="margin-top:8px;"><strong>Motivos de descarte:</strong> ${discarded.map((entry) => `Fila ${escapeHtml(entry.rowIndex)}: ${escapeHtml(entry.reason)}`).join(' · ')}</div>` : '<div class="timeline-meta">Sin descartes reportados.</div>'}
         </div>
       `;
@@ -2707,7 +2808,9 @@
       rows.forEach((row, idx) => {
         const rowIndex = Number(row?.rowIndex || idx + 1);
         const routeUrl = row?.routeUrl || '';
-        if (!routeUrl || !isHttpUrl(routeUrl)) {
+        const hasUrl = routeUrl && isHttpUrl(routeUrl);
+        const hasIndirectAction = Boolean(row?.routeActionType && row.routeActionType !== 'none' && row.routeActionPayload);
+        if (!hasUrl && !hasIndirectAction) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'sin enlace navegable', row);
           return;
         }
@@ -2718,22 +2821,39 @@
         const rucLabel = row.ruc || parsed.ruc || '';
         const tribunalLabel = row.tribunal || parsed.tribunal || '';
         const caratulaLabel = row.caratula || parsed.caratula || '';
+        const roleTokens = parseRoleTokens(roleLabel || ritLabel || rucLabel);
         if (!roleLabel && !ritLabel && !rucLabel && !tribunalLabel && !caratulaLabel) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'fila no corresponde a causa válida', row);
           return;
         }
         diagnostics.rowsConvertedToRoute += 1;
+        const normalizedKey = normalizePjudKey([
+          roleTokens.roleType || '',
+          roleTokens.roleLetter || '',
+          roleTokens.roleNumber || '',
+          roleTokens.roleYear || '',
+          tribunalLabel || '',
+          caratulaLabel || '',
+        ].join('|'));
         queue.push({
           mode: 'massive_auto',
           origin: 'pjud_dom_mis_causas',
-          sourceUrl: routeUrl,
+          sourceUrl: routeUrl || row.currentPageUrl || '',
           routeUrl,
           routeAction: row.routeAction || '',
+          routeActionType: row.routeActionType || 'none',
+          routeActionPayload: row.routeActionPayload || null,
           rawText: visible,
-          pjudCaseKey: row.caseKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
+          pjudCaseKey: row.caseKey || normalizedKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
+          pjudNormalizedKey: normalizedKey || '',
           rol: roleLabel,
           rit: ritLabel,
           ruc: rucLabel,
+          pjudRoleType: roleTokens.roleType || '',
+          pjudRoleLetter: roleTokens.roleLetter || '',
+          pjudRoleNumber: roleTokens.roleNumber,
+          pjudRoleYear: roleTokens.roleYear,
+          pjudCourtName: tribunalLabel,
           tribunal: tribunalLabel,
           materia: row.materia || parsed.materia || '',
           caratulado: caratulaLabel,
@@ -2754,6 +2874,8 @@
             dataset: row.dataset || {},
             routeUrl,
             routeAction: row.routeAction || '',
+            routeActionType: row.routeActionType || 'none',
+            routeActionPayload: row.routeActionPayload || null,
           },
         });
       });
@@ -3960,23 +4082,32 @@
     }
 
     function getExplorerState(cause){
-      if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[] };
+      if (!cause) return { status:'empty', model:null, currentNode:null, items:[], breadcrumbs:[], trace:getCaseLinkageTrace({}) };
+      let resolvedCause = cause;
+      const linkageRepair = repairCauseDocumentLinkage(cause, {
+        batchId: cause.importBatchId || cause.import_batch_id || null,
+        tribunal: cause.tribunal || '',
+        materia: cause.materia || '',
+      });
+      if (linkageRepair.repairedCount > 0) {
+        resolvedCause = updateWorkspaceEntry(cause.id, () => linkageRepair.detail) || linkageRepair.detail;
+      }
       const explorerSignature = [
-        cause.id,
-        (cause.documents || []).length,
-        (cause.documents || []).map((item) => `${item.id}:${item.updatedAt || item.createdAt || ''}:${item.destinationContainer || ''}`).join('|'),
+        resolvedCause.id,
+        (resolvedCause.documents || []).length,
+        (resolvedCause.documents || []).map((item) => `${item.id}:${item.updatedAt || item.createdAt || ''}:${item.destinationContainer || ''}`).join('|'),
       ].join('::');
-      if (state.explorer.causeId !== cause.id || state.explorer.signature !== explorerSignature) {
+      if (state.explorer.causeId !== resolvedCause.id || state.explorer.signature !== explorerSignature) {
         try {
-          const model = buildDocumentExplorer(cause, {
-            rootName: `Expedientes digitales · ${cause.caratula || cause.rol || 'Causa'}`,
-            clientName: cause.cliente,
+          const model = buildDocumentExplorer(resolvedCause, {
+            rootName: `Expedientes digitales · ${resolvedCause.caratula || resolvedCause.rol || 'Causa'}`,
+            clientName: resolvedCause.cliente,
           });
           const selectedNodeId = model.nodeMap[state.explorer.selectedNodeId] ? state.explorer.selectedNodeId : model.rootId;
           const expandedNodeIds = Array.from(new Set([model.rootId, ...(state.explorer.expandedNodeIds || [])].filter((nodeId) => model.nodeMap[nodeId])));
           state.explorer = {
             ...state.explorer,
-            causeId: cause.id,
+            causeId: resolvedCause.id,
             signature: explorerSignature,
             selectedNodeId,
             expandedNodeIds,
@@ -4010,7 +4141,7 @@
         }
       }
       const items = currentNode?.children?.map((nodeId) => model.nodeMap[nodeId]).filter(Boolean) || [];
-      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs };
+      return { status: state.explorer.status, error: state.explorer.error, model, currentNode, items, breadcrumbs, trace:getCaseLinkageTrace(resolvedCause) };
     }
 
     function renderExplorerTree(model, nodeId, depth = 0){
@@ -4111,6 +4242,7 @@
 
     function renderDocumentExplorer(cause){
       const explorer = getExplorerState(cause);
+      const trace = explorer.trace || getCaseLinkageTrace(cause);
       if (explorer.status === 'loading') {
         return '<div class="explorer-state">Cargando archivos del expediente…</div>';
       }
@@ -4118,7 +4250,16 @@
         return `<div class="explorer-state error">No fue posible cargar la estructura documental de esta causa.<div class="timeline-meta">${escapeHtml(explorer.error || 'Revise la estructura del expediente digital.')}</div></div>`;
       }
       if (explorer.status === 'empty' || !explorer.model) {
-        return '<div class="explorer-state">Esta causa aún no contiene archivos en Expedientes Digitales.</div>';
+        const reasonList = (trace.emptyReasons || []).map((reason) => `<li>${escapeHtml(reason)}</li>`).join('');
+        return `
+          <div class="explorer-state">
+            Esta causa fue creada, pero su contenido aún no ha sido vinculado.
+            <div class="timeline-meta">cause_id: ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id: ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · actualización real: ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')}</div>
+            <div class="timeline-meta">archivos vinculados: ${escapeHtml(trace.linkedDocuments || 0)} · archivos huérfanos detectados: ${escapeHtml(trace.orphanDocuments || 0)} · último intento de vinculación: ${escapeHtml(trace.lastLinkageAttempt ? formatDate(trace.lastLinkageAttempt) : 'No informado')}</div>
+            ${trace.linkageReason ? `<div class="timeline-meta">motivo exacto: ${escapeHtml(trace.linkageReason)}</div>` : ''}
+            ${reasonList ? `<ul class="bullet-list">${reasonList}</ul>` : '<div class="timeline-meta">Motivo exacto no informado (consulta vacía por bug o causa sin archivos).</div>'}
+          </div>
+        `;
       }
       const currentNode = explorer.currentNode || explorer.model.nodeMap[explorer.model.rootId];
       const isPjudFolderSelected = isPjudImportedFolderNode(currentNode);
@@ -4182,6 +4323,7 @@
                 <div>
                   <h5 class="segment-title">${escapeHtml(currentNode?.name || 'Expedientes digitales')}${isPjudFolderSelected ? ' · Contenedor PJUD' : ''}</h5>
                   <p class="segment-copy">Vista principal del expediente con scroll, íconos por tipo y apertura por clic.</p>
+                  <p class="timeline-meta">Trazabilidad: cause_id ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · carpetas reales ${escapeHtml(trace.realFolders)} · archivos reales ${escapeHtml(trace.realDocuments)} · ebook ${trace.ebookAssociated ? 'sí' : 'no'} · producción ${trace.productionAssociated ? 'sí' : 'no'} · última actualización real ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')} · estado ${escapeHtml(trace.linkageStatus)}</p>
                 </div>
                 <span class="badge badge-active">${explorer.items.length} elemento(s)</span>
               </div>
@@ -4689,6 +4831,20 @@
         sourceConfidence: baseCase.source_confidence || workspaceEntry?.sourceConfidence || '',
         importBatchId: baseCase.import_batch_id || workspaceEntry?.importBatchId || null,
         pjudCaseKey: baseCase.pjud_case_key || workspaceEntry?.pjudCaseKey || '',
+        pjudCaseId: baseCase.pjud_case_id || workspaceEntry?.pjudCaseId || null,
+        pjudTribunal: baseCase.pjud_tribunal || workspaceEntry?.pjudTribunal || baseCase[C.k_court] || '',
+        pjudRolTipo: baseCase.pjud_rol_tipo || workspaceEntry?.pjudRolTipo || '',
+        pjudRolLetra: baseCase.pjud_rol_letra || workspaceEntry?.pjudRolLetra || '',
+        pjudRolNumero: baseCase.pjud_rol_numero || workspaceEntry?.pjudRolNumero || null,
+        pjudRolAnio: baseCase.pjud_rol_anio || workspaceEntry?.pjudRolAnio || null,
+        pjudNormalKey: baseCase.pjud_normalized_key || workspaceEntry?.pjudNormalKey || '',
+        pjudUrl: baseCase.pjud_url || workspaceEntry?.pjudUrl || baseCase.pjud_case_url || '',
+        pjudEbookUrl: baseCase.pjud_ebook_url || workspaceEntry?.pjudEbookUrl || baseCase.pjud_ebook_url || '',
+        pjudLinkStatus: baseCase.pjud_estado_vinculo || baseCase.pjud_link_status || workspaceEntry?.pjudLinkStatus || 'unlinked',
+        pjudLastSyncAt: baseCase.pjud_ultima_sincronizacion || baseCase.pjud_last_sync_at || workspaceEntry?.pjudLastSyncAt || null,
+        pjudSourceMode: baseCase.pjud_source_mode || workspaceEntry?.pjudSourceMode || 'modo_directo_pjud',
+        pjudLastError: baseCase.pjud_last_error || workspaceEntry?.pjudLastError || '',
+        pjudFilesDownloadedCount: Number(baseCase.pjud_files_downloaded_count ?? workspaceEntry?.pjudFilesDownloadedCount ?? 0),
         fee_total: baseCase[C.k_fee_total] ?? null,
         notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
         updatedAt: isoDate(baseCase.updated_at || baseCase[C.k_created]) || '2026-03-20',
@@ -5115,10 +5271,88 @@
       );
     }
 
+    function hasRealDocumentContent(cause = {}){
+      return Array.isArray(cause?.documents) && cause.documents.some((doc) => hasDocumentSource(doc));
+    }
+
+    function buildDocumentLinkagePayload(cause = {}, overrides = {}){
+      const causeId = String(overrides.causeId || cause?.id || '');
+      const expedienteDigitalId = String(overrides.expedienteDigitalId || cause?.expedienteDigitalId || cause?.expedienteDigital?.id || (causeId ? `expediente-${causeId}` : ''));
+      const linked = Boolean(causeId && expedienteDigitalId);
+      return {
+        caseId: causeId,
+        cause_id: causeId,
+        expedienteDigitalId,
+        expediente_digital_id: expedienteDigitalId,
+        batchId: overrides.batchId || cause?.importBatchId || cause?.import_batch_id || state.pendingPjudBatchId || null,
+        batch_id: overrides.batchId || cause?.importBatchId || cause?.import_batch_id || state.pendingPjudBatchId || null,
+        tribunal: overrides.tribunal || cause?.tribunal || '',
+        materia: overrides.materia || cause?.materia || '',
+        fechaDocumento: overrides.fechaDocumento || null,
+        fechaIngreso: overrides.fechaIngreso || cause?.fechaInicio || null,
+        estadoVinculacion: overrides.estadoVinculacion || (linked ? 'vinculado' : 'pendiente_vinculacion'),
+      };
+    }
+
+    function getCaseLinkageTrace(cause = {}){
+      const documents = Array.isArray(cause?.documents) ? cause.documents : [];
+      const realDocuments = documents.filter((doc) => hasDocumentSource(doc));
+      const ebooks = realDocuments.filter((doc) => {
+        const category = String(doc?.category || '').toLowerCase();
+        const name = String(doc?.name || '').toLowerCase();
+        return category.includes('ebook') || name.includes('ebook');
+      });
+      const folderCount = Object.values(cause?.documentContainers || {}).reduce((acc, container) => {
+        const ids = Array.isArray(container?.docIds) ? container.docIds.filter(Boolean).length : 0;
+        return acc + (ids > 0 ? 1 : 0);
+      }, 0);
+      const productionItems = [
+        ...(Array.isArray(cause?.escritos) ? cause.escritos : []),
+        ...(Array.isArray(cause?.asesorias) ? cause.asesorias : []),
+      ];
+      const lastRealUpdate = realDocuments.map((doc) => doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || cause?.updatedAt || '';
+      const expedienteDigitalId = cause?.expedienteDigitalId || cause?.expedienteDigital?.id || cause?.expediente || '';
+      const linkedDocuments = documents.filter((doc) => {
+        const docCauseId = String(doc?.cause_id || doc?.caseId || '').trim();
+        const docExpId = String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim();
+        return Boolean(docCauseId && docExpId && docCauseId === String(cause?.id || ''));
+      });
+      const orphanDocuments = documents.filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim());
+      const lastLinkageAttempt = documents.map((doc) => doc?.linkingAttemptedAt || doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || '';
+      const lastLinkageReason = orphanDocuments.map((doc) => doc?.linkingErrorReason).filter(Boolean).at(-1) || '';
+      const status = realDocuments.length && linkedDocuments.length
+        ? 'vinculado'
+        : (folderCount > 0 || cause?.expedienteDigital ? 'estructura_creada_contenido_pendiente' : 'sin_expediente_vinculado');
+      const reasons = [];
+      if (!realDocuments.length) {
+        if (!documents.length) reasons.push('causa sin archivos');
+        else reasons.push('archivos no descargados o no vinculados');
+      }
+      if (orphanDocuments.length) reasons.push(`documentos descargados sin vinculación: ${orphanDocuments.length}`);
+      if (!expedienteDigitalId) reasons.push('expediente digital huérfano');
+      if (folderCount > 0 && (!realDocuments.length || orphanDocuments.length)) reasons.push('estructura creada, contenido pendiente de vinculación');
+      return {
+        causeId: cause?.id || '',
+        expedienteDigitalId: expedienteDigitalId || 'No informado',
+        realDocuments: realDocuments.length,
+        linkedDocuments: linkedDocuments.length,
+        orphanDocuments: orphanDocuments.length,
+        realFolders: folderCount,
+        ebookAssociated: ebooks.length > 0,
+        productionAssociated: productionItems.length > 0,
+        lastRealUpdate: lastRealUpdate || '',
+        linkageStatus: status,
+        emptyReasons: reasons,
+        lastLinkageAttempt: lastLinkageAttempt || '',
+        linkageReason: lastLinkageReason || '',
+      };
+    }
+
     function computeSummaryMetricSources(){
       const safeCases = getAllCases();
       const informacionBase = safeCases.length;
       const expedientesDigitales = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
         const countByContainers = Object.values(item?.documentContainers || {}).reduce((containerAcc, container) => {
           const ids = Array.isArray(container?.docIds) ? container.docIds.filter(Boolean).length : 0;
           return containerAcc + ids;
@@ -5127,21 +5361,25 @@
         return acc + Math.max(countByContainers, countByDocuments);
       }, 0);
       const asesoriasActivas = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
         const asesorias = Array.isArray(item?.asesorias) ? item.asesorias : [];
         return acc + asesorias.filter((asesoria) => String(asesoria?.estado || '').toLowerCase() !== 'cerrada').length;
       }, 0);
-      const escritosEnCurso = safeCases.reduce((acc, item) => acc + (item?.escritos || []).filter((w) => {
-        const estado = String(w?.estado || '').toLowerCase();
-        return estado.includes('revisión') || estado.includes('revision') || estado.includes('borrador') || estado.includes('redacción') || estado.includes('redaccion');
-      }).length, 0);
+      const escritosEnCurso = safeCases.reduce((acc, item) => {
+        if (!hasRealDocumentContent(item)) return acc;
+        return acc + (item?.escritos || []).filter((w) => {
+          const estado = String(w?.estado || '').toLowerCase();
+          return estado.includes('revisión') || estado.includes('revision') || estado.includes('borrador') || estado.includes('redacción') || estado.includes('redaccion');
+        }).length;
+      }, 0);
       return {
         informacionBase,
         expedientesDigitales,
         produccionEnCurso: escritosEnCurso + asesoriasActivas,
         sources: {
           informacionBase: `${T_CASES} + workspace (causas fusionadas por ID)`,
-          expedientesDigitales: 'documentContainers.docIds + documents con sourceUrl/sourcePageUrl/content',
-          produccionEnCurso: 'escritos en borrador/revisión/redacción + asesorías activas',
+          expedientesDigitales: 'solo causas con documentos reales accesibles (content/sourceUrl/sourcePageUrl)',
+          produccionEnCurso: 'solo producción vinculada a causas con contenido documental real',
         },
       };
     }
@@ -5568,6 +5806,7 @@
     function renderInformationPillar(cause){
       return `
         ${renderResumen(cause)}
+        ${renderPjudLinkagePanel(cause)}
         <section class="section-card">
           <div class="section-head">
             <div>
@@ -5709,6 +5948,153 @@
       return items.join(', ');
     }
 
+    async function loadPjudLinkingData(){
+      state.pjudLinking.loading = true;
+      state.pjudLinking.error = '';
+      try {
+        const { data, error } = await supabase
+          .from(T_PJUD_CASES)
+          .select('id,rol_full,role_type,role_letter,role_number,role_year,materia,court_name,caratula,pjud_url,ebook_url,normalized_key,link_status,confidence,alpha_case_id,last_seen_at')
+          .eq('owner_user_id', authenticatedUser.id)
+          .order('updated_at', { ascending: false });
+        if (error) throw error;
+        state.pjudLinking.items = data || [];
+        state.pjudLinking.loaded = true;
+      } catch (error) {
+        state.pjudLinking.error = buildLoadError('la vinculación PJUD / Alpha', error).message;
+      } finally {
+        state.pjudLinking.loading = false;
+      }
+    }
+
+    function getPjudLinkingGroup(item = {}){
+      if (item.link_status === 'linked') return 'Vinculadas';
+      if (item.link_status === 'ambiguous') return 'Ambiguas';
+      if (item.link_status === 'needs_review') return 'Pendientes de vincular';
+      return 'Sin coincidencia';
+    }
+
+    function renderPjudLinkingPanel(){
+      const rows = $('pjudLinkingRows');
+      const summary = $('pjudLinkingSummary');
+      if (!rows || !summary) return;
+      if (state.pjudLinking.loading) {
+        summary.textContent = 'Cargando vinculaciones...';
+        rows.innerHTML = '<tr><td colspan="8">Cargando...</td></tr>';
+        return;
+      }
+      if (state.pjudLinking.error) {
+        summary.textContent = state.pjudLinking.error;
+      }
+      const all = state.pjudLinking.items || [];
+      const counters = all.reduce((acc, item) => {
+        const group = getPjudLinkingGroup(item);
+        acc[group] = (acc[group] || 0) + 1;
+        return acc;
+      }, {});
+      summary.textContent = `Vinculadas: ${counters['Vinculadas'] || 0} · Pendientes de vincular: ${counters['Pendientes de vincular'] || 0} · Ambiguas: ${counters['Ambiguas'] || 0} · Sin coincidencia: ${counters['Sin coincidencia'] || 0}`;
+      rows.innerHTML = all.map((item) => {
+        const alphaCase = getAllCases().find((cause) => String(cause.id) === String(item.alpha_case_id || ''));
+        return `<tr>
+          <td>${escapeHtml(getPjudLinkingGroup(item))}</td>
+          <td>${escapeHtml(item.rol_full || [item.role_type, item.role_letter, item.role_number, item.role_year].filter(Boolean).join(' '))}</td>
+          <td>${escapeHtml(item.court_name || 'Sin tribunal')}</td>
+          <td>${escapeHtml(item.caratula || 'Sin carátula')}</td>
+          <td>${escapeHtml(item.materia || 'Sin materia')}</td>
+          <td>${escapeHtml(item.link_status || 'unlinked')}</td>
+          <td>${escapeHtml(alphaCase?.caratula || alphaCase?.rol || item.alpha_case_id || 'Sin vincular')}</td>
+          <td>
+            <button class="btn" data-pjud-link-action="link" data-pjud-case-id="${item.id}">Vincular</button>
+            <button class="btn" data-pjud-link-action="unlink" data-pjud-case-id="${item.id}">Desvincular</button>
+            <a class="btn" href="${escapeHtml(item.pjud_url || '#')}" target="_blank" rel="noopener">Ver PJUD</a>
+            <button class="btn" data-pjud-link-action="open-alpha" data-alpha-case-id="${escapeHtml(item.alpha_case_id || '')}">Abrir causa Alpha</button>
+          </td>
+        </tr>`;
+      }).join('') || '<tr><td colspan="8">No hay causas PJUD almacenadas.</td></tr>';
+    }
+
+    async function openPjudLinkingPanel(){
+      await loadPjudLinkingData();
+      renderPjudLinkingPanel();
+      openManagedModal('modalPjudLinking');
+    }
+
+    async function upsertPjudCaseRegistryRow(rowPayload = {}, importData = {}){
+      const role = parsePjudStructuredRole(rowPayload[C.k_rol] || importData.rol || '');
+      const normalizedKey = buildPjudNormalizedKey({
+        materia: rowPayload.pjud_materia || importData.materia || '',
+        roleType: role.roleType,
+        roleLetter: role.roleLetter,
+        roleNumber: role.roleNumber,
+        roleYear: role.roleYear,
+        court: rowPayload.pjud_tribunal || importData.tribunal || '',
+      });
+      const payload = {
+        owner_user_id: authenticatedUser.id,
+        source: 'pjud',
+        materia: rowPayload.pjud_materia || importData.materia || null,
+        role_type: role.roleType,
+        role_letter: role.roleLetter || null,
+        role_number: role.roleNumber,
+        role_year: role.roleYear,
+        rol_full: rowPayload[C.k_rol] || importData.rol || null,
+        court_name: rowPayload.pjud_tribunal || importData.tribunal || null,
+        court_normalized: normalizePjudCourt(rowPayload.pjud_tribunal || importData.tribunal || ''),
+        caratula: rowPayload.pjud_caratulado || importData.caratulado || null,
+        partes_json: importData.parties || [],
+        pjud_url: rowPayload.pjud_case_url || null,
+        ebook_url: rowPayload.pjud_ebook_url || null,
+        normalized_key: normalizedKey,
+        link_status: 'unlinked',
+        confidence: null,
+        last_seen_at: new Date().toISOString(),
+      };
+      const { data, error } = await supabase
+        .from(T_PJUD_CASES)
+        .upsert(payload, { onConflict: 'owner_user_id,normalized_key' })
+        .select('*')
+        .single();
+      if (error) throw error;
+      return data;
+    }
+
+    async function linkAlphaCaseWithPjud({ alphaCaseId, pjudCase, mode = 'automatic', confidence = null, actorId = null } = {}){
+      if (!alphaCaseId || !pjudCase?.id) return;
+      const normalizedKey = pjudCase.normalized_key || null;
+      const nowIso = new Date().toISOString();
+      await supabase.from(T_CASES).update({
+        pjud_case_id: pjudCase.id,
+        pjud_rol_tipo: pjudCase.role_type || null,
+        pjud_rol_letra: pjudCase.role_letter || null,
+        pjud_rol_numero: pjudCase.role_number ?? null,
+        pjud_rol_anio: pjudCase.role_year ?? null,
+        pjud_tribunal: pjudCase.court_name || null,
+        pjud_normalized_key: normalizedKey,
+        pjud_url: pjudCase.pjud_url || null,
+        pjud_ebook_url: pjudCase.ebook_url || null,
+        pjud_estado_vinculo: 'linked',
+        pjud_link_status: 'linked',
+        pjud_ultima_sincronizacion: nowIso,
+        pjud_last_sync_at: nowIso,
+      }).eq('owner_user_id', authenticatedUser.id).eq('id', alphaCaseId);
+      await supabase.from(T_PJUD_CASES).update({
+        alpha_case_id: alphaCaseId,
+        link_status: 'linked',
+        confidence: confidence,
+        updated_at: nowIso,
+      }).eq('owner_user_id', authenticatedUser.id).eq('id', pjudCase.id);
+      await supabase.from(T_PJUD_LINK_AUDIT).insert({
+        owner_user_id: authenticatedUser.id,
+        pjud_case_id: pjudCase.id,
+        alpha_case_id: alphaCaseId,
+        action: 'linked',
+        mode,
+        linked_by: actorId || authenticatedUser.id,
+        confidence,
+        details: { normalized_key: normalizedKey },
+      });
+    }
+
     function renderPjudImportHistoryPanel(){
       const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
       const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
@@ -5722,6 +6108,7 @@
             </div>
             <div class="toolbar">
               <button class="btn" data-pjud-action="refresh-history">Actualizar historial</button>
+              <button class="btn" data-pjud-action="open-linking-panel">Vinculación PJUD / Alpha</button>
               <button class="btn btn-primary" data-pjud-action="open-import-modal">Nueva importación PJUD</button>
             </div>
           </div>
@@ -5994,6 +6381,62 @@
             ['Causa principal / relacionada', cause.causaRelacionada],
             ['Observaciones generales', cause.observaciones],
           ])}
+        </section>
+      `;
+    }
+
+    function buildPjudRoleDisplay(cause){
+      const parts = [
+        cause.pjudRolTipo || '',
+        cause.pjudRolLetra || '',
+        cause.pjudRolNumero != null ? String(cause.pjudRolNumero) : '',
+        cause.pjudRolAnio != null ? String(cause.pjudRolAnio) : '',
+      ].filter(Boolean);
+      if (parts.length) return parts.join(' ');
+      return cause.rol || 'Sin rol PJUD';
+    }
+
+    function formatPjudLinkStatus(status = ''){
+      const value = String(status || 'unlinked').toLowerCase();
+      if (value === 'linked') return 'Vinculada';
+      if (value === 'ambiguous') return 'Ambigua';
+      if (value === 'needs_review') return 'Pendiente de revisión';
+      if (value === 'sync_pending') return 'Sincronización pendiente';
+      if (value === 'sync_failed') return 'Sincronización fallida';
+      return 'Sin vincular';
+    }
+
+    function renderPjudLinkagePanel(cause){
+      const hasLink = Boolean(cause.pjudCaseId || cause.pjudUrl || cause.pjudNormalKey);
+      return `
+        <section class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Vinculación PJUD</h4>
+              <p class="section-copy">Vinculación directa entre causa PJUD y causa Alpha Avocat. Excel queda como respaldo opcional, no como eje del flujo.</p>
+            </div>
+            <div class="toolbar">
+              <span class="badge ${computeBadgeClass(hasLink ? 'active' : 'warning', formatPjudLinkStatus(cause.pjudLinkStatus))}">${escapeHtml(formatPjudLinkStatus(cause.pjudLinkStatus))}</span>
+            </div>
+          </div>
+          ${buildKeyValueGrid([
+            ['Estado del vínculo', formatPjudLinkStatus(cause.pjudLinkStatus)],
+            ['Rol PJUD', buildPjudRoleDisplay(cause)],
+            ['Tribunal', cause.pjudTribunal || cause.tribunal || 'Sin tribunal'],
+            ['URL PJUD', cause.pjudUrl || 'Sin URL PJUD'],
+            ['Ebook', cause.pjudEbookUrl || 'Sin ebook'],
+            ['Última sincronización', formatDate(cause.pjudLastSyncAt)],
+            ['Archivos reales descargados', Number(cause.pjudFilesDownloadedCount || 0)],
+            ['Modo de origen', cause.pjudSourceMode || 'modo_directo_pjud'],
+            ['Último error', cause.pjudLastError || 'Sin error registrado'],
+          ])}
+          <div class="toolbar">
+            <button class="btn btn-primary" data-pjud-case-action="link">Vincular</button>
+            <button class="btn" data-pjud-case-action="relink">Re-vincular</button>
+            <button class="btn" data-pjud-case-action="sync">Sincronizar</button>
+            <button class="btn" data-pjud-case-action="open">Abrir PJUD</button>
+            <button class="btn btn-danger" data-pjud-case-action="unlink">Desvincular</button>
+          </div>
         </section>
       `;
     }
@@ -7310,13 +7753,17 @@
     function safeExtractMisCausasRowsFromWindow(misCausasWindow){
       const diagnostics = createDefaultRouteDiagnostics();
       if (!misCausasWindow || misCausasWindow.closed) {
+        diagnostics.exactFailureReason = 'ventana_mis_causas_no_disponible';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'ventana_mis_causas_no_disponible' });
         return { queue: [], diagnostics, error: 'No hay ventana activa de Mis Causas para extraer filas.' };
       }
       let doc = null;
       try {
         doc = misCausasWindow.document;
+        diagnostics.inspectedUrl = String(misCausasWindow.location?.href || '');
+        diagnostics.finalUrl = diagnostics.inspectedUrl;
       } catch (error) {
+        diagnostics.exactFailureReason = 'acceso_dom_bloqueado_por_origen';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'acceso_dom_bloqueado_por_origen' });
         return {
           queue: [],
@@ -7325,44 +7772,119 @@
         };
       }
       if (!doc?.body) {
+        diagnostics.exactFailureReason = 'vista_pjud_vacia';
         pushRouteDiscardReason(diagnostics, 0, 'PJUD devolvió vista vacía');
         return { queue: [], diagnostics, error: 'La vista de Mis Causas está vacía o no terminó de cargar.' };
       }
 
-      const candidateRows = [...doc.querySelectorAll('tr, [role="row"], .row, .table-row')]
-        .filter((node) => {
-          const text = String(node?.innerText || '').trim();
-          return text.length >= 10 && /(rol|rit|ruc|tribunal|caratula|carátula|causa|materia)/i.test(text);
-        });
+      const tableNodes = [...doc.querySelectorAll('table')];
+      diagnostics.tablesDetected = tableNodes.length;
+      diagnostics.tableRows = tableNodes.map((table) => table.querySelectorAll('tr').length);
+      diagnostics.anchorsDetected = doc.querySelectorAll('a[href]').length;
+      diagnostics.buttonsWithOnclick = doc.querySelectorAll('button[onclick],[onclick]').length;
+
+      const selectorLayers = [
+        'table tbody tr',
+        'table tr',
+        'tbody tr',
+        '[role="row"]',
+        '.grid-row, .ui-grid-row, .table-row, .row',
+        '[data-role],[data-rol],[data-rit],[data-ruc]',
+        '.listado-causas tr, .mis-causas tr, .causas-grid tr',
+      ];
+      diagnostics.selectorsTried = [...selectorLayers];
+
+      let winnerSelector = '';
+      let winnerContainer = null;
+      let candidateRows = [];
+      selectorLayers.forEach((selector) => {
+        if (candidateRows.length) return;
+        const nodes = [...doc.querySelectorAll(selector)]
+          .filter((node) => {
+            const text = String(node?.innerText || '').trim();
+            if (text.length < 10) return false;
+            if (/(rol|rit|ruc|tribunal|caratula|carátula|causa|materia)/i.test(text)) return true;
+            return /\b([a-z]\s*[-/]\s*\d+\s*[-/]\s*\d{2,4})\b/i.test(text);
+          });
+        if (nodes.length) {
+          winnerSelector = selector;
+          winnerContainer = nodes[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          candidateRows = nodes;
+        }
+      });
+
+      if (!candidateRows.length) {
+        const anchors = [...doc.querySelectorAll('a[href], a[onclick], button[onclick], [data-href], [data-url], [data-action], [onclick]')];
+        if (anchors.length) {
+          winnerSelector = 'anchors_indirectos';
+          winnerContainer = anchors[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          candidateRows = anchors.map((node) => node.closest('tr,[role="row"],.row,.table-row,li,article,div') || node)
+            .filter(Boolean)
+            .filter((node, idx, arr) => arr.indexOf(node) === idx);
+        }
+      }
+      diagnostics.winnerSelector = winnerSelector || '';
+      diagnostics.containerSnapshot = buildContainerSnapshot(winnerContainer || doc.body);
       diagnostics.totalRowsDetected = candidateRows.length;
       if (!candidateRows.length) {
+        diagnostics.exactFailureReason = 'sin_filas_detectadas_dom_pjud';
         pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'sin_filas_detectadas' });
         return { queue: [], diagnostics, error: 'No se detectaron filas de causas en el DOM visible de Mis Causas.' };
       }
 
       const extractedRows = candidateRows.map((rowNode, index) => {
-        const anchor = rowNode.querySelector('a[href]');
-        const clickable = rowNode.querySelector('button,[onclick],[data-href],a') || rowNode;
+        const anchor = rowNode.querySelector('a[href],a[data-href],a[data-url],a[href*=\"causa\"],a[href*=\"detalle\"],a[href*=\"ebook\"],a[href*=\"consulta\"]');
+        const clickable = rowNode.querySelector('button,[onclick],[data-href],[data-url],[data-action],a') || rowNode;
         const href = String(anchor?.getAttribute('href') || clickable?.getAttribute?.('href') || '').trim();
         const onclick = String(clickable?.getAttribute?.('onclick') || rowNode.getAttribute?.('onclick') || '').trim();
+        const jsHref = String(anchor?.getAttribute('href') || '').trim().startsWith('javascript:') ? String(anchor?.getAttribute('href') || '').trim() : '';
+        const dataset = rowNode?.dataset ? { ...rowNode.dataset } : {};
+        const form = rowNode.closest('form') || doc.querySelector('form');
+        const hiddenInputs = form
+          ? [...form.querySelectorAll('input[type=\"hidden\"]')].slice(0, 12).reduce((acc, input) => {
+            const key = String(input?.name || input?.id || '').trim();
+            if (!key) return acc;
+            acc[key] = String(input?.value || '');
+            return acc;
+          }, {})
+          : {};
         if (href) diagnostics.rowsWithHref += 1;
         if (onclick) diagnostics.rowsWithOnclick += 1;
-        const normalizedHref = href ? new URL(href, misCausasWindow.location.href).toString() : '';
-        const onclickUrlMatch = onclick.match(/https?:\/\/[^\s'"`]+/i);
+        const normalizedHref = href && !href.toLowerCase().startsWith('javascript:') ? new URL(href, misCausasWindow.location.href).toString() : '';
+        const onclickUrlMatch = (onclick || jsHref).match(/https?:\/\/[^\s'"`]+/i);
         const onclickUrl = onclickUrlMatch?.[0] || '';
+        const postbackMatch = (onclick || jsHref).match(/__doPostBack\((['"])([^'"]+)\1,\s*(['"])([^'"]*)\3\)/i);
+        const routeActionType = normalizedHref || onclickUrl
+          ? 'href'
+          : (postbackMatch ? 'postback' : ((onclick || jsHref) ? 'onclick' : (Object.keys(hiddenInputs).length ? 'form_hidden' : 'none')));
+        const routeActionPayload = routeActionType === 'postback'
+          ? { target: postbackMatch?.[2] || '', argument: postbackMatch?.[4] || '', hiddenInputs }
+          : (routeActionType === 'onclick' ? { script: onclick || jsHref, hiddenInputs } : (routeActionType === 'form_hidden' ? { hiddenInputs } : null));
         const routeUrl = normalizedHref || onclickUrl || '';
+        const visibleText = String(rowNode.innerText || '').trim();
+        const parsed = parsePjudFieldsFromVisibleText(visibleText);
         return {
           rowIndex: index + 1,
-          visibleText: String(rowNode.innerText || '').trim(),
+          visibleText,
           href: normalizedHref,
           onclick,
           routeUrl,
-          routeAction: routeUrl ? 'href|onclick' : '',
-          dataset: rowNode?.dataset ? { ...rowNode.dataset } : {},
+          routeAction: routeUrl ? 'href|onclick' : routeActionType,
+          routeActionType,
+          routeActionPayload,
+          dataset,
+          currentPageUrl: diagnostics.inspectedUrl || '',
+          rol: parsed.rol || dataset?.rol || dataset?.role || '',
+          rit: parsed.rit || dataset?.rit || '',
+          ruc: parsed.ruc || dataset?.ruc || '',
+          tribunal: parsed.tribunal || dataset?.tribunal || dataset?.court || '',
+          caratula: parsed.caratula || dataset?.caratula || dataset?.caratulado || '',
+          materia: parsed.materia || dataset?.materia || '',
         };
       });
 
       const queue = buildCauseQueueFromPjudDomRows(extractedRows, diagnostics);
+      if (!queue.length && !diagnostics.exactFailureReason) diagnostics.exactFailureReason = 'sin_rutas_validas_despues_de_extraer';
       const error = queue.length
         ? ''
         : 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.';
@@ -7464,6 +7986,47 @@
     function normalizePjudKey(value = ''){
       return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     }
+
+    function normalizePjudText(value = ''){
+      return String(value || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function normalizePjudCourt(value = ''){
+      return normalizePjudText(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    function parsePjudStructuredRole(value = ''){
+      const raw = normalizePjudText(value);
+      const roleType = raw.includes('ruc') ? 'RUC' : (raw.includes('rit') ? 'RIT' : 'ROL');
+      const letterMatch = raw.match(/(?:rol|rit|ruc)?\s*([a-z])\s*[-/]\s*\d+/i);
+      const numberMatch = raw.match(/(?:rol|rit|ruc)?\s*[a-z]?\s*[-/]?\s*(\d{1,9})/i);
+      const yearMatch = raw.match(/(19\d{2}|20\d{2}|\d{2})\s*$/);
+      const roleYear = yearMatch ? Number(yearMatch[1].length === 2 ? `20${yearMatch[1]}` : yearMatch[1]) : null;
+      return {
+        roleType,
+        roleLetter: letterMatch?.[1] ? letterMatch[1].toUpperCase() : '',
+        roleNumber: numberMatch ? Number(numberMatch[1]) : null,
+        roleYear: Number.isFinite(roleYear) ? roleYear : null,
+      };
+    }
+
+    function buildPjudNormalizedKey({ materia = '', roleType = '', roleLetter = '', roleNumber = null, roleYear = null, court = '' } = {}){
+      const key = [
+        normalizePjudText(materia),
+        String(roleType || '').toUpperCase(),
+        String(roleLetter || '').toUpperCase(),
+        roleNumber != null ? String(roleNumber) : '',
+        roleYear != null ? String(roleYear) : '',
+        normalizePjudCourt(court),
+      ].filter(Boolean).join('|');
+      return key || null;
+    }
+
 
     const STRUCTURAL_WORKBOOK_EXTENSIONS = new Set(['xlsx', 'xls', 'xlsm']);
     const STRUCTURAL_WORKBOOK_MIME_TYPES = new Set([
@@ -7877,6 +8440,7 @@
             destinationModule: 'Causas',
             caseId: current?.id || null,
             linkedClient: current?.cliente || '',
+            ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
             pjudTraceability: {
               batch_id: current?.importBatchId || current?.import_batch_id || state.pendingPjudBatchId || null,
               case_id: current?.id || null,
@@ -7966,6 +8530,7 @@
           destinationModule: 'Causas',
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
         })
         : [];
       const queuedDocuments = queuedDocs.length
@@ -7976,10 +8541,12 @@
           destinationModule: 'Causas',
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
         }))
         : [];
       const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => ({
         ...doc,
+        ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
         pjudTraceability: {
           ...(doc.pjudTraceability || {}),
           batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
@@ -8040,6 +8607,7 @@
           observation: 'Archivo descargado por el usuario desde PJUD (lote).',
           origin: 'Archivo descargado por usuario (PJUD lote)',
           destinationModule: 'Causas',
+          estadoVinculacion: 'pendiente_vinculacion',
         })
         : [];
       const queuedDocuments = queuedDocsPartition.documentCandidates.length
@@ -8134,6 +8702,7 @@
           ...item.document,
           caseId,
           linkedClient: selectedCase.cliente,
+          ...buildDocumentLinkagePayload(selectedCase, { estadoVinculacion: 'vinculado' }),
           pjudTraceability: {
             ...(item.document.pjudTraceability || {}),
             batch_id: selectedCase.importBatchId || selectedCase.import_batch_id || state.pendingPjudBatchId || null,
@@ -8235,14 +8804,59 @@
       `;
     }
 
+
+    function updateMassiveStepMetrics(stepId, { progress = null, metricText = '', progressText = '' } = {}){
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      const step = (state.massiveAudit.steps || []).find((item) => item.id === Number(stepId));
+      if (!step) return;
+      if (Number.isFinite(progress)) step.progress = Math.max(0, Math.min(100, Math.round(Number(progress))));
+      if (progressText) step.progressText = progressText;
+      else step.progressText = `${Number(step.progress || 0)}%`;
+      if (metricText) step.metricText = metricText;
+    }
+
+    function getMassiveStepAction(stepId){
+      const actions = {
+        1: () => connectWithPjud(),
+        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas > Civiles con sesión activa.'),
+        3: () => analyzeBatchImport(),
+        4: () => transferBatchImport(),
+        5: () => setMassiveAuditStep(5, 'running', 'Detectando causas y contenido documental del lote.'),
+        6: () => startMassivePjudDownloadFlow(),
+        7: () => transferBatchImport(),
+        8: () => transferBatchImport(),
+      };
+      return actions[Number(stepId)] || null;
+    }
+
+    function canStartMassiveStep(stepId){
+      const steps = state.massiveAudit?.steps || [];
+      if (Number(stepId) <= 1) return true;
+      for (let i = 1; i < Number(stepId); i += 1) {
+        const step = steps.find((item) => item.id === i);
+        if (!step) continue;
+        if (!['success','warning'].includes(step.status)) return false;
+      }
+      return true;
+    }
+
     function renderMassiveAuditSteps(audit){
-      return (audit.steps || []).map((step) => `
+      return (audit.steps || []).map((step) => {
+        const progress = Number(step.progress || 0);
+        const stateLabel = MASSIVE_STEP_STATUS_LABELS[step.status] || MASSIVE_STEP_STATUS_LABELS.pending;
+        const canStart = canStartMassiveStep(step.id);
+        return `
         <li class="timeline-item">
           <strong>Paso ${escapeHtml(step.id)} · ${escapeHtml(step.name)}</strong>
-          <div class="timeline-meta">Estado: ${escapeHtml(MASSIVE_STEP_STATUS_LABELS[step.status] || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
-          <div class="timeline-meta">${escapeHtml(step.detail || 'Sin novedades todavía.')}</div>
+          <div class="timeline-meta">Estado: ${escapeHtml(stateLabel)}</div>
+          <div class="timeline-meta">${escapeHtml(step.metricText || step.detail || 'Sin novedades todavía.')}</div>
+          <div style="margin-top:8px;background:rgba(15,23,42,.08);border-radius:999px;height:10px;overflow:hidden;border:1px solid rgba(15,23,42,.12);">
+            <div style="height:10px;background:linear-gradient(90deg,#2563eb,#22c55e);width:${escapeHtml(progress)}%;transition:width .25s ease;"></div>
+          </div>
+          <div class="timeline-meta"><strong>${escapeHtml(step.progressText || `${progress}%`)}</strong></div>
+          ${step.id <= 8 ? `<div class="modal-actions" style="margin-top:8px;"><button type="button" class="btn" data-step-action="${escapeHtml(step.id)}" ${canStart ? '' : 'disabled aria-disabled="true"'}>Iniciar</button></div>` : ''}
         </li>
-      `).join('');
+      `;}).join('');
     }
 
     function renderMassiveAuditLog(audit){
@@ -8301,6 +8915,7 @@
         pushMassiveAuditLog(`Esperando: ${waitingReason}.`);
       }
       if (currentStepId) setMassiveAuditStep(currentStepId, currentStepStatus || 'running', stepDetail || '');
+      updateMassiveStepMetrics(4, { progress: audit.percentage, metricText: `${audit.processedCauses} de ${audit.totalCauses} causas revisadas`, progressText: `${audit.percentage}%` });
       if (logEvent) pushMassiveAuditLog(logEvent);
       preview.innerHTML = `
         <div class="selection-grid" style="grid-template-columns:1fr;">
@@ -8310,7 +8925,7 @@
               <div style="height:18px;background:${progressBarColor};width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
             </div>
             <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
-            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'modo_manifiesto_excel' ? 'modo_manifiesto_excel (contingencia)' : 'modo_directo_pjud (principal)')}</div>
             <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(audit.sourceLabel || 'No informada')}</div>
             <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
             <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
@@ -8361,7 +8976,7 @@
       causesWithDownloadError = 0,
       causesWithClassificationError = 0,
       accounting = null,
-      executionMode = 'pjud_direct_session',
+      executionMode = 'modo_directo_pjud',
       sourceLabel = '',
       fabocatValidation = null,
       errors = 0,
@@ -8390,7 +9005,10 @@
         routeUnresolvedCount,
         fabocatValidation,
       });
-      const summaryText = `Resumen final importación PJUD (${executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión'}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
+      const modeLabel = executionMode === 'modo_manifiesto_excel'
+        ? 'modo_manifiesto_excel (contingencia)'
+        : 'modo_directo_pjud (principal)';
+      const summaryText = `Resumen final importación PJUD (${modeLabel}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, explicitWarning ? 'warn' : tone);
       const preview = $('batchImportPreview');
       if (!preview) return;
@@ -8398,7 +9016,7 @@
         <div class="selection-grid">
           <div class="selection-card">
             <strong>Resumen final importación PJUD</strong>
-            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(executionMode === 'excel_manifest_hyperlinks' ? 'manifiesto Excel con hipervínculos' : 'PJUD directo con sesión')}</div>
+            <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(modeLabel)}</div>
             <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(sourceLabel || 'No informada')}</div>
             <div class="case-meta">Filas analizadas: ${escapeHtml(rowsAnalyzed)} · Causas únicas: ${escapeHtml(uniqueCases)} · Duplicados internos: ${escapeHtml(duplicatedInternal)}</div>
             <div class="timeline-meta"><strong>Contabilidad:</strong> leídas ${escapeHtml(accounting?.rowsRead ?? rowsAnalyzed)} · válidas ${escapeHtml(accounting?.rowsValid ?? uniqueCases)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)} · duplicadas ${escapeHtml(accounting?.rowsDuplicated ?? duplicatedInternal)} · sin URL PJUD ${escapeHtml(accounting?.rowsWithoutUrl ?? routeUnresolvedCount)} · error de resolución ${escapeHtml(accounting?.rowsResolutionError ?? 0)} · efectivamente procesadas ${escapeHtml(accounting?.rowsProcessedEffective ?? inserted + updated)} · pendientes ${escapeHtml(accounting?.rowsPending ?? causesWithClassificationPartial)} · fallidas ${escapeHtml(accounting?.rowsFailed ?? errors)}</div>
@@ -8409,7 +9027,8 @@
             <div class="timeline-meta">Clasificación completa: ${escapeHtml(causesWithClassificationComplete)} · Parcial: ${escapeHtml(causesWithClassificationPartial)} · Error descarga: ${escapeHtml(causesWithDownloadError)} · Error clasificación: ${escapeHtml(causesWithClassificationError)}</div>
             <div class="timeline-meta"><strong>Paso 6:</strong> ${escapeHtml(step6State)} · <strong>Paso 7:</strong> ${escapeHtml(step7State)} · <strong>Paso 8:</strong> ${escapeHtml(step8State)}</div>
             <div class="timeline-meta">Solo Supabase: ${escapeHtml(supabaseOnly)} · Fallas materialización: ${escapeHtml(materializationFailed)} · Errores: ${escapeHtml(errors)}</div>
-            <div class="timeline-meta"><strong>Resumen jurídico útil:</strong> causas detectadas ${escapeHtml(rowsAnalyzed)} · incorporadas a Fabocat ${escapeHtml(inserted + updated)} · clasificadas automáticamente ${escapeHtml(causesWithClassificationComplete)} · clasificación pendiente ${escapeHtml(causesWithClassificationPartial)} · guardadas en Expedientes Digitales ${escapeHtml(materialized)} · fallidas ${escapeHtml(errors)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)}</div>
+            <div class="timeline-meta"><strong>Resumen jurídico útil:</strong> causas detectadas ${escapeHtml(rowsAnalyzed)} · estructura Alpha creada/actualizada ${escapeHtml(inserted + updated)} · materializadas realmente ${escapeHtml(materialized)} · clasificadas automáticamente ${escapeHtml(causesWithClassificationComplete)} · clasificación pendiente ${escapeHtml(causesWithClassificationPartial)} · fallidas ${escapeHtml(errors)} · descartadas ${escapeHtml(accounting?.rowsDiscarded ?? 0)}</div>
+            ${Number(materialized || 0) === 0 ? '<div class="timeline-meta"><strong>No hubo causas materializadas en la estructura interna de Alpha durante este lote.</strong></div>' : ''}
             ${fabocatValidation ? `<div class="timeline-meta"><strong>Validación real en Fabocat:</strong> materia principal inválida ${escapeHtml(fabocatValidation.invalidMainMateria || 0)} · tribunal incompleto ${escapeHtml(fabocatValidation.invalidTribunal || 0)} · rol/rit/año incompleto ${escapeHtml(fabocatValidation.invalidRoleTuple || 0)} · materias incompatibles simultáneas ${escapeHtml(fabocatValidation.incompatibleMateria || 0)}</div>` : ''}
             <div class="timeline-meta">Batch ID: ${escapeHtml(batchId || 'sin registro de batch (modo tolerante)')}</div>
             ${hasMaterializedOnlyUpdates ? '<div class="timeline-meta"><strong>Las causas ya existían en el sistema; por eso no se insertaron filas nuevas. Sí fueron actualizadas y materializadas.</strong></div>' : ''}
@@ -8462,6 +9081,15 @@
       const representedClientRole = importData.representedClientRole || null;
       const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
       const routeData = resolvePjudRouteData({}, importData);
+      const roleParts = parsePjudStructuredRole(rolComposite || importData.rol || importData.basic?.rol || '');
+      const normalizedKey = buildPjudNormalizedKey({
+        materia: importData.materia || importData.basic?.materia || '',
+        roleType: roleParts.roleType,
+        roleLetter: roleParts.roleLetter,
+        roleNumber: roleParts.roleNumber,
+        roleYear: roleParts.roleYear,
+        court: tribunal || corte || '',
+      });
       const destinationMap = buildPjudDestinationMap({
         [C.k_rol]: rolComposite,
         pjud_rit: importData.rit || importData.basic?.rit || null,
@@ -8488,6 +9116,25 @@
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
         pjud_case_key: importData.pjudCaseKey || null,
+        pjud_role_type: roleParts.roleType || null,
+        pjud_role_letter: roleParts.roleLetter || null,
+        pjud_role_number: roleParts.roleNumber ?? null,
+        pjud_role_year: roleParts.roleYear ?? null,
+        pjud_court_name: tribunal || corte || null,
+        pjud_rol_tipo: roleParts.roleType || null,
+        pjud_rol_letra: roleParts.roleLetter || null,
+        pjud_rol_numero: roleParts.roleNumber ?? null,
+        pjud_rol_anio: roleParts.roleYear ?? null,
+        pjud_normalized_key: normalizedKey,
+        pjud_url: routeData.pjudCaseUrl,
+        pjud_ebook_url: routeData.pjudEbookUrl,
+        pjud_estado_vinculo: 'sync_pending',
+        pjud_link_status: 'sync_pending',
+        pjud_last_sync_at: new Date().toISOString(),
+        pjud_ultima_sincronizacion: new Date().toISOString(),
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
         pjud_materia: importData.materia || importData.basic?.materia || null,
         pjud_submateria: importData.submateria || null,
         pjud_tribunal: tribunal || null,
@@ -8521,6 +9168,14 @@
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
           pjud_case_key: importData.pjudCaseKey || null,
+        pjud_normalized_key: normalizedKey,
+        pjud_url: routeData.pjudCaseUrl,
+        pjud_ebook_url: routeData.pjudEbookUrl,
+        pjud_estado_vinculo: 'sync_pending',
+        pjud_link_status: 'sync_pending',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
           represented_by_lawyer: Boolean(importData.representedByLawyer),
           has_raw_text: false,
           destination_path: destinationMap.logicalPath,
@@ -8987,6 +9642,7 @@
       let causesWithClassificationError = 0;
       let causesWithClassificationComplete = 0;
       let causesWithClassificationPartial = 0;
+      let causesWithOrphanLinkage = 0;
       let documentsDetectedTotal = 0;
       let documentsDownloadedTotal = 0;
       let documentsSavedTotal = 0;
@@ -8999,7 +9655,7 @@
       }));
       const totalChunks = Math.max(1, Math.ceil(casePayloads.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: casePayloads.length, batchId: batch?.id || null });
-      configureMassiveExecutionMode('excel_manifest_hyperlinks', summary?.fileName || excelFile?.name || 'manifiesto Excel');
+      configureMassiveExecutionMode('modo_manifiesto_excel', summary?.fileName || excelFile?.name || 'manifiesto Excel');
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       renderImportProgressPreview({
         chunkNumber: 0,
@@ -9129,6 +9785,19 @@
           }
           imported += 1;
           updated += 1;
+          let linkedPjudCase = null;
+          try {
+            linkedPjudCase = await upsertPjudCaseRegistryRow(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
+            const exactAlphaMatch = getAllCases().find((cause) => String(cause.pjudNormalKey || cause.pjud_normalized_key || '').trim() && String(cause.pjudNormalKey || cause.pjud_normalized_key || '').trim() === String(linkedPjudCase.normalized_key || '').trim());
+            await linkAlphaCaseWithPjud({
+              alphaCaseId: exactAlphaMatch?.id || updatedRow?.id,
+              pjudCase: linkedPjudCase,
+              mode: exactAlphaMatch?.id ? 'automatic' : 'manual',
+              confidence: exactAlphaMatch?.id ? 100 : 85,
+            });
+          } catch (registryError) {
+            console.warn('[PJUD][LINK] No se pudo registrar/vincular causa PJUD (update).', registryError);
+          }
           stageTrace.rowsUpdated += 1;
           if (updatedRow?.id) affectedCaseIds.add(String(updatedRow.id));
           try {
@@ -9145,13 +9814,15 @@
               currentSubaction: 'descargando contenido documental',
               internalProgress: `Causa ${Math.min(imported + failed + 1, casePayloads.length)} de ${casePayloads.length}`,
             });
-            materializeImportedCaseWorkspace({
+            const materializedDetail = materializeImportedCaseWorkspace({
               caseRow: updatedRow,
               rowPayload,
               operationMode: 'update',
               importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
               importBatchId: batch?.id || null,
             });
+            const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+            if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
             materialized += 1;
             stageTrace.rowsMaterialized += 1;
             rowAudit.materialized = true;
@@ -9277,17 +9948,26 @@
               }
               imported += 1;
               created += 1;
+              let linkedPjudCase = null;
+              try {
+                linkedPjudCase = await upsertPjudCaseRegistryRow(rowPayload, consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || {});
+                await linkAlphaCaseWithPjud({ alphaCaseId: insertedRow?.id, pjudCase: linkedPjudCase, mode: 'automatic', confidence: 100 });
+              } catch (registryError) {
+                console.warn('[PJUD][LINK] No se pudo registrar/vincular causa PJUD (insert).', registryError);
+              }
               stageTrace.rowsCreated += 1;
               if (insertedRow?.id) affectedCaseIds.add(String(insertedRow.id));
               try {
                 setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
-                materializeImportedCaseWorkspace({
+                const materializedDetail = materializeImportedCaseWorkspace({
                   caseRow: insertedRow,
                   rowPayload,
                   operationMode: 'create',
                   importData: consolidatedCaseMap.get(String(rowPayload.pjud_case_key || '')) || null,
                   importBatchId: batch?.id || null,
                 });
+                const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+                if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
@@ -9380,13 +10060,15 @@
               const rowAudit = buildPjudContentAudit(sourcePayload, consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || {}, destinationMap);
               try {
                 setMassiveAuditStep(6, 'running', 'Descargando contenido documental');
-                materializeImportedCaseWorkspace({
+                const materializedDetail = materializeImportedCaseWorkspace({
                   caseRow: savedRow,
                   rowPayload: sourcePayload,
                   operationMode: 'create',
                   importData: consolidatedCaseMap.get(String(savedRow.pjud_case_key || '')) || null,
                   importBatchId: batch?.id || null,
                 });
+                const orphanAfterMaterialization = (materializedDetail?.documents || []).filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim()).length;
+                if (orphanAfterMaterialization > 0) causesWithOrphanLinkage += 1;
                 materialized += 1;
                 stageTrace.rowsMaterialized += 1;
                 rowAudit.materialized = true;
@@ -9467,9 +10149,30 @@
       }
       setMassiveAuditStep(4, 'success', 'Recorrido de causas completado');
       setMassiveAuditStep(5, 'success', 'Detección de documentos completada');
-      setMassiveAuditStep(6, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Descarga completada con advertencias' : 'Descarga completada con éxito');
-      setMassiveAuditStep(7, materializationWarnings.length ? 'warning' : 'success', materializationWarnings.length ? 'Guardado completado con advertencias' : 'Guardado completado con éxito');
-      setMassiveAuditStep(8, causesWithClassificationError ? 'warning' : 'success', causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
+      const linkageIntegrityFailed = causesWithoutDownloadedContent > 0 || causesWithClassificationError > 0 || causesWithOrphanLinkage > 0;
+      const downloadedRealFiles = Number(documentsDownloadedTotal || 0);
+      const hasRealDownloads = downloadedRealFiles > 0;
+      const step6Status = !hasRealDownloads
+        ? 'warning'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success');
+      const step6Detail = !hasRealDownloads
+        ? 'Descarga documental real incompleta: 0 archivos reales descargados desde PJUD.'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'Descarga completada con advertencias de vinculación' : 'Descarga completada con éxito');
+      const step7Status = !hasRealDownloads
+        ? 'skipped'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'warning' : 'success');
+      const step7Detail = !hasRealDownloads
+        ? 'Guardado omitido: sin archivos reales descargados en Paso 6.'
+        : ((materializationWarnings.length || linkageIntegrityFailed) ? 'Guardado completado con advertencias de vinculación' : 'Guardado completado con éxito');
+      const step8Status = !hasRealDownloads
+        ? 'skipped'
+        : (causesWithClassificationError ? 'warning' : 'success');
+      const step8Detail = !hasRealDownloads
+        ? 'Clasificación omitida: no existe contenido real descargado.'
+        : (causesWithClassificationError ? 'Clasificación completada con advertencias' : 'Clasificación completada con éxito');
+      setMassiveAuditStep(6, step6Status, step6Detail);
+      setMassiveAuditStep(7, step7Status, step7Detail);
+      setMassiveAuditStep(8, step8Status, step8Detail);
 
       const invalidRows = (summary.invalidRowDetails || []).map((row) => ({
         materia: row.sheetName || 'Sin materia',
@@ -9564,7 +10267,7 @@
       }
 
       await updatePjudBatchMetadata(batch?.id || null, {
-        status: discardedRows.length ? 'completed_with_warnings' : 'completed',
+        status: (discardedRows.length || linkageIntegrityFailed) ? 'completed_with_warnings' : 'completed',
         imported,
         created,
         updated,
@@ -9580,6 +10283,7 @@
         documentsClassifiedTotal,
         causesWithClassificationComplete,
         causesWithClassificationPartial,
+        causesWithOrphanLinkage,
         causesWithDownloadError,
         causesWithClassificationError,
         duplicates: duplicated,
@@ -9629,6 +10333,7 @@
           documentsUrlResolvedCount,
           causesWithClassificationComplete,
           causesWithClassificationPartial,
+          causesWithOrphanLinkage,
           causesWithDownloadError,
           causesWithClassificationError,
           duplicated,
@@ -9646,10 +10351,11 @@
 
     async function analyzeBatchImport(){
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
+      const useManifestMode = isManifestModeEnabled();
       state.pendingPjudRouteDiagnostics = null;
-      if (excelFile) {
+      if (excelFile && useManifestMode) {
         try {
-          configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
+          configureMassiveExecutionMode('modo_manifiesto_excel', excelFile.name || 'manifiesto Excel');
           setMassiveAuditStep(3, 'running', 'Resolviendo rutas PJUD desde manifiesto Excel');
           renderImportProgressPreview({
             currentStepId: 3,
@@ -9687,17 +10393,26 @@
         }
       }
       state.pendingPjudWorkbook = null;
-      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
+      configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
-      setMassiveAuditStep(3, queue.length ? 'success' : 'warning', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
+      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
       renderBatchImportPreview([], null);
       if (!queue.length) {
+        setMassiveAuditStep(4, 'skipped', 'Paso 4 bloqueado: el Paso 3 no resolvió rutas válidas.');
+        setMassiveAuditStep(5, 'skipped', 'Paso 5 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(6, 'skipped', 'Paso 6 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(7, 'skipped', 'Paso 7 bloqueado por falla previa en resolución de rutas.');
+        setMassiveAuditStep(8, 'skipped', 'Paso 8 bloqueado por falla previa en resolución de rutas.');
         setMessage('importMsg', error || 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
         return;
       }
-      setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+      if (excelFile && !useManifestMode) {
+        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}.`, 'ok');
+      } else {
+        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+      }
     }
 
     function openMassiveDownloadModal(){
@@ -9752,13 +10467,13 @@
     async function startMassivePjudDownloadFlow(){
       state.massiveAudit = createDefaultMassiveAuditState();
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
-      if (excelFile) {
-        configureMassiveExecutionMode('excel_manifest_hyperlinks', excelFile.name || 'manifiesto Excel');
+      if (excelFile && isManifestModeEnabled()) {
+        configureMassiveExecutionMode('modo_manifiesto_excel', excelFile.name || 'manifiesto Excel');
         await analyzeBatchImport();
         await transferBatchImport();
         return;
       }
-      configureMassiveExecutionMode('pjud_direct_session', 'Sesión activa PJUD / Mis Causas');
+      configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       setMassiveAuditStep(1, 'running', 'Conectando con PJUD');
       renderImportProgressPreview({
         currentStepId: 1,
@@ -9770,6 +10485,10 @@
       setMassiveAuditStep(1, 'success', 'Sesión PJUD validada');
       setMassiveAuditStep(2, 'success', 'Mis Causas disponible con sesión activa');
       await analyzeBatchImport();
+      if (!state.pendingBatchImports.length) {
+        setMassiveAuditStep(9, 'warning', 'Ejecución detenida: Paso 3 no encontró rutas válidas en Mis Causas.');
+        return;
+      }
       await transferBatchImport();
     }
 
@@ -9912,7 +10631,7 @@
         await analyzeBatchImport();
       }
       const excelFile = $('batch_excel_file')?.files?.[0] || null;
-      if (excelFile) {
+      if (excelFile && isManifestModeEnabled()) {
         try {
           const { batch, stats, summary } = await upsertImportedWorkbookCasesFromFile(excelFile);
           const rowsAnalyzed = Number(summary?.rowsProcessed || 0);
@@ -9967,7 +10686,7 @@
             causesWithDownloadError: Number(stats.causesWithDownloadError || 0),
             causesWithClassificationError: Number(stats.causesWithClassificationError || 0),
             accounting: stats.accounting || null,
-            executionMode: 'excel_manifest_hyperlinks',
+            executionMode: 'modo_manifiesto_excel',
             sourceLabel: summary?.fileName || excelFile.name || 'manifiesto Excel',
             fabocatValidation: stats.fabocatValidation || null,
             errors: Number(stats.rejected || 0),
@@ -10044,6 +10763,11 @@
 
       const items = state.pendingBatchImports || [];
       if (!items.length) {
+        setMassiveAuditStep(4, 'failed', 'Paso 4 fallido: no hay causas válidas para recorrer.');
+        setMassiveAuditStep(5, 'skipped', 'Paso 5 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(6, 'skipped', 'Paso 6 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(7, 'skipped', 'Paso 7 omitido: no hay causas válidas en cola.');
+        setMassiveAuditStep(8, 'skipped', 'Paso 8 omitido: no hay causas válidas en cola.');
         renderImportProgressPreview({
           currentStepId: 4,
           currentStepStatus: 'failed',
@@ -10070,6 +10794,10 @@
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
+      setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo PJUD');
+      setMassiveAuditStep(6, 'skipped', 'Descarga documental se mantiene pendiente en modo directo (solo vínculo PJUD ↔ Alpha).');
+      setMassiveAuditStep(7, 'skipped', 'Guardado en Expedientes Digitales pendiente de descarga real.');
+      setMassiveAuditStep(8, 'skipped', 'Clasificación pendiente de descarga real.');
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
           const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
@@ -10176,13 +10904,14 @@
           inserted: created,
           updated,
           accounting,
-          executionMode: 'pjud_direct_session',
+          executionMode: 'modo_directo_pjud',
           sourceLabel: 'Sesión activa PJUD / Mis Causas',
           errors: failures,
           batchId: state.pendingPjudBatchId || null,
           warning,
           tone: failures ? 'warn' : 'ok',
         });
+        setMassiveAuditStep(5, failures ? 'warning' : 'success', failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.');
         setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
         renderImportProgressPreview({
           chunkNumber: totalChunks,
@@ -10226,7 +10955,7 @@
       const current = getCurrentCause();
       if (!current) return;
       $('formSincronizacion').reset();
-      $('sync_url').value = current.poderJudicial?.link || '';
+      $('sync_url').value = current.pjudUrl || current.poderJudicial?.link || '';
       setMessage('syncMsg', '', '');
       openManagedModal('modalSincronizacion');
     }
@@ -10237,7 +10966,7 @@
 
       logPjudTrace('click recibido', {
         causeId: current.id,
-        sourceUrl: current?.poderJudicial?.link || current?.tribunalData?.poderJudicial || '',
+        sourceUrl: current?.pjudUrl || current?.poderJudicial?.link || current?.tribunalData?.poderJudicial || '',
       });
       const popup = openExternalPopup('pjud', 'Estamos preparando la navegación externa hacia la causa en el sitio oficial del Poder Judicial.');
       if (!popup) {
@@ -10382,6 +11111,7 @@
           observation: $('doc_observation').value.trim(),
           caseId: current.id,
           linkedClient: current.cliente,
+          ...buildDocumentLinkagePayload(current),
           origin: 'Registro manual',
           placeholderText: [
             'Documento generado manualmente desde Alpha Avocat.',
@@ -10421,10 +11151,15 @@
       event.preventDefault();
       const current = getCurrentCause();
       if (!current) return;
+      const nowIso = new Date().toISOString();
       persistCurrentCause((entry) => applyManualSync(entry, {
         rawText: $('sync_raw').value,
         sourceUrl: $('sync_url').value,
       }));
+      await supabase.from(T_CASES).update({
+        pjud_ultima_sincronizacion: nowIso,
+        pjud_last_sync_at: nowIso,
+      }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
       setMessage('syncMsg', 'Sincronización registrada. Se agregaron solo movimientos y documentos no duplicados.', 'ok');
       await loadCases();
       renderAll();
@@ -10530,7 +11265,25 @@
         const mode = state.pendingPjudManualLinkMode === 'batch' ? 'batch' : 'individual';
         await linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection: true, mode });
       });
-      $('batchImportPreview')?.addEventListener('click', (event) => {
+      $('batchImportPreview')?.addEventListener('click', async (event) => {
+        const stepButton = event.target.closest('[data-step-action]');
+        if (stepButton) {
+          const stepId = Number(stepButton.dataset.stepAction || 0);
+          const action = getMassiveStepAction(stepId);
+          if (!canStartMassiveStep(stepId)) {
+            setMessage('importMsg', `No se puede iniciar el paso ${stepId} hasta completar realmente los pasos previos.`, 'warn');
+            return;
+          }
+          if (!action) return;
+          try {
+            setMassiveAuditStep(stepId, 'running', `Paso ${stepId} iniciado manualmente por el usuario.`);
+            await action();
+          } catch (error) {
+            setMassiveAuditStep(stepId, 'failed', error?.message || 'Error al iniciar paso manual.');
+          }
+          renderImportProgressPreview({ processed: state.massiveAudit?.processedCauses || 0, totalItems: state.massiveAudit?.totalCauses || 0, currentStepId: stepId, currentStepStatus: state.massiveAudit?.steps?.find((it)=>it.id===stepId)?.status || 'running' });
+          return;
+        }
         const actionButton = event.target.closest('[data-import-summary-action]');
         if (!actionButton) return;
         const action = actionButton.dataset.importSummaryAction;
@@ -10592,7 +11345,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -10607,7 +11360,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -10685,7 +11438,7 @@
         if (found) found.action();
       });
 
-      $('detailContent')?.addEventListener('click', (event) => {
+      $('detailContent')?.addEventListener('click', async (event) => {
         const associationClient = event.target.closest('[data-select-associated-client]');
         if (associationClient) {
           state.selectedAssociationClientId = associationClient.dataset.selectAssociatedClient || null;
@@ -10813,6 +11566,10 @@
             openImportModal();
             return;
           }
+          if (action === 'open-linking-panel') {
+            await openPjudLinkingPanel();
+            return;
+          }
           if (action === 'open-batch') {
             state.pjudHistory.selectedBatchId = batchId;
             loadPjudBatchRows(batchId);
@@ -10822,6 +11579,122 @@
           if (action === 'retry-batch') {
             openImportModal();
             setMessage('importMsg', `Reintento preparado para el lote ${batchId}. Vuelve a adjuntar el archivo/fuente y ejecuta la importación.`, 'warn');
+            return;
+          }
+        }
+
+        const pjudCaseAction = event.target.closest('[data-pjud-case-action]');
+        if (pjudCaseAction) {
+          const action = pjudCaseAction.dataset.pjudCaseAction;
+          const current = getCurrentCause();
+          if (!current) return;
+          if (action === 'link') {
+            await openPjudLinkingPanel();
+            return;
+          }
+          if (action === 'relink') {
+            setDetailStatus('Re-vinculación: selecciona la causa PJUD correcta y confirma el enlace.', 'warn');
+            await openPjudLinkingPanel();
+            return;
+          }
+          if (action === 'sync') {
+            openSyncModal();
+            return;
+          }
+          if (action === 'open') {
+            await openInPoderJudicial();
+            return;
+          }
+          if (action === 'unlink') {
+            const confirmed = window.confirm('Se desvinculará esta causa de PJUD. ¿Deseas continuar?');
+            if (!confirmed) return;
+            await supabase.from(T_CASES).update({
+              pjud_case_id: null,
+              pjud_rol_tipo: null,
+              pjud_rol_letra: null,
+              pjud_rol_numero: null,
+              pjud_rol_anio: null,
+              pjud_tribunal: null,
+              pjud_url: null,
+              pjud_ebook_url: null,
+              pjud_normalized_key: null,
+              pjud_estado_vinculo: 'unlinked',
+              pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
+            }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
+            if (current.pjudCaseId) {
+              await supabase.from(T_PJUD_CASES).update({
+                alpha_case_id: null,
+                link_status: 'unlinked',
+                confidence: null,
+              }).eq('owner_user_id', authenticatedUser.id).eq('id', current.pjudCaseId);
+            }
+            await loadCases();
+            renderAll();
+            setDetailStatus('Vinculación PJUD eliminada para esta causa.', 'ok');
+            return;
+          }
+        }
+
+        const pjudLinkAction = event.target.closest('[data-pjud-link-action]');
+        if (pjudLinkAction) {
+          const action = pjudLinkAction.dataset.pjudLinkAction;
+          if (action === 'refresh') {
+            await loadPjudLinkingData();
+            renderPjudLinkingPanel();
+            return;
+          }
+          if (action === 'open-alpha') {
+            const alphaCaseId = pjudLinkAction.dataset.alphaCaseId || '';
+            if (alphaCaseId && state.caseMap.has(alphaCaseId)) {
+              state.selectedId = alphaCaseId;
+              closeManagedModal('modalPjudLinking');
+              renderAll();
+            }
+            return;
+          }
+          if (action === 'unlink') {
+            const pjudCaseId = pjudLinkAction.dataset.pjudCaseId || '';
+            const entry = state.pjudLinking.items.find((item) => String(item.id) === pjudCaseId);
+            if (entry) {
+              if (entry.alpha_case_id) {
+                await supabase.from(T_CASES).update({
+                  pjud_case_id: null,
+                  pjud_rol_tipo: null,
+                  pjud_rol_letra: null,
+                  pjud_rol_numero: null,
+                  pjud_rol_anio: null,
+                  pjud_tribunal: null,
+                  pjud_url: null,
+                  pjud_ebook_url: null,
+                  pjud_normalized_key: null,
+                  pjud_estado_vinculo: 'unlinked',
+                  pjud_link_status: 'unlinked',
+        pjud_source_mode: 'modo_directo_pjud',
+        pjud_last_error: null,
+        pjud_files_downloaded_count: 0,
+                }).eq('owner_user_id', authenticatedUser.id).eq('id', entry.alpha_case_id);
+              }
+              await supabase.from(T_PJUD_CASES).update({ alpha_case_id: null, link_status: 'unlinked', confidence: null }).eq('owner_user_id', authenticatedUser.id).eq('id', pjudCaseId);
+            }
+            await loadPjudLinkingData();
+            renderPjudLinkingPanel();
+            return;
+          }
+          if (action === 'link') {
+            const pjudCaseId = pjudLinkAction.dataset.pjudCaseId || '';
+            const alphaOptions = getAllCases();
+            const suggestion = window.prompt(`Selecciona ID de causa Alpha para vincular:\n${alphaOptions.slice(0,25).map((c) => `${c.id} :: ${c.rol || c.caratula}`).join('\n')}`);
+            if (suggestion) {
+              const pjudCase = state.pjudLinking.items.find((item) => String(item.id) === pjudCaseId);
+              await linkAlphaCaseWithPjud({ alphaCaseId: suggestion.trim(), pjudCase, mode: 'manual', confidence: 80, actorId: authenticatedUser.id });
+              await loadCases();
+              await loadPjudLinkingData();
+              renderPjudLinkingPanel();
+              renderAll();
+            }
             return;
           }
         }
@@ -10838,7 +11711,7 @@
       });
       $('detailContent')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
+        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
