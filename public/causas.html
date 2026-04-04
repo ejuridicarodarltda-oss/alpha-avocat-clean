@@ -1676,7 +1676,7 @@
 
       <div class="causas-topbar-actions">
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
-        <button id="btnSistemaAutomatico" class="btn btn-primary">Sistema automático</button>
+        <button id="btnSistemaAutomatico" class="btn btn-primary">Sistema semiautomático</button>
         <button id="btnImportar" class="btn">Importar causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
@@ -2046,17 +2046,17 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Importación judicial PJUD</div>
-          <p class="panel-subtitle">Selecciona un flujo independiente. La descarga masiva automática y la descarga manual una a una están separadas en ventanas distintas.</p>
+          <p class="panel-subtitle">Selecciona un flujo independiente. La descarga masiva semiautomática y la descarga manual una a una están separadas en ventanas distintas.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalImportacion" aria-label="Cerrar">✕</button>
       </div>
       <div class="form">
         <div class="selection-grid">
           <div class="selection-card">
-            <strong>Descarga masiva automática desde PJUD</strong>
-            <div class="timeline-meta">Procesa lotes completos con conexión PJUD/OJV, descarga automática y guardado automático en Expedientes Digitales.</div>
+            <strong>Descarga masiva semiautomática desde PJUD</strong>
+            <div class="timeline-meta">Procesa lotes asistidos con conexión PJUD/OJV, intervención del usuario en hitos clave y guardado real en Expedientes Digitales.</div>
             <div class="modal-actions" style="margin-top:10px;">
-              <button type="button" id="btnAbrirModalDescargaMasiva" class="btn btn-primary">Descarga masiva automática desde PJUD</button>
+              <button type="button" id="btnAbrirModalDescargaMasiva" class="btn btn-primary">Descarga masiva semiautomática desde PJUD</button>
             </div>
           </div>
           <div class="selection-card">
@@ -2076,12 +2076,13 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Descarga masiva automática desde PJUD</div>
-          <p class="panel-subtitle">Flujo exclusivo por lote: conecta PJUD, procesa causas masivamente, descarga y guarda automáticamente en Expedientes Digitales.</p>
+          <div class="modal-title">Descarga masiva semiautomática desde PJUD</div>
+          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas > Civiles, procesamiento por hitos y guardado real en Expedientes Digitales.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalDescargaMasivaPjud" aria-label="Cerrar">✕</button>
       </div>
       <form id="formImportacionMasiva" class="form">
+        <div id="massiveFlowStepControls" class="helper-box">Panel de pasos semiautomáticos cargando...</div>
         <div class="helper-box">
           <strong>Paso 1: Conectar con PJUD</strong>
           <div class="timeline-meta">Validar o iniciar sesión real del usuario en PJUD/OJV para habilitar el flujo web→web.</div>
@@ -2534,13 +2535,15 @@
 
     const MASSIVE_STEP_STATUS_LABELS = {
       pending: 'Pendiente',
+      ready: 'Listo para iniciar',
       running: 'En ejecución',
-      success: 'Completado con éxito',
+      paused: 'Pausado',
+      success: 'Completado',
+      warning: 'Completado con advertencias',
       failed: 'Fallido',
-      warning: 'Con advertencia',
-      waiting: 'Esperando',
-      retrying: 'Reintentando',
-      skipped: 'Omitido por modo manifiesto',
+      waiting: 'Pausado',
+      retrying: 'En ejecución',
+      skipped: 'Pendiente',
     };
     const MASSIVE_FLOW_STEPS = [
       { id: 1, name: 'Conectar con PJUD' },
@@ -2577,8 +2580,11 @@
         stepRunCounts: {},
         steps: MASSIVE_FLOW_STEPS.map((step) => ({
           ...step,
-          status: 'pending',
+          status: step.id === 1 ? 'ready' : 'pending',
           detail: '',
+          progress: 0,
+          progressText: '0%',
+          metricText: 'Pendiente de ejecución real',
         })),
       };
     }
@@ -2672,6 +2678,11 @@
       if (!step) return;
       step.status = status;
       step.detail = detail || step.detail || '';
+      if (status === 'success') step.progress = 100;
+      if (status === 'warning') step.progress = Math.max(1, Number(step.progress || 0));
+      if (status === 'failed') step.progress = Math.max(1, Number(step.progress || 0));
+      step.progressText = `${Number(step.progress || 0)}%`;
+      step.metricText = detail || step.metricText || 'Pendiente de ejecución real';
       state.massiveAudit.currentStepId = step.id;
       state.massiveAudit.currentStepName = `Paso ${step.id}: ${step.name}`;
       state.massiveAudit.currentStepStatus = MASSIVE_STEP_STATUS_LABELS[status] || MASSIVE_STEP_STATUS_LABELS.pending;
@@ -8793,14 +8804,59 @@
       `;
     }
 
+
+    function updateMassiveStepMetrics(stepId, { progress = null, metricText = '', progressText = '' } = {}){
+      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
+      const step = (state.massiveAudit.steps || []).find((item) => item.id === Number(stepId));
+      if (!step) return;
+      if (Number.isFinite(progress)) step.progress = Math.max(0, Math.min(100, Math.round(Number(progress))));
+      if (progressText) step.progressText = progressText;
+      else step.progressText = `${Number(step.progress || 0)}%`;
+      if (metricText) step.metricText = metricText;
+    }
+
+    function getMassiveStepAction(stepId){
+      const actions = {
+        1: () => connectWithPjud(),
+        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas > Civiles con sesión activa.'),
+        3: () => analyzeBatchImport(),
+        4: () => transferBatchImport(),
+        5: () => setMassiveAuditStep(5, 'running', 'Detectando causas y contenido documental del lote.'),
+        6: () => startMassivePjudDownloadFlow(),
+        7: () => transferBatchImport(),
+        8: () => transferBatchImport(),
+      };
+      return actions[Number(stepId)] || null;
+    }
+
+    function canStartMassiveStep(stepId){
+      const steps = state.massiveAudit?.steps || [];
+      if (Number(stepId) <= 1) return true;
+      for (let i = 1; i < Number(stepId); i += 1) {
+        const step = steps.find((item) => item.id === i);
+        if (!step) continue;
+        if (!['success','warning'].includes(step.status)) return false;
+      }
+      return true;
+    }
+
     function renderMassiveAuditSteps(audit){
-      return (audit.steps || []).map((step) => `
+      return (audit.steps || []).map((step) => {
+        const progress = Number(step.progress || 0);
+        const stateLabel = MASSIVE_STEP_STATUS_LABELS[step.status] || MASSIVE_STEP_STATUS_LABELS.pending;
+        const canStart = canStartMassiveStep(step.id);
+        return `
         <li class="timeline-item">
           <strong>Paso ${escapeHtml(step.id)} · ${escapeHtml(step.name)}</strong>
-          <div class="timeline-meta">Estado: ${escapeHtml(MASSIVE_STEP_STATUS_LABELS[step.status] || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
-          <div class="timeline-meta">${escapeHtml(step.detail || 'Sin novedades todavía.')}</div>
+          <div class="timeline-meta">Estado: ${escapeHtml(stateLabel)}</div>
+          <div class="timeline-meta">${escapeHtml(step.metricText || step.detail || 'Sin novedades todavía.')}</div>
+          <div style="margin-top:8px;background:rgba(15,23,42,.08);border-radius:999px;height:10px;overflow:hidden;border:1px solid rgba(15,23,42,.12);">
+            <div style="height:10px;background:linear-gradient(90deg,#2563eb,#22c55e);width:${escapeHtml(progress)}%;transition:width .25s ease;"></div>
+          </div>
+          <div class="timeline-meta"><strong>${escapeHtml(step.progressText || `${progress}%`)}</strong></div>
+          ${step.id <= 8 ? `<div class="modal-actions" style="margin-top:8px;"><button type="button" class="btn" data-step-action="${escapeHtml(step.id)}" ${canStart ? '' : 'disabled aria-disabled="true"'}>Iniciar</button></div>` : ''}
         </li>
-      `).join('');
+      `;}).join('');
     }
 
     function renderMassiveAuditLog(audit){
@@ -8859,6 +8915,7 @@
         pushMassiveAuditLog(`Esperando: ${waitingReason}.`);
       }
       if (currentStepId) setMassiveAuditStep(currentStepId, currentStepStatus || 'running', stepDetail || '');
+      updateMassiveStepMetrics(4, { progress: audit.percentage, metricText: `${audit.processedCauses} de ${audit.totalCauses} causas revisadas`, progressText: `${audit.percentage}%` });
       if (logEvent) pushMassiveAuditLog(logEvent);
       preview.innerHTML = `
         <div class="selection-grid" style="grid-template-columns:1fr;">
@@ -11208,7 +11265,25 @@
         const mode = state.pendingPjudManualLinkMode === 'batch' ? 'batch' : 'individual';
         await linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection: true, mode });
       });
-      $('batchImportPreview')?.addEventListener('click', (event) => {
+      $('batchImportPreview')?.addEventListener('click', async (event) => {
+        const stepButton = event.target.closest('[data-step-action]');
+        if (stepButton) {
+          const stepId = Number(stepButton.dataset.stepAction || 0);
+          const action = getMassiveStepAction(stepId);
+          if (!canStartMassiveStep(stepId)) {
+            setMessage('importMsg', `No se puede iniciar el paso ${stepId} hasta completar realmente los pasos previos.`, 'warn');
+            return;
+          }
+          if (!action) return;
+          try {
+            setMassiveAuditStep(stepId, 'running', `Paso ${stepId} iniciado manualmente por el usuario.`);
+            await action();
+          } catch (error) {
+            setMassiveAuditStep(stepId, 'failed', error?.message || 'Error al iniciar paso manual.');
+          }
+          renderImportProgressPreview({ processed: state.massiveAudit?.processedCauses || 0, totalItems: state.massiveAudit?.totalCauses || 0, currentStepId: stepId, currentStepStatus: state.massiveAudit?.steps?.find((it)=>it.id===stepId)?.status || 'running' });
+          return;
+        }
         const actionButton = event.target.closest('[data-import-summary-action]');
         if (!actionButton) return;
         const action = actionButton.dataset.importSummaryAction;
