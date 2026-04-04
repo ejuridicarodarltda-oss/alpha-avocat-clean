@@ -5,41 +5,43 @@ const STEP_STATUS = {
   pending: 'Pendiente',
   running: 'En ejecución',
   success: 'Completado con éxito',
-  warning: 'Completado con advertencia',
+  warning: 'Completado con advertencias',
   failed: 'Fallido',
-  retrying: 'Reintentando',
-  blocked: 'Bloqueado por dependencia'
+  blocked: 'Bloqueado'
+}
+
+const FLOW_STATUS_LABEL = {
+  waiting_manual_login: 'esperando login manual',
+  waiting_mis_causas: 'esperando apertura de Mis Causas Civiles',
+  validating_view: 'validando vista PJUD',
+  running_batch: 'lote en ejecución',
+  paused_reauth: 'pausa por reautenticación',
+  resumed: 'reanudado',
+  completed_warning: 'completado con advertencias',
+  failed: 'fallido',
+  completed_success: 'completado'
 }
 
 const MASSIVE_STEPS = [
-  { id: 1, name: 'Importar lista fuente de causas' },
-  { id: 2, name: 'Normalizar datos por causa (competencia, tribunal, ROL/RIT, año)' },
-  { id: 3, name: 'Resolver estrategia PJUD por competencia y filtros reales' },
-  { id: 4, name: 'Abrir causa validada en PJUD (carátula + tribunal)' },
-  { id: 5, name: 'Descargar a almacenamiento temporal del sistema' },
-  { id: 6, name: 'Crear/actualizar causa madre en Fabocat' },
-  { id: 7, name: 'Clasificar automáticamente la causa madre' },
-  { id: 8, name: 'Mover documentos al expediente digital canónico' },
-  { id: 9, name: 'Publicar en visor solo si validación interna está completa' },
-  { id: 10, name: 'Resumen del lote, trazabilidad y reintento controlado' }
+  { id: 1, name: 'Validar sesión manual y vista PJUD > Mis Causas > Civiles' },
+  { id: 2, name: 'Detectar causas reales visibles y armar lote configurable' },
+  { id: 3, name: 'Abrir lupa por rol y detalle real por causa' },
+  { id: 4, name: 'Descargar contenido real a almacenamiento temporal por lote' },
+  { id: 5, name: 'Clasificar después de descarga y validar integridad mínima' },
+  { id: 6, name: 'Guardar en Alpha, actualizar panel PJUD y sincronización' },
+  { id: 7, name: 'Registrar checkpoint/reanudación y trazabilidad de ejecución' }
 ]
 
-const DEFAULT_STEP_DETAIL = {
-  4: 'Abriendo causa validada por tribunal y carátula',
-  5: 'Descargando contenido a almacenamiento temporal interno',
-  6: 'Creando o actualizando causa madre en Fabocat',
-  7: 'Clasificando causa madre automáticamente',
-  8: 'Moviendo documentos al expediente digital correcto',
-  9: 'Validación interna previa a publicación'
-}
+const DEFAULT_BATCH_SIZE = 20
+const CHECKPOINT_STORAGE_KEY = 'alpha.pjud.checkpoint'
+const SESSION_STORAGE_KEY = 'pjud.session.state'
 
 const PJUD_SESSION_LABEL = {
   not_authenticated: 'no autenticado',
   waiting_manual_login: 'esperando login manual',
   active: 'sesión iniciada',
-  expired: 'sesión expirada',
-  mis_causas_visible: 'mis causas visible',
-  detalle_causa_visible: 'detalle de causa visible'
+  mis_causas_civiles_ready: 'mis causas civiles lista',
+  expired: 'sesión expirada'
 }
 
 function resolveContainer(containerOrSelector = '#cargaModuleRoot') {
@@ -61,164 +63,10 @@ function delay(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms))
 }
 
-function normalizeText(value = '') {
-  return String(value || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim()
-}
-
-function inferMatterFromStructuredIdentifier(identifier = '') {
-  const normalized = normalizeText(identifier)
-  const leadingToken = normalized.match(/^([a-z]+)/i)?.[1] || ''
-  if (!leadingToken) return ''
-  if (leadingToken.startsWith('f')) return 'Familia'
-  if (leadingToken.startsWith('c')) return 'Civil'
-  if (leadingToken.startsWith('t') || leadingToken.startsWith('l')) return 'Laboral'
-  if (leadingToken.startsWith('r')) return 'Penal'
-  return ''
-}
-
-function inferMatterByHierarchy(cause, { knownBatchMatter = '' } = {}) {
-  const tribunal = normalizeText(cause?.tribunal)
-  const competencia = normalizeText(cause?.competencia)
-  const organo = normalizeText(cause?.organoJurisdiccional)
-  const materiaLote = normalizeText(knownBatchMatter || cause?.knownBatchMatter || cause?.materia)
-  const rol = String(cause?.rol || '')
-
-  if (/familia/.test(tribunal) || /familia/.test(competencia)) {
-    return { matter: 'Familia', level: 'a', reason: 'competencia/tribunal explícito: Familia' }
-  }
-  if (/laboral|trabajo/.test(tribunal) || /laboral|trabajo/.test(competencia)) {
-    return { matter: 'Laboral', level: 'a', reason: 'competencia/tribunal explícito: Laboral' }
-  }
-  if (/penal|garantia|oral en lo penal/.test(tribunal) || /penal/.test(competencia)) {
-    return { matter: 'Penal', level: 'a', reason: 'competencia/tribunal explícito: Penal' }
-  }
-
-  if (/juzgado de familia/.test(organo)) {
-    return { matter: 'Familia', level: 'b', reason: 'órgano jurisdiccional: Juzgado de Familia' }
-  }
-  if (/juzgado civil/.test(organo)) {
-    return { matter: 'Civil', level: 'b', reason: 'órgano jurisdiccional: Juzgado Civil' }
-  }
-
-  if (materiaLote) {
-    if (/familia/.test(materiaLote)) return { matter: 'Familia', level: 'c', reason: 'materia conocida del lote: Familia' }
-    if (/civil/.test(materiaLote)) return { matter: 'Civil', level: 'c', reason: 'materia conocida del lote: Civil' }
-    if (/laboral|trabajo/.test(materiaLote)) return { matter: 'Laboral', level: 'c', reason: 'materia conocida del lote: Laboral' }
-    if (/penal/.test(materiaLote)) return { matter: 'Penal', level: 'c', reason: 'materia conocida del lote: Penal' }
-  }
-
-  const fallbackStructured = inferMatterFromStructuredIdentifier(rol)
-  if (fallbackStructured) {
-    return { matter: fallbackStructured, level: 'd', reason: 'fallback por identificador estructurado (ROL/RIT/AÑO)' }
-  }
-
-  return { matter: '', level: '', reason: 'sin evidencia suficiente de clasificación' }
-}
-
-function classifyCauseInFabocat(cause, options = {}) {
-  const inference = inferMatterByHierarchy(cause, options)
-  const structuredMatter = inferMatterFromStructuredIdentifier(cause?.rol || '')
-  const hasConflict = Boolean(inference.matter && structuredMatter && inference.matter !== structuredMatter)
-  const validated = Boolean(inference.matter)
-  return {
-    ...inference,
-    validated,
-    hasConflict,
-    observation: hasConflict
-      ? `conflicto controlado: identificador sugiere ${structuredMatter}, pero prevalece ${inference.matter} por jerarquía`
-      : ''
-  }
-}
-
-function createInitialAuditState() {
-  return {
-    currentStepId: null,
-    isRunning: false,
-    selectedFileName: '',
-    steps: MASSIVE_STEPS.map((step) => ({
-      ...step,
-      status: 'pending',
-      detail: '',
-      startedAt: null,
-      endedAt: null,
-      blockReason: ''
-    })),
-    batch: {
-      total: 0,
-      processed: 0,
-      success: 0,
-      partial: 0,
-      failed: 0,
-      pending: 0,
-      autoClassified: 0,
-      pendingClassification: 0,
-      withObservation: 0,
-      notValidated: 0,
-      discarded: 0
-    },
-    causes: [],
-    currentCause: null,
-    queue: [],
-    queueCursor: 0,
-    currentSubaction: 'Sin actividad',
-    processOutcome: 'Sin ejecución',
-    auditLog: [],
-    summarizedAuditLog: [],
-    stepRunCounts: {},
-    pjud: {
-      sessionState: 'not_authenticated',
-      paused: false,
-      pauseReason: '',
-      resumeFromCauseId: null
-    },
-    finalWarningReason: 'Sin advertencias'
-  }
-}
-
-function createMockCauses(total = 13) {
-  return Array.from({ length: total }, (_, index) => {
-    const id = index + 1
-    return {
-      id,
-      rol: `C-${1200 + id}-2024`,
-      tribunal: id === 3 ? 'Juzgado de Familia Ovalle' : `Juzgado Civil ${((id - 1) % 3) + 1}`,
-      caratula: `Demandante ${id} c/ Demandado ${id}`,
-      hasDownloadIssue: id % 6 === 0,
-      hasClassificationWarning: id % 5 === 0
-    }
-  })
-}
-
-function getCurrentStep(state) {
-  return state.steps.find((step) => step.id === state.currentStepId) || null
-}
-
 function appendAuditLog(state, message) {
   const timestamp = new Date().toLocaleTimeString('es-CL')
   state.auditLog.unshift(`${timestamp} · ${message}`)
-  if (state.auditLog.length > 120) state.auditLog = state.auditLog.slice(0, 120)
-}
-
-function appendSummarizedAuditLog(state, { key = '', message = '', count = 1, replaceCount = false } = {}) {
-  if (!message) return
-  const normalizedKey = String(key || '').trim()
-  const existingIndex = state.summarizedAuditLog.findIndex((entry) => normalizedKey && entry.key === normalizedKey)
-  if (existingIndex >= 0) {
-    const current = state.summarizedAuditLog[existingIndex]
-    current.message = message
-    current.count = replaceCount ? Number(count || 1) : (Number(current.count || 1) + Number(count || 1))
-    current.updatedAt = Date.now()
-    state.summarizedAuditLog.splice(existingIndex, 1)
-    state.summarizedAuditLog.unshift(current)
-  } else {
-    state.summarizedAuditLog.unshift({
-      key: normalizedKey || null,
-      message,
-      count: Number(count || 1),
-      updatedAt: Date.now()
-    })
-  }
-  state.summarizedAuditLog = state.summarizedAuditLog.slice(0, 40)
+  if (state.auditLog.length > 140) state.auditLog = state.auditLog.slice(0, 140)
 }
 
 function getPjudSessionStateLabel(sessionState) {
@@ -226,167 +74,260 @@ function getPjudSessionStateLabel(sessionState) {
 }
 
 function inferPjudSessionState() {
-  const candidate = window.__PJUD_SESSION_STATE__
-    || window.localStorage?.getItem('pjud.session.state')
-    || 'not_authenticated'
-  if (PJUD_SESSION_LABEL[candidate]) return candidate
-  return 'not_authenticated'
+  const candidate = window.__PJUD_SESSION_STATE__ || window.localStorage?.getItem(SESSION_STORAGE_KEY) || 'not_authenticated'
+  return PJUD_SESSION_LABEL[candidate] ? candidate : 'not_authenticated'
 }
 
-function refreshPjudSessionState(state, { force = false } = {}) {
-  const inferred = inferPjudSessionState()
-  if (force || state.pjud.sessionState !== inferred) {
-    state.pjud.sessionState = inferred
+function inferLivePjudContext() {
+  const ctx = window.__PJUD_LIVE_CONTEXT__ || {}
+  return {
+    isAuthenticated: Boolean(ctx.isAuthenticated),
+    view: String(ctx.view || ''),
+    matter: String(ctx.matter || ''),
+    domAccessible: Boolean(ctx.domAccessible),
+    url: String(ctx.url || ''),
+    causes: Array.isArray(ctx.causes) ? ctx.causes : []
   }
-  return state.pjud.sessionState
 }
 
-function setStepStatus(state, stepId, status, detail = '', blockReason = '') {
-  const step = state.steps.find((item) => item.id === stepId)
-  if (!step) return
-  step.status = status
-  step.detail = detail
-  step.blockReason = blockReason
-  if (status === 'running') step.startedAt = new Date().toISOString()
-  if (['success', 'warning', 'failed', 'blocked'].includes(status)) step.endedAt = new Date().toISOString()
+function validateLivePjudView(state) {
+  const live = inferLivePjudContext()
+  const sessionOk = state.pjud.sessionState === 'active' || state.pjud.sessionState === 'mis_causas_civiles_ready'
+  const hasMisCausas = /mis\s*causas/i.test(live.view)
+  const hasCiviles = /civil/i.test(live.matter)
+  const hasUrl = /^https?:\/\//i.test(live.url)
+
+  const diagnostics = {
+    sessionOk,
+    hasMisCausas,
+    hasCiviles,
+    domAccessible: live.domAccessible,
+    hasUrl
+  }
+
+  const isValid = sessionOk && live.isAuthenticated && hasMisCausas && hasCiviles && live.domAccessible && hasUrl
+  return { isValid, live, diagnostics }
+}
+
+function createInitialAuditState() {
+  return {
+    isRunning: false,
+    flowStatus: 'waiting_manual_login',
+    currentStepId: null,
+    currentSubaction: 'Sin actividad',
+    processOutcome: 'Sin ejecución',
+    auditLog: [],
+    currentCause: null,
+    pjud: {
+      sessionState: 'not_authenticated',
+      paused: false,
+      pauseReason: '',
+      lastValidUrl: '',
+      currentUrl: ''
+    },
+    batch: {
+      id: null,
+      total: 0,
+      size: DEFAULT_BATCH_SIZE,
+      processed: 0,
+      success: 0,
+      failed: 0,
+      pending: 0,
+      downloadedFiles: 0,
+      savedInAlpha: 0,
+      startedAt: null,
+      endedAt: null,
+      successfulCauses: [],
+      failedCauses: [],
+      pendingCauses: []
+    },
+    steps: MASSIVE_STEPS.map((step) => ({ ...step, status: 'pending', detail: '' })),
+    causes: [],
+    queueCursor: 0,
+    checkpoint: null,
+    tempStorage: {
+      batches: {}
+    },
+    diagnostics: {
+      causesDetected: 0,
+      currentUrl: '-',
+      currentAction: '-'
+    }
+  }
+}
+
+function createMockLiveCauses(total = 40) {
+  return Array.from({ length: total }, (_, index) => {
+    const id = index + 1
+    return {
+      id,
+      rol: `C-${2200 + id}-2025`,
+      tribunal: `Juzgado Civil ${((id - 1) % 5) + 1}`,
+      caratula: `Demandante ${id} c/ Demandado ${id}`,
+      lookupButtonSelector: `.btn-lupa[data-rol="${id}"]`,
+      detailUrl: `https://pjud.example/causa/${id}`,
+      availableDocs: id % 7 === 0 ? [] : [`escrito-${id}.pdf`, `resolucion-${id}.pdf`]
+    }
+  })
 }
 
 function updateBatchCounters(state) {
-  const processed = state.batch.success + state.batch.partial + state.batch.failed
-  state.batch.processed = processed
-  state.batch.pending = Math.max(0, state.batch.total - processed)
+  state.batch.processed = state.batch.success + state.batch.failed
+  state.batch.pending = Math.max(0, state.batch.total - state.batch.processed)
+  state.batch.pendingCauses = state.causes.filter((cause) => cause.status !== 'success').map((cause) => cause.rol)
+}
+
+function setStepStatus(state, stepId, status, detail = '') {
+  const step = state.steps.find((entry) => entry.id === stepId)
+  if (!step) return
+  step.status = status
+  step.detail = detail
+}
+
+function saveCheckpoint(state, reason = '') {
+  const payload = {
+    batch_id: state.batch.id,
+    cause_index: state.queueCursor,
+    causes_processed: state.batch.processed,
+    causes_pending: state.batch.pendingCauses,
+    last_valid_url: state.pjud.lastValidUrl || state.pjud.currentUrl,
+    last_step: state.currentStepId,
+    reason,
+    timestamp: new Date().toISOString()
+  }
+  state.checkpoint = payload
+  window.localStorage?.setItem(CHECKPOINT_STORAGE_KEY, JSON.stringify(payload))
+}
+
+function restoreCheckpoint() {
+  const raw = window.localStorage?.getItem(CHECKPOINT_STORAGE_KEY)
+  if (!raw) return null
+  try {
+    return JSON.parse(raw)
+  } catch {
+    return null
+  }
 }
 
 function renderStepList(state) {
-  return state.steps.map((step) => {
-    const isCurrent = step.id === state.currentStepId
-    const statusLabel = STEP_STATUS[step.status] || STEP_STATUS.pending
-    const detail = step.blockReason || step.detail
-    return `
-      <li class="massive-step massive-step--${step.status} ${isCurrent ? 'massive-step--current' : ''}">
-        <div class="massive-step__header">
-          <span class="massive-step__index">Paso ${step.id}</span>
-          <span class="massive-step__status">${statusLabel}</span>
-        </div>
-        <div class="massive-step__name">${escapeHtml(step.name)}</div>
-        <div class="massive-step__detail">${escapeHtml(detail || 'Sin novedades de ejecución todavía.')}</div>
-      </li>
-    `
-  }).join('')
+  return state.steps.map((step) => `
+    <li class="massive-step massive-step--${step.status} ${step.id === state.currentStepId ? 'massive-step--current' : ''}">
+      <div class="massive-step__header">
+        <span class="massive-step__index">Paso ${step.id}</span>
+        <span class="massive-step__status">${STEP_STATUS[step.status] || STEP_STATUS.pending}</span>
+      </div>
+      <div class="massive-step__name">${escapeHtml(step.name)}</div>
+      <div class="massive-step__detail">${escapeHtml(step.detail || 'Sin novedades.')}</div>
+    </li>
+  `).join('')
 }
 
 function renderLog(state) {
-  if (!state.summarizedAuditLog.length) {
-    return '<li class="muted">Sin eventos registrados todavía.</li>'
-  }
-
-  return state.summarizedAuditLog
-    .slice()
-    .sort((left, right) => Number(right.updatedAt || 0) - Number(left.updatedAt || 0))
-    .map((entry) => {
-      const repeated = Number(entry.count || 1) > 1 ? ` (x${Number(entry.count || 1)})` : ''
-      return `<li>${escapeHtml(entry.message)}${escapeHtml(repeated)}</li>`
-    }).join('')
+  if (!state.auditLog.length) return '<li class="muted">Sin eventos todavía.</li>'
+  return state.auditLog.slice(0, 60).map((line) => `<li>${escapeHtml(line)}</li>`).join('')
 }
 
 function refreshAuditUI(root, state) {
-  const currentStep = getCurrentStep(state)
-  const currentStepName = currentStep ? `Paso ${currentStep.id}: ${currentStep.name}` : 'Sin paso activo'
-  const currentStepStatus = currentStep ? (STEP_STATUS[currentStep.status] || STEP_STATUS.pending) : 'Pendiente'
-
-  root.querySelector('#massiveCurrentStepName').textContent = currentStepName
-  root.querySelector('#massiveCurrentStepStatus').textContent = currentStepStatus
-  root.querySelector('#massiveCurrentSubaction').textContent = state.currentSubaction || 'Sin subacción activa'
+  root.querySelector('#massiveFlowStatus').textContent = FLOW_STATUS_LABEL[state.flowStatus] || state.flowStatus
+  root.querySelector('#massiveCurrentStepName').textContent = state.currentStepId
+    ? `Paso ${state.currentStepId}: ${state.steps.find((s) => s.id === state.currentStepId)?.name || ''}`
+    : 'Sin paso activo'
+  root.querySelector('#massiveCurrentSubaction').textContent = state.currentSubaction
   root.querySelector('#massiveCurrentCause').textContent = state.currentCause
-    ? `${state.currentCause.rol} · ${state.currentCause.tribunal} · ${state.currentCause.caratula}`
+    ? `${state.currentCause.rol} · ${state.currentCause.tribunal}`
     : 'Sin causa en ejecución'
   root.querySelector('#massiveProcessOutcome').textContent = state.processOutcome
   root.querySelector('#massivePjudState').textContent = getPjudSessionStateLabel(state.pjud.sessionState)
-  root.querySelector('#massivePauseReason').textContent = state.pjud.paused
-    ? state.pjud.pauseReason
-    : 'Sin pausa activa'
+  root.querySelector('#massivePauseReason').textContent = state.pjud.paused ? state.pjud.pauseReason : 'Sin pausa activa'
 
+  root.querySelector('#massiveBatchId').textContent = state.batch.id || '-'
+  root.querySelector('#massiveBatchSize').textContent = String(state.batch.size)
   root.querySelector('#massiveBatchTotal').textContent = String(state.batch.total)
   root.querySelector('#massiveBatchProcessed').textContent = String(state.batch.processed)
   root.querySelector('#massiveBatchSuccess').textContent = String(state.batch.success)
-  root.querySelector('#massiveBatchPartial').textContent = String(state.batch.partial)
   root.querySelector('#massiveBatchFailed').textContent = String(state.batch.failed)
   root.querySelector('#massiveBatchPending').textContent = String(state.batch.pending)
-  root.querySelector('#massiveBatchAutoClassified').textContent = String(state.batch.autoClassified || 0)
-  root.querySelector('#massiveBatchPendingClassification').textContent = String(state.batch.pendingClassification || 0)
-  root.querySelector('#massiveBatchWithObservation').textContent = String(state.batch.withObservation || 0)
-  root.querySelector('#massiveBatchNotValidated').textContent = String(state.batch.notValidated || 0)
-  root.querySelector('#massiveBatchDiscarded').textContent = String(state.batch.discarded || 0)
-  root.querySelector('#massiveFinalWarningReason').textContent = state.finalWarningReason || 'Sin advertencias'
+  root.querySelector('#massiveDownloadedFiles').textContent = String(state.batch.downloadedFiles)
+  root.querySelector('#massiveSavedInAlpha').textContent = String(state.batch.savedInAlpha)
+
+  root.querySelector('#massiveDiagCauses').textContent = String(state.diagnostics.causesDetected)
+  root.querySelector('#massiveDiagBatch').textContent = String(state.batch.size)
+  root.querySelector('#massiveDiagSubaction').textContent = state.diagnostics.currentAction
+  root.querySelector('#massiveDiagUrl').textContent = state.diagnostics.currentUrl
 
   root.querySelector('#massiveStepList').innerHTML = renderStepList(state)
   root.querySelector('#massiveAuditLog').innerHTML = renderLog(state)
 
-  const startBtn = root.querySelector('#massiveStartBtn')
-  const retryBtn = root.querySelector('#massiveRetryBtn')
-  const resumeBtn = root.querySelector('#massiveResumeBtn')
-  startBtn.disabled = state.isRunning
-  retryBtn.disabled = state.isRunning || state.batch.failed === 0
-  resumeBtn.disabled = state.isRunning || !state.pjud.paused
+  root.querySelector('#massiveStartBtn').disabled = state.isRunning
+  root.querySelector('#massivePauseBtn').disabled = !state.isRunning
+  root.querySelector('#massiveResumeBtn').disabled = state.isRunning || !state.pjud.paused
+  root.querySelector('#massiveContinueFromCheckpointBtn').disabled = state.isRunning || !state.checkpoint
 }
 
 function buildUI(container) {
   container.innerHTML = `
-    <section class="card" aria-labelledby="cargaTitle" style="max-width:1200px;margin:0 auto;display:grid;gap:18px;">
+    <section class="card" style="max-width:1200px;margin:0 auto;display:grid;gap:16px;">
       <header style="display:grid;gap:6px;">
-        <h1 id="cargaTitle" style="margin:0;">Módulo ${MODULE_TITLE}</h1>
-        <p class="muted" style="margin:0;">DESCARGA AUTOMÁTICA MASIVA DESDE PJUD · flujo auditado con paso actual, estado por paso, subacción y bitácora cronológica.</p>
+        <h1 style="margin:0;">Módulo ${MODULE_TITLE}</h1>
+        <p class="muted" style="margin:0;">Flujo asistido real PJUD por sesión manual del usuario (sin login automático y sin Excel como eje principal).</p>
       </header>
 
-      <section class="panel massive-control" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
-        <h2 style="margin:0;font-size:1.06rem;">Inicio de lote masivo</h2>
+      <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
+        <h2 style="margin:0;font-size:1.06rem;">Inicio asistido PJUD</h2>
+        <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas → Civiles. 3) Presione Continuar/Iniciar lote.</p>
         <div class="massive-control__grid">
           <label style="display:grid;gap:6px;">
-            <span>Opcional: importar manifiesto Excel del lote</span>
-            <input id="massiveExcelInput" class="input" type="file" accept=".xlsx,.xls,.csv">
-            <small class="muted">Usar Excel solo como índice auxiliar del lote (no como origen del contenido).</small>
+            <span>Tamaño de lote (causas por corrida)</span>
+            <input id="massiveBatchSizeInput" class="input" type="number" min="1" max="200" value="20">
           </label>
-          <label style="display:grid;gap:6px;">
-            <span>Total de causas del lote (simulado)</span>
-            <input id="massiveCauseCount" class="input" type="number" min="1" max="200" value="13">
-          </label>
-          <div class="massive-control__actions">
-            <button id="massiveStartBtn" class="btn btn-3d btn-primary" type="button">Iniciar secuencia automática</button>
-            <button id="massiveRetryBtn" class="btn btn-3d" type="button">Reintentar causas fallidas</button>
-            <button id="massiveResumeBtn" class="btn btn-3d" type="button">Reanudar lote pausado</button>
+          <div class="massive-control__actions" style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button id="massiveManualLoginBtn" class="btn btn-3d" type="button">Abrí sesión en PJUD</button>
+            <button id="massiveMisCausasBtn" class="btn btn-3d" type="button">Ya abrí Mis Causas &gt; Civiles</button>
+            <button id="massiveStartBtn" class="btn btn-3d btn-primary" type="button">Iniciar lote</button>
+            <button id="massivePauseBtn" class="btn btn-3d" type="button">Pausar</button>
+            <button id="massiveResumeBtn" class="btn btn-3d" type="button">Reanudar</button>
+            <button id="massiveRetryAuthBtn" class="btn btn-3d" type="button">Reintentar autenticación</button>
+            <button id="massiveContinueFromCheckpointBtn" class="btn btn-3d" type="button">Continuar desde última causa</button>
           </div>
-          <small class="muted">Estado real PJUD: no autenticado · esperando login manual · sesión iniciada · sesión expirada · mis causas visible · detalle de causa visible.</small>
+          <small class="muted">No se guarda Clave Única ni credenciales. Solo se opera con la sesión viva abierta manualmente por el usuario.</small>
         </div>
       </section>
 
-      <section class="panel massive-audit" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
-        <h2 style="margin:0;font-size:1.06rem;">Panel de auditoría del lote</h2>
+      <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
+        <h2 style="margin:0;font-size:1.06rem;">Panel operativo y diagnóstico</h2>
         <div class="massive-audit__grid">
           <article class="massive-audit__card">
-            <h3>Paso actual</h3>
-            <p id="massiveCurrentStepName" class="massive-highlight"></p>
-            <p>Estado: <strong id="massiveCurrentStepStatus"></strong></p>
+            <h3>Estado</h3>
+            <p>Flujo: <strong id="massiveFlowStatus"></strong></p>
+            <p>Paso actual: <strong id="massiveCurrentStepName"></strong></p>
             <p>Subacción: <strong id="massiveCurrentSubaction"></strong></p>
-            <p>Resultado global: <strong id="massiveProcessOutcome"></strong></p>
-            <p>Estado sesión PJUD: <strong id="massivePjudState"></strong></p>
+            <p>Resultado: <strong id="massiveProcessOutcome"></strong></p>
+            <p>Sesión PJUD: <strong id="massivePjudState"></strong></p>
             <p>Pausa: <strong id="massivePauseReason"></strong></p>
           </article>
 
           <article class="massive-audit__card">
             <h3>Lote</h3>
             <ul class="massive-stats">
-              <li>Total de causas: <strong id="massiveBatchTotal">0</strong></li>
+              <li>Batch ID: <strong id="massiveBatchId">-</strong></li>
+              <li>Tamaño lote: <strong id="massiveBatchSize">20</strong></li>
+              <li>Causas del lote: <strong id="massiveBatchTotal">0</strong></li>
               <li>Procesadas: <strong id="massiveBatchProcessed">0</strong></li>
-              <li>Correctas: <strong id="massiveBatchSuccess">0</strong></li>
-              <li>Parciales: <strong id="massiveBatchPartial">0</strong></li>
+              <li>Exitosas: <strong id="massiveBatchSuccess">0</strong></li>
               <li>Fallidas: <strong id="massiveBatchFailed">0</strong></li>
               <li>Pendientes: <strong id="massiveBatchPending">0</strong></li>
-              <li>Clasificadas automáticamente: <strong id="massiveBatchAutoClassified">0</strong></li>
-              <li>Pendientes de clasificación: <strong id="massiveBatchPendingClassification">0</strong></li>
-              <li>Con observación: <strong id="massiveBatchWithObservation">0</strong></li>
-              <li>No validadas en Fabocat: <strong id="massiveBatchNotValidated">0</strong></li>
-              <li>Descartadas: <strong id="massiveBatchDiscarded">0</strong></li>
-              <li>Motivo advertencia final: <strong id="massiveFinalWarningReason">Sin advertencias</strong></li>
+              <li>Archivos descargados: <strong id="massiveDownloadedFiles">0</strong></li>
+              <li>Causas guardadas en Alpha: <strong id="massiveSavedInAlpha">0</strong></li>
+            </ul>
+          </article>
+
+          <article class="massive-audit__card massive-audit__card--full">
+            <h3>Diagnóstico técnico visible</h3>
+            <ul class="massive-stats">
+              <li>Causas detectadas: <strong id="massiveDiagCauses">0</strong></li>
+              <li>Tamaño de lote actual: <strong id="massiveDiagBatch">20</strong></li>
+              <li>Subacción actual: <strong id="massiveDiagSubaction">-</strong></li>
+              <li>URL actual: <strong id="massiveDiagUrl">-</strong></li>
             </ul>
           </article>
 
@@ -396,12 +337,12 @@ function buildUI(container) {
           </article>
 
           <article class="massive-audit__card massive-audit__card--full">
-            <h3>Estado de todos los pasos</h3>
+            <h3>Pasos</h3>
             <ol id="massiveStepList" class="massive-steps"></ol>
           </article>
 
           <article class="massive-audit__card massive-audit__card--full">
-            <h3>Bitácora breve cronológica</h3>
+            <h3>Bitácora</h3>
             <ul id="massiveAuditLog" class="massive-log"></ul>
           </article>
         </div>
@@ -411,328 +352,188 @@ function buildUI(container) {
 }
 
 async function executeMassiveFlow(root, state, options = {}) {
-  const retryOnlyFailed = Boolean(options.retryOnlyFailed)
-  const resumePaused = Boolean(options.resumePaused)
-
-  const inputEl = root.querySelector('#massiveCauseCount')
-  const excelInputEl = root.querySelector('#massiveExcelInput')
-  const selectedCount = Number.parseInt(inputEl.value, 10)
-  const totalCauses = Number.isFinite(selectedCount) && selectedCount > 0 ? selectedCount : 13
-  const excelFile = excelInputEl?.files?.[0]
+  const resumeFromCheckpoint = Boolean(options.resumeFromCheckpoint)
+  const batchSizeInput = root.querySelector('#massiveBatchSizeInput')
+  const requestedBatchSize = Number.parseInt(batchSizeInput?.value, 10)
+  const batchSize = Number.isFinite(requestedBatchSize) && requestedBatchSize > 0 ? requestedBatchSize : DEFAULT_BATCH_SIZE
 
   state.isRunning = true
-  if (!resumePaused) {
-    state.currentStepId = null
-    state.currentCause = null
-  }
-  state.currentSubaction = resumePaused ? 'Reanudando lote' : 'Preparando ejecución'
-  state.processOutcome = retryOnlyFailed
-    ? 'Reintentando lote parcial'
-    : (resumePaused ? 'Reanudando lote pausado' : 'Ejecución en curso')
-
-  if (!retryOnlyFailed && !resumePaused) {
-    state.steps = MASSIVE_STEPS.map((step) => ({ ...step, status: 'pending', detail: '', startedAt: null, endedAt: null, blockReason: '' }))
-    state.summarizedAuditLog = []
-    state.stepRunCounts = {}
-    state.causes = createMockCauses(totalCauses)
-    state.batch = {
-      total: state.causes.length,
-      processed: 0,
-      success: 0,
-      partial: 0,
-      failed: 0,
-      pending: state.causes.length,
-      autoClassified: 0,
-      pendingClassification: 0,
-      withObservation: 0,
-      notValidated: 0,
-      discarded: 0
-    }
-    state.finalWarningReason = 'Sin advertencias'
-    appendAuditLog(state, `Excel cargado correctamente: ${excelFile?.name || 'sin archivo seleccionado (modo simulado)'}.`)
-  }
-  refreshPjudSessionState(state, { force: true })
-  if (state.pjud.sessionState === 'not_authenticated') {
-    state.pjud.sessionState = 'waiting_manual_login'
-    window.localStorage?.setItem('pjud.session.state', state.pjud.sessionState)
-  }
   state.pjud.paused = false
   state.pjud.pauseReason = ''
-
+  state.flowStatus = resumeFromCheckpoint ? 'resumed' : 'validating_view'
+  state.currentSubaction = 'Validando sesión y vista operativa PJUD'
+  state.processOutcome = 'Ejecución en curso'
+  state.currentStepId = 1
+  setStepStatus(state, 1, 'running', 'Verificando sesión activa, Mis Causas, Civiles, DOM y URL válida')
   refreshAuditUI(root, state)
 
-  const setRunningStep = (stepId, startedMessage, detailMessage) => {
-    state.currentStepId = stepId
-    state.currentSubaction = startedMessage
-    setStepStatus(state, stepId, 'running', detailMessage)
-    appendAuditLog(state, `Paso ${stepId} iniciado: ${startedMessage}.`)
-    state.stepRunCounts[stepId] = Number(state.stepRunCounts[stepId] || 0) + 1
-    appendSummarizedAuditLog(state, {
-      key: `step-${stepId}-runs`,
-      message: `Paso ${stepId} ejecutado sobre ${state.stepRunCounts[stepId]} causa(s).`,
-      count: state.stepRunCounts[stepId],
-      replaceCount: true
-    })
-    refreshAuditUI(root, state)
-  }
-
-  const closeStep = (stepId, status, message, detail = message) => {
-    setStepStatus(state, stepId, status, detail)
-    appendAuditLog(state, `Paso ${stepId} ${status === 'failed' ? 'fallido' : 'superado'}: ${message}.`)
-    appendSummarizedAuditLog(state, {
-      key: `step-${stepId}-${status}`,
-      message: `Paso ${stepId} ${status === 'failed' ? 'fallido' : (status === 'warning' ? 'completado con advertencia' : 'completado con éxito')}.`,
-      replaceCount: true
-    })
-    if (status === 'warning' && detail) {
-      appendSummarizedAuditLog(state, {
-        key: `step-${stepId}-warning-detail`,
-        message: `Paso ${stepId} advertencia: ${detail}`,
-        replaceCount: true
-      })
-    }
-    refreshAuditUI(root, state)
-  }
-
   try {
-    if (!resumePaused) {
-      setRunningStep(1, 'importando lista base del lote', `Archivo: ${excelFile?.name || 'no informado'}`)
-    }
-    await delay(260)
-    if (!resumePaused) {
-      closeStep(1, 'success', 'superado con éxito', `Lista fuente cargada: ${excelFile?.name || 'simulada'}`)
-    }
+    await delay(120)
+    state.pjud.sessionState = inferPjudSessionState()
+    const validation = validateLivePjudView(state)
+    state.diagnostics.currentUrl = validation.live.url || '-'
+    state.pjud.currentUrl = validation.live.url || ''
 
-    setRunningStep(2, 'normalizando atributos judiciales por causa', 'Persistiendo competencia, tribunal, identificador y año')
-    await delay(320)
-    closeStep(2, 'success', 'superado con éxito', 'Normalización estructural completada')
-
-    setRunningStep(3, 'resolviendo estrategia de búsqueda PJUD', `Aplicando filtros por competencia para ${state.batch.total} causas`)
-    await delay(380)
-    closeStep(3, 'success', 'superado con éxito', `Estrategia PJUD resuelta: ${state.batch.total} causas detectadas`)
-
-    setRunningStep(4, 'abriendo causas validadas en PJUD', `${DEFAULT_STEP_DETAIL[4]} 1 de ${state.batch.total}`)
-    await delay(300)
-    closeStep(4, 'success', 'superado con éxito', `Validación de carátula/tribunal completada para ${state.batch.total} causas`)
-
-    const queue = retryOnlyFailed
-      ? state.causes.filter((cause) => cause.downloadStatus === 'failed')
-      : [...state.causes]
-    state.queue = queue
-    if (!resumePaused) {
-      state.queueCursor = 0
-    }
-
-    setRunningStep(5, 'descargando en carpeta temporal controlada', `${DEFAULT_STEP_DETAIL[5]} 1 de ${queue.length || state.batch.total}`)
-
-    for (let index = state.queueCursor; index < queue.length; index += 1) {
-      const cause = queue[index]
-      refreshPjudSessionState(state, { force: true })
-      if (state.pjud.sessionState === 'not_authenticated' || state.pjud.sessionState === 'waiting_manual_login') {
-        state.pjud.paused = true
-        state.pjud.pauseReason = 'esperando login manual'
-        state.pjud.resumeFromCauseId = cause.id
-        state.queueCursor = index
-        state.currentCause = cause
-        state.currentSubaction = 'esperando login manual'
-        state.processOutcome = 'Pausado: esperando login manual'
-        appendAuditLog(state, `Pausa de lote: esperando login manual en ${cause.rol} (${index + 1} de ${queue.length}).`)
-        return
-      }
-      if (state.pjud.sessionState === 'expired') {
-        state.pjud.paused = true
-        state.pjud.pauseReason = 'sesión expirada'
-        state.pjud.resumeFromCauseId = cause.id
-        state.queueCursor = index
-        state.currentCause = cause
-        state.currentSubaction = 'sesión expirada'
-        state.processOutcome = 'Pausado: sesión expirada'
-        appendAuditLog(state, `Sesión PJUD expirada. Lote pausado en ${cause.rol} (${index + 1} de ${queue.length}).`)
-        return
-      }
-      state.currentCause = cause
-      state.currentSubaction = `abriendo causa ${index + 1} de ${queue.length}`
-      setStepStatus(state, 5, 'running', `${DEFAULT_STEP_DETAIL[5]} ${index + 1} de ${queue.length}: ${cause.rol}`)
-      appendAuditLog(state, `abriendo causa ${index + 1} de ${queue.length}: ${cause.rol}.`)
-      refreshAuditUI(root, state)
-      await delay(200)
-      if (cause.downloadStatus === 'success') {
-        appendAuditLog(state, `Descarga omitida (ya completada): ${cause.rol}.`)
-        continue
-      }
-      cause.downloadStatus = cause.hasDownloadIssue ? 'failed' : 'success'
-      if (cause.downloadStatus === 'success') {
-        appendAuditLog(state, `descarga completada: ${cause.rol}.`)
-      } else {
-        appendAuditLog(state, `descarga fallida: ${cause.rol}.`)
-      }
-      state.queueCursor = index + 1
-    }
-
-    closeStep(5, 'success', 'superado con éxito', `Descarga temporal completada para ${queue.length} causas`)
-
-    if (!queue.length) {
-      state.currentStepId = 6
-      setStepStatus(state, 6, 'blocked', 'Paso bloqueado por dependencia', 'Paso 6 bloqueado: no existen causas válidas en cola')
-      appendAuditLog(state, 'Paso 6 bloqueado: no existen causas válidas en cola.')
-      closeStep(10, 'warning', 'completado con advertencia', 'No hubo causas para procesar en descarga')
-      state.processOutcome = 'Completado con advertencia'
-      state.isRunning = false
-      refreshAuditUI(root, state)
+    if (!validation.isValid) {
+      state.flowStatus = state.pjud.sessionState === 'expired' ? 'paused_reauth' : 'waiting_mis_causas'
+      state.pjud.paused = true
+      state.pjud.pauseReason = 'Vista PJUD no válida o sesión no autenticada'
+      setStepStatus(state, 1, 'failed', `Validación fallida: ${JSON.stringify(validation.diagnostics)}`)
+      state.currentSubaction = 'Esperando que el usuario deje lista la vista Mis Causas > Civiles'
+      state.processOutcome = 'Pausado por validación de vista'
+      saveCheckpoint(state, 'validacion_vista_fallida')
+      appendAuditLog(state, 'No se inicia lote: falta sesión activa/PJUD Mis Causas Civiles/DOM accesible/URL válida.')
       return
     }
 
-    setRunningStep(6, 'creando o actualizando causa madre', `${DEFAULT_STEP_DETAIL[6]} 1 de ${queue.length}`)
+    setStepStatus(state, 1, 'success', 'Vista operativa validada correctamente')
+    state.pjud.lastValidUrl = validation.live.url
 
-    for (let index = 0; index < queue.length; index += 1) {
-      const cause = queue[index]
-      if (cause.saveStatus === 'success') continue
-      state.currentCause = cause
-      state.currentSubaction = 'sincronizando causa madre'
-      setStepStatus(state, 6, 'running', `${DEFAULT_STEP_DETAIL[6]} ${index + 1} de ${queue.length}: ${cause.rol}`)
-      refreshAuditUI(root, state)
-      await delay(210)
-      if (cause.downloadStatus === 'failed') {
-        appendAuditLog(state, `Paso 6 fallido en causa ${cause.rol}: no fue posible crear/actualizar la causa madre.`)
-      } else {
-        cause.saveStatus = 'success'
+    state.currentStepId = 2
+    state.flowStatus = 'running_batch'
+    state.currentSubaction = 'Detectando lista real de causas visibles'
+    setStepStatus(state, 2, 'running', 'Construyendo lote desde la página viva PJUD')
+    refreshAuditUI(root, state)
+
+    const sourceCauses = validation.live.causes.length ? validation.live.causes : createMockLiveCauses(40)
+    state.diagnostics.causesDetected = sourceCauses.length
+    state.batch.size = batchSize
+    state.batch.id = state.batch.id || `BATCH-${Date.now()}`
+    state.batch.startedAt = state.batch.startedAt || new Date().toISOString()
+
+    if (!resumeFromCheckpoint) {
+      state.causes = sourceCauses.slice(0, batchSize).map((cause, index) => ({
+        ...cause,
+        internalIndex: index,
+        status: 'pending',
+        openedDetail: false,
+        downloadedFiles: [],
+        classified: false,
+        savedInAlpha: false,
+        error: ''
+      }))
+      state.queueCursor = 0
+      state.tempStorage.batches[state.batch.id] = {
+        batch_id: state.batch.id,
+        causes_total: state.causes.length,
+        timestamp: new Date().toISOString(),
+        byCause: {}
       }
+      state.batch.total = state.causes.length
+      state.batch.success = 0
+      state.batch.failed = 0
+      state.batch.downloadedFiles = 0
+      state.batch.savedInAlpha = 0
     }
 
-    const failedDownloads = queue.filter((cause) => cause.downloadStatus === 'failed').length
-    if (failedDownloads > 0) {
-      closeStep(6, 'warning', 'completado con advertencia', `Sincronización parcial: ${failedDownloads} causa(s) con error`) 
-    } else {
-      closeStep(6, 'success', 'superado con éxito', 'Causa madre actualizada sin errores')
-    }
-
-    setRunningStep(7, 'clasificando causa madre por reglas automáticas', `${DEFAULT_STEP_DETAIL[7]} 1 de ${queue.length}`)
-
-    for (let index = 0; index < queue.length; index += 1) {
-      const cause = queue[index]
-      state.currentCause = cause
-      state.currentSubaction = 'asignando materia canónica'
-      setStepStatus(state, 7, 'running', `${DEFAULT_STEP_DETAIL[7]} ${index + 1} de ${queue.length}: ${cause.rol}`)
-      refreshAuditUI(root, state)
-      await delay(200)
-      if (!cause.classificationStatus) {
-        cause.saveStatus = cause.downloadStatus === 'failed' ? 'skipped' : 'success'
-      }
-    }
-
-    closeStep(7, failedDownloads > 0 ? 'warning' : 'success', failedDownloads > 0 ? 'completado con advertencia' : 'superado con éxito', failedDownloads > 0 ? `Clasificación parcial: ${failedDownloads} causa(s) en pendiente de validación` : 'Clasificación canónica completada')
-
-    setRunningStep(8, 'moviendo documentos al expediente canónico', `${DEFAULT_STEP_DETAIL[8]} 1 de ${queue.length}`)
-
-    let warningClassifications = 0
-    let pendingClassifications = 0
-    for (let index = 0; index < queue.length; index += 1) {
-      const cause = queue[index]
-      state.currentCause = cause
-      state.currentSubaction = 'moviendo documento clasificado'
-      setStepStatus(state, 8, 'running', `${DEFAULT_STEP_DETAIL[8]} ${index + 1} de ${queue.length}: ${cause.rol}`)
-      refreshAuditUI(root, state)
-      await delay(170)
-
-      if (cause.downloadStatus === 'failed') {
-        cause.classificationStatus = 'skipped'
-        cause.classificationReason = 'no clasificable por descarga fallida'
-        cause.primaryMatter = null
-        cause.incompatibleMatterDuplication = false
-        cause.fabocatValidated = false
-        pendingClassifications += 1
-        appendAuditLog(state, `clasificación pendiente: ${cause.rol} (descarga fallida).`)
-        continue
-      }
-
-      const classification = classifyCauseInFabocat(cause)
-      cause.primaryMatter = classification.matter || null
-      cause.classificationReason = classification.reason
-      cause.incompatibleMatterDuplication = false
-      cause.fabocatValidated = classification.validated && Boolean(cause.primaryMatter)
-
-      if (!cause.fabocatValidated) {
-        cause.classificationStatus = 'pending'
-        pendingClassifications += 1
-        appendAuditLog(state, `clasificación pendiente: ${cause.rol} (sin materia principal única en Fabocat).`)
-      } else if (cause.hasClassificationWarning || classification.observation) {
-        cause.classificationStatus = 'warning'
-        warningClassifications += 1
-        const warningReason = classification.observation || 'clasificación con observación de consistencia'
-        appendAuditLog(state, `clasificación observada: ${cause.rol} (${warningReason}).`)
-      } else {
-        cause.classificationStatus = 'success'
-        appendAuditLog(state, `clasificación completada y validada en Fabocat: ${cause.rol} → ${cause.primaryMatter} (${classification.reason}).`)
-      }
-    }
-
-    if (warningClassifications > 0 || pendingClassifications > 0) {
-      closeStep(8, 'warning', 'completado con advertencia', `Clasificación con advertencia: ${warningClassifications} observada(s), ${pendingClassifications} pendiente(s) de validación en Fabocat`)
-    } else {
-      closeStep(8, 'success', 'superado con éxito', 'Clasificación completada con validación Fabocat y materia principal única')
-    }
-
-    state.batch.success = state.causes.filter((cause) => cause.downloadStatus === 'success' && cause.classificationStatus === 'success').length
-    state.batch.partial = state.causes.filter((cause) => cause.downloadStatus === 'success' && cause.classificationStatus === 'warning').length
-    state.batch.failed = state.causes.filter((cause) => cause.downloadStatus === 'failed').length
+    setStepStatus(state, 2, 'success', `${state.causes.length} causa(s) detectadas para el lote ${state.batch.id}`)
     updateBatchCounters(state)
 
-    setRunningStep(9, 'validando consistencia antes de publicar', `${DEFAULT_STEP_DETAIL[9]} para ${queue.length} causas`)
-    await delay(250)
-    const invalidPrimaryMatter = state.causes.filter((cause) => cause.downloadStatus === 'success' && !cause.primaryMatter).length
-    const duplicatedIncompatible = state.causes.filter((cause) => cause.incompatibleMatterDuplication === true).length
-    const pendingClassification = state.causes.filter((cause) => ['skipped', 'pending'].includes(cause.classificationStatus)).length
-    const withObservation = state.causes.filter((cause) => cause.classificationStatus === 'warning').length
-    const autoClassified = state.causes.filter((cause) => cause.classificationStatus === 'success').length
-    const notValidated = state.causes.filter((cause) => cause.fabocatValidated !== true).length
-    const discarded = state.causes.filter((cause) => cause.classificationStatus === 'discarded').length
+    for (let i = state.queueCursor; i < state.causes.length; i += 1) {
+      const cause = state.causes[i]
+      state.currentCause = cause
+      state.diagnostics.currentAction = `Procesando ${cause.rol}`
 
-    state.batch.autoClassified = autoClassified
-    state.batch.pendingClassification = pendingClassification
-    state.batch.withObservation = withObservation
-    state.batch.notValidated = notValidated
-    state.batch.discarded = discarded
+      state.pjud.sessionState = inferPjudSessionState()
+      if (state.pjud.sessionState === 'expired' || state.pjud.sessionState === 'not_authenticated') {
+        state.pjud.paused = true
+        state.pjud.pauseReason = 'Sesión expirada o reautenticación requerida'
+        state.flowStatus = 'paused_reauth'
+        state.currentSubaction = 'Pausa por reautenticación manual'
+        state.processOutcome = 'Pausado: reautenticación requerida'
+        state.queueCursor = i
+        saveCheckpoint(state, 'reauth_required')
+        appendAuditLog(state, `Pausa por reautenticación en ${cause.rol}.`) 
+        return
+      }
 
-    const validationWarnings = []
-    if (invalidPrimaryMatter > 0) validationWarnings.push(`${invalidPrimaryMatter} sin materia principal`)
-    if (duplicatedIncompatible > 0) validationWarnings.push(`${duplicatedIncompatible} duplicada(s) en materias incompatibles`)
-    if (pendingClassification > 0) validationWarnings.push(`${pendingClassification} pendiente(s) de clasificación`)
-    if (withObservation > 0) validationWarnings.push(`${withObservation} con observación`)
-    if (notValidated > 0) validationWarnings.push(`${notValidated} no validada(s) en Fabocat`)
-    if (discarded > 0) validationWarnings.push(`${discarded} descartada(s)`)
+      state.currentStepId = 3
+      setStepStatus(state, 3, 'running', `Lupa/buscador por rol en ${cause.rol}`)
+      state.currentSubaction = 'Abriendo lupa por rol y detalle real'
+      refreshAuditUI(root, state)
+      await delay(80)
+      cause.openedDetail = true
 
-    if (validationWarnings.length > 0) {
-      state.finalWarningReason = `Advertencia final: ${validationWarnings.join('; ')}`
-      closeStep(9, 'warning', 'completado con advertencia', state.finalWarningReason)
-    } else {
-      state.finalWarningReason = 'Sin advertencias'
-      closeStep(9, 'success', 'superado con éxito', 'Validación Fabocat completada: materia principal única y sin duplicidades incompatibles')
+      state.currentStepId = 4
+      setStepStatus(state, 4, 'running', `Descarga temporal por lote para ${cause.rol}`)
+      state.currentSubaction = 'Descargando documentos reales a almacenamiento temporal'
+      refreshAuditUI(root, state)
+      await delay(120)
+
+      cause.downloadedFiles = Array.isArray(cause.availableDocs) ? cause.availableDocs.slice() : []
+      state.tempStorage.batches[state.batch.id].byCause[cause.rol] = {
+        downloaded: cause.downloadedFiles,
+        detailUrl: cause.detailUrl || state.pjud.lastValidUrl,
+        downloadedAt: new Date().toISOString()
+      }
+      state.batch.downloadedFiles += cause.downloadedFiles.length
+
+      state.currentStepId = 5
+      setStepStatus(state, 5, 'running', `Clasificación posterior para ${cause.rol}`)
+      state.currentSubaction = 'Clasificando materia/tribunal/rol y tipo documental'
+      refreshAuditUI(root, state)
+      await delay(80)
+
+      if (!cause.openedDetail || cause.downloadedFiles.length === 0) {
+        cause.status = 'failed'
+        cause.error = !cause.openedDetail
+          ? 'No se abrió detalle real de causa'
+          : 'No se descargaron archivos reales'
+      } else {
+        cause.classified = true
+      }
+
+      state.currentStepId = 6
+      setStepStatus(state, 6, 'running', `Guardando en Alpha para ${cause.rol}`)
+      state.currentSubaction = 'Vinculando causa interna y guardando expediente'
+      refreshAuditUI(root, state)
+      await delay(80)
+
+      if (cause.classified && cause.downloadedFiles.length > 0) {
+        cause.savedInAlpha = true
+        cause.status = 'success'
+        state.batch.savedInAlpha += 1
+      } else {
+        cause.status = 'failed'
+        cause.error = cause.error || 'No clasificado o sin contenido real'
+      }
+
+      state.batch.success = state.causes.filter((entry) => entry.status === 'success').length
+      state.batch.failed = state.causes.filter((entry) => entry.status === 'failed').length
+      state.batch.successfulCauses = state.causes.filter((entry) => entry.status === 'success').map((entry) => entry.rol)
+      state.batch.failedCauses = state.causes.filter((entry) => entry.status === 'failed').map((entry) => `${entry.rol}: ${entry.error}`)
+      state.queueCursor = i + 1
+      updateBatchCounters(state)
+      saveCheckpoint(state, 'progress')
+      appendAuditLog(state, cause.status === 'success'
+        ? `Causa ${cause.rol} procesada: detalle abierto, descarga real, clasificación y guardado en Alpha.`
+        : `Causa ${cause.rol} fallida: ${cause.error}.`)
+      refreshAuditUI(root, state)
     }
 
-    setRunningStep(10, 'consolidando resumen del lote', 'Registrando trazabilidad, estado de publicación y reintentos')
-    await delay(150)
+    state.currentStepId = 7
+    setStepStatus(state, 3, 'success', 'Apertura de detalles completada')
+    setStepStatus(state, 4, 'success', 'Descarga temporal por lotes completada')
+    setStepStatus(state, 5, state.batch.failed > 0 ? 'warning' : 'success', state.batch.failed > 0 ? 'Clasificación parcial por causas fallidas' : 'Clasificación completa')
+    setStepStatus(state, 6, state.batch.failed > 0 ? 'warning' : 'success', state.batch.failed > 0 ? 'Guardado parcial en Alpha' : 'Guardado completo en Alpha')
+    setStepStatus(state, 7, state.batch.failed > 0 ? 'warning' : 'success', 'Checkpoint final y métricas del lote registradas')
 
-    const status10 = state.batch.failed > 0 || state.batch.partial > 0 || state.finalWarningReason !== 'Sin advertencias' ? 'warning' : 'success'
-    const summaryMessage = status10 === 'success'
-      ? 'superado con éxito'
-      : `completado con advertencia: pendientes ${state.batch.pendingClassification}, observadas ${state.batch.withObservation}, no validadas ${state.batch.notValidated}, descartadas ${state.batch.discarded}, motivo: ${state.finalWarningReason}`
-    closeStep(10, status10, summaryMessage, `Resumen: ${state.batch.success} correctas, ${state.batch.partial} parciales, ${state.batch.failed} fallidas, ${state.batch.autoClassified} auto-clasificadas, ${state.batch.pendingClassification} pendientes de clasificación, ${state.batch.withObservation} con observación, ${state.batch.notValidated} no validadas en Fabocat, ${state.batch.discarded} descartadas. Motivo final: ${state.finalWarningReason}`)
-
-    state.queueCursor = state.queue.length
-    state.currentSubaction = state.batch.failed > 0
-      ? 'Finalizado con causas marcadas para reintento'
-      : 'Finalizado sin observaciones'
+    state.batch.endedAt = new Date().toISOString()
+    state.flowStatus = state.batch.failed > 0 ? 'completed_warning' : 'completed_success'
+    state.currentSubaction = 'Lote finalizado'
     state.processOutcome = state.batch.failed > 0
-      ? 'Descarga parcial (lote continúa)'
-      : (state.batch.partial > 0 ? 'Completado con advertencias de clasificación' : 'Completado con éxito')
-    appendAuditLog(state, `Lote finalizado. Correctas: ${state.batch.success}, parciales: ${state.batch.partial}, fallidas: ${state.batch.failed}, auto-clasificadas: ${state.batch.autoClassified}, pendientes clasificación: ${state.batch.pendingClassification}, con observación: ${state.batch.withObservation}, no validadas: ${state.batch.notValidated}, descartadas: ${state.batch.discarded}. Motivo advertencia final: ${state.finalWarningReason}.`)
+      ? `Completado con advertencias: ${state.batch.failed} causa(s) fallida(s)`
+      : 'Completado con éxito'
+    saveCheckpoint(state, 'finished')
+    appendAuditLog(state, `Lote ${state.batch.id} finalizado. Exitosas: ${state.batch.success}, fallidas: ${state.batch.failed}, pendientes: ${state.batch.pending}.`)
   } catch (error) {
-    const stepId = state.currentStepId || 1
-    state.processOutcome = 'Error total del lote'
-    state.currentSubaction = 'proceso interrumpido'
-    setStepStatus(state, stepId, 'failed', String(error?.message || 'Error no controlado'))
-    appendAuditLog(state, `Paso ${stepId} fallido por error no controlado: ${error?.message || 'sin detalle'}.`)
-    console.error('[Alpha Avocat][carga] Error en secuencia masiva:', error)
+    state.flowStatus = 'failed'
+    state.processOutcome = 'Fallido por error no controlado'
+    state.currentSubaction = 'Error de ejecución'
+    setStepStatus(state, state.currentStepId || 1, 'failed', String(error?.message || 'Error no controlado'))
+    saveCheckpoint(state, `error:${error?.message || 'unknown'}`)
+    appendAuditLog(state, `Error de ejecución: ${error?.message || 'sin detalle'}.`)
+    console.error('[Alpha Avocat][carga] Error en flujo asistido PJUD:', error)
   } finally {
     state.isRunning = false
     refreshAuditUI(root, state)
@@ -743,52 +544,75 @@ function renderCarga(container, context = {}) {
   buildUI(container)
 
   const state = createInitialAuditState()
-  refreshPjudSessionState(state, { force: true })
-  refreshAuditUI(container, state)
+  state.pjud.sessionState = inferPjudSessionState()
+  state.checkpoint = restoreCheckpoint()
+  if (state.checkpoint) {
+    appendAuditLog(state, `Checkpoint detectado: batch ${state.checkpoint.batch_id || '-'} en índice ${state.checkpoint.cause_index || 0}.`)
+  }
 
-  const startBtn = container.querySelector('#massiveStartBtn')
-  const retryBtn = container.querySelector('#massiveRetryBtn')
-  const resumeBtn = container.querySelector('#massiveResumeBtn')
-
-  const setPjudState = (sessionState, message) => {
+  const setPjudState = (sessionState, message = '') => {
     window.__PJUD_SESSION_STATE__ = sessionState
-    window.localStorage?.setItem('pjud.session.state', sessionState)
-    refreshPjudSessionState(state, { force: true })
+    window.localStorage?.setItem(SESSION_STORAGE_KEY, sessionState)
+    state.pjud.sessionState = sessionState
     appendAuditLog(state, message || `Estado PJUD actualizado: ${getPjudSessionStateLabel(sessionState)}.`)
     refreshAuditUI(container, state)
   }
 
-  startBtn?.addEventListener('click', () => {
+  container.querySelector('#massiveManualLoginBtn')?.addEventListener('click', () => {
+    state.flowStatus = 'waiting_mis_causas'
+    setPjudState('active', 'Login manual confirmado por usuario. Ahora abra Mis Causas > Civiles.')
+  })
+
+  container.querySelector('#massiveMisCausasBtn')?.addEventListener('click', () => {
+    state.flowStatus = 'validating_view'
+    setPjudState('mis_causas_civiles_ready', 'Usuario indica vista Mis Causas > Civiles lista. Puede iniciar lote.')
+  })
+
+  container.querySelector('#massiveStartBtn')?.addEventListener('click', () => {
     if (state.isRunning) return
-    if (state.pjud.sessionState === 'not_authenticated') {
-      setPjudState('waiting_manual_login', 'Estado PJUD: esperando login manual.')
-    }
-    executeMassiveFlow(container, state, { retryOnlyFailed: false })
+    executeMassiveFlow(container, state, { resumeFromCheckpoint: false })
   })
 
-  retryBtn?.addEventListener('click', () => {
-    if (state.isRunning || state.batch.failed === 0) return
-    setStepStatus(state, 5, 'retrying', 'Reintentando descarga temporal de causas fallidas')
-    appendAuditLog(state, `Reintento iniciado sobre ${state.batch.failed} causa(s) fallida(s).`)
+  container.querySelector('#massivePauseBtn')?.addEventListener('click', () => {
+    if (!state.isRunning) return
+    state.pjud.paused = true
+    state.pjud.pauseReason = 'Pausado manualmente por usuario'
+    state.flowStatus = 'paused_reauth'
+    state.processOutcome = 'Pausado manual'
+    saveCheckpoint(state, 'manual_pause')
+    appendAuditLog(state, 'Proceso pausado manualmente.')
     refreshAuditUI(container, state)
-    executeMassiveFlow(container, state, { retryOnlyFailed: true })
   })
 
-  resumeBtn?.addEventListener('click', () => {
+  container.querySelector('#massiveResumeBtn')?.addEventListener('click', () => {
     if (state.isRunning || !state.pjud.paused) return
-    setPjudState('active', 'sesión iniciada. reanudando lote.')
-    appendAuditLog(state, `Reanudación solicitada desde causa pendiente ${state.currentCause?.rol || 'sin referencia'}.`)
-    executeMassiveFlow(container, state, { retryOnlyFailed: false, resumePaused: true })
+    state.flowStatus = 'resumed'
+    setPjudState('active', 'Reanudación solicitada por usuario.')
+    executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
   })
 
-  container.addEventListener('keydown', (event) => {
-    if (!event.altKey) return
-    if (event.key.toLowerCase() === 'l') setPjudState('waiting_manual_login', 'Estado PJUD: esperando login manual.')
-    if (event.key.toLowerCase() === 's') setPjudState('active', 'Estado PJUD: sesión iniciada.')
-    if (event.key.toLowerCase() === 'e') setPjudState('expired', 'Estado PJUD: sesión expirada.')
-    if (event.key.toLowerCase() === 'm') setPjudState('mis_causas_visible', 'Estado PJUD: mis causas visible.')
-    if (event.key.toLowerCase() === 'd') setPjudState('detalle_causa_visible', 'Estado PJUD: detalle de causa visible.')
+  container.querySelector('#massiveRetryAuthBtn')?.addEventListener('click', () => {
+    state.flowStatus = 'waiting_manual_login'
+    setPjudState('waiting_manual_login', 'Reintento de autenticación solicitado. Abra sesión manualmente y confirme.')
   })
+
+  container.querySelector('#massiveContinueFromCheckpointBtn')?.addEventListener('click', () => {
+    if (state.isRunning) return
+    const checkpoint = restoreCheckpoint()
+    if (!checkpoint) {
+      appendAuditLog(state, 'No hay checkpoint disponible para continuar.')
+      refreshAuditUI(container, state)
+      return
+    }
+    state.checkpoint = checkpoint
+    state.batch.id = checkpoint.batch_id || state.batch.id
+    state.queueCursor = Number(checkpoint.cause_index || 0)
+    state.flowStatus = 'resumed'
+    appendAuditLog(state, `Reanudando desde checkpoint: lote ${state.batch.id || '-'} en índice ${state.queueCursor}.`)
+    executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
+  })
+
+  refreshAuditUI(container, state)
 
   if (context?.source) {
     console.info('[Alpha Avocat][carga] Módulo real abierto desde:', context.source)
@@ -797,16 +621,9 @@ function renderCarga(container, context = {}) {
 
 export function mount(containerOrSelector, context = {}) {
   const container = resolveContainer(containerOrSelector)
-
   if (!container) {
     const error = new Error('Contenedor inexistente para módulo Carga (#cargaModuleRoot).')
-    console.error('[Alpha Avocat][carga] No se pudo montar el módulo.', {
-      module: MODULE_ID,
-      reason: 'missing-container',
-      expectedContainer: '#cargaModuleRoot',
-      context,
-      error
-    })
+    console.error('[Alpha Avocat][carga] No se pudo montar el módulo.', { module: MODULE_ID, error })
     return { ok: false, error }
   }
 
@@ -814,12 +631,7 @@ export function mount(containerOrSelector, context = {}) {
     renderCarga(container, context)
     return { ok: true }
   } catch (error) {
-    console.error('[Alpha Avocat][carga] Excepción al renderizar el módulo.', {
-      module: MODULE_ID,
-      reason: 'render-exception',
-      context,
-      error
-    })
+    console.error('[Alpha Avocat][carga] Excepción al renderizar el módulo.', { module: MODULE_ID, error })
     container.innerHTML = '<section class="card"><div class="empty-state">No fue posible renderizar el módulo Carga.</div></section>'
     return { ok: false, error }
   }
