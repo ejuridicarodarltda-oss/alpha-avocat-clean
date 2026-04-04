@@ -8383,6 +8383,68 @@
       return [...dedup.values()].slice(0, 30);
     }
 
+    async function enrichImportDataWithRealPjudDownloads(importData, { maxDocuments = 4 } = {}){
+      const normalizedImportData = importData ? { ...importData } : {};
+      const identifiers = resolvePjudIdentifiers(normalizedImportData, null);
+      const candidates = await discoverPjudCandidatesFromWeb(normalizedImportData, null, identifiers);
+      if (!candidates.length) {
+        return {
+          importData: normalizedImportData,
+          downloadedDocuments: 0,
+          failureReason: 'no se encontró documento',
+          details: ['No se detectaron enlaces documentales oficiales en PJUD para la causa.'],
+        };
+      }
+      const linkedDocs = [];
+      const failedDocs = [];
+      for (const doc of candidates.slice(0, Math.max(1, Number(maxDocuments || 4)))) {
+        const sourceUrl = normalizeDownloadUrl(doc.sourceUrl);
+        if (!sourceUrl) continue;
+        try {
+          const response = await fetch(sourceUrl, { method: 'GET', credentials: 'include' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          if (!blob.size) throw new Error('respuesta vacía');
+          const content = await blobToDataUrl(blob);
+          linkedDocs.push({
+            name: doc.name || `documento-pjud-${Date.now()}.pdf`,
+            category: doc.category || 'Importadas del Poder Judicial',
+            destinationContainer: 'importadosPjud',
+            observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
+            origin: 'Poder Judicial (descarga directa)',
+            sourceUrl,
+            sourcePageUrl: doc.sourcePageUrl || normalizedImportData.sourceUrl || '',
+            destinationModule: 'Causas',
+            pjudTraceability: {
+              batch_id: state.pendingPjudBatchId || null,
+              origin: 'pjud_auto',
+              mode: 'massive_auto',
+              resolution_method: 'automatico-por-identificador',
+              destination_container: 'documentContainers.importadosPjud',
+            },
+            content,
+          });
+        } catch (error) {
+          failedDocs.push({ url: sourceUrl, message: error?.message || 'error de descarga' });
+        }
+      }
+      const mergedDocuments = [...(normalizedImportData.documents || []), ...linkedDocs];
+      const failureReason = linkedDocs.length
+        ? ''
+        : (failedDocs.some((item) => /401|403/i.test(String(item.message || '')))
+          ? 'la sesión expiró o la descarga fue bloqueada'
+          : 'la descarga fue bloqueada');
+      return {
+        importData: {
+          ...normalizedImportData,
+          documents: mergedDocuments,
+        },
+        downloadedDocuments: linkedDocs.length,
+        failureReason,
+        details: failedDocs.slice(0, 4).map((item) => `${item.url}: ${item.message}`),
+      };
+    }
+
     async function downloadPjudContentForCurrentCause(){
       if (!state.manualSelectedCauseId) {
         setMessage('importMsg', 'Paso 1 obligatorio: selecciona primero una causa individual en el flujo manual.', 'warn');
@@ -10789,20 +10851,27 @@
       let created = 0;
       let updated = 0;
       let failures = 0;
+      let downloadFailures = 0;
+      let causesWithDownloadedContent = 0;
+      let documentsDownloadedTotal = 0;
+      let causesWithDetectionOnly = 0;
+      let causesWithoutDetail = 0;
+      const technicalFailureReasons = new Map();
       let lastSelectedId = null;
       const affectedCaseIds = new Set();
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo PJUD');
-      setMassiveAuditStep(6, 'skipped', 'Descarga documental se mantiene pendiente en modo directo (solo vínculo PJUD ↔ Alpha).');
-      setMassiveAuditStep(7, 'skipped', 'Guardado en Expedientes Digitales pendiente de descarga real.');
-      setMassiveAuditStep(8, 'skipped', 'Clasificación pendiente de descarga real.');
+      setMassiveAuditStep(6, 'running', 'Descargando contenido documental real desde PJUD');
+      setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
+      setMassiveAuditStep(8, 'running', 'Clasificando contenido');
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
           const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
           const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
-          for (const importData of slice) {
+          for (const importDataRaw of slice) {
+            let importData = importDataRaw;
             const currentCauseLabel = [importData.rol || importData.basic?.rol, importData.tribunal || importData.basic?.tribunal, importData.caratulado || importData.basic?.caratula].filter(Boolean).join(' – ') || 'Causa sin etiqueta';
             renderImportProgressPreview({
               chunkNumber,
@@ -10817,6 +10886,32 @@
               currentSubaction: 'abriendo causa',
               internalProgress: `Causa ${Math.min(created + updated + failures + 1, items.length)} de ${items.length}`,
             });
+            const hasDetailRoute = Boolean(importData?.detailUrl || importData?.basic?.detailUrl || importData?.sourceUrl || importData?.basic?.link);
+            if (!hasDetailRoute) {
+              causesWithoutDetail += 1;
+              technicalFailureReasons.set('no se abrió el detalle', (technicalFailureReasons.get('no se abrió el detalle') || 0) + 1);
+            }
+            let downloadResult = { importData, downloadedDocuments: 0, failureReason: '' };
+            setMassiveAuditStep(6, 'running', `Descargando contenido documental real para ${currentCauseLabel}`);
+            try {
+              downloadResult = await enrichImportDataWithRealPjudDownloads(importData, { maxDocuments: 4 });
+              importData = downloadResult.importData || importData;
+              documentsDownloadedTotal += Number(downloadResult.downloadedDocuments || 0);
+              if (Number(downloadResult.downloadedDocuments || 0) > 0) causesWithDownloadedContent += 1;
+              else {
+                causesWithDetectionOnly += 1;
+                downloadFailures += 1;
+                const failureReason = downloadResult.failureReason || 'no se encontró documento';
+                technicalFailureReasons.set(failureReason, (technicalFailureReasons.get(failureReason) || 0) + 1);
+              }
+            } catch (downloadError) {
+              downloadFailures += 1;
+              causesWithDetectionOnly += 1;
+              const normalizedReason = /401|403/i.test(String(downloadError?.message || ''))
+                ? 'la sesión expiró'
+                : 'la descarga fue bloqueada';
+              technicalFailureReasons.set(normalizedReason, (technicalFailureReasons.get(normalizedReason) || 0) + 1);
+            }
             const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
             const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
             const duplicate = findDuplicateCase(getAllCases(), importData);
@@ -10826,6 +10921,14 @@
                 const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
                 const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
                 if (updateError) throw updateError;
+                materializeImportedCaseWorkspace({
+                  caseRow: { ...duplicate, id: duplicate.id },
+                  rowPayload: updatePayload,
+                  operationMode: 'update',
+                  importData,
+                  selectedClientParties,
+                  importBatchId: state.pendingPjudBatchId || null,
+                });
                 updated += 1;
                 lastSelectedId = duplicate.id;
                 affectedCaseIds.add(String(duplicate.id));
@@ -10834,6 +10937,15 @@
                   primaryClientName,
                   selectedClientParties,
                   skipWorkspace: true,
+                });
+                const insertPayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
+                materializeImportedCaseWorkspace({
+                  caseRow: data,
+                  rowPayload: insertPayload,
+                  operationMode: 'create',
+                  importData,
+                  selectedClientParties,
+                  importBatchId: state.pendingPjudBatchId || null,
                 });
                 created += 1;
                 lastSelectedId = String(data[C.k_id]);
@@ -10881,21 +10993,25 @@
         const warningMessages = [];
         if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
         if (Number(failures || 0) > 0) warningMessages.push(`${Number(failures || 0)} causa(s) con error durante transferencia/importación.`);
+        if (Number(documentsDownloadedTotal || 0) === 0) warningMessages.push('0 archivos reales descargados desde PJUD en Paso 6.');
+        if (Number(causesWithoutDetail || 0) > 0) warningMessages.push(`${Number(causesWithoutDetail || 0)} causa(s) sin apertura de detalle real.`);
+        const diagnosticFailures = [...technicalFailureReasons.entries()].map(([reason, count]) => `${count}× ${reason}`).join(' · ');
+        if (diagnosticFailures) warningMessages.push(`Diagnóstico técnico: ${diagnosticFailures}.`);
         const warning = buildExplicitFinalWarningReason({
           warning: warningMessages.join(' '),
           discardedRows: Number(failures || 0),
-          causesWithDownloadError: Number(failures || 0),
+          causesWithDownloadError: Number(failures || 0) + Number(downloadFailures || 0),
         });
         const accounting = {
           rowsRead: uniqueCases,
           rowsValid: uniqueCases,
-          rowsDiscarded: failures,
+          rowsDiscarded: failures + downloadFailures,
           rowsDuplicated: 0,
           rowsWithoutUrl: 0,
           rowsResolutionError: 0,
           rowsProcessedEffective: completedCases,
-          rowsPending: 0,
-          rowsFailed: failures,
+          rowsPending: causesWithDetectionOnly,
+          rowsFailed: failures + downloadFailures,
         };
         renderImportFinalSummary({
           rowsAnalyzed: uniqueCases,
@@ -10903,16 +11019,27 @@
           duplicatedInternal: 0,
           inserted: created,
           updated,
+          causesWithDownloadedContent,
+          causesWithoutDownloadedContent: Math.max(0, uniqueCases - causesWithDownloadedContent),
+          documentsDetectedTotal: uniqueCases,
+          documentsDownloadedTotal,
+          documentsSavedTotal: documentsDownloadedTotal,
+          documentsClassifiedTotal: documentsDownloadedTotal,
           accounting,
           executionMode: 'modo_directo_pjud',
           sourceLabel: 'Sesión activa PJUD / Mis Causas',
-          errors: failures,
+          errors: failures + downloadFailures,
           batchId: state.pendingPjudBatchId || null,
           warning,
-          tone: failures ? 'warn' : 'ok',
+          tone: (failures || downloadFailures) ? 'warn' : 'ok',
         });
-        setMassiveAuditStep(5, failures ? 'warning' : 'success', failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.');
-        setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
+        const hasRealDownloads = Number(documentsDownloadedTotal || 0) > 0;
+        setMassiveAuditStep(4, hasRealDownloads ? 'success' : 'warning', hasRealDownloads ? 'Recorrido de causas completado' : `Recorrido completado, pero sin descarga real (${diagnosticFailures || 'sin detalle técnico'}).`);
+        setMassiveAuditStep(5, hasRealDownloads ? (failures ? 'warning' : 'success') : 'warning', hasRealDownloads ? (failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.') : `Detección lógica sin descarga útil. ${diagnosticFailures || ''}`.trim());
+        setMassiveAuditStep(6, hasRealDownloads ? (downloadFailures ? 'warning' : 'success') : 'failed', hasRealDownloads ? `Descarga documental real completada: ${documentsDownloadedTotal} archivo(s).` : `Descarga documental real fallida: 0 archivos. ${diagnosticFailures || 'No se encontró documento.'}`);
+        setMassiveAuditStep(7, hasRealDownloads ? (failures ? 'warning' : 'success') : 'warning', hasRealDownloads ? 'Guardado en Expedientes Digitales completado.' : 'Guardado parcial: no hubo archivos reales para persistir en todas las causas.');
+        setMassiveAuditStep(8, hasRealDownloads ? 'success' : 'warning', hasRealDownloads ? 'Clasificación completada.' : 'Clasificación limitada: no hubo descarga documental real.');
+        setMassiveAuditStep(9, (failures || downloadFailures || !hasRealDownloads) ? 'warning' : 'success', (failures || downloadFailures || !hasRealDownloads) ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
         renderImportProgressPreview({
           chunkNumber: totalChunks,
           totalChunks,
@@ -10920,8 +11047,8 @@
           totalItems: items.length,
           batchId: state.pendingPjudBatchId || null,
           currentStepId: 9,
-          currentStepStatus: failures ? 'warning' : 'success',
-          stepDetail: failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito',
+          currentStepStatus: (failures || downloadFailures || !hasRealDownloads) ? 'warning' : 'success',
+          stepDetail: (failures || downloadFailures || !hasRealDownloads) ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito',
           currentSubaction: 'cerrando lote',
         });
         console.info('[Alpha Avocat][batch-import] Resultado importación manual.', {
