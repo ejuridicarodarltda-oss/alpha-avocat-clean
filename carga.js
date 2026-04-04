@@ -12,7 +12,7 @@ const STEP_STATUS = {
 
 const FLOW_STATUS_LABEL = {
   waiting_manual_login: 'esperando login manual',
-  waiting_mis_causas: 'esperando apertura de Mis Causas Civiles',
+  waiting_mis_causas: 'esperando apertura de Mis Causas (todas las materias)',
   validating_view: 'validando vista PJUD',
   running_batch: 'lote en ejecución',
   paused_reauth: 'pausa por reautenticación',
@@ -23,7 +23,7 @@ const FLOW_STATUS_LABEL = {
 }
 
 const MASSIVE_STEPS = [
-  { id: 1, name: 'Validar sesión manual y vista PJUD > Mis Causas > Civiles' },
+  { id: 1, name: 'Validar sesión manual y vista PJUD > Mis Causas (todas las materias)' },
   { id: 2, name: 'Detectar causas reales visibles y armar lote configurable' },
   { id: 3, name: 'Abrir lupa por rol y detalle real por causa' },
   { id: 4, name: 'Descargar contenido real a almacenamiento temporal por lote' },
@@ -40,7 +40,7 @@ const PJUD_SESSION_LABEL = {
   not_authenticated: 'no autenticado',
   waiting_manual_login: 'esperando login manual',
   active: 'sesión iniciada',
-  mis_causas_civiles_ready: 'mis causas civiles lista',
+  mis_causas_civiles_ready: 'mis causas lista',
   expired: 'sesión expirada'
 }
 
@@ -94,18 +94,18 @@ function validateLivePjudView(state) {
   const live = inferLivePjudContext()
   const sessionOk = state.pjud.sessionState === 'active' || state.pjud.sessionState === 'mis_causas_civiles_ready'
   const hasMisCausas = /mis\s*causas/i.test(live.view)
-  const hasCiviles = /civil/i.test(live.matter)
+  const hasMatterVisibility = Boolean(String(live.matter || '').trim()) || (Array.isArray(live.causes) && live.causes.length > 0)
   const hasUrl = /^https?:\/\//i.test(live.url)
 
   const diagnostics = {
     sessionOk,
     hasMisCausas,
-    hasCiviles,
+    hasMatterVisibility,
     domAccessible: live.domAccessible,
     hasUrl
   }
 
-  const isValid = sessionOk && live.isAuthenticated && hasMisCausas && hasCiviles && live.domAccessible && hasUrl
+  const isValid = sessionOk && live.isAuthenticated && hasMisCausas && hasMatterVisibility && live.domAccessible && hasUrl
   return { isValid, live, diagnostics }
 }
 
@@ -274,7 +274,7 @@ function buildUI(container) {
 
       <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
         <h2 style="margin:0;font-size:1.06rem;">Inicio asistido PJUD</h2>
-        <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas → Civiles. 3) Presione Continuar/Iniciar lote.</p>
+        <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas con todas las materias visibles. 3) Presione Continuar/Iniciar lote.</p>
         <div class="massive-control__grid">
           <label style="display:grid;gap:6px;">
             <span>Tamaño de lote (causas por corrida)</span>
@@ -282,7 +282,7 @@ function buildUI(container) {
           </label>
           <div class="massive-control__actions" style="display:flex;gap:8px;flex-wrap:wrap;">
             <button id="massiveManualLoginBtn" class="btn btn-3d" type="button">Abrí sesión en PJUD</button>
-            <button id="massiveMisCausasBtn" class="btn btn-3d" type="button">Ya abrí Mis Causas &gt; Civiles</button>
+            <button id="massiveMisCausasBtn" class="btn btn-3d" type="button">Ya abrí Mis Causas (todas las materias)</button>
             <button id="massiveStartBtn" class="btn btn-3d btn-primary" type="button">Iniciar lote</button>
             <button id="massivePauseBtn" class="btn btn-3d" type="button">Pausar</button>
             <button id="massiveResumeBtn" class="btn btn-3d" type="button">Reanudar</button>
@@ -364,7 +364,7 @@ async function executeMassiveFlow(root, state, options = {}) {
   state.currentSubaction = 'Validando sesión y vista operativa PJUD'
   state.processOutcome = 'Ejecución en curso'
   state.currentStepId = 1
-  setStepStatus(state, 1, 'running', 'Verificando sesión activa, Mis Causas, Civiles, DOM y URL válida')
+  setStepStatus(state, 1, 'running', 'Verificando sesión activa, Mis Causas visible, DOM y URL válida')
   refreshAuditUI(root, state)
 
   try {
@@ -379,10 +379,10 @@ async function executeMassiveFlow(root, state, options = {}) {
       state.pjud.paused = true
       state.pjud.pauseReason = 'Vista PJUD no válida o sesión no autenticada'
       setStepStatus(state, 1, 'failed', `Validación fallida: ${JSON.stringify(validation.diagnostics)}`)
-      state.currentSubaction = 'Esperando que el usuario deje lista la vista Mis Causas > Civiles'
+      state.currentSubaction = 'Esperando que el usuario deje lista la vista Mis Causas (todas las materias)'
       state.processOutcome = 'Pausado por validación de vista'
       saveCheckpoint(state, 'validacion_vista_fallida')
-      appendAuditLog(state, 'No se inicia lote: falta sesión activa/PJUD Mis Causas Civiles/DOM accesible/URL válida.')
+      appendAuditLog(state, 'No se inicia lote: falta sesión activa/PJUD Mis Causas visible/DOM accesible/URL válida.')
       return
     }
 
@@ -560,12 +560,12 @@ function renderCarga(container, context = {}) {
 
   container.querySelector('#massiveManualLoginBtn')?.addEventListener('click', () => {
     state.flowStatus = 'waiting_mis_causas'
-    setPjudState('active', 'Login manual confirmado por usuario. Ahora abra Mis Causas > Civiles.')
+    setPjudState('active', 'Login manual confirmado por usuario. Ahora abra Mis Causas (todas las materias).')
   })
 
   container.querySelector('#massiveMisCausasBtn')?.addEventListener('click', () => {
     state.flowStatus = 'validating_view'
-    setPjudState('mis_causas_civiles_ready', 'Usuario indica vista Mis Causas > Civiles lista. Puede iniciar lote.')
+    setPjudState('mis_causas_civiles_ready', 'Usuario indica vista Mis Causas lista. Puede iniciar lote.')
   })
 
   container.querySelector('#massiveStartBtn')?.addEventListener('click', () => {
