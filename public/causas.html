@@ -2652,6 +2652,8 @@
       },
       pjudAccess: {
         record: null,
+        infrastructureStatus: 'ready',
+        infrastructureMessage: '',
       },
     };
 
@@ -5677,6 +5679,12 @@
       }
     }
 
+    function isMissingPjudAccessInfrastructureError(error){
+      const code = String(error?.code || '').toUpperCase();
+      const message = String(error?.message || '').toLowerCase();
+      return code === '42P01' || (message.includes('pjud_access_connections') && message.includes('does not exist'));
+    }
+
     async function loadPjudAccessConnection(){
       const { data, error } = await supabase
         .from(T_PJUD_ACCESS_CONNECTIONS)
@@ -5686,8 +5694,25 @@
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw buildLoadError('el acceso PJUD del usuario', error);
+
+      if (error) {
+        if (isMissingPjudAccessInfrastructureError(error)) {
+          state.pjudAccess.record = null;
+          state.pjudAccess.infrastructureStatus = 'missing_table';
+          state.pjudAccess.infrastructureMessage = 'Falta la infraestructura de base de datos del acceso PJUD.';
+          console.error('[CAUSAS][ACCESO-PJUD] Falta la tabla de infraestructura public.pjud_access_connections.', error);
+          return null;
+        }
+        state.pjudAccess.record = null;
+        state.pjudAccess.infrastructureStatus = 'query_error';
+        state.pjudAccess.infrastructureMessage = 'No fue posible consultar el estado del acceso PJUD.';
+        console.error('[CAUSAS][ACCESO-PJUD] Falló la consulta del acceso PJUD.', error);
+        return null;
+      }
+
       state.pjudAccess.record = data || null;
+      state.pjudAccess.infrastructureStatus = 'ready';
+      state.pjudAccess.infrastructureMessage = '';
       return state.pjudAccess.record;
     }
 
@@ -5697,6 +5722,8 @@
       verificationMode = 'manual',
       message = '',
     } = {}){
+      // Este upsert solo crea/actualiza la FILA del usuario.
+      // La tabla public.pjud_access_connections debe existir por migración previa.
       const nowIso = new Date().toISOString();
       const payload = {
         user_id: authenticatedUser.id,
@@ -5716,8 +5743,17 @@
         .upsert(payload, { onConflict: 'user_id,access_type' })
         .select('*')
         .single();
-      if (error) throw buildLoadError('la persistencia del acceso PJUD', error);
+      if (error) {
+        if (isMissingPjudAccessInfrastructureError(error)) {
+          state.pjudAccess.infrastructureStatus = 'missing_table';
+          state.pjudAccess.infrastructureMessage = 'Falta la infraestructura de base de datos del acceso PJUD.';
+          throw new Error(state.pjudAccess.infrastructureMessage);
+        }
+        throw buildLoadError('la persistencia del acceso PJUD', error);
+      }
       state.pjudAccess.record = data || null;
+      state.pjudAccess.infrastructureStatus = 'ready';
+      state.pjudAccess.infrastructureMessage = '';
       return data;
     }
 
@@ -5726,8 +5762,20 @@
       if (!statsNode) return;
       const access = state.pjudAccess.record || null;
       const status = String(access?.status || 'disconnected').toLowerCase();
-      const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
-      const statusText = isActive ? 'Acceso PJUD activo' : (status === 'expired' ? 'La sesión PJUD expiró. Debe actualizar el acceso.' : 'Sin acceso PJUD activo');
+      const hasInfrastructureIssue = state.pjudAccess.infrastructureStatus === 'missing_table';
+      const hasQueryIssue = state.pjudAccess.infrastructureStatus === 'query_error';
+      const isActive = !hasInfrastructureIssue && !hasQueryIssue && status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+
+      const statusText = hasInfrastructureIssue
+        ? 'Falta la infraestructura de base de datos del acceso PJUD.'
+        : hasQueryIssue
+          ? 'No fue posible consultar el estado del acceso PJUD.'
+          : isActive
+            ? 'Acceso PJUD activo'
+            : status === 'expired'
+              ? 'La sesión PJUD expiró. Debe actualizar el acceso.'
+              : 'Aún no se ha creado el acceso PJUD.';
+
       statsNode.innerHTML = [
         { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
         { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
@@ -5738,6 +5786,13 @@
           <strong>${item.value}</strong>
         </article>
       `).join('');
+
+      const createButton = $('btnPjudCrearAcceso');
+      const blockUserActions = hasInfrastructureIssue || hasQueryIssue;
+      if (createButton) {
+        createButton.disabled = blockUserActions;
+        createButton.setAttribute('aria-disabled', blockUserActions ? 'true' : 'false');
+      }
 
       const enableActions = isActive;
       ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
@@ -5756,6 +5811,10 @@
     }
 
     async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
+      if (state.pjudAccess.infrastructureStatus === 'missing_table') {
+        setMessage('pjudAccessMsg', 'Falta la infraestructura de base de datos del acceso PJUD.', 'error');
+        return;
+      }
       const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
       if (!popup) {
         setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
@@ -12378,23 +12437,23 @@
       await ensureAuth();
       await loadClients();
       await loadCases();
-      await loadPjudAccessConnection();
       populateFilters();
     }
 
-    function initNonFatalPhase(){
+    async function initNonFatalPhase(){
       const nonFatalTasks = [
+        () => loadPjudAccessConnection(),
         () => wireEvents(),
         () => renderAll(),
       ];
-      nonFatalTasks.forEach((task) => {
+      for (const task of nonFatalTasks) {
         try {
-          task();
+          await task();
         } catch (error) {
           console.error('[Alpha Avocat][init-non-fatal] La tarea no fatal falló.', error);
           setMessage('importMsg', `Se detectó un problema no fatal en CAUSAS: ${error?.message || 'Error desconocido'}`, 'warn');
         }
-      });
+      }
     }
 
     async function init(){
@@ -12408,7 +12467,7 @@
         return;
       }
       disableLandingMode();
-      initNonFatalPhase();
+      await initNonFatalPhase();
     }
 
     init();
