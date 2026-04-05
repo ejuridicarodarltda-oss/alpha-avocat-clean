@@ -2608,6 +2608,7 @@
     const T_PJUD_CASES = 'pjud_cases';
     const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
     const T_PJUD_ACCESS_CONNECTIONS = 'pjud_access_connections';
+    const PJUD_ACCESS_PENDING_MESSAGE = 'Aún no se ha creado el acceso PJUD';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
     const PJUD_ROW_LOG_CHUNK_SIZE = 200;
@@ -5846,6 +5847,10 @@
       return state.pjudAccess.record;
     }
 
+    // Infraestructura vs. acceso del usuario:
+    // - La tabla `public.pjud_access_connections` debe existir por migración/deploy (backend).
+    // - El botón "Crear acceso" solo crea/actualiza la fila del usuario autenticado.
+    // - Este flujo nunca intenta crear tablas ni modificar infraestructura.
     async function persistPjudAccessConnection({
       status = 'active',
       baseUrl = '',
@@ -5908,9 +5913,16 @@
         return;
       }
       const access = state.pjudAccess.record || null;
+      const hasAccessRecord = Boolean(access?.id);
       const status = String(access?.status || 'disconnected').toLowerCase();
       const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
-      const statusText = isActive ? 'Acceso PJUD activo' : (status === 'expired' ? 'La sesión PJUD expiró. Debe actualizar el acceso.' : 'Sin acceso PJUD activo');
+      const statusText = !hasAccessRecord
+        ? PJUD_ACCESS_PENDING_MESSAGE
+        : (isActive
+          ? 'Acceso PJUD activo'
+          : (status === 'expired'
+            ? 'La sesión PJUD expiró. Debe actualizar el acceso.'
+            : 'Sin acceso PJUD activo'));
       statsNode.innerHTML = [
         { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
         { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
@@ -5921,6 +5933,10 @@
           <strong>${item.value}</strong>
         </article>
       `).join('');
+
+      if (!hasAccessRecord) {
+        setMessage('pjudAccessMsg', PJUD_ACCESS_PENDING_MESSAGE, 'info');
+      }
 
       const createButton = $('btnPjudCrearAcceso');
       if (createButton) {
