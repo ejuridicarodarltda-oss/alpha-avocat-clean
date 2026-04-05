@@ -3139,11 +3139,18 @@
         queue.push({
           mode: 'massive_auto',
           origin: 'pjud_dom_mis_causas',
+          source: 'pjud_live_mis_causas',
           sourceUrl: routeUrl || row.currentPageUrl || '',
           routeUrl,
           routeAction: row.routeAction || '',
           routeActionType: row.routeActionType || 'none',
           routeActionPayload: row.routeActionPayload || null,
+          detailUrl: routeUrl || null,
+          pjudRowKey: row.pjudRowKey || `${normalizedKey || roleLabel || ritLabel || rowIndex}|${rowIndex}`,
+          detailAction: row.routeActionType || 'none',
+          rowPosition: rowIndex,
+          detailSelector: row.detailSelector || '',
+          hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
           rawText: visible,
           pjudCaseKey: row.caseKey || normalizedKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
           pjudNormalizedKey: normalizedKey || '',
@@ -3168,9 +3175,14 @@
             materia: materiaLabel,
             competencia: competenciaLabel,
             link: routeUrl,
+            detailUrl: routeUrl || null,
+            rowPosition: rowIndex,
+            hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
           },
           pjudRouteAudit: {
             rowIndex,
+            rowPosition: rowIndex,
+            pjudRowKey: row.pjudRowKey || `${normalizedKey || roleLabel || ritLabel || rowIndex}|${rowIndex}`,
             rowVisibleText: visible,
             href: row.href || '',
             onclick: row.onclick || '',
@@ -3179,6 +3191,11 @@
             routeAction: row.routeAction || '',
             routeActionType: row.routeActionType || 'none',
             routeActionPayload: row.routeActionPayload || null,
+            detailUrl: routeUrl || null,
+            detailAction: row.routeActionType || 'none',
+            detailSelector: row.detailSelector || '',
+            hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
+            rawPayload: row.rawPayload || null,
           },
         });
       });
@@ -4697,9 +4714,11 @@
     ]);
 
     function buildPjudBatchInsertPayload(summary, { status = 'processing', errorSummary = [] } = {}, { discardedColumn = 'discarded_count' } = {}){
+      const isManifestMode = state.massiveAudit?.executionMode === 'modo_manifiesto_excel';
+      const sourceCode = isManifestMode ? 'pjud_manifest_excel_aux' : 'pjud_live_mis_causas';
       return {
         owner_user_id: authenticatedUser.id,
-        source: 'pjud_excel_mis_causas',
+        source: sourceCode,
         source_confidence: 'high',
         file_name: summary.fileName || null,
         file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
@@ -4716,7 +4735,7 @@
         [discardedColumn]: 0,
         summary: {
           mode: 'massive_auto',
-          sourceOrigin: 'pjud_auto',
+          sourceOrigin: isManifestMode ? 'manifest_excel_aux' : 'mis_causas_listado_vivo',
           fileName: summary.fileName || null,
           rowsProcessed: summary.rowsProcessed || 0,
           invalidRows: summary.invalidRows || 0,
@@ -4726,7 +4745,7 @@
         error_summary: (errorSummary || []).slice(0, 20),
         metadata: {
           mode: 'massive_auto',
-          sourceOrigin: 'pjud_auto',
+          sourceOrigin: isManifestMode ? 'manifest_excel_aux' : 'mis_causas_listado_vivo',
           importedAtClient: new Date().toISOString(),
           status,
           errorSummary: (errorSummary || []).slice(0, 20),
@@ -8841,10 +8860,25 @@
           ? { target: postbackMatch?.[2] || '', argument: postbackMatch?.[4] || '', hiddenInputs }
           : (routeActionType === 'onclick' ? { script: onclick || jsHref, hiddenInputs } : (routeActionType === 'form_hidden' ? { hiddenInputs } : null));
         const routeUrl = normalizedHref || onclickUrl || '';
+        const selectorBase = anchor || clickable || rowNode;
+        const selectorTag = String(selectorBase?.tagName || '').toLowerCase();
+        const selectorId = String(selectorBase?.id || '').trim();
+        const selectorClass = String(selectorBase?.className || '').trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.');
+        const detailSelector = selectorId
+          ? `${selectorTag}#${selectorId}`
+          : (selectorClass ? `${selectorTag}.${selectorClass}` : selectorTag || '');
+        const pjudRowKey = [
+          String(rowNode?.getAttribute?.('data-id') || ''),
+          String(rowNode?.getAttribute?.('data-key') || ''),
+          String(rowNode?.id || ''),
+          `row_${index + 1}`,
+        ].filter(Boolean).join('|');
         const visibleText = String(rowNode.innerText || '').trim();
         const parsed = parsePjudFieldsFromVisibleText(visibleText);
         return {
           rowIndex: index + 1,
+          pjudRowKey,
+          detailSelector,
           visibleText,
           href: normalizedHref,
           onclick,
@@ -8860,6 +8894,12 @@
           tribunal: parsed.tribunal || dataset?.tribunal || dataset?.court || '',
           caratula: parsed.caratula || dataset?.caratula || dataset?.caratulado || '',
           materia: parsed.materia || dataset?.materia || '',
+          rawPayload: {
+            routeActionType,
+            routeActionPayload,
+            hiddenInputs,
+            dataset,
+          },
         };
       });
 
@@ -10169,7 +10209,7 @@
         [C.k_withheld_by]: 'Retiene receptor',
         [C.k_notes]: null,
         owner_user_id: authenticatedUser.id,
-        source: 'pjud_index_manifest',
+        source: 'pjud_live_mis_causas',
         source_confidence: 'high',
         import_batch_id: importBatchId,
         imported_at: new Date().toISOString(),
@@ -10222,7 +10262,7 @@
         content_detected_count: importedDocumentsCount,
         content_downloaded_count: Number((importData.documents || []).filter((doc) => doc?.content || doc?.sourceUrl || doc?.sourcePageUrl).length + (importData.ebook ? 1 : 0)),
         pjud_traceability: {
-          source: 'pjud_index_manifest',
+          source: 'pjud_live_mis_causas',
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
@@ -10248,6 +10288,12 @@
           pjud_case_detail_url: routeData.pjudCaseDetailUrl,
           pjud_ebook_url: routeData.pjudEbookUrl,
           pjud_documents_url: routeData.pjudDocumentsUrl,
+          detail_url: routeData.detailUrl,
+          pjud_row_key: routeData.pjudRowKey,
+          detail_action: routeData.detailAction,
+          row_position: routeData.rowPosition,
+          detail_selector: routeData.detailSelector,
+          has_detail_access: routeData.hasDetailAccess,
           content_source: routeData.contentSource,
         },
       };
@@ -10295,9 +10341,9 @@
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
       return {
         ...safeFallback,
-        source: 'pjud_excel_mis_causas',
+        source: safeFallback.source || rowPayload?.source || 'pjud_live_mis_causas',
         sourceConfidence: 'high',
-        mode: 'mis_causas_excel',
+        mode: safeFallback.mode || 'mis_causas_live',
         importBatchId: importBatchId || safeFallback.importBatchId || null,
         pjudCaseKey,
         rol,
@@ -10326,6 +10372,12 @@
         documents: safeFallback.documents || [],
         ebook: safeFallback.ebook || null,
         rawText: safeFallback.rawText || '',
+        detailUrl: rowPayload?.pjud_case_detail_url || safeFallback.detailUrl || safeFallback.basic?.detailUrl || safeFallback.basic?.link || '',
+        pjudRowKey: rowPayload?.pjud_row_key || safeFallback.pjudRowKey || safeFallback.pjudRouteAudit?.pjudRowKey || '',
+        detailAction: rowPayload?.detail_action || safeFallback.detailAction || safeFallback.routeActionType || '',
+        rowPosition: rowPayload?.row_position || safeFallback.rowPosition || safeFallback.pjudRouteAudit?.rowPosition || null,
+        detailSelector: rowPayload?.detail_selector || safeFallback.detailSelector || safeFallback.pjudRouteAudit?.detailSelector || '',
+        hasDetailAccess: rowPayload?.has_detail_access ?? safeFallback.hasDetailAccess ?? safeFallback.pjudRouteAudit?.hasDetailAccess ?? false,
         basic: {
           rol,
           rit,
@@ -10336,6 +10388,7 @@
           fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
           caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
           link: safeFallback.basic?.link || '',
+          detailUrl: rowPayload?.pjud_case_detail_url || safeFallback.detailUrl || safeFallback.basic?.detailUrl || safeFallback.basic?.link || '',
           importedAt,
           pjudCaseKey,
         },
@@ -10392,11 +10445,47 @@
         || documents.find((doc) => isHttpUrl(doc?.sourceUrl || ''))?.sourceUrl
         || '';
       const routeResolved = Boolean(isHttpUrl(pjudCaseUrl) || isHttpUrl(pjudCaseDetailUrl) || isHttpUrl(pjudEbookUrl) || isHttpUrl(pjudDocumentsUrl));
+      const detailUrl = pjudCaseDetailUrl || pjudCaseUrl || pjudEbookUrl || null;
+      const pjudRowKey = rowPayload?.pjud_row_key
+        || safeImportData?.pjudRowKey
+        || safeImportData?.pjudRouteAudit?.pjudRowKey
+        || rowPayload?.pjud_case_key
+        || safeImportData?.pjudCaseKey
+        || null;
+      const detailAction = rowPayload?.detail_action
+        || safeImportData?.detailAction
+        || safeImportData?.routeActionType
+        || safeImportData?.routeAction
+        || safeImportData?.pjudRouteAudit?.routeActionType
+        || 'none';
+      const rowPosition = Number(
+        rowPayload?.row_position
+        ?? safeImportData?.rowPosition
+        ?? safeImportData?.pjudRouteAudit?.rowPosition
+        ?? safeImportData?.pjudRouteAudit?.rowIndex
+        ?? 0
+      ) || null;
+      const detailSelector = rowPayload?.detail_selector
+        || safeImportData?.detailSelector
+        || safeImportData?.pjudRouteAudit?.detailSelector
+        || null;
+      const hasDetailAccess = Boolean(
+        routeResolved
+        || rowPayload?.has_detail_access === true
+        || safeImportData?.hasDetailAccess === true
+        || safeImportData?.pjudRouteAudit?.hasDetailAccess === true
+      );
       return {
         pjudCaseUrl: pjudCaseUrl || null,
         pjudCaseDetailUrl: pjudCaseDetailUrl || null,
         pjudEbookUrl: pjudEbookUrl || null,
         pjudDocumentsUrl: pjudDocumentsUrl || null,
+        detailUrl,
+        pjudRowKey,
+        detailAction,
+        rowPosition,
+        detailSelector,
+        hasDetailAccess,
         routeStatus: routeResolved ? 'ruta_resuelta' : 'sin_ruta_documental',
         routeError: routeResolved ? null : 'acceso_documental_no_encontrado',
         contentSource: 'pjud_url',
@@ -10458,6 +10547,12 @@
         pjudCaseDetailUrl: routeData.pjudCaseDetailUrl,
         pjudEbookUrl: routeData.pjudEbookUrl,
         pjudDocumentsUrl: routeData.pjudDocumentsUrl,
+        detailUrl: routeData.detailUrl,
+        pjudRowKey: routeData.pjudRowKey,
+        detailAction: routeData.detailAction,
+        rowPosition: routeData.rowPosition,
+        detailSelector: routeData.detailSelector,
+        hasDetailAccess: routeData.hasDetailAccess,
         routeStatus: routeData.routeStatus,
         routeError: routeData.routeError,
         contentSource: routeData.contentSource,
@@ -10545,7 +10640,9 @@
 
     async function appendPjudImportRows(batchId, rows = [], { isValid = true } = {}){
       if (!batchId) return false;
-      const rowPayloads = rows.map((row) => ({
+      const rowPayloads = rows.map((row) => {
+        const constSource = row.source || row.payload?.source || row.traceability?.source || 'pjud_live_mis_causas';
+        return {
         batch_id: batchId,
         owner_user_id: authenticatedUser.id,
         materia: row.materia,
@@ -10558,7 +10655,7 @@
         represented_client_role: row.representedClientRole || null,
         imported_documents_count: Number((row.documents || []).length + (row.ebook ? 1 : 0)),
         traceability: {
-          source: 'pjud_excel_mis_causas',
+          source: constSource,
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
           row_number: row.rowNumber,
           sheet_name: row.sheetName,
@@ -10568,7 +10665,7 @@
         },
         payload: {
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || row.payload?.pjud_case_key || null,
-          source: 'pjud_excel_mis_causas',
+          source: constSource,
           status: row.payload?.status || (isValid ? 'ok' : 'discarded'),
           reason: row.reason || row.payload?.reason || null,
           rol: row.rol || row.payload?.rol || null,
@@ -10582,8 +10679,15 @@
           materialized: row.materialized ?? row.payload?.materialized ?? null,
           destination: row.destination || row.payload?.destination || null,
           persistence: row.persistence || row.payload?.persistence || null,
+          detail_url: row.payload?.detail_url || row.detailUrl || null,
+          pjud_row_key: row.payload?.pjud_row_key || row.pjudRowKey || null,
+          detail_action: row.payload?.detail_action || row.detailAction || null,
+          row_position: row.payload?.row_position || row.rowPosition || null,
+          detail_selector: row.payload?.detail_selector || row.detailSelector || null,
+          has_detail_access: row.payload?.has_detail_access ?? row.hasDetailAccess ?? null,
         },
-      }));
+        };
+      });
       for (let index = 0; index < rowPayloads.length; index += PJUD_ROW_LOG_CHUNK_SIZE) {
         const slice = rowPayloads.slice(index, index + PJUD_ROW_LOG_CHUNK_SIZE);
         if (!slice.length) continue;
@@ -11274,6 +11378,7 @@
       }
       if (processedRows.length) {
         await appendPjudImportRows(batch?.id || null, processedRows.slice(0, 2000).map((item, index) => ({
+          source: item.source || 'pjud_live_mis_causas',
           materia: item.materia || '',
           sheetName: item.sheetName || '',
           rowNumber: index + 1,
@@ -11297,6 +11402,12 @@
               pjud_case_detail_url: item.pjudCaseDetailUrl || null,
               pjud_ebook_url: item.pjudEbookUrl || null,
               pjud_documents_url: item.pjudDocumentsUrl || null,
+              detail_url: item.detailUrl || null,
+              pjud_row_key: item.pjudRowKey || null,
+              detail_action: item.detailAction || null,
+              row_position: item.rowPosition || null,
+              detail_selector: item.detailSelector || null,
+              has_detail_access: item.hasDetailAccess ?? null,
               content_source: item.contentSource || 'pjud_url',
               downloaded_real: item.downloadedReal ?? false,
             detected_documents: Number(item.detectedDocuments || 0),
@@ -11457,7 +11568,7 @@
       const queueSummary = summarizeQueueByMateria(queue);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
-      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
+      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Índice PJUD construido desde el listado vivo de Mis Causas: ${queue.length} causas con ruta de detalle conservada` : 'Sin listado vivo accesible; no fue posible resolver rutas desde Mis Causas');
       renderBatchImportPreview([], null);
       if (!queue.length) {
         setMassiveAuditStep(4, 'skipped', 'Paso 4 bloqueado: el Paso 3 no resolvió rutas válidas.');
@@ -11471,7 +11582,7 @@
       if (excelFile && !useManifestMode) {
         setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       } else {
-        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
+        setMessage('importMsg', `Índice PJUD construido desde el listado vivo de Mis Causas. Se conservaron rutas de detalle desde la lupa para ${queue.length} causa(s). Alpha puede navegar al detalle real sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       }
     }
 
