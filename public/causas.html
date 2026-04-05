@@ -2652,6 +2652,8 @@
       },
       pjudAccess: {
         record: null,
+        available: true,
+        degradedMessage: '',
       },
     };
 
@@ -5677,6 +5679,28 @@
       }
     }
 
+    function isPjudAccessInfrastructureError(error){
+      const code = String(error?.code || '').toUpperCase();
+      const message = String(error?.message || '');
+      const details = String(error?.details || '');
+      const hint = String(error?.hint || '');
+      const payload = `${message} ${details} ${hint}`.toLowerCase();
+      if (code === 'PGRST205' || code === '42P01') return true;
+      return payload.includes('pjud_access_connections') && (
+        payload.includes('schema cache')
+        || payload.includes('could not find the table')
+        || payload.includes('relation')
+        || payload.includes('does not exist')
+      );
+    }
+
+    function degradePjudAccessWithMissingConfiguration(){
+      state.pjudAccess.record = null;
+      state.pjudAccess.available = false;
+      state.pjudAccess.degradedMessage = 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.';
+      setMessage('pjudAccessMsg', state.pjudAccess.degradedMessage, 'warn');
+    }
+
     async function loadPjudAccessConnection(){
       const { data, error } = await supabase
         .from(T_PJUD_ACCESS_CONNECTIONS)
@@ -5686,7 +5710,16 @@
         .order('updated_at', { ascending: false })
         .limit(1)
         .maybeSingle();
-      if (error) throw buildLoadError('el acceso PJUD del usuario', error);
+      if (error) {
+        if (isPjudAccessInfrastructureError(error)) {
+          console.warn('[CAUSAS][ACCESO-PJUD] Tabla/configuración no disponible. Se activa modo degradado.', error);
+          degradePjudAccessWithMissingConfiguration();
+          return null;
+        }
+        throw buildLoadError('el acceso PJUD del usuario', error);
+      }
+      state.pjudAccess.available = true;
+      state.pjudAccess.degradedMessage = '';
       state.pjudAccess.record = data || null;
       return state.pjudAccess.record;
     }
@@ -5697,6 +5730,9 @@
       verificationMode = 'manual',
       message = '',
     } = {}){
+      if (!state.pjudAccess.available) {
+        throw new Error('No fue posible guardar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.');
+      }
       const nowIso = new Date().toISOString();
       const payload = {
         user_id: authenticatedUser.id,
@@ -5724,6 +5760,30 @@
     function renderPjudAccessPanel(){
       const statsNode = $('pjudAccessStats');
       if (!statsNode) return;
+      if (!state.pjudAccess.available) {
+        statsNode.innerHTML = `
+          <article class="metric">
+            <span class="mini-label">Estado</span>
+            <strong>Acceso PJUD no disponible</strong>
+          </article>
+          <article class="metric">
+            <span class="mini-label">Configuración</span>
+            <strong>Falta configuración de base de datos</strong>
+          </article>
+          <article class="metric">
+            <span class="mini-label">Acción requerida</span>
+            <strong>Ejecutar migración de acceso PJUD</strong>
+          </article>
+        `;
+        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+          const button = $(id);
+          if (!button) return;
+          button.disabled = true;
+          button.setAttribute('aria-disabled', 'true');
+        });
+        if (state.pjudAccess.degradedMessage) setMessage('pjudAccessMsg', state.pjudAccess.degradedMessage, 'warn');
+        return;
+      }
       const access = state.pjudAccess.record || null;
       const status = String(access?.status || 'disconnected').toLowerCase();
       const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
@@ -5739,6 +5799,11 @@
         </article>
       `).join('');
 
+      const createButton = $('btnPjudCrearAcceso');
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.setAttribute('aria-disabled', 'false');
+      }
       const enableActions = isActive;
       ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
         const button = $(id);
@@ -5756,6 +5821,10 @@
     }
 
     async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
+      if (!state.pjudAccess.available) {
+        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
+        return;
+      }
       const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
       if (!popup) {
         setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
@@ -5788,6 +5857,10 @@
     }
 
     async function disconnectPjudAccess(){
+      if (!state.pjudAccess.available) {
+        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
+        return;
+      }
       await persistPjudAccessConnection({
         status: 'disconnected',
         baseUrl: '',
@@ -12378,7 +12451,6 @@
       await ensureAuth();
       await loadClients();
       await loadCases();
-      await loadPjudAccessConnection();
       populateFilters();
     }
 
@@ -12409,6 +12481,13 @@
       }
       disableLandingMode();
       initNonFatalPhase();
+      try {
+        await loadPjudAccessConnection();
+      } catch (error) {
+        console.error('[Alpha Avocat][acceso-pjud] No fue posible cargar el acceso PJUD.', error);
+        setMessage('pjudAccessMsg', `No fue posible cargar el acceso PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
+      }
+      renderPjudAccessPanel();
     }
 
     init();
