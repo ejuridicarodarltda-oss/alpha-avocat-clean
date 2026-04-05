@@ -586,6 +586,43 @@
       gap:10px;
     }
 
+    .causas-page .pjud-access-priority{
+      background:linear-gradient(180deg,#d2efe9 0%,#b8e0d8 100%);
+      border:1px solid rgba(31,90,83,.35);
+      border-radius:20px;
+      padding:16px;
+      display:grid;
+      gap:12px;
+      box-shadow:0 10px 20px rgba(12,44,40,.12);
+    }
+
+    .causas-page .pjud-access-actions{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .pjud-access-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .connection-dot{
+      display:inline-flex;
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#7c8d8a;
+      margin-right:6px;
+      box-shadow:0 0 0 2px rgba(255,255,255,.6);
+    }
+
+    .causas-page .connection-dot.active{
+      background:#228b56;
+      box-shadow:0 0 0 2px rgba(255,255,255,.75), 0 0 10px rgba(34,139,86,.65);
+    }
+
     .causas-page .pjud-index-actions{
       display:grid;
       grid-template-columns:repeat(5,minmax(0,1fr));
@@ -1608,6 +1645,8 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-access-actions,
+      .pjud-access-stats,
       .pjud-index-actions,
       .pjud-index-stats,
       .micro-grid,
@@ -1658,6 +1697,8 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-access-actions,
+      .pjud-access-stats,
       .pjud-index-actions,
       .pjud-index-stats,
       .micro-grid,
@@ -1731,6 +1772,22 @@
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
+    </section>
+
+    <section class="pjud-access-priority" aria-label="Acceso PJUD">
+      <div>
+        <h3 class="panel-title">ACCESO PJUD</h3>
+        <p class="panel-subtitle">Conexión manual-asistida independiente del importador masivo. No usa Excel, no crea lotes y no almacena credenciales sensibles.</p>
+      </div>
+      <div class="pjud-access-actions">
+        <button id="btnPjudCrearAcceso" class="btn btn-primary" type="button">Crear acceso</button>
+        <button id="btnPjudAbrir" class="btn" type="button" disabled aria-disabled="true">Abrir PJUD</button>
+        <button id="btnPjudIrMisCausas" class="btn" type="button" disabled aria-disabled="true">Ir a Mis Causas</button>
+        <button id="btnPjudActualizarAcceso" class="btn" type="button" disabled aria-disabled="true">Actualizar acceso</button>
+        <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
+      </div>
+      <div class="pjud-access-stats" id="pjudAccessStats"></div>
+      <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
     </section>
 
     <section class="pjud-index-priority" aria-label="Índice General PJUD">
@@ -2477,6 +2534,7 @@
     const T_PJUD_IMPORT_ROWS = 'pjud_import_rows';
     const T_PJUD_CASES = 'pjud_cases';
     const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
+    const T_PJUD_ACCESS_CONNECTIONS = 'pjud_access_connections';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
     const PJUD_ROW_LOG_CHUNK_SIZE = 200;
@@ -2508,6 +2566,8 @@
 
     const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
+    const PJUD_OJV_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php';
+    const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -2589,6 +2649,9 @@
       },
       pjudGeneralIndexControl: {
         lastStatus: 'Sin ejecución',
+      },
+      pjudAccess: {
+        record: null,
       },
     };
 
@@ -5598,6 +5661,143 @@
       `).join('');
     }
 
+    function isPjudMisCausasUrl(urlValue = ''){
+      const raw = String(urlValue || '').trim();
+      if (!raw) return false;
+      try {
+        const parsed = new URL(raw);
+        const host = parsed.hostname.toLowerCase();
+        if (!host.endsWith('pjud.cl')) return false;
+        const path = parsed.pathname.toLowerCase();
+        const hash = parsed.hash.toLowerCase();
+        const normalizedHref = parsed.href.toLowerCase();
+        return path.includes('indexn.php') || hash.includes('mis') || normalizedHref.includes('miscausas');
+      } catch {
+        return false;
+      }
+    }
+
+    async function loadPjudAccessConnection(){
+      const { data, error } = await supabase
+        .from(T_PJUD_ACCESS_CONNECTIONS)
+        .select('*')
+        .eq('user_id', authenticatedUser.id)
+        .eq('access_type', 'pjud')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) throw buildLoadError('el acceso PJUD del usuario', error);
+      state.pjudAccess.record = data || null;
+      return state.pjudAccess.record;
+    }
+
+    async function persistPjudAccessConnection({
+      status = 'active',
+      baseUrl = '',
+      verificationMode = 'manual',
+      message = '',
+    } = {}){
+      const nowIso = new Date().toISOString();
+      const payload = {
+        user_id: authenticatedUser.id,
+        access_type: 'pjud',
+        status,
+        base_url_mis_causas: baseUrl || null,
+        last_connected_at: status === 'active' ? nowIso : state.pjudAccess.record?.last_connected_at || null,
+        last_verified_at: nowIso,
+        session_context: {
+          verification_mode: verificationMode,
+          user_agent: navigator.userAgent || '',
+          message: message || '',
+        },
+      };
+      const { data, error } = await supabase
+        .from(T_PJUD_ACCESS_CONNECTIONS)
+        .upsert(payload, { onConflict: 'user_id,access_type' })
+        .select('*')
+        .single();
+      if (error) throw buildLoadError('la persistencia del acceso PJUD', error);
+      state.pjudAccess.record = data || null;
+      return data;
+    }
+
+    function renderPjudAccessPanel(){
+      const statsNode = $('pjudAccessStats');
+      if (!statsNode) return;
+      const access = state.pjudAccess.record || null;
+      const status = String(access?.status || 'disconnected').toLowerCase();
+      const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+      const statusText = isActive ? 'Acceso PJUD activo' : (status === 'expired' ? 'La sesión PJUD expiró. Debe actualizar el acceso.' : 'Sin acceso PJUD activo');
+      statsNode.innerHTML = [
+        { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
+        { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
+        { label: 'URL base Mis Causas', value: escapeHtml(access?.base_url_mis_causas || 'No detectada') },
+      ].map((item) => `
+        <article class="metric">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${item.value}</strong>
+        </article>
+      `).join('');
+
+      const enableActions = isActive;
+      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+        const button = $(id);
+        if (!button) return;
+        button.disabled = !enableActions;
+        button.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
+      });
+    }
+
+    function resolvePjudMisCausasUrlInput(defaultValue = ''){
+      return window.prompt(
+        'Cuando ya estés dentro de "Mis Causas" en PJUD, pega aquí la URL real de esa vista para validar el acceso.',
+        defaultValue || PJUD_MIS_CAUSAS_DEFAULT_URL,
+      );
+    }
+
+    async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
+      const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
+        return;
+      }
+      state.pjudMisCausasWindow = popup;
+      const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
+      const candidateUrl = String(urlInput || '').trim();
+      if (!isPjudMisCausasUrl(candidateUrl)) {
+        setMessage('pjudAccessMsg', 'No fue posible crear el acceso PJUD porque no se detectó la pantalla Mis Causas.', 'error');
+        await persistPjudAccessConnection({
+          status: 'expired',
+          baseUrl: '',
+          verificationMode: 'manual_missing_mis_causas',
+          message: 'No se validó la vista Mis Causas durante la creación/actualización.',
+        });
+        renderPjudAccessPanel();
+        return;
+      }
+      await persistPjudAccessConnection({
+        status: 'active',
+        baseUrl: candidateUrl,
+        verificationMode: mode === 'refresh' ? 'manual_refresh' : 'manual_create',
+        message: mode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
+      });
+      setMessage('pjudAccessMsg', mode === 'refresh'
+        ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
+        : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
+      renderPjudAccessPanel();
+    }
+
+    async function disconnectPjudAccess(){
+      await persistPjudAccessConnection({
+        status: 'disconnected',
+        baseUrl: '',
+        verificationMode: 'manual_disconnect',
+        message: 'El usuario desconectó manualmente el acceso PJUD.',
+      });
+      setMessage('pjudAccessMsg', 'Acceso PJUD desconectado.', 'ok');
+      renderPjudAccessPanel();
+    }
+
     function runInteractiveAudit(){
       const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
@@ -7598,6 +7798,7 @@
 
     function renderAll(){
       renderSummaryMetrics();
+      renderPjudAccessPanel();
       renderPjudGeneralIndexPanel();
       renderList();
       renderPillarCards();
@@ -11574,6 +11775,21 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnSistemaAutomatico', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnPjudCrearAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'create' }), { required: true, scope: 'acceso-pjud' });
+      bindEvent('btnPjudAbrir', 'click', () => {
+        window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
+      }, { scope: 'acceso-pjud' });
+      bindEvent('btnPjudIrMisCausas', 'click', () => {
+        const url = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const popup = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return;
+        }
+        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL base registrada del acceso PJUD.', 'ok');
+      }, { scope: 'acceso-pjud' });
+      bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
       bindEvent('btnIndiceCrearAccess', 'click', () => {
         state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
         openMassiveDownloadModal();
@@ -12162,6 +12378,7 @@
       await ensureAuth();
       await loadClients();
       await loadCases();
+      await loadPjudAccessConnection();
       populateFilters();
     }
 
