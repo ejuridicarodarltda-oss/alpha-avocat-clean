@@ -1849,6 +1849,16 @@
         <button id="btnPjudActualizarAcceso" class="btn" type="button" disabled aria-disabled="true">Actualizar acceso</button>
         <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
       </div>
+      <div class="field" style="margin-top:10px;">
+        <label for="pjudEntryUrlInput">URL de entrada PJUD (pantalla Mis Causas)</label>
+        <input id="pjudEntryUrlInput" class="input" type="url" placeholder="Pegue aquí la URL de la pantalla Mis Causas con sesión activa." />
+      </div>
+      <div class="pjud-access-actions">
+        <button id="btnPjudValidarUrl" class="btn" type="button">Validar URL</button>
+        <button id="btnPjudUsarUrl" class="btn" type="button">Usar esta URL</button>
+        <button id="btnPjudGuardarAccesoUrl" class="btn btn-primary" type="button">Guardar acceso</button>
+        <button id="btnPjudProbarDesdeUrl" class="btn" type="button">Probar acceso desde URL</button>
+      </div>
       <div class="pjud-access-stats" id="pjudAccessStats"></div>
       <div id="pjudAccessProgress" class="pjud-access-progress" role="status" aria-live="polite">
         <div class="pjud-access-progress-head">
@@ -2774,6 +2784,8 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         mode: 'create',
+        draftUrl: '',
+        validation: null,
         stableTimer: null,
       },
       pjudCausesIndex: {
@@ -5881,19 +5893,111 @@
       `).join('');
     }
 
-    function isPjudMisCausasUrl(urlValue = ''){
+    function normalizePjudEntryUrl(urlValue = ''){
       const raw = String(urlValue || '').trim();
-      if (!raw) return false;
+      if (!raw) return '';
+      try {
+        return new URL(raw).toString();
+      } catch {
+        return '';
+      }
+    }
+
+    function isPjudMisCausasUrl(urlValue = ''){
+      const normalized = normalizePjudEntryUrl(urlValue);
+      if (!normalized) return false;
+      const lower = normalized.toLowerCase();
+      return (
+        lower.includes('miscausas')
+        || lower.includes('mis-causas')
+        || lower.includes('mis_causas')
+        || lower.includes('causas')
+        || lower.includes('buscar')
+        || lower.includes('consulta')
+      );
+    }
+
+    function validatePjudEntryUrl(urlValue = ''){
+      const raw = String(urlValue || '').trim();
+      if (!raw) {
+        return {
+          rawUserUrl: '',
+          normalizedEntryUrl: '',
+          validationStatus: 'invalid',
+          message: 'Debes pegar la URL de entrada PJUD para poder validarla.',
+          isUsable: false,
+          belongsToPjud: false,
+        };
+      }
       try {
         const parsed = new URL(raw);
         const host = parsed.hostname.toLowerCase();
-        if (!host.endsWith('pjud.cl')) return false;
+        const belongsToPjud = host.endsWith('pjud.cl') || host.endsWith('ojv.cl');
+        if (!belongsToPjud) {
+          return {
+            rawUserUrl: raw,
+            normalizedEntryUrl: parsed.toString(),
+            validationStatus: 'invalid',
+            message: 'La URL indicada no corresponde a PJUD/OJV.',
+            isUsable: false,
+            belongsToPjud: false,
+          };
+        }
         const path = parsed.pathname.toLowerCase();
         const hash = parsed.hash.toLowerCase();
+        const query = parsed.search.toLowerCase();
         const normalizedHref = parsed.href.toLowerCase();
-        return path.includes('indexn.php') || hash.includes('mis') || normalizedHref.includes('miscausas');
+        const looksLogin = ['login', 'claveunica', 'autent', 'signin', 'ingreso', 'session'].some((token) => normalizedHref.includes(token));
+        if (looksLogin) {
+          return {
+            rawUserUrl: raw,
+            normalizedEntryUrl: parsed.toString(),
+            validationStatus: 'invalid',
+            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
+            isUsable: false,
+            belongsToPjud: true,
+          };
+        }
+        const cues = `${path} ${hash} ${query} ${normalizedHref}`;
+        const hasMisCausasCue = ['miscausas', 'mis-causas', 'mis_causas', 'mis%20causas', 'causas', 'consulta', 'buscar'].some((token) => cues.includes(token));
+        const looksRoot = path === '/' || path === '/indexn.php' || path === '/index.php';
+        if (hasMisCausasCue && !looksRoot) {
+          return {
+            rawUserUrl: raw,
+            normalizedEntryUrl: parsed.toString(),
+            validationStatus: 'valid',
+            message: 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.',
+            isUsable: true,
+            belongsToPjud: true,
+          };
+        }
+        if (looksRoot) {
+          return {
+            rawUserUrl: raw,
+            normalizedEntryUrl: parsed.toString(),
+            validationStatus: 'valid_with_reservations',
+            message: 'URL PJUD válida con reservas: parece portada/inicio y podría requerir navegación adicional.',
+            isUsable: true,
+            belongsToPjud: true,
+          };
+        }
+        return {
+          rawUserUrl: raw,
+          normalizedEntryUrl: parsed.toString(),
+          validationStatus: 'valid_with_reservations',
+          message: 'URL PJUD válida con reservas: no se identifica claramente “Mis Causas”, pero se usará como entrada.',
+          isUsable: true,
+          belongsToPjud: true,
+        };
       } catch {
-        return false;
+        return {
+          rawUserUrl: raw,
+          normalizedEntryUrl: '',
+          validationStatus: 'invalid',
+          message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
+          isUsable: false,
+          belongsToPjud: false,
+        };
       }
     }
 
@@ -5992,8 +6096,13 @@
 
     function hasActivePjudAccess(){
       const access = state.pjudAccess.record || null;
-      const status = String(access?.status || '').toLowerCase();
-      return Boolean(access?.id) && status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+      const status = String(access?.access_status || access?.status || '').toLowerCase();
+      const validationStatus = String(access?.url_validation_status || '').toLowerCase();
+      const url = access?.normalized_entry_url || access?.base_url_mis_causas || '';
+      return Boolean(access?.id)
+        && status === 'active'
+        && ['valid', 'valid_with_reservations'].includes(validationStatus)
+        && Boolean(url);
     }
 
     async function loadPjudCausesIndexRows(){
@@ -6109,7 +6218,7 @@
         return;
       }
       try {
-        const accessUrl = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const accessUrl = state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
         setPjudIndexSyncProgress({ percent: 20, stage: 'Abriendo pantalla Mis Causas', status: 'in_progress' });
         if (!state.pjudMisCausasWindow || state.pjudMisCausasWindow.closed) {
           state.pjudMisCausasWindow = window.open(accessUrl, '_blank', 'noopener,noreferrer');
@@ -6170,7 +6279,7 @@
       const item = state.pjudCausesIndex.items.find((entry) => String(entry.id) === String(rowId));
       if (!item) return;
       if (action === 'open') {
-        const targetUrl = item.detail_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const targetUrl = item.detail_url || state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
         const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
         if (!popup) {
           setMessage('pjudIndexSyncMsg', 'El navegador bloqueó la apertura de la causa. Habilita pop-ups e inténtalo nuevamente.', 'error');
@@ -6242,6 +6351,16 @@
       state.pjudAccess.available = true;
       state.pjudAccess.degradedMessage = '';
       state.pjudAccess.record = data || null;
+      state.pjudAccess.draftUrl = data?.raw_user_url || data?.normalized_entry_url || data?.base_url_mis_causas || '';
+      state.pjudAccess.validation = data
+        ? {
+          rawUserUrl: data?.raw_user_url || '',
+          normalizedEntryUrl: data?.normalized_entry_url || data?.base_url_mis_causas || '',
+          validationStatus: data?.url_validation_status || '',
+          isUsable: ['valid', 'valid_with_reservations'].includes(String(data?.url_validation_status || '').toLowerCase()),
+          message: '',
+        }
+        : null;
       return state.pjudAccess.record;
     }
 
@@ -6252,6 +6371,9 @@
     async function persistPjudAccessConnection({
       status = 'active',
       baseUrl = '',
+      rawUserUrl = '',
+      normalizedEntryUrl = '',
+      urlValidationStatus = 'invalid',
       verificationMode = 'manual',
       message = '',
     } = {}){
@@ -6263,13 +6385,21 @@
         user_id: authenticatedUser.id,
         access_type: 'pjud',
         status,
+        access_status: status,
         base_url_mis_causas: baseUrl || null,
+        raw_user_url: rawUserUrl || null,
+        normalized_entry_url: normalizedEntryUrl || baseUrl || null,
+        url_validation_status: urlValidationStatus || null,
+        last_validated_at: nowIso,
         last_connected_at: status === 'active' ? nowIso : state.pjudAccess.record?.last_connected_at || null,
         last_verified_at: nowIso,
         session_context: {
           verification_mode: verificationMode,
           user_agent: navigator.userAgent || '',
           message: message || '',
+          raw_user_url: rawUserUrl || null,
+          normalized_entry_url: normalizedEntryUrl || baseUrl || null,
+          url_validation_status: urlValidationStatus || null,
         },
       };
       const { data, error } = await supabase
@@ -6312,8 +6442,9 @@
       }
       const access = state.pjudAccess.record || null;
       const hasAccessRecord = Boolean(access?.id);
-      const status = String(access?.status || 'disconnected').toLowerCase();
-      const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+      const status = String(access?.access_status || access?.status || 'disconnected').toLowerCase();
+      const validationStatus = String(access?.url_validation_status || 'invalid').toLowerCase();
+      const isActive = status === 'active' && ['valid', 'valid_with_reservations'].includes(validationStatus);
       const statusText = !hasAccessRecord
         ? PJUD_ACCESS_PENDING_MESSAGE
         : (isActive
@@ -6321,16 +6452,27 @@
           : (status === 'expired'
             ? 'La sesión PJUD expiró. Debe actualizar el acceso.'
             : 'Sin acceso PJUD activo'));
+      const validationLabel = ({
+        valid: 'Válida',
+        valid_with_reservations: 'Válida con reservas',
+        invalid: 'Inválida',
+      })[validationStatus] || 'Sin validar';
       statsNode.innerHTML = [
         { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
         { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
-        { label: 'URL base Mis Causas', value: escapeHtml(access?.base_url_mis_causas || 'No detectada') },
+        { label: 'URL de entrada normalizada', value: escapeHtml(access?.normalized_entry_url || access?.base_url_mis_causas || 'No detectada') },
+        { label: 'Validación URL', value: escapeHtml(validationLabel) },
       ].map((item) => `
         <article class="metric">
           <span class="mini-label">${escapeHtml(item.label)}</span>
           <strong>${item.value}</strong>
         </article>
       `).join('');
+
+      const urlInput = $('pjudEntryUrlInput');
+      if (urlInput && !urlInput.value.trim()) {
+        urlInput.value = access?.raw_user_url || access?.normalized_entry_url || access?.base_url_mis_causas || '';
+      }
 
       if (!hasAccessRecord) {
         setMessage('pjudAccessMsg', PJUD_ACCESS_PENDING_MESSAGE, 'info');
@@ -6342,11 +6484,15 @@
         createButton.setAttribute('aria-disabled', 'false');
       }
       const enableActions = isActive;
-      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+      const hasUrl = Boolean(access?.normalized_entry_url || access?.base_url_mis_causas || state.pjudAccess.draftUrl);
+      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar', 'btnPjudValidarUrl', 'btnPjudUsarUrl', 'btnPjudGuardarAccesoUrl', 'btnPjudProbarDesdeUrl'].forEach((id) => {
         const button = $(id);
         if (!button) return;
-        button.disabled = !enableActions;
-        button.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
+        const enabled = ['btnPjudAbrir', 'btnPjudValidarUrl', 'btnPjudUsarUrl', 'btnPjudGuardarAccesoUrl', 'btnPjudProbarDesdeUrl'].includes(id)
+          ? true
+          : (id === 'btnPjudDesconectar' ? hasAccessRecord : isActive && hasUrl);
+        button.disabled = !enabled;
+        button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
       });
       const syncButton = $('btnPjudSyncIndex');
       if (syncButton) {
@@ -6355,17 +6501,99 @@
       }
     }
 
-    function resolvePjudMisCausasUrlInput(defaultValue = ''){
-      return window.prompt(
-        'Cuando ya estés dentro de "Mis Causas" en PJUD, pega aquí la URL real de esa vista para validar el acceso.',
-        defaultValue || PJUD_MIS_CAUSAS_DEFAULT_URL,
-      );
+    function resolvePjudEntryUrlFromUi(){
+      const typed = $('pjudEntryUrlInput')?.value?.trim() || '';
+      if (typed) return typed;
+      return state.pjudAccess.draftUrl || state.pjudAccess.record?.raw_user_url || state.pjudAccess.record?.normalized_entry_url || '';
+    }
+
+    function validatePjudEntryUrlFromUi({ persistDraft = true } = {}){
+      const candidateUrl = resolvePjudEntryUrlFromUi();
+      const validation = validatePjudEntryUrl(candidateUrl);
+      state.pjudAccess.validation = validation;
+      if (persistDraft) state.pjudAccess.draftUrl = validation.rawUserUrl || candidateUrl;
+      if ($('pjudEntryUrlInput') && (validation.rawUserUrl || candidateUrl)) {
+        $('pjudEntryUrlInput').value = validation.rawUserUrl || candidateUrl;
+      }
+      return validation;
+    }
+
+    async function validatePjudEntryUrlAction(){
+      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
+      setPjudAccessProgress({
+        percent: 10,
+        stage: 'Validando URL entregada',
+        status: validation.isUsable ? 'in_progress' : 'error',
+      });
+      if (!validation.isUsable) {
+        setMessage('pjudAccessMsg', validation.message, 'error');
+        return;
+      }
+      setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
+      setMessage('pjudAccessMsg', validation.message, validation.validationStatus === 'valid' ? 'ok' : 'warn');
+    }
+
+    async function usePjudEntryUrlAction(){
+      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
+      if (!validation.isUsable) {
+        setMessage('pjudAccessMsg', validation.message, 'error');
+        return;
+      }
+      setPjudAccessProgress({ percent: 45, stage: 'Abriendo fuente PJUD desde la URL', status: 'in_progress' });
+      state.pjudAccess.record = {
+        ...(state.pjudAccess.record || {}),
+        raw_user_url: validation.rawUserUrl,
+        normalized_entry_url: validation.normalizedEntryUrl,
+        base_url_mis_causas: validation.normalizedEntryUrl,
+        url_validation_status: validation.validationStatus,
+      };
+      renderPjudAccessPanel();
+      setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
+        ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
+        : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+    }
+
+    async function savePjudEntryUrlAccessAction(){
+      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
+      if (!validation.isUsable) {
+        setMessage('pjudAccessMsg', validation.message, 'error');
+        return;
+      }
+      await persistPjudAccessConnection({
+        status: 'active',
+        baseUrl: validation.normalizedEntryUrl,
+        rawUserUrl: validation.rawUserUrl,
+        normalizedEntryUrl: validation.normalizedEntryUrl,
+        urlValidationStatus: validation.validationStatus,
+        verificationMode: 'manual_url_saved',
+        message: 'URL de entrada PJUD guardada por el usuario.',
+      });
+      setPjudAccessProgress({ percent: 100, stage: 'Access PJUD operativo desde URL asistida', status: 'completed', keepUntilStable: true });
+      setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
+        ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
+        : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+      renderPjudAccessPanel();
+    }
+
+    async function testPjudEntryUrlAccessAction(){
+      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
+      if (!validation.isUsable) {
+        setMessage('pjudAccessMsg', validation.message, 'error');
+        return;
+      }
+      const popup = window.open(validation.normalizedEntryUrl, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de la URL PJUD. Habilita pop-ups e inténtalo nuevamente.', 'error');
+        return;
+      }
+      setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
+      setMessage('pjudAccessMsg', 'Se abrió la URL de entrada PJUD para probar acceso con sesión activa.', 'ok');
     }
 
     async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
       const normalizedMode = mode === 'refresh' ? 'refresh' : 'create';
       state.pjudAccess.mode = normalizedMode;
-      setPjudAccessProgress({ percent: 0, stage: 'Preparando acceso PJUD...', status: 'in_progress' });
+      setPjudAccessProgress({ percent: 0, stage: 'Preparando acceso PJUD asistido por URL...', status: 'in_progress' });
       try {
         if (!state.pjudAccess.available) {
           setPjudAccessProgress({
@@ -6377,76 +6605,64 @@
           return;
         }
 
-        setPjudAccessProgress({ percent: 10, stage: 'Verificando infraestructura del acceso PJUD...', status: 'in_progress' });
-        setPjudAccessProgress({ percent: 20, stage: 'Comprobando disponibilidad del módulo de acceso...', status: 'in_progress' });
-
-        const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
-        if (!popup) {
-          setPjudAccessProgress({
-            percent: 35,
-            stage: 'No se pudo abrir PJUD/OJV. Habilita pop-ups para continuar.',
-            status: 'error',
-          });
-          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
-          return;
-        }
-
-        state.pjudMisCausasWindow = popup;
-        setPjudAccessProgress({ percent: 35, stage: 'Abriendo PJUD / Oficina Judicial Virtual...', status: 'in_progress' });
-        setPjudAccessProgress({
-          percent: 50,
-          stage: 'Esperando autenticación del usuario en ClaveÚnica...',
-          status: 'waiting_user',
-        });
-        setPjudAccessProgress({
-          percent: 50,
-          stage: 'Esperando que el usuario complete el ingreso en PJUD...',
-          status: 'waiting_user',
-        });
-
-        const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
-        const candidateUrl = String(urlInput || '').trim();
-        setPjudAccessProgress({ percent: 65, stage: 'Detectando navegación hacia Mis Causas...', status: 'in_progress' });
-
-        if (!isPjudMisCausasUrl(candidateUrl)) {
-          setPjudAccessProgress({
-            percent: 65,
-            stage: 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.',
-            status: 'error',
-          });
-          setMessage('pjudAccessMsg', 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.', 'error');
-          await persistPjudAccessConnection({
-            status: 'expired',
-            baseUrl: '',
-            verificationMode: 'manual_missing_mis_causas',
-            message: 'No se validó la vista Mis Causas durante la creación/actualización.',
-          });
+        setPjudAccessProgress({ percent: 10, stage: 'Validando URL entregada', status: 'in_progress' });
+        const typedUrl = $('pjudEntryUrlInput')?.value?.trim()
+          || state.pjudAccess.draftUrl
+          || state.pjudAccess.record?.raw_user_url
+          || state.pjudAccess.record?.normalized_entry_url
+          || '';
+        const validation = validatePjudEntryUrl(typedUrl);
+        state.pjudAccess.validation = validation;
+        state.pjudAccess.draftUrl = validation.rawUserUrl || typedUrl;
+        if (!validation.isUsable) {
+          setPjudAccessProgress({ percent: 10, stage: validation.message, status: 'error' });
+          setMessage('pjudAccessMsg', validation.message, 'error');
           renderPjudAccessPanel();
           return;
         }
 
-        setPjudAccessProgress({ percent: 80, stage: 'Registrando o actualizando el acceso PJUD del usuario...', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
+        const popup = window.open(validation.normalizedEntryUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          setPjudAccessProgress({
+            percent: 25,
+            stage: 'No se pudo abrir la URL PJUD entregada. Habilita pop-ups para continuar.',
+            status: 'error',
+          });
+          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de la URL PJUD. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return;
+        }
+
+        state.pjudMisCausasWindow = popup;
+        setPjudAccessProgress({ percent: 45, stage: 'Abriendo fuente PJUD desde la URL', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 65, stage: 'Detectando listado de Mis Causas', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 85, stage: 'Detectando rutas de lupa', status: 'in_progress' });
+
         await persistPjudAccessConnection({
           status: 'active',
-          baseUrl: candidateUrl,
-          verificationMode: normalizedMode === 'refresh' ? 'manual_refresh' : 'manual_create',
-          message: normalizedMode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
+          baseUrl: validation.normalizedEntryUrl,
+          rawUserUrl: validation.rawUserUrl,
+          normalizedEntryUrl: validation.normalizedEntryUrl,
+          urlValidationStatus: validation.validationStatus,
+          verificationMode: normalizedMode === 'refresh' ? 'manual_url_refresh' : 'manual_url_create',
+          message: normalizedMode === 'refresh'
+            ? 'Acceso PJUD revalidado desde URL entregada por el usuario.'
+            : 'Acceso PJUD creado desde URL entregada por el usuario.',
         });
 
-        setPjudAccessProgress({ percent: 90, stage: 'Validando acceso activo...', status: 'in_progress' });
         setPjudAccessProgress({
           percent: 100,
-          stage: 'Acceso PJUD creado correctamente.',
+          stage: 'Access PJUD operativo desde URL asistida',
           status: 'completed',
           keepUntilStable: true,
         });
 
-        setMessage('pjudAccessMsg', normalizedMode === 'refresh'
-          ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
-          : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
+        setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
+          ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
+          : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
         renderPjudAccessPanel();
       } catch (error) {
-        const failedPercent = Math.max(0, Math.min(90, Number(state.pjudAccess.progressPercent || 0)));
+        const failedPercent = Math.max(0, Math.min(95, Number(state.pjudAccess.progressPercent || 0)));
         const normalizedMessage = String(error?.message || '').toLowerCase();
         const errorStage = normalizedMessage.includes('expir')
           ? 'La sesión PJUD expiró antes de completar el acceso.'
@@ -12666,17 +12882,24 @@
         window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
       }, { scope: 'acceso-pjud' });
       bindEvent('btnPjudIrMisCausas', 'click', () => {
-        const url = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const url = state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
         const popup = window.open(url, '_blank', 'noopener,noreferrer');
         if (!popup) {
           setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
           return;
         }
-        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL base registrada del acceso PJUD.', 'ok');
+        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL de entrada registrada del acceso PJUD.', 'ok');
       }, { scope: 'acceso-pjud' });
       bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
       bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudValidarUrl', 'click', () => validatePjudEntryUrlAction(), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudUsarUrl', 'click', () => usePjudEntryUrlAction(), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudGuardarAccesoUrl', 'click', () => savePjudEntryUrlAccessAction(), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudProbarDesdeUrl', 'click', () => testPjudEntryUrlAccessAction(), { scope: 'acceso-pjud' });
       bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
+      $('pjudEntryUrlInput')?.addEventListener('input', (event) => {
+        state.pjudAccess.draftUrl = String(event?.target?.value || '').trim();
+      });
       bindEvent('btnIndiceCrearAccess', 'click', () => {
         state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
         openMassiveDownloadModal();
