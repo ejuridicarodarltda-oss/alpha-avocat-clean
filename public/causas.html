@@ -1850,8 +1850,9 @@
         <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
       </div>
       <div class="field" style="margin-top:10px;">
-        <label for="pjudEntryUrlInput">URL de entrada PJUD (pantalla Mis Causas)</label>
-        <input id="pjudEntryUrlInput" class="input" type="url" placeholder="Pegue aquí la URL de la pantalla Mis Causas con sesión activa." />
+        <label for="pjudEntryUrlInput">URL de entrada PJUD</label>
+        <small class="muted">Pegue aquí la URL exacta de la pantalla PJUD donde ya aparecen sus causas con la lupa.</small>
+        <input id="pjudEntryUrlInput" class="input" type="url" placeholder="Pegue aquí la URL exacta de la pantalla PJUD donde ya aparecen sus causas con la lupa." />
       </div>
       <div class="pjud-access-actions">
         <button id="btnPjudValidarUrl" class="btn" type="button">Validar URL</button>
@@ -5938,7 +5939,7 @@
             rawUserUrl: raw,
             normalizedEntryUrl: parsed.toString(),
             validationStatus: 'invalid',
-            message: 'La URL indicada no corresponde a PJUD/OJV.',
+            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
             isUsable: false,
             belongsToPjud: false,
           };
@@ -5966,7 +5967,7 @@
             rawUserUrl: raw,
             normalizedEntryUrl: parsed.toString(),
             validationStatus: 'valid',
-            message: 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.',
+            message: 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.',
             isUsable: true,
             belongsToPjud: true,
           };
@@ -5975,9 +5976,9 @@
           return {
             rawUserUrl: raw,
             normalizedEntryUrl: parsed.toString(),
-            validationStatus: 'valid_with_reservations',
-            message: 'URL PJUD válida con reservas: parece portada/inicio y podría requerir navegación adicional.',
-            isUsable: true,
+            validationStatus: 'invalid',
+            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
+            isUsable: false,
             belongsToPjud: true,
           };
         }
@@ -6142,6 +6143,8 @@
           fecha_ultima_gestion: item?.fecha_ultima_gestion || null,
           raw_row_payload: item || {},
           detail_url: item?.routeUrl || item?.sourceUrl || null,
+          detail_action: item?.detailAction || item?.routeActionType || null,
+          detail_selector: item?.detailSelector || item?.pjudRouteAudit?.detailSelector || null,
           has_detail_access: Boolean(item?.routeUrl || (item?.routeActionType && item?.routeActionType !== 'none')),
           alpha_case_id: null,
           sync_status: 'indexed',
@@ -6549,8 +6552,8 @@
       };
       renderPjudAccessPanel();
       setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-        ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
-        : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+        ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
+        : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
     }
 
     async function savePjudEntryUrlAccessAction(){
@@ -6568,10 +6571,10 @@
         verificationMode: 'manual_url_saved',
         message: 'URL de entrada PJUD guardada por el usuario.',
       });
-      setPjudAccessProgress({ percent: 100, stage: 'Access PJUD operativo desde URL asistida', status: 'completed', keepUntilStable: true });
+      setPjudAccessProgress({ percent: 100, stage: 'ACCESS PJUD operativo desde URL asistida', status: 'completed', keepUntilStable: true });
       setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-        ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
-        : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+        ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
+        : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
       renderPjudAccessPanel();
     }
 
@@ -6635,8 +6638,17 @@
 
         state.pjudMisCausasWindow = popup;
         setPjudAccessProgress({ percent: 45, stage: 'Abriendo fuente PJUD desde la URL', status: 'in_progress' });
-        setPjudAccessProgress({ percent: 65, stage: 'Detectando listado de Mis Causas', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 65, stage: 'Detectando listado de causas', status: 'in_progress' });
         setPjudAccessProgress({ percent: 85, stage: 'Detectando rutas de lupa', status: 'in_progress' });
+        const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+        if (!extraction?.queue?.length) {
+          const normalizedExtractionError = String(extraction?.error || '').toLowerCase();
+          if (normalizedExtractionError.includes('expir') || normalizedExtractionError.includes('autentic')) {
+            setMessage('pjudAccessMsg', 'La URL es correcta, pero la sesión PJUD no está activa.', 'warn');
+          } else {
+            setMessage('pjudAccessMsg', 'La URL fue aceptada, pero aún no fue posible leer el listado de causas.', 'warn');
+          }
+        }
 
         await persistPjudAccessConnection({
           status: 'active',
@@ -6652,14 +6664,14 @@
 
         setPjudAccessProgress({
           percent: 100,
-          stage: 'Access PJUD operativo desde URL asistida',
+          stage: 'ACCESS PJUD operativo desde URL asistida',
           status: 'completed',
           keepUntilStable: true,
         });
 
         setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-          ? 'URL PJUD válida. Access utilizará esta ruta como punto de entrada.'
-          : 'URL PJUD válida con reservas. Access utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+          ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
+          : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
         renderPjudAccessPanel();
       } catch (error) {
         const failedPercent = Math.max(0, Math.min(95, Number(state.pjudAccess.progressPercent || 0)));
