@@ -1863,6 +1863,47 @@
       <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
     </section>
 
+    <section class="pjud-index-sync-priority" aria-label="Índice de Causas PJUD">
+      <div>
+        <h3 class="panel-title">Índice de Causas PJUD</h3>
+        <p class="panel-subtitle">Proceso independiente del acceso PJUD: detecta causas visibles en “Mis Causas” y guarda el índice estructurado para abrir detalle, vincular o actualizar filas.</p>
+      </div>
+      <div class="pjud-index-actions">
+        <button id="btnPjudSyncIndex" class="btn btn-primary" type="button" disabled aria-disabled="true">Sincronizar índice PJUD</button>
+      </div>
+      <div class="pjud-access-stats" id="pjudIndexSyncStats"></div>
+      <div id="pjudIndexSyncProgress" class="pjud-access-progress" role="status" aria-live="polite">
+        <div class="pjud-access-progress-head">
+          <span>Progreso índice PJUD</span>
+          <strong id="pjudIndexSyncProgressPercent">0%</strong>
+        </div>
+        <div class="pjud-access-progress-bar" aria-hidden="true">
+          <div id="pjudIndexSyncProgressFill" class="pjud-access-progress-fill"></div>
+        </div>
+        <p id="pjudIndexSyncProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
+      </div>
+      <div id="pjudIndexSyncMsg" class="msg" aria-live="polite"></div>
+      <div class="table-wrap">
+        <table class="table" id="pjudIndexSyncTable">
+          <thead>
+            <tr>
+              <th>Rol/RIT</th>
+              <th>Tribunal</th>
+              <th>Carátula</th>
+              <th>Materia</th>
+              <th>Estado</th>
+              <th>Última sincronización</th>
+              <th>Vinculación Alpha</th>
+              <th>Acciones</th>
+            </tr>
+          </thead>
+          <tbody id="pjudIndexSyncRows">
+            <tr><td colspan="8">Sin índice sincronizado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
     <section class="pjud-index-priority" aria-label="Índice General PJUD">
       <div>
         <h3 class="panel-title">Índice General PJUD</h3>
@@ -2608,6 +2649,7 @@
     const T_PJUD_CASES = 'pjud_cases';
     const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
     const T_PJUD_ACCESS_CONNECTIONS = 'pjud_access_connections';
+    const T_PJUD_CAUSES_INDEX = 'pjud_causes_index';
     const PJUD_ACCESS_PENDING_MESSAGE = 'Aún no se ha creado el acceso PJUD';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
@@ -2732,6 +2774,14 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         mode: 'create',
+        stableTimer: null,
+      },
+      pjudCausesIndex: {
+        items: [],
+        loading: false,
+        progressPercent: 0,
+        progressStage: 'Sin proceso en ejecución.',
+        progressStatus: 'idle',
         stableTimer: null,
       },
     };
@@ -5812,6 +5862,265 @@
       }
     }
 
+    function clearPjudIndexProgressStableTimer(){
+      if (state.pjudCausesIndex.stableTimer) {
+        clearTimeout(state.pjudCausesIndex.stableTimer);
+        state.pjudCausesIndex.stableTimer = null;
+      }
+    }
+
+    function setPjudIndexSyncProgress({ percent = 0, stage = '', status = 'in_progress', keepUntilStable = false } = {}){
+      clearPjudIndexProgressStableTimer();
+      state.pjudCausesIndex.progressPercent = Math.max(0, Math.min(100, Number(percent || 0)));
+      state.pjudCausesIndex.progressStage = String(stage || '').trim() || state.pjudCausesIndex.progressStage || 'Sin proceso en ejecución.';
+      state.pjudCausesIndex.progressStatus = status;
+      renderPjudIndexSyncProgress();
+      if (keepUntilStable && status === 'completed') {
+        state.pjudCausesIndex.stableTimer = window.setTimeout(() => {
+          if (state.pjudCausesIndex.progressStatus !== 'completed') return;
+          state.pjudCausesIndex.progressStage = 'Índice PJUD sincronizado correctamente.';
+          renderPjudIndexSyncProgress();
+        }, 3500);
+      }
+    }
+
+    function renderPjudIndexSyncProgress(){
+      const root = $('pjudIndexSyncProgress');
+      const fill = $('pjudIndexSyncProgressFill');
+      const percentNode = $('pjudIndexSyncProgressPercent');
+      const stageNode = $('pjudIndexSyncProgressStage');
+      if (!root || !fill || !percentNode || !stageNode) return;
+      const percent = Math.max(0, Math.min(100, Number(state.pjudCausesIndex.progressPercent || 0)));
+      const status = String(state.pjudCausesIndex.progressStatus || 'idle');
+      fill.style.width = `${percent}%`;
+      percentNode.textContent = `${percent}%`;
+      stageNode.textContent = state.pjudCausesIndex.progressStage || 'Sin proceso en ejecución.';
+      root.classList.toggle('is-progress', status === 'in_progress');
+      root.classList.toggle('is-completed', status === 'completed');
+      root.classList.toggle('is-error', status === 'error');
+      root.classList.toggle('is-waiting', status === 'waiting_user');
+    }
+
+    function hasActivePjudAccess(){
+      const access = state.pjudAccess.record || null;
+      const status = String(access?.status || '').toLowerCase();
+      return Boolean(access?.id) && status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+    }
+
+    async function loadPjudCausesIndexRows(){
+      if (!authenticatedUser?.id) return [];
+      const { data, error } = await supabase
+        .from(T_PJUD_CAUSES_INDEX)
+        .select('*')
+        .eq('user_id', authenticatedUser.id)
+        .order('synced_at', { ascending: false })
+        .limit(300);
+      if (error) throw buildLoadError('el índice de causas PJUD', error);
+      state.pjudCausesIndex.items = Array.isArray(data) ? data : [];
+      return state.pjudCausesIndex.items;
+    }
+
+    async function persistPjudCausesIndexRows(rows = []){
+      if (!rows.length) return [];
+      const nowIso = new Date().toISOString();
+      const payload = rows.map((item, idx) => {
+        const rowPosition = Number(item?.pjudRouteAudit?.rowIndex || item?.rowIndex || idx + 1) || null;
+        const roleYear = Number(item?.pjudRoleYear || 0);
+        return {
+          user_id: authenticatedUser.id,
+          access_connection_id: state.pjudAccess.record?.id || null,
+          pjud_row_key: item?.pjudCaseKey || normalizePjudKey([item?.rol || '', item?.rit || '', item?.tribunal || '', rowPosition || ''].join('|')) || `row-${Date.now()}-${idx + 1}`,
+          row_position: rowPosition,
+          rol: item?.rol || null,
+          rit: item?.rit || null,
+          procedure_type: item?.competencia || null,
+          year: Number.isFinite(roleYear) && roleYear > 0 ? roleYear : null,
+          court_name: item?.tribunal || null,
+          court_code: item?.pjudCourtCode || null,
+          caratula: item?.caratulado || item?.basic?.caratula || null,
+          materia: item?.materia || null,
+          estado_causa: item?.estado || null,
+          fecha_ingreso: item?.fecha_ingreso || null,
+          fecha_ultima_gestion: item?.fecha_ultima_gestion || null,
+          raw_row_payload: item || {},
+          detail_url: item?.routeUrl || item?.sourceUrl || null,
+          has_detail_access: Boolean(item?.routeUrl || (item?.routeActionType && item?.routeActionType !== 'none')),
+          alpha_case_id: null,
+          sync_status: 'indexed',
+          last_seen_at: nowIso,
+          synced_at: nowIso,
+          updated_at: nowIso,
+        };
+      });
+
+      const { data, error } = await supabase
+        .from(T_PJUD_CAUSES_INDEX)
+        .upsert(payload, { onConflict: 'user_id,pjud_row_key' })
+        .select('*');
+      if (error) throw buildLoadError('el guardado del índice PJUD', error);
+      return Array.isArray(data) ? data : [];
+    }
+
+    function renderPjudIndexSyncPanel(){
+      renderPjudIndexSyncProgress();
+      const statsNode = $('pjudIndexSyncStats');
+      const rowsNode = $('pjudIndexSyncRows');
+      const syncButton = $('btnPjudSyncIndex');
+      if (syncButton) {
+        const enabled = hasActivePjudAccess() && state.pjudAccess.available;
+        syncButton.disabled = !enabled;
+        syncButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      }
+      if (statsNode) {
+        const total = Number(state.pjudCausesIndex.items.length || 0);
+        const linked = state.pjudCausesIndex.items.filter((item) => Boolean(item?.alpha_case_id)).length;
+        statsNode.innerHTML = [
+          { label: 'Filas indexadas', value: total },
+          { label: 'Filas vinculadas en Alpha', value: linked },
+          { label: 'Última sincronización', value: state.pjudCausesIndex.items[0]?.synced_at ? formatDate(state.pjudCausesIndex.items[0].synced_at) : 'Sin registro' },
+        ].map((item) => `
+          <article class="metric">
+            <span class="mini-label">${escapeHtml(item.label)}</span>
+            <strong>${escapeHtml(item.value)}</strong>
+          </article>
+        `).join('');
+      }
+      if (!rowsNode) return;
+      if (!state.pjudCausesIndex.items.length) {
+        rowsNode.innerHTML = '<tr><td colspan="8">Sin índice sincronizado.</td></tr>';
+        return;
+      }
+      rowsNode.innerHTML = state.pjudCausesIndex.items.slice(0, 120).map((item) => `
+        <tr>
+          <td>${escapeHtml(item.rol || item.rit || 'Sin Rol/RIT')}</td>
+          <td>${escapeHtml(item.court_name || 'Sin tribunal')}</td>
+          <td>${escapeHtml(item.caratula || 'Sin carátula')}</td>
+          <td>${escapeHtml(item.materia || 'Sin materia')}</td>
+          <td>${escapeHtml(item.estado_causa || item.sync_status || 'Sin estado')}</td>
+          <td>${escapeHtml(item.synced_at ? formatDate(item.synced_at) : 'Sin fecha')}</td>
+          <td>${item.alpha_case_id ? 'Vinculada' : 'Pendiente'}</td>
+          <td>
+            <div class="inline-actions">
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="open" data-pjud-index-id="${escapeHtml(item.id)}">Abrir detalle</button>
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="link" data-pjud-index-id="${escapeHtml(item.id)}">Vincular</button>
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="refresh" data-pjud-index-id="${escapeHtml(item.id)}">Actualizar fila</button>
+            </div>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    async function syncPjudCausesIndex(){
+      setPjudIndexSyncProgress({ percent: 10, stage: 'Verificando acceso PJUD activo', status: 'in_progress' });
+      if (!hasActivePjudAccess()) {
+        const message = 'No es posible sincronizar el índice porque no existe acceso PJUD activo.';
+        setPjudIndexSyncProgress({ percent: 10, stage: message, status: 'error' });
+        setMessage('pjudIndexSyncMsg', message, 'warn');
+        renderPjudIndexSyncPanel();
+        return;
+      }
+      try {
+        const accessUrl = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        setPjudIndexSyncProgress({ percent: 20, stage: 'Abriendo pantalla Mis Causas', status: 'in_progress' });
+        if (!state.pjudMisCausasWindow || state.pjudMisCausasWindow.closed) {
+          state.pjudMisCausasWindow = window.open(accessUrl, '_blank', 'noopener,noreferrer');
+        } else {
+          try {
+            state.pjudMisCausasWindow.location.href = accessUrl;
+            state.pjudMisCausasWindow.focus();
+          } catch {
+            // noop
+          }
+        }
+
+        setPjudIndexSyncProgress({ percent: 35, stage: 'Detectando tabla de causas', status: 'in_progress' });
+        const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+        if (!extraction?.queue?.length) {
+          const normalizedError = String(extraction?.error || '').toLowerCase();
+          let message = 'No fue posible detectar la tabla de Mis Causas del PJUD.';
+          if (normalizedError.includes('expir')) message = 'La sesión PJUD expiró antes de sincronizar el índice.';
+          if (normalizedError.includes('no se detectaron filas')) message = 'No se detectaron causas visibles para indexar en esta sesión.';
+          setPjudIndexSyncProgress({ percent: 35, stage: message, status: 'error' });
+          setMessage('pjudIndexSyncMsg', message, message.includes('No se detectaron causas visibles') ? 'warn' : 'error');
+          renderPjudIndexSyncPanel();
+          return;
+        }
+
+        setPjudIndexSyncProgress({ percent: 50, stage: 'Leyendo filas visibles', status: 'in_progress' });
+        const visibleRows = extraction.queue;
+        if (!visibleRows.length) {
+          const message = 'No se detectaron causas visibles para indexar en esta sesión.';
+          setPjudIndexSyncProgress({ percent: 50, stage: message, status: 'error' });
+          setMessage('pjudIndexSyncMsg', message, 'warn');
+          renderPjudIndexSyncPanel();
+          return;
+        }
+
+        setPjudIndexSyncProgress({ percent: 70, stage: 'Extrayendo campos estructurados', status: 'in_progress' });
+        setPjudIndexSyncProgress({ percent: 85, stage: 'Guardando índice PJUD', status: 'in_progress' });
+        await persistPjudCausesIndexRows(visibleRows);
+        await loadPjudCausesIndexRows();
+        setPjudIndexSyncProgress({ percent: 100, stage: 'Índice PJUD sincronizado correctamente', status: 'completed', keepUntilStable: true });
+        setMessage('pjudIndexSyncMsg', 'Índice PJUD sincronizado correctamente.', 'ok');
+        renderPjudIndexSyncPanel();
+      } catch (error) {
+        const raw = String(error?.message || '').toLowerCase();
+        const message = raw.includes('expir')
+          ? 'La sesión PJUD expiró antes de sincronizar el índice.'
+          : `No fue posible sincronizar el índice PJUD: ${error?.message || 'error desconocido'}`;
+        setPjudIndexSyncProgress({ percent: Math.max(10, Number(state.pjudCausesIndex.progressPercent || 10)), stage: message, status: 'error' });
+        setMessage('pjudIndexSyncMsg', message, 'error');
+        renderPjudIndexSyncPanel();
+      }
+    }
+
+    async function handlePjudIndexRowAction(event){
+      const action = event?.target?.dataset?.pjudIndexAction;
+      const rowId = event?.target?.dataset?.pjudIndexId;
+      if (!action || !rowId) return;
+      const item = state.pjudCausesIndex.items.find((entry) => String(entry.id) === String(rowId));
+      if (!item) return;
+      if (action === 'open') {
+        const targetUrl = item.detail_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          setMessage('pjudIndexSyncMsg', 'El navegador bloqueó la apertura de la causa. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return;
+        }
+        setMessage('pjudIndexSyncMsg', 'Detalle PJUD abierto en una nueva pestaña.', 'ok');
+        return;
+      }
+      if (action === 'link') {
+        const activeCaseId = state.selectedId || null;
+        if (!activeCaseId) {
+          setMessage('pjudIndexSyncMsg', 'Selecciona primero una causa interna de Alpha para vincular esta fila.', 'warn');
+          return;
+        }
+        const { error } = await supabase
+          .from(T_PJUD_CAUSES_INDEX)
+          .update({ alpha_case_id: activeCaseId, updated_at: new Date().toISOString() })
+          .eq('id', item.id)
+          .eq('user_id', authenticatedUser.id);
+        if (error) throw buildLoadError('la vinculación de la fila PJUD con Alpha', error);
+        await loadPjudCausesIndexRows();
+        renderPjudIndexSyncPanel();
+        setMessage('pjudIndexSyncMsg', 'Fila PJUD vinculada con la causa interna seleccionada.', 'ok');
+        return;
+      }
+      if (action === 'refresh') {
+        const nowIso = new Date().toISOString();
+        const { error } = await supabase
+          .from(T_PJUD_CAUSES_INDEX)
+          .update({ sync_status: 'indexed', last_seen_at: nowIso, synced_at: nowIso, updated_at: nowIso })
+          .eq('id', item.id)
+          .eq('user_id', authenticatedUser.id);
+        if (error) throw buildLoadError('la actualización de la fila indexada PJUD', error);
+        await loadPjudCausesIndexRows();
+        renderPjudIndexSyncPanel();
+        setMessage('pjudIndexSyncMsg', 'Fila PJUD actualizada.', 'ok');
+      }
+    }
+
     function degradePjudAccessWithMissingConfiguration(){
       state.pjudAccess.record = null;
       state.pjudAccess.available = false;
@@ -5903,7 +6212,7 @@
             <strong>Ejecutar migración de acceso PJUD</strong>
           </article>
         `;
-        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar', 'btnPjudSyncIndex'].forEach((id) => {
           const button = $(id);
           if (!button) return;
           button.disabled = true;
@@ -5950,6 +6259,11 @@
         button.disabled = !enableActions;
         button.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
       });
+      const syncButton = $('btnPjudSyncIndex');
+      if (syncButton) {
+        syncButton.disabled = !enableActions;
+        syncButton.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
+      }
     }
 
     function resolvePjudMisCausasUrlInput(defaultValue = ''){
@@ -12060,6 +12374,7 @@
       }, { scope: 'acceso-pjud' });
       bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
       bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
       bindEvent('btnIndiceCrearAccess', 'click', () => {
         state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
         openMassiveDownloadModal();
@@ -12118,6 +12433,11 @@
         if (!$('batch_scope_selected_materias')?.checked) return;
         state.batchScopeMode = 'selected';
         if ($('batch_scope_materias')) $('batch_scope_materias').disabled = false;
+      });
+      $('pjudIndexSyncRows')?.addEventListener('click', async (event) => {
+        const actionTrigger = event.target?.closest?.('[data-pjud-index-action]');
+        if (!actionTrigger) return;
+        await handlePjudIndexRowAction({ target: actionTrigger });
       });
       $('batch_scope_materias')?.addEventListener('input', (event) => {
         const value = String(event?.target?.value || '');
@@ -12684,7 +13004,14 @@
         console.error('[Alpha Avocat][acceso-pjud] No fue posible cargar el acceso PJUD.', error);
         setMessage('pjudAccessMsg', `No fue posible cargar el acceso PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
       }
+      try {
+        await loadPjudCausesIndexRows();
+      } catch (error) {
+        console.error('[Alpha Avocat][indice-pjud] No fue posible cargar el índice PJUD.', error);
+        setMessage('pjudIndexSyncMsg', `No fue posible cargar el índice PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
+      }
       renderPjudAccessPanel();
+      renderPjudIndexSyncPanel();
     }
 
     init();
