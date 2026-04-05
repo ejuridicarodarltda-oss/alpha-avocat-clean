@@ -608,6 +608,69 @@
       gap:8px;
     }
 
+    .causas-page .pjud-access-progress{
+      border:1px solid rgba(31,90,83,.25);
+      border-radius:16px;
+      background:rgba(255,255,255,.68);
+      padding:10px 12px;
+      display:grid;
+      gap:8px;
+    }
+
+    .causas-page .pjud-access-progress-head{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      font-weight:700;
+      color:var(--causas-title-dark);
+    }
+
+    .causas-page .pjud-access-progress-bar{
+      position:relative;
+      width:100%;
+      height:12px;
+      border-radius:999px;
+      background:rgba(22,58,95,.15);
+      overflow:hidden;
+    }
+
+    .causas-page .pjud-access-progress-fill{
+      position:absolute;
+      top:0;
+      left:0;
+      height:100%;
+      width:0%;
+      border-radius:999px;
+      background:linear-gradient(90deg,#1f6b62 0%,#2d8a7f 100%);
+      transition:width .35s ease;
+    }
+
+    .causas-page .pjud-access-progress.is-waiting .pjud-access-progress-fill{
+      background:linear-gradient(90deg,#d2a348 0%,#e6b655 100%);
+      animation:pjud-progress-pulse 1.4s ease-in-out infinite;
+    }
+
+    .causas-page .pjud-access-progress.is-error .pjud-access-progress-fill{
+      background:linear-gradient(90deg,#a33b4a 0%,#bf5061 100%);
+    }
+
+    .causas-page .pjud-access-progress.is-completed .pjud-access-progress-fill{
+      background:linear-gradient(90deg,#1a6f55 0%,#2ba977 100%);
+    }
+
+    .causas-page .pjud-access-progress-stage{
+      margin:0;
+      font-size:13px;
+      color:var(--causas-text-secondary);
+      min-height:1.4em;
+    }
+
+    @keyframes pjud-progress-pulse{
+      0%,100%{ opacity:.72; }
+      50%{ opacity:1; }
+    }
+
     .causas-page .connection-dot{
       display:inline-flex;
       width:10px;
@@ -1787,6 +1850,16 @@
         <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
       </div>
       <div class="pjud-access-stats" id="pjudAccessStats"></div>
+      <div id="pjudAccessProgress" class="pjud-access-progress" role="status" aria-live="polite">
+        <div class="pjud-access-progress-head">
+          <span>Progreso acceso PJUD</span>
+          <strong id="pjudAccessProgressPercent">0%</strong>
+        </div>
+        <div class="pjud-access-progress-bar" aria-hidden="true">
+          <div id="pjudAccessProgressFill" class="pjud-access-progress-fill"></div>
+        </div>
+        <p id="pjudAccessProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
+      </div>
       <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
     </section>
 
@@ -2654,6 +2727,11 @@
         record: null,
         available: true,
         degradedMessage: '',
+        progressPercent: 0,
+        progressStage: 'Sin proceso en ejecución.',
+        progressStatus: 'idle',
+        mode: 'create',
+        stableTimer: null,
       },
     };
 
@@ -5694,10 +5772,54 @@
       );
     }
 
+    function clearPjudAccessProgressStableTimer(){
+      if (state.pjudAccess.stableTimer) {
+        clearTimeout(state.pjudAccess.stableTimer);
+        state.pjudAccess.stableTimer = null;
+      }
+    }
+
+    function renderPjudAccessProgress(){
+      const root = $('pjudAccessProgress');
+      const fill = $('pjudAccessProgressFill');
+      const percentNode = $('pjudAccessProgressPercent');
+      const stageNode = $('pjudAccessProgressStage');
+      if (!root || !fill || !percentNode || !stageNode) return;
+      const percent = Math.max(0, Math.min(100, Number(state.pjudAccess.progressPercent || 0)));
+      const status = String(state.pjudAccess.progressStatus || 'idle');
+      fill.style.width = `${percent}%`;
+      percentNode.textContent = `${percent}%`;
+      stageNode.textContent = state.pjudAccess.progressStage || 'Sin proceso en ejecución.';
+      root.classList.toggle('is-progress', status === 'in_progress');
+      root.classList.toggle('is-completed', status === 'completed');
+      root.classList.toggle('is-error', status === 'error');
+      root.classList.toggle('is-waiting', status === 'waiting_user');
+    }
+
+    function setPjudAccessProgress({ percent = 0, stage = '', status = 'in_progress', keepUntilStable = false } = {}){
+      clearPjudAccessProgressStableTimer();
+      state.pjudAccess.progressPercent = Math.max(0, Math.min(100, Number(percent || 0)));
+      state.pjudAccess.progressStage = String(stage || '').trim() || state.pjudAccess.progressStage || 'Sin proceso en ejecución.';
+      state.pjudAccess.progressStatus = status;
+      renderPjudAccessProgress();
+      if (keepUntilStable && status === 'completed') {
+        state.pjudAccess.stableTimer = window.setTimeout(() => {
+          if (state.pjudAccess.progressStatus !== 'completed') return;
+          state.pjudAccess.progressStage = 'Acceso PJUD activo.';
+          renderPjudAccessProgress();
+        }, 3500);
+      }
+    }
+
     function degradePjudAccessWithMissingConfiguration(){
       state.pjudAccess.record = null;
       state.pjudAccess.available = false;
-      state.pjudAccess.degradedMessage = 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.';
+      state.pjudAccess.degradedMessage = 'No fue posible cargar el acceso PJUD. Falta configuración de infraestructura del acceso PJUD.';
+      setPjudAccessProgress({
+        percent: 10,
+        stage: 'Falta configuración de infraestructura del acceso PJUD.',
+        status: 'error',
+      });
       setMessage('pjudAccessMsg', state.pjudAccess.degradedMessage, 'warn');
     }
 
@@ -5731,7 +5853,7 @@
       message = '',
     } = {}){
       if (!state.pjudAccess.available) {
-        throw new Error('No fue posible guardar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.');
+        throw new Error('No fue posible guardar el acceso PJUD. Falta configuración de infraestructura del acceso PJUD.');
       }
       const nowIso = new Date().toISOString();
       const payload = {
@@ -5760,6 +5882,7 @@
     function renderPjudAccessPanel(){
       const statsNode = $('pjudAccessStats');
       if (!statsNode) return;
+      renderPjudAccessProgress();
       if (!state.pjudAccess.available) {
         statsNode.innerHTML = `
           <article class="metric">
@@ -5768,7 +5891,7 @@
           </article>
           <article class="metric">
             <span class="mini-label">Configuración</span>
-            <strong>Falta configuración de base de datos</strong>
+            <strong>Falta configuración de infraestructura</strong>
           </article>
           <article class="metric">
             <span class="mini-label">Acción requerida</span>
@@ -5821,44 +5944,102 @@
     }
 
     async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
-      if (!state.pjudAccess.available) {
-        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
-        return;
-      }
-      const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
-        return;
-      }
-      state.pjudMisCausasWindow = popup;
-      const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
-      const candidateUrl = String(urlInput || '').trim();
-      if (!isPjudMisCausasUrl(candidateUrl)) {
-        setMessage('pjudAccessMsg', 'No fue posible crear el acceso PJUD porque no se detectó la pantalla Mis Causas.', 'error');
-        await persistPjudAccessConnection({
-          status: 'expired',
-          baseUrl: '',
-          verificationMode: 'manual_missing_mis_causas',
-          message: 'No se validó la vista Mis Causas durante la creación/actualización.',
+      const normalizedMode = mode === 'refresh' ? 'refresh' : 'create';
+      state.pjudAccess.mode = normalizedMode;
+      setPjudAccessProgress({ percent: 0, stage: 'Preparando acceso PJUD...', status: 'in_progress' });
+      try {
+        if (!state.pjudAccess.available) {
+          setPjudAccessProgress({
+            percent: 10,
+            stage: 'Falta configuración de infraestructura del acceso PJUD.',
+            status: 'error',
+          });
+          setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de infraestructura del acceso PJUD.', 'warn');
+          return;
+        }
+
+        setPjudAccessProgress({ percent: 10, stage: 'Verificando infraestructura del acceso PJUD...', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 20, stage: 'Comprobando disponibilidad del módulo de acceso...', status: 'in_progress' });
+
+        const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          setPjudAccessProgress({
+            percent: 35,
+            stage: 'No se pudo abrir PJUD/OJV. Habilita pop-ups para continuar.',
+            status: 'error',
+          });
+          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return;
+        }
+
+        state.pjudMisCausasWindow = popup;
+        setPjudAccessProgress({ percent: 35, stage: 'Abriendo PJUD / Oficina Judicial Virtual...', status: 'in_progress' });
+        setPjudAccessProgress({
+          percent: 50,
+          stage: 'Esperando autenticación del usuario en ClaveÚnica...',
+          status: 'waiting_user',
         });
+        setPjudAccessProgress({
+          percent: 50,
+          stage: 'Esperando que el usuario complete el ingreso en PJUD...',
+          status: 'waiting_user',
+        });
+
+        const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
+        const candidateUrl = String(urlInput || '').trim();
+        setPjudAccessProgress({ percent: 65, stage: 'Detectando navegación hacia Mis Causas...', status: 'in_progress' });
+
+        if (!isPjudMisCausasUrl(candidateUrl)) {
+          setPjudAccessProgress({
+            percent: 65,
+            stage: 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.',
+            status: 'error',
+          });
+          setMessage('pjudAccessMsg', 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.', 'error');
+          await persistPjudAccessConnection({
+            status: 'expired',
+            baseUrl: '',
+            verificationMode: 'manual_missing_mis_causas',
+            message: 'No se validó la vista Mis Causas durante la creación/actualización.',
+          });
+          renderPjudAccessPanel();
+          return;
+        }
+
+        setPjudAccessProgress({ percent: 80, stage: 'Registrando o actualizando el acceso PJUD del usuario...', status: 'in_progress' });
+        await persistPjudAccessConnection({
+          status: 'active',
+          baseUrl: candidateUrl,
+          verificationMode: normalizedMode === 'refresh' ? 'manual_refresh' : 'manual_create',
+          message: normalizedMode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
+        });
+
+        setPjudAccessProgress({ percent: 90, stage: 'Validando acceso activo...', status: 'in_progress' });
+        setPjudAccessProgress({
+          percent: 100,
+          stage: 'Acceso PJUD creado correctamente.',
+          status: 'completed',
+          keepUntilStable: true,
+        });
+
+        setMessage('pjudAccessMsg', normalizedMode === 'refresh'
+          ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
+          : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
         renderPjudAccessPanel();
-        return;
+      } catch (error) {
+        const failedPercent = Math.max(0, Math.min(90, Number(state.pjudAccess.progressPercent || 0)));
+        const normalizedMessage = String(error?.message || '').toLowerCase();
+        const errorStage = normalizedMessage.includes('expir')
+          ? 'La sesión PJUD expiró antes de completar el acceso.'
+          : `El proceso de acceso PJUD se detuvo: ${error?.message || 'error desconocido'}`;
+        setPjudAccessProgress({ percent: failedPercent, stage: errorStage, status: 'error' });
+        setMessage('pjudAccessMsg', errorStage, 'error');
       }
-      await persistPjudAccessConnection({
-        status: 'active',
-        baseUrl: candidateUrl,
-        verificationMode: mode === 'refresh' ? 'manual_refresh' : 'manual_create',
-        message: mode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
-      });
-      setMessage('pjudAccessMsg', mode === 'refresh'
-        ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
-        : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
-      renderPjudAccessPanel();
     }
 
     async function disconnectPjudAccess(){
       if (!state.pjudAccess.available) {
-        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
+        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de infraestructura del acceso PJUD.', 'warn');
         return;
       }
       await persistPjudAccessConnection({
