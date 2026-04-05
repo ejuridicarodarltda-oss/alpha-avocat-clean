@@ -1,3 +1,7 @@
+-- Infraestructura permanente del acceso PJUD.
+-- Esta tabla se crea por migración/deploy del sistema (no por acción del usuario).
+-- El botón "Crear acceso" solo debe crear o actualizar la fila del usuario autenticado.
+
 create table if not exists public.pjud_access_connections (
   id uuid primary key default gen_random_uuid(),
   user_id uuid not null references auth.users(id) on delete cascade,
