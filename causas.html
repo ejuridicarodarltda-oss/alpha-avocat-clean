@@ -577,6 +577,64 @@
       grid-column:1 / -1;
     }
 
+    .causas-page .pjud-index-priority{
+      background:linear-gradient(180deg,#b7ddd7 0%,#9fcec6 100%);
+      border:1px solid rgba(36,95,89,.24);
+      border-radius:20px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .causas-page .pjud-access-priority{
+      background:linear-gradient(180deg,#d2efe9 0%,#b8e0d8 100%);
+      border:1px solid rgba(31,90,83,.35);
+      border-radius:20px;
+      padding:16px;
+      display:grid;
+      gap:12px;
+      box-shadow:0 10px 20px rgba(12,44,40,.12);
+    }
+
+    .causas-page .pjud-access-actions{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .pjud-access-stats{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .connection-dot{
+      display:inline-flex;
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      background:#7c8d8a;
+      margin-right:6px;
+      box-shadow:0 0 0 2px rgba(255,255,255,.6);
+    }
+
+    .causas-page .connection-dot.active{
+      background:#228b56;
+      box-shadow:0 0 0 2px rgba(255,255,255,.75), 0 0 10px rgba(34,139,86,.65);
+    }
+
+    .causas-page .pjud-index-actions{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .pjud-index-stats{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
     .metric strong,
     .big-number,
     .causas-page .metric-value{
@@ -1587,6 +1645,10 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-access-actions,
+      .pjud-access-stats,
+      .pjud-index-actions,
+      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1635,6 +1697,10 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-access-actions,
+      .pjud-access-stats,
+      .pjud-index-actions,
+      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1706,6 +1772,37 @@
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
+    </section>
+
+    <section class="pjud-access-priority" aria-label="Acceso PJUD">
+      <div>
+        <h3 class="panel-title">ACCESO PJUD</h3>
+        <p class="panel-subtitle">Conexión manual-asistida independiente del importador masivo. No usa Excel, no crea lotes y no almacena credenciales sensibles.</p>
+      </div>
+      <div class="pjud-access-actions">
+        <button id="btnPjudCrearAcceso" class="btn btn-primary" type="button">Crear acceso</button>
+        <button id="btnPjudAbrir" class="btn" type="button" disabled aria-disabled="true">Abrir PJUD</button>
+        <button id="btnPjudIrMisCausas" class="btn" type="button" disabled aria-disabled="true">Ir a Mis Causas</button>
+        <button id="btnPjudActualizarAcceso" class="btn" type="button" disabled aria-disabled="true">Actualizar acceso</button>
+        <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
+      </div>
+      <div class="pjud-access-stats" id="pjudAccessStats"></div>
+      <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
+    </section>
+
+    <section class="pjud-index-priority" aria-label="Índice General PJUD">
+      <div>
+        <h3 class="panel-title">Índice General PJUD</h3>
+        <p class="panel-subtitle">Control de creación del Access en Inicio de Causas. El almacenamiento y las versiones quedan en Expedientes Digitales &gt; Fichero principal &gt; Índice General PJUD.</p>
+      </div>
+      <div class="pjud-index-actions">
+        <button id="btnIndiceCrearAccess" class="btn btn-primary" type="button">Crear Access</button>
+        <button id="btnIndiceActualizarAccess" class="btn" type="button">Actualizar Access</button>
+        <button id="btnIndiceDepurarDuplicados" class="btn" type="button">Depurar duplicados</button>
+        <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
+        <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
+      </div>
+      <div class="pjud-index-stats" id="pjudIndexStats"></div>
     </section>
 
     <section class="screen-grid">
@@ -2077,7 +2174,7 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Descarga masiva semiautomática desde PJUD</div>
-          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas > Civiles, procesamiento por hitos y guardado real en Expedientes Digitales.</p>
+          <p class="panel-subtitle">Flujo asistido por lote: requiere sesión PJUD activa, validación de vista Mis Causas (todas las materias visibles), procesamiento por hitos y guardado real en Expedientes Digitales.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalDescargaMasivaPjud" aria-label="Cerrar">✕</button>
       </div>
@@ -2093,7 +2190,20 @@
 
         <div class="helper-box">
           <strong>Paso 2: Abrir Mis Causas / usar sesión activa</strong>
-          <div class="timeline-meta">Entrar a Mis Causas con sesión activa como fuente real del contenido judicial del lote.</div>
+          <div class="timeline-meta">Entrar a Mis Causas con sesión activa como fuente real del contenido judicial del lote para todas las materias visibles en la sesión.</div>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;">
+            <input id="batch_scope_all_materias" type="radio" name="batch_scope_mode" value="all" checked />
+            <span><strong>Extraer todas las materias visibles en Mis Causas</strong> (opción por defecto).</span>
+          </label>
+          <label class="field-check" style="display:flex;gap:8px;align-items:flex-start;margin-top:6px;">
+            <input id="batch_scope_selected_materias" type="radio" name="batch_scope_mode" value="selected" />
+            <span><strong>Extraer solo materias seleccionadas</strong>.</span>
+          </label>
+          <div class="field" style="margin-top:8px;">
+            <label for="batch_scope_materias">Materias seleccionadas</label>
+            <input id="batch_scope_materias" class="input" placeholder="Ej: Civil, Familia, Laboral" disabled />
+            <div class="small-note">Si se activa “solo materias seleccionadas”, ingresa materias separadas por coma.</div>
+          </div>
         </div>
 
         <div class="helper-box">
@@ -2424,6 +2534,7 @@
     const T_PJUD_IMPORT_ROWS = 'pjud_import_rows';
     const T_PJUD_CASES = 'pjud_cases';
     const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
+    const T_PJUD_ACCESS_CONNECTIONS = 'pjud_access_connections';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
     const PJUD_ROW_LOG_CHUNK_SIZE = 200;
@@ -2454,6 +2565,9 @@
     };
 
     const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
+    const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
+    const PJUD_OJV_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php';
+    const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -2525,11 +2639,21 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
+      batchScopeMode: 'all',
+      batchScopeMaterias: [],
       pjudLinking: {
         loaded: false,
         loading: false,
         error: '',
         items: [],
+      },
+      pjudGeneralIndexControl: {
+        lastStatus: 'Sin ejecución',
+      },
+      pjudAccess: {
+        record: null,
+        available: true,
+        degradedMessage: '',
       },
     };
 
@@ -2740,10 +2864,48 @@
         rol: parse(/\brol\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
         rit: parse(/\brit\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
         ruc: parse(/\bruc\s*[:\-]?\s*([a-z0-9\-\.\/]+)/i),
+        competencia: parse(/\bcompetencia\s*[:\-]?\s*([^\n|·;,]+)/i),
         tribunal: parse(/(?:tribunal|juzgado|corte)\s*[:\-]?\s*([^\n|·;,]+)/i),
         caratula: parse(/(?:caratula|carátula)\s*[:\-]?\s*([^\n|·;,]+)/i),
         materia: parse(/\bmateria\s*[:\-]?\s*([^\n|·;,]+)/i),
       };
+    }
+
+    function normalizeMateriaLabel(value = ''){
+      return normalizePjudText(value).replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
+    }
+
+    function parseBatchScopeMateriasInput(value = ''){
+      return String(value || '')
+        .split(',')
+        .map((item) => normalizePjudText(item))
+        .filter(Boolean);
+    }
+
+    function shouldIncludeRowByBatchScope(materia = ''){
+      if (state.batchScopeMode !== 'selected') return true;
+      if (!state.batchScopeMaterias.length) return true;
+      const normalized = normalizePjudText(materia);
+      if (!normalized) return false;
+      return state.batchScopeMaterias.includes(normalized);
+    }
+
+    function summarizeQueueByMateria(items = []){
+      const counts = {};
+      const duplicates = {};
+      const seenByMateria = new Map();
+      items.forEach((item) => {
+        const materia = String(item?.materia || item?.basic?.materia || 'Sin materia').trim() || 'Sin materia';
+        counts[materia] = Number(counts[materia] || 0) + 1;
+        const key = `${normalizePjudText(materia)}|${normalizePjudKey(item?.pjudCaseKey || item?.dedupeKey || '')}`;
+        if (!seenByMateria.has(key)) {
+          seenByMateria.set(key, 1);
+          return;
+        }
+        seenByMateria.set(key, seenByMateria.get(key) + 1);
+        duplicates[materia] = Number(duplicates[materia] || 0) + 1;
+      });
+      return { total: items.length, counts, duplicates };
     }
 
     function parseRoleTokens(rawRole = ''){
@@ -2820,14 +2982,24 @@
         const ritLabel = row.rit || parsed.rit || '';
         const rucLabel = row.ruc || parsed.ruc || '';
         const tribunalLabel = row.tribunal || parsed.tribunal || '';
+        const materiaLabel = row.materia || parsed.materia || '';
+        const competenciaLabel = row.competencia || parsed.competencia || materiaLabel || '';
         const caratulaLabel = row.caratula || parsed.caratula || '';
         const roleTokens = parseRoleTokens(roleLabel || ritLabel || rucLabel);
         if (!roleLabel && !ritLabel && !rucLabel && !tribunalLabel && !caratulaLabel) {
           pushRouteDiscardReason(diagnostics, rowIndex, 'fila no corresponde a causa válida', row);
           return;
         }
+        if (!shouldIncludeRowByBatchScope(materiaLabel)) {
+          pushRouteDiscardReason(diagnostics, rowIndex, 'materia fuera de alcance seleccionado', {
+            materia: materiaLabel,
+            scopeMode: state.batchScopeMode,
+          });
+          return;
+        }
         diagnostics.rowsConvertedToRoute += 1;
         const normalizedKey = normalizePjudKey([
+          normalizeMateriaLabel(materiaLabel),
           roleTokens.roleType || '',
           roleTokens.roleLetter || '',
           roleTokens.roleNumber || '',
@@ -2855,7 +3027,8 @@
           pjudRoleYear: roleTokens.roleYear,
           pjudCourtName: tribunalLabel,
           tribunal: tribunalLabel,
-          materia: row.materia || parsed.materia || '',
+          materia: materiaLabel,
+          competencia: competenciaLabel,
           caratulado: caratulaLabel,
           basic: {
             rol: roleLabel,
@@ -2863,7 +3036,8 @@
             ruc: rucLabel,
             tribunal: tribunalLabel,
             caratula: caratulaLabel,
-            materia: row.materia || parsed.materia || '',
+            materia: materiaLabel,
+            competencia: competenciaLabel,
             link: routeUrl,
           },
           pjudRouteAudit: {
@@ -5404,6 +5578,299 @@
       });
     }
 
+    function loadPjudGeneralIndexRegistry(){
+      try {
+        return JSON.parse(window.localStorage.getItem(PJUD_GENERAL_INDEX_STORAGE_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function persistPjudGeneralIndexRegistry(payload = {}){
+      try {
+        window.localStorage.setItem(PJUD_GENERAL_INDEX_STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.warn('[CAUSAS][PJUD-INDEX] No fue posible guardar el índice general en localStorage.', error);
+      }
+    }
+
+    function buildPjudIndexFromCases(){
+      const buckets = {};
+      const unique = new Map();
+      let duplicatesRemoved = 0;
+      getAllCases().forEach((item) => {
+        const materia = String(item.materia || item.pjud_materia || 'Materia sin clasificar').trim();
+        const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
+        const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
+        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
+        if (unique.has(key)) {
+          duplicatesRemoved += 1;
+          return;
+        }
+        unique.set(key, { materia, tribunal, rol });
+        buckets[materia] = (buckets[materia] || 0) + 1;
+      });
+      return {
+        generatedAt: new Date().toISOString(),
+        totalCauses: unique.size,
+        byMatter: buckets,
+        duplicatesRemoved,
+      };
+    }
+
+    function persistPjudGeneralIndexVersion({ processStatus = '', processLog = '' } = {}){
+      const snapshot = buildPjudIndexFromCases();
+      const registry = loadPjudGeneralIndexRegistry();
+      const previous = registry.current || null;
+      const versionId = `indice-${Date.now()}`;
+      const nextCurrent = {
+        id: versionId,
+        generatedAt: snapshot.generatedAt,
+        totalCauses: snapshot.totalCauses,
+        byMatter: snapshot.byMatter,
+        duplicatesRemoved: snapshot.duplicatesRemoved,
+        processStatus: processStatus || state.pjudGeneralIndexControl.lastStatus || 'Completado',
+        processLog: processLog || '',
+      };
+      const versions = [nextCurrent, ...(Array.isArray(registry.versions) ? registry.versions : [])];
+      if (previous) versions.push(previous);
+      persistPjudGeneralIndexRegistry({
+        current: nextCurrent,
+        versions: versions.slice(0, 12),
+      });
+      return nextCurrent;
+    }
+
+    function renderPjudGeneralIndexPanel(){
+      const node = $('pjudIndexStats');
+      if (!node) return;
+      const registry = loadPjudGeneralIndexRegistry();
+      const current = registry.current || {};
+      const byMatter = current.byMatter || {};
+      const matterSummary = Object.entries(byMatter).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}: ${count}`).join(' · ') || 'Sin datos';
+      const lastStatus = state.pjudGeneralIndexControl.lastStatus || current.processStatus || 'Sin ejecución';
+      node.innerHTML = [
+        { label: 'Última generación', value: current.generatedAt ? formatDate(current.generatedAt) : 'No disponible' },
+        { label: 'Cantidad total de causas', value: Number(current.totalCauses || 0) },
+        { label: 'Cantidad por materia', value: matterSummary },
+        { label: 'Duplicados eliminados', value: Number(current.duplicatesRemoved || 0) },
+        { label: 'Estado del último proceso', value: lastStatus },
+      ].map((item) => `
+        <article class="metric">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `).join('');
+    }
+
+    function isPjudMisCausasUrl(urlValue = ''){
+      const raw = String(urlValue || '').trim();
+      if (!raw) return false;
+      try {
+        const parsed = new URL(raw);
+        const host = parsed.hostname.toLowerCase();
+        if (!host.endsWith('pjud.cl')) return false;
+        const path = parsed.pathname.toLowerCase();
+        const hash = parsed.hash.toLowerCase();
+        const normalizedHref = parsed.href.toLowerCase();
+        return path.includes('indexn.php') || hash.includes('mis') || normalizedHref.includes('miscausas');
+      } catch {
+        return false;
+      }
+    }
+
+    function isPjudAccessInfrastructureError(error){
+      const code = String(error?.code || '').toUpperCase();
+      const message = String(error?.message || '');
+      const details = String(error?.details || '');
+      const hint = String(error?.hint || '');
+      const payload = `${message} ${details} ${hint}`.toLowerCase();
+      if (code === 'PGRST205' || code === '42P01') return true;
+      return payload.includes('pjud_access_connections') && (
+        payload.includes('schema cache')
+        || payload.includes('could not find the table')
+        || payload.includes('relation')
+        || payload.includes('does not exist')
+      );
+    }
+
+    function degradePjudAccessWithMissingConfiguration(){
+      state.pjudAccess.record = null;
+      state.pjudAccess.available = false;
+      state.pjudAccess.degradedMessage = 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.';
+      setMessage('pjudAccessMsg', state.pjudAccess.degradedMessage, 'warn');
+    }
+
+    async function loadPjudAccessConnection(){
+      const { data, error } = await supabase
+        .from(T_PJUD_ACCESS_CONNECTIONS)
+        .select('*')
+        .eq('user_id', authenticatedUser.id)
+        .eq('access_type', 'pjud')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle();
+      if (error) {
+        if (isPjudAccessInfrastructureError(error)) {
+          console.warn('[CAUSAS][ACCESO-PJUD] Tabla/configuración no disponible. Se activa modo degradado.', error);
+          degradePjudAccessWithMissingConfiguration();
+          return null;
+        }
+        throw buildLoadError('el acceso PJUD del usuario', error);
+      }
+      state.pjudAccess.available = true;
+      state.pjudAccess.degradedMessage = '';
+      state.pjudAccess.record = data || null;
+      return state.pjudAccess.record;
+    }
+
+    async function persistPjudAccessConnection({
+      status = 'active',
+      baseUrl = '',
+      verificationMode = 'manual',
+      message = '',
+    } = {}){
+      if (!state.pjudAccess.available) {
+        throw new Error('No fue posible guardar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.');
+      }
+      const nowIso = new Date().toISOString();
+      const payload = {
+        user_id: authenticatedUser.id,
+        access_type: 'pjud',
+        status,
+        base_url_mis_causas: baseUrl || null,
+        last_connected_at: status === 'active' ? nowIso : state.pjudAccess.record?.last_connected_at || null,
+        last_verified_at: nowIso,
+        session_context: {
+          verification_mode: verificationMode,
+          user_agent: navigator.userAgent || '',
+          message: message || '',
+        },
+      };
+      const { data, error } = await supabase
+        .from(T_PJUD_ACCESS_CONNECTIONS)
+        .upsert(payload, { onConflict: 'user_id,access_type' })
+        .select('*')
+        .single();
+      if (error) throw buildLoadError('la persistencia del acceso PJUD', error);
+      state.pjudAccess.record = data || null;
+      return data;
+    }
+
+    function renderPjudAccessPanel(){
+      const statsNode = $('pjudAccessStats');
+      if (!statsNode) return;
+      if (!state.pjudAccess.available) {
+        statsNode.innerHTML = `
+          <article class="metric">
+            <span class="mini-label">Estado</span>
+            <strong>Acceso PJUD no disponible</strong>
+          </article>
+          <article class="metric">
+            <span class="mini-label">Configuración</span>
+            <strong>Falta configuración de base de datos</strong>
+          </article>
+          <article class="metric">
+            <span class="mini-label">Acción requerida</span>
+            <strong>Ejecutar migración de acceso PJUD</strong>
+          </article>
+        `;
+        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+          const button = $(id);
+          if (!button) return;
+          button.disabled = true;
+          button.setAttribute('aria-disabled', 'true');
+        });
+        if (state.pjudAccess.degradedMessage) setMessage('pjudAccessMsg', state.pjudAccess.degradedMessage, 'warn');
+        return;
+      }
+      const access = state.pjudAccess.record || null;
+      const status = String(access?.status || 'disconnected').toLowerCase();
+      const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
+      const statusText = isActive ? 'Acceso PJUD activo' : (status === 'expired' ? 'La sesión PJUD expiró. Debe actualizar el acceso.' : 'Sin acceso PJUD activo');
+      statsNode.innerHTML = [
+        { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
+        { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
+        { label: 'URL base Mis Causas', value: escapeHtml(access?.base_url_mis_causas || 'No detectada') },
+      ].map((item) => `
+        <article class="metric">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${item.value}</strong>
+        </article>
+      `).join('');
+
+      const createButton = $('btnPjudCrearAcceso');
+      if (createButton) {
+        createButton.disabled = false;
+        createButton.setAttribute('aria-disabled', 'false');
+      }
+      const enableActions = isActive;
+      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
+        const button = $(id);
+        if (!button) return;
+        button.disabled = !enableActions;
+        button.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
+      });
+    }
+
+    function resolvePjudMisCausasUrlInput(defaultValue = ''){
+      return window.prompt(
+        'Cuando ya estés dentro de "Mis Causas" en PJUD, pega aquí la URL real de esa vista para validar el acceso.',
+        defaultValue || PJUD_MIS_CAUSAS_DEFAULT_URL,
+      );
+    }
+
+    async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
+      if (!state.pjudAccess.available) {
+        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
+        return;
+      }
+      const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
+      if (!popup) {
+        setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
+        return;
+      }
+      state.pjudMisCausasWindow = popup;
+      const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
+      const candidateUrl = String(urlInput || '').trim();
+      if (!isPjudMisCausasUrl(candidateUrl)) {
+        setMessage('pjudAccessMsg', 'No fue posible crear el acceso PJUD porque no se detectó la pantalla Mis Causas.', 'error');
+        await persistPjudAccessConnection({
+          status: 'expired',
+          baseUrl: '',
+          verificationMode: 'manual_missing_mis_causas',
+          message: 'No se validó la vista Mis Causas durante la creación/actualización.',
+        });
+        renderPjudAccessPanel();
+        return;
+      }
+      await persistPjudAccessConnection({
+        status: 'active',
+        baseUrl: candidateUrl,
+        verificationMode: mode === 'refresh' ? 'manual_refresh' : 'manual_create',
+        message: mode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
+      });
+      setMessage('pjudAccessMsg', mode === 'refresh'
+        ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
+        : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
+      renderPjudAccessPanel();
+    }
+
+    async function disconnectPjudAccess(){
+      if (!state.pjudAccess.available) {
+        setMessage('pjudAccessMsg', 'No fue posible cargar el acceso PJUD. Falta configuración de base de datos del acceso PJUD.', 'warn');
+        return;
+      }
+      await persistPjudAccessConnection({
+        status: 'disconnected',
+        baseUrl: '',
+        verificationMode: 'manual_disconnect',
+        message: 'El usuario desconectó manualmente el acceso PJUD.',
+      });
+      setMessage('pjudAccessMsg', 'Acceso PJUD desconectado.', 'ok');
+      renderPjudAccessPanel();
+    }
+
     function runInteractiveAudit(){
       const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
@@ -7404,6 +7871,8 @@
 
     function renderAll(){
       renderSummaryMetrics();
+      renderPjudAccessPanel();
+      renderPjudGeneralIndexPanel();
       renderList();
       renderPillarCards();
       renderTabs();
@@ -8383,6 +8852,68 @@
       return [...dedup.values()].slice(0, 30);
     }
 
+    async function enrichImportDataWithRealPjudDownloads(importData, { maxDocuments = 4 } = {}){
+      const normalizedImportData = importData ? { ...importData } : {};
+      const identifiers = resolvePjudIdentifiers(normalizedImportData, null);
+      const candidates = await discoverPjudCandidatesFromWeb(normalizedImportData, null, identifiers);
+      if (!candidates.length) {
+        return {
+          importData: normalizedImportData,
+          downloadedDocuments: 0,
+          failureReason: 'no se encontró documento',
+          details: ['No se detectaron enlaces documentales oficiales en PJUD para la causa.'],
+        };
+      }
+      const linkedDocs = [];
+      const failedDocs = [];
+      for (const doc of candidates.slice(0, Math.max(1, Number(maxDocuments || 4)))) {
+        const sourceUrl = normalizeDownloadUrl(doc.sourceUrl);
+        if (!sourceUrl) continue;
+        try {
+          const response = await fetch(sourceUrl, { method: 'GET', credentials: 'include' });
+          if (!response.ok) throw new Error(`HTTP ${response.status}`);
+          const blob = await response.blob();
+          if (!blob.size) throw new Error('respuesta vacía');
+          const content = await blobToDataUrl(blob);
+          linkedDocs.push({
+            name: doc.name || `documento-pjud-${Date.now()}.pdf`,
+            category: doc.category || 'Importadas del Poder Judicial',
+            destinationContainer: 'importadosPjud',
+            observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
+            origin: 'Poder Judicial (descarga directa)',
+            sourceUrl,
+            sourcePageUrl: doc.sourcePageUrl || normalizedImportData.sourceUrl || '',
+            destinationModule: 'Causas',
+            pjudTraceability: {
+              batch_id: state.pendingPjudBatchId || null,
+              origin: 'pjud_auto',
+              mode: 'massive_auto',
+              resolution_method: 'automatico-por-identificador',
+              destination_container: 'documentContainers.importadosPjud',
+            },
+            content,
+          });
+        } catch (error) {
+          failedDocs.push({ url: sourceUrl, message: error?.message || 'error de descarga' });
+        }
+      }
+      const mergedDocuments = [...(normalizedImportData.documents || []), ...linkedDocs];
+      const failureReason = linkedDocs.length
+        ? ''
+        : (failedDocs.some((item) => /401|403/i.test(String(item.message || '')))
+          ? 'la sesión expiró o la descarga fue bloqueada'
+          : 'la descarga fue bloqueada');
+      return {
+        importData: {
+          ...normalizedImportData,
+          documents: mergedDocuments,
+        },
+        downloadedDocuments: linkedDocs.length,
+        failureReason,
+        details: failedDocs.slice(0, 4).map((item) => `${item.url}: ${item.message}`),
+      };
+    }
+
     async function downloadPjudContentForCurrentCause(){
       if (!state.manualSelectedCauseId) {
         setMessage('importMsg', 'Paso 1 obligatorio: selecciona primero una causa individual en el flujo manual.', 'warn');
@@ -8772,9 +9303,18 @@
         return;
       }
 
-      const countsMarkup = Object.entries(summary?.countsByMateria || {})
+      const queueSummary = summarizeQueueByMateria(items);
+      const countsByMateriaSource = Object.keys(summary?.countsByMateria || {}).length
+        ? summary.countsByMateria
+        : queueSummary.counts;
+      const countsMarkup = Object.entries(countsByMateriaSource || {})
         .sort((left, right) => left[0].localeCompare(right[0], 'es'))
         .map(([materia, count]) => `<span class="badge badge-info">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
+        .join(' ');
+      const duplicatesByMateria = queueSummary.duplicates;
+      const duplicatesMarkup = Object.entries(duplicatesByMateria || {})
+        .sort((left, right) => left[0].localeCompare(right[0], 'es'))
+        .map(([materia, count]) => `<span class="badge badge-warning">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
         .join(' ');
       const sheetMarkup = (summary?.sheetsDetected || [])
         .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet)}</span>`)
@@ -8785,18 +9325,20 @@
           <div class="selection-card">
             <strong>Lote listo para importar</strong>
             <div class="case-meta">Filas analizadas: ${escapeHtml(summary?.rowsProcessed ?? items.length)} · Causas únicas: ${escapeHtml(summary?.consolidatedCount ?? items.length)} · Duplicados internos: ${escapeHtml(Math.max(0, Number(summary?.rowsProcessed ?? items.length) - Number(summary?.consolidatedCount ?? items.length)))}</div>
+            <div class="timeline-meta">Total general de causas en índice actual: ${escapeHtml(queueSummary.total)}</div>
             <div class="timeline-meta">Filas descartadas por estructura: ${escapeHtml(summary?.invalidRows ?? 0)}</div>
             <div class="timeline-meta">La vinculación se resuelve por origen confiable del archivo y no por coincidencia de nombre en caratulado o partes.</div>
           </div>
           <div class="selection-card">
             <strong>Hojas detectadas</strong>
             <div class="case-meta">${sheetMarkup || '<span class="badge badge-warning">Entrada manual</span>'}</div>
-            <div class="timeline-meta">${countsMarkup || 'Sin distribución por materia disponible.'}</div>
+            <div class="timeline-meta">Totales por materia: ${countsMarkup || 'Sin distribución por materia disponible.'}</div>
+            <div class="timeline-meta">Duplicados por materia: ${duplicatesMarkup || 'Sin duplicados detectados por materia.'}</div>
           </div>
           ${items.slice(0, 6).map((item) => `
             <div class="selection-card">
               <strong>${escapeHtml(item.basic?.caratula || item.basic?.rol || `Causa ${item.batchMeta?.blockIndex + 1 || ''}`)}</strong>
-              <div class="case-meta">Materia: ${escapeHtml(item.materia || item.basic?.materia || 'Pendiente')} · Rol: ${escapeHtml(item.rol || item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.rit || item.basic?.rit || 'Pendiente')}</div>
+              <div class="case-meta">Materia: ${escapeHtml(item.materia || item.basic?.materia || 'Pendiente')} · Competencia: ${escapeHtml(item.competencia || item.basic?.competencia || item.materia || item.basic?.materia || 'Pendiente')} · Rol: ${escapeHtml(item.rol || item.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(item.rit || item.basic?.rit || 'Pendiente')}</div>
               <div class="timeline-meta">Tribunal: ${escapeHtml(item.tribunal || item.corte || item.basic?.tribunal || 'Pendiente')} · Estado: ${escapeHtml(item.estadoProcesal || item.estadoCausa || item.basic?.estadoProcesal || 'Pendiente')} · Consolidada desde ${escapeHtml(item.consolidatedFrom || 1)} fila(s)</div>
             </div>
           `).join('')}
@@ -8818,7 +9360,7 @@
     function getMassiveStepAction(stepId){
       const actions = {
         1: () => connectWithPjud(),
-        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas > Civiles con sesión activa.'),
+        2: () => setMassiveAuditStep(2, 'running', 'Validando vista Mis Causas (todas las materias visibles) con sesión activa.'),
         3: () => analyzeBatchImport(),
         4: () => transferBatchImport(),
         5: () => setMassiveAuditStep(5, 'running', 'Detectando causas y contenido documental del lote.'),
@@ -9010,6 +9552,12 @@
         : 'modo_directo_pjud (principal)';
       const summaryText = `Resumen final importación PJUD (${modeLabel}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, explicitWarning ? 'warn' : tone);
+      const storedIndex = persistPjudGeneralIndexVersion({
+        processStatus: explicitWarning ? 'Completado con advertencias' : 'Completado',
+        processLog: summaryText,
+      });
+      state.pjudGeneralIndexControl.lastStatus = `${storedIndex.processStatus} · ${storedIndex.totalCauses} causa(s)`;
+      renderPjudGeneralIndexPanel();
       const preview = $('batchImportPreview');
       if (!preview) return;
       preview.innerHTML = `
@@ -10395,6 +10943,7 @@
       state.pendingPjudWorkbook = null;
       configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      const queueSummary = summarizeQueueByMateria(queue);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
       setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
@@ -10409,9 +10958,9 @@
         return;
       }
       if (excelFile && !useManifestMode) {
-        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}.`, 'ok');
+        setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       } else {
-        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel.`, 'ok');
+        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       }
     }
 
@@ -10419,6 +10968,14 @@
       renderMassiveExcelBasePanel();
       state.massiveAudit = createDefaultMassiveAuditState();
       state.pendingPjudRouteDiagnostics = null;
+      state.batchScopeMode = 'all';
+      state.batchScopeMaterias = [];
+      if ($('batch_scope_all_materias')) $('batch_scope_all_materias').checked = true;
+      if ($('batch_scope_selected_materias')) $('batch_scope_selected_materias').checked = false;
+      if ($('batch_scope_materias')) {
+        $('batch_scope_materias').value = '';
+        $('batch_scope_materias').disabled = true;
+      }
       renderImportProgressPreview({ chunkNumber: 0, totalChunks: 0, processed: 0, totalItems: 0, currentStepStatus: 'pending' });
       openManagedModal('modalDescargaMasivaPjud');
     }
@@ -10789,20 +11346,27 @@
       let created = 0;
       let updated = 0;
       let failures = 0;
+      let downloadFailures = 0;
+      let causesWithDownloadedContent = 0;
+      let documentsDownloadedTotal = 0;
+      let causesWithDetectionOnly = 0;
+      let causesWithoutDetail = 0;
+      const technicalFailureReasons = new Map();
       let lastSelectedId = null;
       const affectedCaseIds = new Set();
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
       setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo PJUD');
-      setMassiveAuditStep(6, 'skipped', 'Descarga documental se mantiene pendiente en modo directo (solo vínculo PJUD ↔ Alpha).');
-      setMassiveAuditStep(7, 'skipped', 'Guardado en Expedientes Digitales pendiente de descarga real.');
-      setMassiveAuditStep(8, 'skipped', 'Clasificación pendiente de descarga real.');
+      setMassiveAuditStep(6, 'running', 'Descargando contenido documental real desde PJUD');
+      setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
+      setMassiveAuditStep(8, 'running', 'Clasificando contenido');
       try {
         for (let index = 0; index < items.length; index += PJUD_IMPORT_CHUNK_SIZE) {
           const slice = items.slice(index, index + PJUD_IMPORT_CHUNK_SIZE);
           const chunkNumber = Math.floor(index / PJUD_IMPORT_CHUNK_SIZE) + 1;
-          for (const importData of slice) {
+          for (const importDataRaw of slice) {
+            let importData = importDataRaw;
             const currentCauseLabel = [importData.rol || importData.basic?.rol, importData.tribunal || importData.basic?.tribunal, importData.caratulado || importData.basic?.caratula].filter(Boolean).join(' – ') || 'Causa sin etiqueta';
             renderImportProgressPreview({
               chunkNumber,
@@ -10817,6 +11381,32 @@
               currentSubaction: 'abriendo causa',
               internalProgress: `Causa ${Math.min(created + updated + failures + 1, items.length)} de ${items.length}`,
             });
+            const hasDetailRoute = Boolean(importData?.detailUrl || importData?.basic?.detailUrl || importData?.sourceUrl || importData?.basic?.link);
+            if (!hasDetailRoute) {
+              causesWithoutDetail += 1;
+              technicalFailureReasons.set('no se abrió el detalle', (technicalFailureReasons.get('no se abrió el detalle') || 0) + 1);
+            }
+            let downloadResult = { importData, downloadedDocuments: 0, failureReason: '' };
+            setMassiveAuditStep(6, 'running', `Descargando contenido documental real para ${currentCauseLabel}`);
+            try {
+              downloadResult = await enrichImportDataWithRealPjudDownloads(importData, { maxDocuments: 4 });
+              importData = downloadResult.importData || importData;
+              documentsDownloadedTotal += Number(downloadResult.downloadedDocuments || 0);
+              if (Number(downloadResult.downloadedDocuments || 0) > 0) causesWithDownloadedContent += 1;
+              else {
+                causesWithDetectionOnly += 1;
+                downloadFailures += 1;
+                const failureReason = downloadResult.failureReason || 'no se encontró documento';
+                technicalFailureReasons.set(failureReason, (technicalFailureReasons.get(failureReason) || 0) + 1);
+              }
+            } catch (downloadError) {
+              downloadFailures += 1;
+              causesWithDetectionOnly += 1;
+              const normalizedReason = /401|403/i.test(String(downloadError?.message || ''))
+                ? 'la sesión expiró'
+                : 'la descarga fue bloqueada';
+              technicalFailureReasons.set(normalizedReason, (technicalFailureReasons.get(normalizedReason) || 0) + 1);
+            }
             const primaryClientName = importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
             const selectedClientParties = importData.parties?.[0]?.name ? [importData.parties[0].name] : [];
             const duplicate = findDuplicateCase(getAllCases(), importData);
@@ -10826,6 +11416,14 @@
                 const updatePayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
                 const { error: updateError } = await supabase.from(T_CASES).update(updatePayload).eq(C.k_id, duplicate.id);
                 if (updateError) throw updateError;
+                materializeImportedCaseWorkspace({
+                  caseRow: { ...duplicate, id: duplicate.id },
+                  rowPayload: updatePayload,
+                  operationMode: 'update',
+                  importData,
+                  selectedClientParties,
+                  importBatchId: state.pendingPjudBatchId || null,
+                });
                 updated += 1;
                 lastSelectedId = duplicate.id;
                 affectedCaseIds.add(String(duplicate.id));
@@ -10834,6 +11432,15 @@
                   primaryClientName,
                   selectedClientParties,
                   skipWorkspace: true,
+                });
+                const insertPayload = buildPjudStructuredPayload(importData, { primaryClientName, importBatchId: state.pendingPjudBatchId });
+                materializeImportedCaseWorkspace({
+                  caseRow: data,
+                  rowPayload: insertPayload,
+                  operationMode: 'create',
+                  importData,
+                  selectedClientParties,
+                  importBatchId: state.pendingPjudBatchId || null,
                 });
                 created += 1;
                 lastSelectedId = String(data[C.k_id]);
@@ -10881,21 +11488,25 @@
         const warningMessages = [];
         if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
         if (Number(failures || 0) > 0) warningMessages.push(`${Number(failures || 0)} causa(s) con error durante transferencia/importación.`);
+        if (Number(documentsDownloadedTotal || 0) === 0) warningMessages.push('0 archivos reales descargados desde PJUD en Paso 6.');
+        if (Number(causesWithoutDetail || 0) > 0) warningMessages.push(`${Number(causesWithoutDetail || 0)} causa(s) sin apertura de detalle real.`);
+        const diagnosticFailures = [...technicalFailureReasons.entries()].map(([reason, count]) => `${count}× ${reason}`).join(' · ');
+        if (diagnosticFailures) warningMessages.push(`Diagnóstico técnico: ${diagnosticFailures}.`);
         const warning = buildExplicitFinalWarningReason({
           warning: warningMessages.join(' '),
           discardedRows: Number(failures || 0),
-          causesWithDownloadError: Number(failures || 0),
+          causesWithDownloadError: Number(failures || 0) + Number(downloadFailures || 0),
         });
         const accounting = {
           rowsRead: uniqueCases,
           rowsValid: uniqueCases,
-          rowsDiscarded: failures,
+          rowsDiscarded: failures + downloadFailures,
           rowsDuplicated: 0,
           rowsWithoutUrl: 0,
           rowsResolutionError: 0,
           rowsProcessedEffective: completedCases,
-          rowsPending: 0,
-          rowsFailed: failures,
+          rowsPending: causesWithDetectionOnly,
+          rowsFailed: failures + downloadFailures,
         };
         renderImportFinalSummary({
           rowsAnalyzed: uniqueCases,
@@ -10903,16 +11514,27 @@
           duplicatedInternal: 0,
           inserted: created,
           updated,
+          causesWithDownloadedContent,
+          causesWithoutDownloadedContent: Math.max(0, uniqueCases - causesWithDownloadedContent),
+          documentsDetectedTotal: uniqueCases,
+          documentsDownloadedTotal,
+          documentsSavedTotal: documentsDownloadedTotal,
+          documentsClassifiedTotal: documentsDownloadedTotal,
           accounting,
           executionMode: 'modo_directo_pjud',
           sourceLabel: 'Sesión activa PJUD / Mis Causas',
-          errors: failures,
+          errors: failures + downloadFailures,
           batchId: state.pendingPjudBatchId || null,
           warning,
-          tone: failures ? 'warn' : 'ok',
+          tone: (failures || downloadFailures) ? 'warn' : 'ok',
         });
-        setMassiveAuditStep(5, failures ? 'warning' : 'success', failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.');
-        setMassiveAuditStep(9, failures ? 'warning' : 'success', failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
+        const hasRealDownloads = Number(documentsDownloadedTotal || 0) > 0;
+        setMassiveAuditStep(4, hasRealDownloads ? 'success' : 'warning', hasRealDownloads ? 'Recorrido de causas completado' : `Recorrido completado, pero sin descarga real (${diagnosticFailures || 'sin detalle técnico'}).`);
+        setMassiveAuditStep(5, hasRealDownloads ? (failures ? 'warning' : 'success') : 'warning', hasRealDownloads ? (failures ? 'Detección de entidades completada con advertencias.' : 'Detección de entidades completada.') : `Detección lógica sin descarga útil. ${diagnosticFailures || ''}`.trim());
+        setMassiveAuditStep(6, hasRealDownloads ? (downloadFailures ? 'warning' : 'success') : 'failed', hasRealDownloads ? `Descarga documental real completada: ${documentsDownloadedTotal} archivo(s).` : `Descarga documental real fallida: 0 archivos. ${diagnosticFailures || 'No se encontró documento.'}`);
+        setMassiveAuditStep(7, hasRealDownloads ? (failures ? 'warning' : 'success') : 'warning', hasRealDownloads ? 'Guardado en Expedientes Digitales completado.' : 'Guardado parcial: no hubo archivos reales para persistir en todas las causas.');
+        setMassiveAuditStep(8, hasRealDownloads ? 'success' : 'warning', hasRealDownloads ? 'Clasificación completada.' : 'Clasificación limitada: no hubo descarga documental real.');
+        setMassiveAuditStep(9, (failures || downloadFailures || !hasRealDownloads) ? 'warning' : 'success', (failures || downloadFailures || !hasRealDownloads) ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito');
         renderImportProgressPreview({
           chunkNumber: totalChunks,
           totalChunks,
@@ -10920,8 +11542,8 @@
           totalItems: items.length,
           batchId: state.pendingPjudBatchId || null,
           currentStepId: 9,
-          currentStepStatus: failures ? 'warning' : 'success',
-          stepDetail: failures ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito',
+          currentStepStatus: (failures || downloadFailures || !hasRealDownloads) ? 'warning' : 'success',
+          stepDetail: (failures || downloadFailures || !hasRealDownloads) ? `Resumen final con advertencias: ${warning || `${failures} causa(s) con error en la transferencia del lote.`}` : 'Resumen final completado con éxito',
           currentSubaction: 'cerrando lote',
         });
         console.info('[Alpha Avocat][batch-import] Resultado importación manual.', {
@@ -11226,6 +11848,46 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnSistemaAutomatico', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnPjudCrearAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'create' }), { required: true, scope: 'acceso-pjud' });
+      bindEvent('btnPjudAbrir', 'click', () => {
+        window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
+      }, { scope: 'acceso-pjud' });
+      bindEvent('btnPjudIrMisCausas', 'click', () => {
+        const url = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const popup = window.open(url, '_blank', 'noopener,noreferrer');
+        if (!popup) {
+          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          return;
+        }
+        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL base registrada del acceso PJUD.', 'ok');
+      }, { scope: 'acceso-pjud' });
+      bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
+      bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
+      bindEvent('btnIndiceCrearAccess', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
+        openMassiveDownloadModal();
+        setMessage('importMsg', 'Control de creación activado: inicia sesión en PJUD, luego ejecuta el flujo para generar el Access del Índice General PJUD.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceActualizarAccess', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Actualización solicitada';
+        openMassiveDownloadModal();
+        setMessage('importMsg', 'Actualización del Access solicitada. Ejecuta nuevamente el flujo masivo para reemplazar la versión vigente.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceDepurarDuplicados', 'click', () => {
+        const snapshot = buildPjudIndexFromCases();
+        state.pjudGeneralIndexControl.lastStatus = `Depuración ejecutada: ${snapshot.duplicatesRemoved} duplicado(s) eliminado(s) por materia+tribunal+rol`;
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceAbrirGeneral', 'click', () => {
+        window.location.href = './expedientes-digitales.html#indice-general-pjud';
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceUsarDescargas', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Índice general marcado como fuente de descargas';
+        setMessage('importMsg', 'El Índice General PJUD vigente se usará como referencia de descargas en el siguiente proceso.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
       bindEvent('btnAbrirModalDescargaMasiva', 'click', () => openMassiveDownloadModal(), { scope: 'importacion-selector' });
       bindEvent('btnAbrirModalDescargaManual', 'click', () => openManualDownloadModal(), { scope: 'importacion-selector' });
       bindEvent('btnConectarPjudMasivo', 'click', () => connectWithPjud(), { scope: 'importacion-masiva' });
@@ -11248,6 +11910,21 @@
         state.pendingBatchImports = [];
         renderBatchImportPreview([], null);
         await registerMassiveExcelBaseFile($('batch_excel_file')?.files?.[0] || null);
+      });
+      $('batch_scope_all_materias')?.addEventListener('change', () => {
+        if (!$('batch_scope_all_materias')?.checked) return;
+        state.batchScopeMode = 'all';
+        state.batchScopeMaterias = [];
+        if ($('batch_scope_materias')) $('batch_scope_materias').disabled = true;
+      });
+      $('batch_scope_selected_materias')?.addEventListener('change', () => {
+        if (!$('batch_scope_selected_materias')?.checked) return;
+        state.batchScopeMode = 'selected';
+        if ($('batch_scope_materias')) $('batch_scope_materias').disabled = false;
+      });
+      $('batch_scope_materias')?.addEventListener('input', (event) => {
+        const value = String(event?.target?.value || '');
+        state.batchScopeMaterias = parseBatchScopeMateriasInput(value);
       });
       $('manual_single_case_selector')?.addEventListener('change', (event) => {
         const selectedId = String(event?.target?.value || '').trim();
@@ -11804,6 +12481,13 @@
       }
       disableLandingMode();
       initNonFatalPhase();
+      try {
+        await loadPjudAccessConnection();
+      } catch (error) {
+        console.error('[Alpha Avocat][acceso-pjud] No fue posible cargar el acceso PJUD.', error);
+        setMessage('pjudAccessMsg', `No fue posible cargar el acceso PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
+      }
+      renderPjudAccessPanel();
     }
 
     init();
