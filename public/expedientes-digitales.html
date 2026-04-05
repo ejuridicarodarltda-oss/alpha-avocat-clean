@@ -72,9 +72,13 @@
     .tribunal-item:hover,.role-item:hover{border-color:#163A5F}
     .role-item h4{margin:0 0 6px}
     .role-content-title{margin:0;color:#163A5F}
+    .index-main-grid{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
+    .index-version-list{display:grid;gap:8px;margin-top:10px}
+    .index-version-item{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px}
     @media (max-width:900px){.icon-grid,.subfolders{grid-template-columns:1fr}}
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
     @media (max-width:900px){.matter-grid{grid-template-columns:1fr}}
+    @media (max-width:900px){.index-main-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -113,6 +117,13 @@
         </label>
         <button id="expedientesSearchClear" class="btn" type="button">Limpiar</button>
       </div>
+    </section>
+
+    <section class="card" id="indice-general-pjud">
+      <h2 class="title">Fichero principal · Índice General PJUD</h2>
+      <p class="subtitle">Contenedor principal del Access vigente y sus versiones históricas. Este índice general no pertenece a una causa individual.</p>
+      <div id="pjudIndexMain" class="index-main-grid"></div>
+      <div class="index-version-list" id="pjudIndexVersions"></div>
     </section>
 
     <section class="kardex">
@@ -220,6 +231,7 @@
     let lastMatterMap = new Map();
     let selectedMatter = '';
     let selectedTribunal = '';
+    const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -232,6 +244,54 @@
 
     function normalize(value='') {
       return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+
+    function loadPjudGeneralIndexRegistry() {
+      try {
+        return JSON.parse(window.localStorage.getItem(PJUD_GENERAL_INDEX_STORAGE_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function renderPjudGeneralIndexStorage() {
+      const registry = loadPjudGeneralIndexRegistry();
+      const current = registry.current || null;
+      const versions = Array.isArray(registry.versions) ? registry.versions : [];
+      const mainNode = document.getElementById('pjudIndexMain');
+      const versionsNode = document.getElementById('pjudIndexVersions');
+      if (!mainNode || !versionsNode) return;
+      if (!current) {
+        mainNode.innerHTML = '<div class="folder">No existe Access vigente todavía. Genéralo desde Inicio de Causas &gt; Índice General PJUD.</div>';
+        versionsNode.innerHTML = '';
+        return;
+      }
+      const matterSummary = Object.entries(current.byMatter || {}).sort((a, b) => b[1] - a[1]).slice(0, 4).map(([name, count]) => `${name}: ${count}`).join(' · ');
+      mainNode.innerHTML = `
+        <div class="folder">
+          <strong>Access vigente</strong>
+          <div class="muted">Generado: ${escapeHtml(new Date(current.generatedAt).toLocaleString('es-CL', { timeZone: 'UTC' }))}</div>
+          <div class="muted">Total causas: ${escapeHtml(current.totalCauses || 0)} · Duplicados eliminados: ${escapeHtml(current.duplicatesRemoved || 0)}</div>
+          <div class="muted">Materias: ${escapeHtml(matterSummary || 'Sin desglose')}</div>
+          <div class="muted">Bitácora resumida: ${escapeHtml(current.processLog || current.processStatus || 'Sin bitácora')}</div>
+        </div>
+        <button class="btn" type="button" id="btnPjudIndexOpen">Abrir</button>
+        <button class="btn" type="button" id="btnPjudIndexReplace">Reemplazar/actualizar</button>
+      `;
+      versionsNode.innerHTML = versions.length
+        ? versions.map((version) => `
+          <article class="index-version-item">
+            <strong>Versión ${escapeHtml(version.id || 'sin-id')}</strong>
+            <div class="muted">${escapeHtml(new Date(version.generatedAt).toLocaleString('es-CL', { timeZone: 'UTC' }))} · ${escapeHtml(version.totalCauses || 0)} causa(s) · duplicados ${escapeHtml(version.duplicatesRemoved || 0)}</div>
+          </article>
+        `).join('')
+        : '<div class="folder">No hay versiones anteriores registradas.</div>';
+      document.getElementById('btnPjudIndexOpen')?.addEventListener('click', () => {
+        window.alert(`Access vigente\n\nID: ${current.id || 'sin-id'}\nTotal causas: ${current.totalCauses || 0}\nEstado: ${current.processStatus || 'No informado'}`);
+      });
+      document.getElementById('btnPjudIndexReplace')?.addEventListener('click', () => {
+        window.location.href = './causas.html';
+      });
     }
     function readCrossSearchFromQuery() {
       const params = new URLSearchParams(window.location.search);
@@ -398,6 +458,7 @@
 
       lastMatterMap = buildJudicialTree(cases || [], clientMap);
       renderMatterFolders();
+      renderPjudGeneralIndexStorage();
       if (selectedMatter) {
         if (selectedTribunal) openTribunalPanel(selectedTribunal);
         else openMatterPanel(selectedMatter);

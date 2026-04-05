@@ -577,6 +577,27 @@
       grid-column:1 / -1;
     }
 
+    .causas-page .pjud-index-priority{
+      background:linear-gradient(180deg,#b7ddd7 0%,#9fcec6 100%);
+      border:1px solid rgba(36,95,89,.24);
+      border-radius:20px;
+      padding:14px;
+      display:grid;
+      gap:10px;
+    }
+
+    .causas-page .pjud-index-actions{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .pjud-index-stats{
+      display:grid;
+      grid-template-columns:repeat(5,minmax(0,1fr));
+      gap:8px;
+    }
+
     .metric strong,
     .big-number,
     .causas-page .metric-value{
@@ -1587,6 +1608,8 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-index-actions,
+      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1635,6 +1658,8 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
+      .pjud-index-actions,
+      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1706,6 +1731,21 @@
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
+    </section>
+
+    <section class="pjud-index-priority" aria-label="Índice General PJUD">
+      <div>
+        <h3 class="panel-title">Índice General PJUD</h3>
+        <p class="panel-subtitle">Control de creación del Access en Inicio de Causas. El almacenamiento y las versiones quedan en Expedientes Digitales &gt; Fichero principal &gt; Índice General PJUD.</p>
+      </div>
+      <div class="pjud-index-actions">
+        <button id="btnIndiceCrearAccess" class="btn btn-primary" type="button">Crear Access</button>
+        <button id="btnIndiceActualizarAccess" class="btn" type="button">Actualizar Access</button>
+        <button id="btnIndiceDepurarDuplicados" class="btn" type="button">Depurar duplicados</button>
+        <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
+        <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
+      </div>
+      <div class="pjud-index-stats" id="pjudIndexStats"></div>
     </section>
 
     <section class="screen-grid">
@@ -2467,6 +2507,7 @@
     };
 
     const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
+    const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -2545,6 +2586,9 @@
         loading: false,
         error: '',
         items: [],
+      },
+      pjudGeneralIndexControl: {
+        lastStatus: 'Sin ejecución',
       },
     };
 
@@ -5469,6 +5513,91 @@
       });
     }
 
+    function loadPjudGeneralIndexRegistry(){
+      try {
+        return JSON.parse(window.localStorage.getItem(PJUD_GENERAL_INDEX_STORAGE_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+
+    function persistPjudGeneralIndexRegistry(payload = {}){
+      try {
+        window.localStorage.setItem(PJUD_GENERAL_INDEX_STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.warn('[CAUSAS][PJUD-INDEX] No fue posible guardar el índice general en localStorage.', error);
+      }
+    }
+
+    function buildPjudIndexFromCases(){
+      const buckets = {};
+      const unique = new Map();
+      let duplicatesRemoved = 0;
+      getAllCases().forEach((item) => {
+        const materia = String(item.materia || item.pjud_materia || 'Materia sin clasificar').trim();
+        const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
+        const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
+        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
+        if (unique.has(key)) {
+          duplicatesRemoved += 1;
+          return;
+        }
+        unique.set(key, { materia, tribunal, rol });
+        buckets[materia] = (buckets[materia] || 0) + 1;
+      });
+      return {
+        generatedAt: new Date().toISOString(),
+        totalCauses: unique.size,
+        byMatter: buckets,
+        duplicatesRemoved,
+      };
+    }
+
+    function persistPjudGeneralIndexVersion({ processStatus = '', processLog = '' } = {}){
+      const snapshot = buildPjudIndexFromCases();
+      const registry = loadPjudGeneralIndexRegistry();
+      const previous = registry.current || null;
+      const versionId = `indice-${Date.now()}`;
+      const nextCurrent = {
+        id: versionId,
+        generatedAt: snapshot.generatedAt,
+        totalCauses: snapshot.totalCauses,
+        byMatter: snapshot.byMatter,
+        duplicatesRemoved: snapshot.duplicatesRemoved,
+        processStatus: processStatus || state.pjudGeneralIndexControl.lastStatus || 'Completado',
+        processLog: processLog || '',
+      };
+      const versions = [nextCurrent, ...(Array.isArray(registry.versions) ? registry.versions : [])];
+      if (previous) versions.push(previous);
+      persistPjudGeneralIndexRegistry({
+        current: nextCurrent,
+        versions: versions.slice(0, 12),
+      });
+      return nextCurrent;
+    }
+
+    function renderPjudGeneralIndexPanel(){
+      const node = $('pjudIndexStats');
+      if (!node) return;
+      const registry = loadPjudGeneralIndexRegistry();
+      const current = registry.current || {};
+      const byMatter = current.byMatter || {};
+      const matterSummary = Object.entries(byMatter).sort((a, b) => b[1] - a[1]).slice(0, 3).map(([name, count]) => `${name}: ${count}`).join(' · ') || 'Sin datos';
+      const lastStatus = state.pjudGeneralIndexControl.lastStatus || current.processStatus || 'Sin ejecución';
+      node.innerHTML = [
+        { label: 'Última generación', value: current.generatedAt ? formatDate(current.generatedAt) : 'No disponible' },
+        { label: 'Cantidad total de causas', value: Number(current.totalCauses || 0) },
+        { label: 'Cantidad por materia', value: matterSummary },
+        { label: 'Duplicados eliminados', value: Number(current.duplicatesRemoved || 0) },
+        { label: 'Estado del último proceso', value: lastStatus },
+      ].map((item) => `
+        <article class="metric">
+          <span class="mini-label">${escapeHtml(item.label)}</span>
+          <strong>${escapeHtml(item.value)}</strong>
+        </article>
+      `).join('');
+    }
+
     function runInteractiveAudit(){
       const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
@@ -7469,6 +7598,7 @@
 
     function renderAll(){
       renderSummaryMetrics();
+      renderPjudGeneralIndexPanel();
       renderList();
       renderPillarCards();
       renderTabs();
@@ -9148,6 +9278,12 @@
         : 'modo_directo_pjud (principal)';
       const summaryText = `Resumen final importación PJUD (${modeLabel}): fuente ${sourceLabel || 'no informada'}, detectadas ${rowsAnalyzed}, procesadas ${uniqueCases}, descartadas ${accounting?.rowsDiscarded ?? Math.max(0, rowsAnalyzed - uniqueCases)}, fallidas ${accounting?.rowsFailed ?? errors}. ${explicitWarning ? `Motivo de advertencia: ${explicitWarning}.` : ''} (${batchId ? `Batch ${batchId}` : 'sin registro de batch (modo tolerante)'}).`;
       setMessage('importMsg', summaryText, explicitWarning ? 'warn' : tone);
+      const storedIndex = persistPjudGeneralIndexVersion({
+        processStatus: explicitWarning ? 'Completado con advertencias' : 'Completado',
+        processLog: summaryText,
+      });
+      state.pjudGeneralIndexControl.lastStatus = `${storedIndex.processStatus} · ${storedIndex.totalCauses} causa(s)`;
+      renderPjudGeneralIndexPanel();
       const preview = $('batchImportPreview');
       if (!preview) return;
       preview.innerHTML = `
@@ -11438,6 +11574,31 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnSistemaAutomatico', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
       bindEvent('btnImportar', 'click', () => openImportModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnIndiceCrearAccess', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
+        openMassiveDownloadModal();
+        setMessage('importMsg', 'Control de creación activado: inicia sesión en PJUD, luego ejecuta el flujo para generar el Access del Índice General PJUD.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceActualizarAccess', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Actualización solicitada';
+        openMassiveDownloadModal();
+        setMessage('importMsg', 'Actualización del Access solicitada. Ejecuta nuevamente el flujo masivo para reemplazar la versión vigente.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceDepurarDuplicados', 'click', () => {
+        const snapshot = buildPjudIndexFromCases();
+        state.pjudGeneralIndexControl.lastStatus = `Depuración ejecutada: ${snapshot.duplicatesRemoved} duplicado(s) eliminado(s) por materia+tribunal+rol`;
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceAbrirGeneral', 'click', () => {
+        window.location.href = './expedientes-digitales.html#indice-general-pjud';
+      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceUsarDescargas', 'click', () => {
+        state.pjudGeneralIndexControl.lastStatus = 'Índice general marcado como fuente de descargas';
+        setMessage('importMsg', 'El Índice General PJUD vigente se usará como referencia de descargas en el siguiente proceso.', 'ok');
+        renderPjudGeneralIndexPanel();
+      }, { scope: 'indice-general' });
       bindEvent('btnAbrirModalDescargaMasiva', 'click', () => openMassiveDownloadModal(), { scope: 'importacion-selector' });
       bindEvent('btnAbrirModalDescargaManual', 'click', () => openManualDownloadModal(), { scope: 'importacion-selector' });
       bindEvent('btnConectarPjudMasivo', 'click', () => connectWithPjud(), { scope: 'importacion-masiva' });
