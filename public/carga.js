@@ -34,7 +34,10 @@ const MASSIVE_STEPS = [
 
 const DEFAULT_BATCH_SIZE = 20
 const CHECKPOINT_STORAGE_KEY = 'alpha.pjud.checkpoint'
-const SESSION_STORAGE_KEY = 'pjud.session.state'
+const BRIDGE_SNAPSHOT_STORAGE_KEY = 'alpha.pjud.bridge.snapshot'
+const BRIDGE_CHANNEL_NAME = 'alpha-pjud-bridge'
+const BRIDGE_MESSAGE_TYPE = 'alpha-pjud-live-context'
+const BRIDGE_HEARTBEAT_MAX_AGE_MS = 30000
 
 const PJUD_SESSION_LABEL = {
   not_authenticated: 'no autenticado',
@@ -91,20 +94,79 @@ function getPjudSessionStateLabel(sessionState) {
   return PJUD_SESSION_LABEL[sessionState] || sessionState
 }
 
+function parseBridgeSnapshot(raw) {
+  if (!raw || typeof raw !== 'object') return null
+  const timestamp = Number(raw.timestamp || 0)
+  const host = String(raw.host || '')
+  const url = String(raw.url || '')
+  const title = String(raw.title || '')
+  const view = String(raw.view || '')
+  const source = String(raw.source || '')
+  const isAuthenticated = Boolean(raw.isAuthenticated)
+  const hasMisCausas = Boolean(raw.hasMisCausas)
+  const hasClaveUnicaReturn = Boolean(raw.hasClaveUnicaReturn)
+  const hasOJV = Boolean(raw.hasOJV)
+  const causes = Array.isArray(raw.causes) ? raw.causes : []
+
+  return {
+    timestamp,
+    host,
+    url,
+    title,
+    view,
+    source,
+    isAuthenticated,
+    hasMisCausas,
+    hasClaveUnicaReturn,
+    hasOJV,
+    causes,
+    openerControls: Array.isArray(raw.openerControls) ? raw.openerControls : []
+  }
+}
+
+function loadBridgeSnapshot() {
+  const raw = window.localStorage?.getItem(BRIDGE_SNAPSHOT_STORAGE_KEY)
+  if (!raw) return null
+  try {
+    return parseBridgeSnapshot(JSON.parse(raw))
+  } catch {
+    return null
+  }
+}
+
+function saveBridgeSnapshot(snapshot) {
+  const normalized = parseBridgeSnapshot(snapshot)
+  if (!normalized) return null
+  window.localStorage?.setItem(BRIDGE_SNAPSHOT_STORAGE_KEY, JSON.stringify(normalized))
+  return normalized
+}
+
 function inferPjudSessionState() {
-  const candidate = window.__PJUD_SESSION_STATE__ || window.localStorage?.getItem(SESSION_STORAGE_KEY) || 'not_authenticated'
-  return PJUD_SESSION_LABEL[candidate] ? candidate : 'not_authenticated'
+  const snapshot = loadBridgeSnapshot()
+  if (!snapshot) return 'not_authenticated'
+  const isFresh = (Date.now() - snapshot.timestamp) <= BRIDGE_HEARTBEAT_MAX_AGE_MS
+  if (!isFresh) return 'expired'
+  if (!snapshot.isAuthenticated) return 'waiting_manual_login'
+  return snapshot.hasMisCausas ? 'mis_causas_civiles_ready' : 'active'
 }
 
 function inferLivePjudContext() {
-  const ctx = window.__PJUD_LIVE_CONTEXT__ || {}
+  const ctx = loadBridgeSnapshot() || {}
+  const isFresh = ctx.timestamp && (Date.now() - ctx.timestamp) <= BRIDGE_HEARTBEAT_MAX_AGE_MS
   return {
     isAuthenticated: Boolean(ctx.isAuthenticated),
-    view: String(ctx.view || ''),
-    matter: String(ctx.matter || ''),
-    domAccessible: Boolean(ctx.domAccessible),
+    hasClaveUnicaReturn: Boolean(ctx.hasClaveUnicaReturn),
+    hasOJV: Boolean(ctx.hasOJV),
+    view: String(ctx.view || ctx.title || ''),
+    matter: String(ctx.matter || 'civil'),
+    domAccessible: Boolean(ctx.url) && Boolean(isFresh),
     url: String(ctx.url || ''),
-    causes: Array.isArray(ctx.causes) ? ctx.causes : []
+    host: String(ctx.host || ''),
+    title: String(ctx.title || ''),
+    source: String(ctx.source || ''),
+    causes: Array.isArray(ctx.causes) ? ctx.causes : [],
+    openerControls: Array.isArray(ctx.openerControls) ? ctx.openerControls : [],
+    isFresh
   }
 }
 
@@ -120,10 +182,21 @@ function validateLivePjudView(state) {
     hasMisCausas,
     hasMatterVisibility,
     domAccessible: live.domAccessible,
-    hasUrl
+    hasUrl,
+    hasClaveUnicaReturn: live.hasClaveUnicaReturn,
+    hasOJV: live.hasOJV,
+    isFresh: live.isFresh
   }
 
-  const isValid = sessionOk && live.isAuthenticated && hasMisCausas && hasMatterVisibility && live.domAccessible && hasUrl
+  const isValid = sessionOk
+    && live.isAuthenticated
+    && live.hasClaveUnicaReturn
+    && live.hasOJV
+    && hasMisCausas
+    && hasMatterVisibility
+    && live.domAccessible
+    && hasUrl
+    && live.isFresh
   return { isValid, live, diagnostics }
 }
 
@@ -269,7 +342,7 @@ function detectVisibleCauses() {
     : []
 
   const causes = domCauses.length > 0 ? domCauses : contextCauses
-  const selectorUsed = domCauses.length > 0 ? selectorEvidence.selector : (contextCauses.length > 0 ? 'window.__PJUD_LIVE_CONTEXT__.causes' : 'sin selector válido')
+  const selectorUsed = domCauses.length > 0 ? selectorEvidence.selector : (contextCauses.length > 0 ? 'puente_pjud.causes' : 'sin selector válido')
 
   return {
     live,
@@ -277,6 +350,7 @@ function detectVisibleCauses() {
     selectorUsed,
     count: causes.length,
     hasInteractiveControl: causes.some((cause) => cause.openRef && cause.openRef !== 'No disponible')
+      || live.openerControls.length > 0
   }
 }
 
@@ -840,22 +914,103 @@ function renderCarga(container, context = {}) {
     appendAuditLog(state, `Checkpoint detectado: batch ${state.checkpoint.batch_id || '-'} en índice ${state.checkpoint.cause_index || 0}.`)
   }
 
-  const setPjudState = (sessionState, message = '') => {
-    window.__PJUD_SESSION_STATE__ = sessionState
-    window.localStorage?.setItem(SESSION_STORAGE_KEY, sessionState)
-    state.pjud.sessionState = sessionState
-    appendAuditLog(state, message || `Estado PJUD actualizado: ${getPjudSessionStateLabel(sessionState)}.`)
+  const bridge = {
+    token: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+    channel: null
+  }
+
+  const applySnapshot = (snapshot, source = 'bridge') => {
+    const normalized = saveBridgeSnapshot(snapshot)
+    if (!normalized) return
+    state.pjud.sessionState = inferPjudSessionState()
+    state.pjud.currentUrl = normalized.url || ''
+    state.diagnostics.currentUrl = normalized.url || '-'
+    appendAuditLog(state, `Contexto PJUD actualizado desde ${source}: ${normalized.host || '-'} · ${getPjudSessionStateLabel(state.pjud.sessionState)}.`)
     refreshAuditUI(container, state)
   }
 
+  const buildBridgeHelperSnippet = () => {
+    const targetOrigin = window.location.origin
+    return `(function(){
+  const token=${JSON.stringify(bridge.token)};
+  const targetOrigin=${JSON.stringify(targetOrigin)};
+  const channelName=${JSON.stringify(BRIDGE_CHANNEL_NAME)};
+  const type=${JSON.stringify(BRIDGE_MESSAGE_TYPE)};
+  function rows(){
+    return Array.from(document.querySelectorAll('table tbody tr,.mis-causas-table tbody tr,.causas-list .row')).filter((r)=>r.offsetParent!==null).slice(0,200).map((row,idx)=>{
+      const cells=Array.from(row.querySelectorAll('td'));
+      const opener=row.querySelector('button,a,[onclick],[role="button"]');
+      return {
+        rol:(cells[0]?.textContent||row.getAttribute('data-rol')||'SIN-ROL-'+(idx+1)).trim(),
+        caratula:(cells[1]?.textContent||'').trim(),
+        tribunal:(cells[2]?.textContent||'').trim(),
+        openRef:(opener?.getAttribute('onclick')||opener?.getAttribute('href')||opener?.className||'').trim()
+      };
+    });
+  }
+  function hasClaveUnicaReturn(){
+    const txt=(document.body?.innerText||'').toLowerCase();
+    return txt.includes('clave única') || txt.includes('clave unica') || /claveunica|account\.claveunica/i.test(location.href);
+  }
+  function publish(){
+    const payload={
+      timestamp:Date.now(),
+      host:location.hostname,
+      url:location.href,
+      title:document.title||'',
+      source:'pjud-bridge-script',
+      view:/mis\\s*causas/i.test(document.body?.innerText||'')?'Mis Causas':'Vista PJUD',
+      hasOJV:/oficinajudicialvirtual|oficina judicial virtual/i.test(location.href+' '+document.title+' '+(document.body?.innerText||'')),
+      hasClaveUnicaReturn:hasClaveUnicaReturn(),
+      hasMisCausas:/mis\\s*causas/i.test(document.body?.innerText||''),
+      isAuthenticated:!/clave\\s*única|login|iniciar sesión/i.test(document.body?.innerText||''),
+      causes:rows(),
+      openerControls:Array.from(document.querySelectorAll('button,a,[onclick],[role=\"button\"]')).slice(0,50).map((el)=>el.getAttribute('onclick')||el.getAttribute('href')||el.className||el.id||'').filter(Boolean)
+    };
+    if(window.opener){ window.opener.postMessage({type,token,payload},targetOrigin); }
+    try{
+      const bc=new BroadcastChannel(channelName);
+      bc.postMessage({type,token,payload});
+      bc.close();
+    }catch(e){}
+  }
+  publish();
+  window.__ALPHA_PJUD_BRIDGE_TIMER__=setInterval(publish,1500);
+})();`
+  }
+
+  window.__ALPHA_PJUD_BRIDGE__ = {
+    token: bridge.token,
+    getHelperSnippet: buildBridgeHelperSnippet
+  }
+
+  const onBridgeMessage = (rawData, source) => {
+    const message = rawData && typeof rawData === 'object' ? rawData : {}
+    if (message.type !== BRIDGE_MESSAGE_TYPE || message.token !== bridge.token || !message.payload) return
+    applySnapshot(message.payload, source)
+  }
+
+  window.addEventListener('message', (event) => onBridgeMessage(event.data, 'window.postMessage'))
+  try {
+    bridge.channel = new BroadcastChannel(BRIDGE_CHANNEL_NAME)
+    bridge.channel.addEventListener('message', (event) => onBridgeMessage(event.data, 'BroadcastChannel'))
+  } catch {
+    appendAuditLog(state, 'BroadcastChannel no disponible. Se utilizará postMessage si existe ventana hija conectada.')
+  }
+
+  appendAuditLog(state, 'Limitación técnica: Alpha Avocat no puede leer DOM/cookies de una pestaña PJUD externa por Same-Origin Policy.')
+  appendAuditLog(state, 'Puente real habilitado: abra PJUD en una ventana hija y ejecute window.__ALPHA_PJUD_BRIDGE__.getHelperSnippet() en consola de PJUD.')
+
   container.querySelector('#massiveManualLoginBtn')?.addEventListener('click', () => {
-    state.flowStatus = 'waiting_mis_causas'
-    setPjudState('active', 'Login manual confirmado por usuario. Ahora abra Mis Causas (todas las materias).')
+    state.flowStatus = 'waiting_manual_login'
+    appendAuditLog(state, 'Sin puente activo aún. Debe inyectar el helper en la pestaña PJUD para evidencias técnicas reales.')
+    refreshAuditUI(container, state)
   })
 
   container.querySelector('#massiveMisCausasBtn')?.addEventListener('click', () => {
     state.flowStatus = 'validating_view'
-    setPjudState('mis_causas_civiles_ready', 'Usuario indica vista Mis Causas lista. Puede iniciar lote.')
+    appendAuditLog(state, 'Botón informativo: la validación real depende exclusivamente del puente técnico y heartbeat PJUD.')
+    refreshAuditUI(container, state)
   })
 
   container.querySelector('#massiveStartBtn')?.addEventListener('click', () => {
@@ -877,13 +1032,14 @@ function renderCarga(container, context = {}) {
   container.querySelector('#massiveResumeBtn')?.addEventListener('click', () => {
     if (state.isRunning || !state.pjud.paused) return
     state.flowStatus = 'resumed'
-    setPjudState('active', 'Reanudación solicitada por usuario.')
+    appendAuditLog(state, 'Reanudación solicitada. Se revalidará estado real desde puente PJUD.')
     executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
   })
 
   container.querySelector('#massiveRetryAuthBtn')?.addEventListener('click', () => {
     state.flowStatus = 'waiting_manual_login'
-    setPjudState('waiting_manual_login', 'Reintento de autenticación solicitado. Abra sesión manualmente y confirme.')
+    appendAuditLog(state, 'Reintento solicitado. Debe existir heartbeat real desde PJUD para pasar validación.')
+    refreshAuditUI(container, state)
   })
 
   container.querySelector('#massiveContinueFromCheckpointBtn')?.addEventListener('click', () => {
