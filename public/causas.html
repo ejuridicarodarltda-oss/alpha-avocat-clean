@@ -1692,6 +1692,49 @@
       color:var(--causas-text-secondary);
     }
 
+    .causas-page .pjud-assisted-visible-panel{
+      border:1px solid rgba(95,159,151,.55);
+      background:rgba(255,255,255,.92);
+    }
+
+    .causas-page .pjud-assisted-visible-list{
+      display:grid;
+      gap:8px;
+    }
+
+    .causas-page .pjud-assisted-visible-row{
+      display:grid;
+      grid-template-columns:minmax(280px, 1fr) auto auto;
+      gap:10px;
+      align-items:center;
+      border:1px solid rgba(95,159,151,.32);
+      border-radius:14px;
+      background:#f7fffd;
+      padding:10px 12px;
+    }
+
+    .causas-page .pjud-assisted-visible-instruction{
+      font-weight:700;
+      color:var(--causas-text);
+    }
+
+    .causas-page .pjud-assisted-visible-status{
+      font-weight:800;
+      color:#5f6d7a;
+      min-width:86px;
+      text-align:right;
+    }
+
+    @media (max-width: 920px){
+      .causas-page .pjud-assisted-visible-row{
+        grid-template-columns:1fr;
+        align-items:flex-start;
+      }
+      .causas-page .pjud-assisted-visible-status{
+        text-align:left;
+      }
+    }
+
     @media (max-width: 1280px){
       .screen-grid{ grid-template-columns:1fr; }
       .list-wrap{ max-height:none; }
@@ -2766,6 +2809,7 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
+      pjudAssistedVisibleStepStatus: Object.fromEntries(PJUD_ASSISTED_VISIBLE_STEPS.map((step) => [step.id, 'Pendiente'])),
       batchScopeMode: 'all',
       batchScopeMaterias: [],
       pjudLinking: {
@@ -2811,6 +2855,15 @@
       retrying: 'En ejecución',
       skipped: 'Pendiente',
     };
+    const PJUD_ASSISTED_VISIBLE_STEPS = [
+      { id: 1, instruction: 'Ingrese a www.pjud.cl', buttonLabel: 'Verificar paso' },
+      { id: 2, instruction: 'Ingrese a Oficina Judicial Virtual', buttonLabel: 'Verificar paso' },
+      { id: 3, instruction: 'Ingrese a Todos los Servicios mediante Clave Única', buttonLabel: 'Verificar paso' },
+      { id: 4, instruction: 'Ingrese a Mis Causas', buttonLabel: 'Verificar paso' },
+      { id: 5, instruction: 'Posicione el cursor sobre el inicio de la primera causa o sobre la lupa', buttonLabel: 'Verificar paso' },
+      { id: 6, instruction: 'Verificar listado de causas', buttonLabel: 'Verificar paso' },
+      { id: 7, instruction: 'Extraer listado de causas', buttonLabel: 'Extraer listado de causas' },
+    ];
     const MASSIVE_FLOW_STEPS = [
       { id: 1, name: 'Adquirir fuente y rutas PJUD' },
       { id: 2, name: 'Abrir Mis Causas / usar sesión activa' },
@@ -7390,6 +7443,33 @@
       });
     }
 
+    function renderPjudAssistedVisiblePanel(){
+      return `
+        <section class="section-card pjud-assisted-visible-panel">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">MODO ASISTIDO PJUD PASO A PASO</h4>
+              <p class="section-copy">Bloque visible e independiente del sistema antiguo. Cada fila muestra instrucción, botón y estado.</p>
+            </div>
+          </div>
+          <div class="pjud-assisted-visible-list">
+            ${PJUD_ASSISTED_VISIBLE_STEPS.map((step) => `
+              <article class="pjud-assisted-visible-row">
+                <div class="pjud-assisted-visible-instruction">${step.id}. ${escapeHtml(step.instruction)}</div>
+                <div>
+                  <button type="button" class="btn" data-pjud-assisted-visible-step="${step.id}">${escapeHtml(step.buttonLabel)}</button>
+                </div>
+                <div class="pjud-assisted-visible-status">${escapeHtml(state.pjudAssistedVisibleStepStatus?.[step.id] || 'Pendiente')}</div>
+              </article>
+            `).join('')}
+          </div>
+          <div class="modal-actions" style="margin-top:10px;">
+            <button type="button" class="btn" data-pjud-assisted-visible-action="reset">Reiniciar proceso</button>
+          </div>
+        </section>
+      `;
+    }
+
     function renderPjudImportHistoryPanel(){
       const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
       const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
@@ -7407,6 +7487,7 @@
               <button class="btn btn-primary" data-pjud-action="open-import-modal">Nueva importación PJUD</button>
             </div>
           </div>
+          ${renderPjudAssistedVisiblePanel()}
           ${state.pjudHistory.loading ? '<div class="helper-box">Cargando historial de importaciones PJUD…</div>' : ''}
           ${state.pjudHistory.error ? `<div class="helper-box">${escapeHtml(state.pjudHistory.error)}</div>` : ''}
           <div class="timeline">
@@ -13340,6 +13421,22 @@
             setMessage('importMsg', `Reintento preparado para el lote ${batchId}. Vuelve a adjuntar el archivo/fuente y ejecuta la importación.`, 'warn');
             return;
           }
+        }
+
+        const pjudAssistedVisibleStep = event.target.closest('[data-pjud-assisted-visible-step]');
+        if (pjudAssistedVisibleStep) {
+          const stepId = Number(pjudAssistedVisibleStep.dataset.pjudAssistedVisibleStep || 0);
+          if (!stepId) return;
+          state.pjudAssistedVisibleStepStatus[stepId] = 'Pendiente';
+          renderCurrentTab();
+          return;
+        }
+
+        const pjudAssistedVisibleAction = event.target.closest('[data-pjud-assisted-visible-action]');
+        if (pjudAssistedVisibleAction?.dataset.pjudAssistedVisibleAction === 'reset') {
+          state.pjudAssistedVisibleStepStatus = Object.fromEntries(PJUD_ASSISTED_VISIBLE_STEPS.map((step) => [step.id, 'Pendiente']));
+          renderCurrentTab();
+          return;
         }
 
         const pjudCaseAction = event.target.closest('[data-pjud-case-action]');
