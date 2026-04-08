@@ -2329,3 +2329,65 @@ gap:4px;
 max-height:280px;
 overflow:auto;
 }
+
+.flow-mode-selector{
+display:grid;
+grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
+gap:10px;
+}
+
+.flow-mode-option{
+display:grid;
+gap:6px;
+border:1px solid rgba(15,23,42,.12);
+border-radius:12px;
+padding:12px;
+background:#fff;
+}
+
+.assisted-grid{
+display:grid;
+grid-template-columns:1fr;
+gap:12px;
+}
+
+.assisted-diagnostic-panel{
+border:1px solid rgba(15,23,42,.12);
+border-radius:12px;
+padding:10px;
+background:#fff;
+}
+
+.assisted-step-list{
+list-style:none;
+padding:0;
+margin:0;
+display:grid;
+gap:10px;
+}
+
+.assisted-step{
+display:grid;
+grid-template-columns:1fr auto;
+gap:10px;
+border:1px solid rgba(15,23,42,.12);
+border-radius:12px;
+background:#fff;
+padding:10px;
+align-items:center;
+}
+
+.assisted-step__actions{
+display:grid;
+gap:8px;
+justify-items:end;
+}
+
+.assisted-step__status{
+font-weight:700;
+}
+
+.assisted-step--pending .assisted-step__status{color:#5f6d7a;}
+.assisted-step--running .assisted-step__status{color:#135fb2;}
+.assisted-step--success .assisted-step__status{color:#1d7a35;}
+.assisted-step--error .assisted-step__status{color:#aa1f2d;}

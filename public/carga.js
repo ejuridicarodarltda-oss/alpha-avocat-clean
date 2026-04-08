@@ -44,6 +44,24 @@ const PJUD_SESSION_LABEL = {
   expired: 'sesión expirada'
 }
 
+const ASSISTED_MODE_ID = 'assisted-pjud-step-by-step'
+const LEGACY_MODE_ID = 'legacy-flow'
+const ASSISTED_STATUS_LABEL = {
+  pending: 'Pendiente',
+  running: 'En proceso',
+  success: 'Correcto',
+  error: 'Error'
+}
+const ASSISTED_STEPS = [
+  { id: 1, title: 'Ingrese a www.pjud.cl', successMessage: 'Ingresado con éxito' },
+  { id: 2, title: 'Ingrese a Oficina Judicial Virtual', successMessage: 'Ingresado con éxito' },
+  { id: 3, title: 'Ingrese a Todos los Servicios mediante Clave Única', successMessage: 'Ingresado con éxito' },
+  { id: 4, title: 'Ingrese a Mis Causas', successMessage: 'Ingresado con éxito' },
+  { id: 5, title: 'Posicione el cursor sobre el inicio de la primera causa o sobre la lupa', successMessage: 'Posicionado con éxito' },
+  { id: 6, title: 'Verificar listado de causas', successMessage: 'Listado detectado con éxito' },
+  { id: 7, title: 'Extraer listado de causas', successMessage: 'Causas extraídas con éxito' }
+]
+
 function resolveContainer(containerOrSelector = '#cargaModuleRoot') {
   if (containerOrSelector instanceof HTMLElement) return containerOrSelector
   if (typeof containerOrSelector === 'string') return document.querySelector(containerOrSelector)
@@ -171,6 +189,97 @@ function createMockLiveCauses(total = 40) {
   })
 }
 
+function createInitialAssistedState() {
+  return {
+    selectedMode: ASSISTED_MODE_ID,
+    currentStepId: null,
+    extractedCauses: [],
+    diagnostics: [],
+    listDetection: {
+      selector: '',
+      count: 0,
+      sample: []
+    },
+    steps: ASSISTED_STEPS.map((step) => ({
+      ...step,
+      status: 'pending',
+      detail: 'Pendiente de verificación'
+    }))
+  }
+}
+
+function appendAssistedLog(state, message) {
+  const timestamp = new Date().toLocaleTimeString('es-CL')
+  state.diagnostics.unshift(`${timestamp} · ${message}`)
+  if (state.diagnostics.length > 120) state.diagnostics = state.diagnostics.slice(0, 120)
+}
+
+function normalizeCause(rawCause = {}, index = 0) {
+  const rol = String(rawCause.rol || rawCause.rolIngreso || rawCause.id || `SIN-ROL-${index + 1}`).trim()
+  const caratula = String(rawCause.caratula || rawCause.nombre || rawCause.glosa || '').trim()
+  const tribunal = String(rawCause.tribunal || rawCause.juzgado || rawCause.corte || '').trim()
+  const openRef = String(
+    rawCause.lookupButtonSelector
+    || rawCause.openRef
+    || rawCause.onClick
+    || rawCause.href
+    || rawCause.detailUrl
+    || ''
+  ).trim()
+
+  return {
+    rol: rol || `SIN-ROL-${index + 1}`,
+    caratula: caratula || 'No disponible',
+    tribunal: tribunal || 'No disponible',
+    openRef: openRef || 'No disponible'
+  }
+}
+
+function detectVisibleCauses() {
+  const live = inferLivePjudContext()
+  const knownSelectors = [
+    '#misCausasTable tbody tr',
+    '.mis-causas-table tbody tr',
+    '.mis-causas-list .cause-row',
+    'table tbody tr',
+    '.causas-list .row'
+  ]
+
+  const selectorEvidence = knownSelectors
+    .map((selector) => ({ selector, rows: Array.from(document.querySelectorAll(selector)).filter((row) => row.offsetParent !== null) }))
+    .find((entry) => entry.rows.length > 0)
+
+  const domRows = selectorEvidence?.rows ?? []
+  const domCauses = domRows.map((row, index) => {
+    const cells = Array.from(row.querySelectorAll('td'))
+    const rol = cells[0]?.textContent?.trim() || row.querySelector('[data-rol]')?.getAttribute('data-rol') || ''
+    const caratula = cells[1]?.textContent?.trim() || row.querySelector('.caratula')?.textContent?.trim() || ''
+    const tribunal = cells[2]?.textContent?.trim() || row.querySelector('.tribunal')?.textContent?.trim() || ''
+    const opener = row.querySelector('button, a, [onclick], [role="button"]')
+    return normalizeCause({
+      rol,
+      caratula,
+      tribunal,
+      openRef: opener?.getAttribute('onclick') || opener?.getAttribute('href') || opener?.className || ''
+    }, index)
+  }).filter((cause) => cause.rol && cause.rol !== 'No disponible')
+
+  const contextCauses = Array.isArray(live.causes)
+    ? live.causes.map((cause, index) => normalizeCause(cause, index))
+    : []
+
+  const causes = domCauses.length > 0 ? domCauses : contextCauses
+  const selectorUsed = domCauses.length > 0 ? selectorEvidence.selector : (contextCauses.length > 0 ? 'window.__PJUD_LIVE_CONTEXT__.causes' : 'sin selector válido')
+
+  return {
+    live,
+    causes,
+    selectorUsed,
+    count: causes.length,
+    hasInteractiveControl: causes.some((cause) => cause.openRef && cause.openRef !== 'No disponible')
+  }
+}
+
 function updateBatchCounters(state) {
   state.batch.processed = state.batch.success + state.batch.failed
   state.batch.pending = Math.max(0, state.batch.total - state.batch.processed)
@@ -264,15 +373,206 @@ function refreshAuditUI(root, state) {
   root.querySelector('#massiveContinueFromCheckpointBtn').disabled = state.isRunning || !state.checkpoint
 }
 
+function renderAssistedStepList(state) {
+  return state.steps.map((step) => `
+    <li class="assisted-step assisted-step--${step.status}">
+      <div>
+        <strong>Paso ${step.id}</strong>
+        <div>${escapeHtml(step.title)}</div>
+        <small>${escapeHtml(step.detail)}</small>
+      </div>
+      <div class="assisted-step__actions">
+        <span class="assisted-step__status">${ASSISTED_STATUS_LABEL[step.status]}</span>
+        <button class="btn btn-3d" type="button" data-assisted-verify="${step.id}">Verificar paso</button>
+      </div>
+    </li>
+  `).join('')
+}
+
+function refreshAssistedUI(root, state) {
+  root.querySelector('#assistedStepList').innerHTML = renderAssistedStepList(state)
+  root.querySelector('#assistedDetectedCount').textContent = String(state.listDetection.count || 0)
+  root.querySelector('#assistedSelectorUsed').textContent = state.listDetection.selector || '-'
+
+  const sampleItems = (state.listDetection.sample || []).map((cause) => `
+    <li>${escapeHtml(cause.rol)} · ${escapeHtml(cause.caratula)} · ${escapeHtml(cause.tribunal)}</li>
+  `).join('')
+  root.querySelector('#assistedSampleList').innerHTML = sampleItems || '<li class="muted">Sin muestra todavía.</li>'
+
+  const logItems = state.diagnostics.map((line) => `<li>${escapeHtml(line)}</li>`).join('')
+  root.querySelector('#assistedDiagnosticLog').innerHTML = logItems || '<li class="muted">Sin diagnóstico todavía.</li>'
+}
+
+function updateAssistedStepState(state, stepId, status, detail) {
+  const step = state.steps.find((entry) => entry.id === stepId)
+  if (!step) return
+  step.status = status
+  step.detail = detail
+}
+
+function canRunAssistedStep(state, stepId) {
+  if (stepId === 1) return true
+  const previous = state.steps.find((entry) => entry.id === stepId - 1)
+  return previous?.status === 'success'
+}
+
+function verifyAssistedStep(state, stepId) {
+  if (!canRunAssistedStep(state, stepId)) {
+    updateAssistedStepState(state, stepId, 'error', 'No puede avanzar: el paso anterior no está Correcto.')
+    appendAssistedLog(state, `Paso ${stepId} bloqueado por secuencia.`)
+    return
+  }
+
+  updateAssistedStepState(state, stepId, 'running', 'Validación técnica en proceso...')
+  state.currentStepId = stepId
+  const detection = detectVisibleCauses()
+  const { live } = detection
+  const host = (() => {
+    try { return new URL(live.url).hostname } catch { return '' }
+  })()
+  const isPjudDomain = /(^|\.)pjud\.cl$/i.test(host)
+  const viewLooksOJV = /oficina|judicial|virtual|ojv/i.test(live.view)
+  const hasAuthenticatedSignals = Boolean(live.isAuthenticated) && live.domAccessible && detection.count > 0
+  const isLoginView = /login|clave\s*única|autenticación/i.test(live.view)
+  const hasMisCausasSignals = /mis\s*causas/i.test(live.view) && detection.count > 0
+
+  if (stepId === 1) {
+    if (!isPjudDomain) {
+      updateAssistedStepState(state, 1, 'error', 'No se detectó dominio pjud.cl válido en la sesión activa.')
+      appendAssistedLog(state, 'Paso 1 fallido: dominio fuera de ecosistema PJUD.')
+      return
+    }
+    updateAssistedStepState(state, 1, 'success', 'Ingresado con éxito')
+    appendAssistedLog(state, 'Paso 1 correcto: dominio PJUD confirmado.')
+    return
+  }
+
+  if (stepId === 2) {
+    if (!(isPjudDomain && viewLooksOJV && /oficinajudicialvirtual/i.test(live.url))) {
+      updateAssistedStepState(state, 2, 'error', 'No se validó entorno de Oficina Judicial Virtual con evidencia técnica.')
+      appendAssistedLog(state, 'Paso 2 fallido: no coincide entorno OJV.')
+      return
+    }
+    updateAssistedStepState(state, 2, 'success', 'Ingresado con éxito')
+    appendAssistedLog(state, 'Paso 2 correcto: OJV detectada.')
+    return
+  }
+
+  if (stepId === 3) {
+    if (!hasAuthenticatedSignals || isLoginView) {
+      updateAssistedStepState(state, 3, 'error', 'No se detecta sesión autenticada activa o aún está en pantalla de login.')
+      appendAssistedLog(state, 'Paso 3 fallido: sin señales de sesión autenticada activa.')
+      return
+    }
+    updateAssistedStepState(state, 3, 'success', 'Ingresado con éxito')
+    appendAssistedLog(state, 'Paso 3 correcto: sesión autenticada detectada sin captura de credenciales.')
+    return
+  }
+
+  if (stepId === 4) {
+    if (!hasMisCausasSignals) {
+      updateAssistedStepState(state, 4, 'error', 'Mis Causas no está validado con contenido visible real.')
+      appendAssistedLog(state, 'Paso 4 fallido: no hay evidencia real de listado Mis Causas.')
+      return
+    }
+    updateAssistedStepState(state, 4, 'success', 'Ingresado con éxito')
+    appendAssistedLog(state, 'Paso 4 correcto: Mis Causas abierta con listado visible.')
+    return
+  }
+
+  if (stepId === 5) {
+    if (!detection.hasInteractiveControl) {
+      updateAssistedStepState(state, 5, 'error', 'No se detectó control interactivo real (lupa/botón/enlace) en primera causa.')
+      appendAssistedLog(state, 'Paso 5 fallido: sin evidencia de control de apertura en listado.')
+      return
+    }
+    updateAssistedStepState(state, 5, 'success', 'Posicionado con éxito')
+    appendAssistedLog(state, 'Paso 5 correcto: controles interactivos detectados en causas visibles.')
+    return
+  }
+
+  if (stepId === 6) {
+    if (detection.count < 1) {
+      updateAssistedStepState(state, 6, 'error', 'No se detectaron filas de causas visibles.')
+      appendAssistedLog(state, 'Paso 6 fallido: conteo de filas visible = 0.')
+      return
+    }
+    state.listDetection = {
+      count: detection.count,
+      selector: detection.selectorUsed,
+      sample: detection.causes.slice(0, 5)
+    }
+    updateAssistedStepState(state, 6, 'success', 'Listado detectado con éxito')
+    appendAssistedLog(state, `Paso 6 correcto: ${detection.count} causas, selector ${detection.selectorUsed}.`)
+    return
+  }
+
+  if (stepId === 7) {
+    if (!state.listDetection.count || state.steps.find((entry) => entry.id === 6)?.status !== 'success') {
+      updateAssistedStepState(state, 7, 'error', 'Debe validar primero el listado real en el paso 6.')
+      appendAssistedLog(state, 'Paso 7 fallido: extracción bloqueada por ausencia de validación del paso 6.')
+      return
+    }
+    state.extractedCauses = detection.causes.map((cause) => ({
+      rol: cause.rol,
+      caratula: cause.caratula,
+      tribunal: cause.tribunal,
+      openRef: cause.openRef
+    }))
+    updateAssistedStepState(state, 7, 'success', 'Causas extraídas con éxito')
+    appendAssistedLog(state, `Paso 7 correcto: ${state.extractedCauses.length} causas extraídas desde sesión PJUD activa.`)
+  }
+}
+
 function buildUI(container) {
   container.innerHTML = `
     <section class="card" style="max-width:1200px;margin:0 auto;display:grid;gap:16px;">
       <header style="display:grid;gap:6px;">
         <h1 style="margin:0;">Módulo ${MODULE_TITLE}</h1>
-        <p class="muted" style="margin:0;">Flujo asistido real PJUD por sesión manual del usuario (sin login automático y sin Excel como eje principal).</p>
+        <p class="muted" style="margin:0;">Modo antiguo y nuevo modo asistido PJUD conviven temporalmente para validación en paralelo.</p>
       </header>
 
       <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
+        <h2 style="margin:0;font-size:1.06rem;">Tipo de flujo</h2>
+        <div class="flow-mode-selector">
+          <label class="flow-mode-option">
+            <input type="radio" name="flowMode" value="${LEGACY_MODE_ID}">
+            <strong>Modo antiguo</strong>
+            <span class="muted">Mantiene el flujo actual por lote.</span>
+          </label>
+          <label class="flow-mode-option">
+            <input type="radio" name="flowMode" value="${ASSISTED_MODE_ID}" checked>
+            <strong>MODO ASISTIDO PJUD PASO A PASO</strong>
+            <span class="muted">Guía, verifica y extrae listado visible desde sesión web activa.</span>
+          </label>
+        </div>
+      </section>
+
+      <section id="assistedModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
+        <h2 style="margin:0;font-size:1.06rem;">MODO ASISTIDO PJUD PASO A PASO</h2>
+        <p class="muted" style="margin:0;">El usuario ejecuta manualmente acciones en PJUD. Alpha Avocat solo verifica técnicamente, muestra diagnóstico y extrae listado visible.</p>
+        <div class="assisted-grid">
+          <article>
+            <h3 style="margin:0 0 8px;">Pasos guiados</h3>
+            <ol id="assistedStepList" class="assisted-step-list"></ol>
+          </article>
+          <article>
+            <h3 style="margin:0 0 8px;">Bitácora de diagnóstico</h3>
+            <ul id="assistedDiagnosticLog" class="massive-log"></ul>
+          </article>
+          <article class="assisted-diagnostic-panel">
+            <h3 style="margin:0 0 8px;">Diagnóstico visible del listado</h3>
+            <p style="margin:0 0 4px;">Causas detectadas: <strong id="assistedDetectedCount">0</strong></p>
+            <p style="margin:0 0 4px;">Selector/estrategia usada: <strong id="assistedSelectorUsed">-</strong></p>
+            <div>
+              <strong>Muestra (3 a 5 causas)</strong>
+              <ul id="assistedSampleList" class="massive-log"></ul>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <section id="legacyModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
         <h2 style="margin:0;font-size:1.06rem;">Inicio asistido PJUD</h2>
         <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas con todas las materias visibles. 3) Presione Continuar/Iniciar lote.</p>
         <div class="massive-control__grid">
@@ -544,6 +844,7 @@ function renderCarga(container, context = {}) {
   buildUI(container)
 
   const state = createInitialAuditState()
+  const assistedState = createInitialAssistedState()
   state.pjud.sessionState = inferPjudSessionState()
   state.checkpoint = restoreCheckpoint()
   if (state.checkpoint) {
@@ -612,7 +913,33 @@ function renderCarga(container, context = {}) {
     executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
   })
 
+  const setActiveMode = (modeId) => {
+    assistedState.selectedMode = modeId
+    const assistedContainer = container.querySelector('#assistedModeContainer')
+    const legacyContainer = container.querySelector('#legacyModeContainer')
+    if (assistedContainer) assistedContainer.style.display = modeId === ASSISTED_MODE_ID ? 'grid' : 'none'
+    if (legacyContainer) legacyContainer.style.display = modeId === LEGACY_MODE_ID ? 'grid' : 'none'
+  }
+
+  container.querySelectorAll('input[name="flowMode"]').forEach((input) => {
+    input.addEventListener('change', (event) => {
+      const mode = event.target?.value || ASSISTED_MODE_ID
+      setActiveMode(mode)
+    })
+  })
+
+  container.addEventListener('click', (event) => {
+    const verifyBtn = event.target?.closest?.('[data-assisted-verify]')
+    if (!verifyBtn) return
+    const stepId = Number.parseInt(verifyBtn.getAttribute('data-assisted-verify'), 10)
+    if (!Number.isFinite(stepId)) return
+    verifyAssistedStep(assistedState, stepId)
+    refreshAssistedUI(container, assistedState)
+  })
+
   refreshAuditUI(container, state)
+  refreshAssistedUI(container, assistedState)
+  setActiveMode(ASSISTED_MODE_ID)
 
   if (context?.source) {
     console.info('[Alpha Avocat][carga] Módulo real abierto desde:', context.source)
