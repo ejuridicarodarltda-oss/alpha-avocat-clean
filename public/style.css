@@ -2351,6 +2351,11 @@ grid-template-columns:1fr;
 gap:12px;
 }
 
+.assisted-mode-panel{
+border:2px solid rgba(19,95,178,.25);
+box-shadow:0 0 0 1px rgba(19,95,178,.08) inset;
+}
+
 .assisted-diagnostic-panel{
 border:1px solid rgba(15,23,42,.12);
 border-radius:12px;
@@ -2368,7 +2373,7 @@ gap:10px;
 
 .assisted-step{
 display:grid;
-grid-template-columns:1fr auto;
+grid-template-columns:minmax(280px,1fr) auto auto;
 gap:10px;
 border:1px solid rgba(15,23,42,.12);
 border-radius:12px;
@@ -2377,17 +2382,43 @@ padding:10px;
 align-items:center;
 }
 
-.assisted-step__actions{
+.assisted-step__instruction{
 display:grid;
-gap:8px;
+gap:4px;
+}
+
+.assisted-step__button{
+display:grid;
+justify-items:start;
+}
+
+.assisted-step__status-wrap{
+display:grid;
 justify-items:end;
+min-width:100px;
 }
 
 .assisted-step__status{
 font-weight:700;
 }
 
+.assisted-reset-row{
+display:flex;
+justify-content:flex-start;
+}
+
 .assisted-step--pending .assisted-step__status{color:#5f6d7a;}
 .assisted-step--running .assisted-step__status{color:#135fb2;}
 .assisted-step--success .assisted-step__status{color:#1d7a35;}
 .assisted-step--error .assisted-step__status{color:#aa1f2d;}
+
+@media (max-width: 860px){
+  .assisted-step{
+    grid-template-columns:1fr;
+  }
+
+  .assisted-step__status-wrap,
+  .assisted-step__button{
+    justify-items:start;
+  }
+}

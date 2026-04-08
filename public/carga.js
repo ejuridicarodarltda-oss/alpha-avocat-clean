@@ -44,8 +44,6 @@ const PJUD_SESSION_LABEL = {
   expired: 'sesión expirada'
 }
 
-const ASSISTED_MODE_ID = 'assisted-pjud-step-by-step'
-const LEGACY_MODE_ID = 'legacy-flow'
 const ASSISTED_STATUS_LABEL = {
   pending: 'Pendiente',
   running: 'En proceso',
@@ -191,7 +189,6 @@ function createMockLiveCauses(total = 40) {
 
 function createInitialAssistedState() {
   return {
-    selectedMode: ASSISTED_MODE_ID,
     currentStepId: null,
     extractedCauses: [],
     diagnostics: [],
@@ -376,14 +373,17 @@ function refreshAuditUI(root, state) {
 function renderAssistedStepList(state) {
   return state.steps.map((step) => `
     <li class="assisted-step assisted-step--${step.status}">
-      <div>
-        <strong>Paso ${step.id}</strong>
-        <div>${escapeHtml(step.title)}</div>
+      <div class="assisted-step__instruction">
+        <strong>Paso ${step.id}.</strong> ${escapeHtml(step.title)}
         <small>${escapeHtml(step.detail)}</small>
       </div>
-      <div class="assisted-step__actions">
+      <div class="assisted-step__button">
+        <button class="btn btn-3d" type="button" data-assisted-verify="${step.id}">
+          ${step.id === 7 ? 'Extraer listado de causas' : 'Verificar paso'}
+        </button>
+      </div>
+      <div class="assisted-step__status-wrap">
         <span class="assisted-step__status">${ASSISTED_STATUS_LABEL[step.status]}</span>
-        <button class="btn btn-3d" type="button" data-assisted-verify="${step.id}">Verificar paso</button>
       </div>
     </li>
   `).join('')
@@ -532,23 +532,7 @@ function buildUI(container) {
         <p class="muted" style="margin:0;">Modo antiguo y nuevo modo asistido PJUD conviven temporalmente para validación en paralelo.</p>
       </header>
 
-      <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
-        <h2 style="margin:0;font-size:1.06rem;">Tipo de flujo</h2>
-        <div class="flow-mode-selector">
-          <label class="flow-mode-option">
-            <input type="radio" name="flowMode" value="${LEGACY_MODE_ID}">
-            <strong>Modo antiguo</strong>
-            <span class="muted">Mantiene el flujo actual por lote.</span>
-          </label>
-          <label class="flow-mode-option">
-            <input type="radio" name="flowMode" value="${ASSISTED_MODE_ID}" checked>
-            <strong>MODO ASISTIDO PJUD PASO A PASO</strong>
-            <span class="muted">Guía, verifica y extrae listado visible desde sesión web activa.</span>
-          </label>
-        </div>
-      </section>
-
-      <section id="assistedModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
+      <section id="assistedModeContainer" class="panel assisted-mode-panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
         <h2 style="margin:0;font-size:1.06rem;">MODO ASISTIDO PJUD PASO A PASO</h2>
         <p class="muted" style="margin:0;">El usuario ejecuta manualmente acciones en PJUD. Alpha Avocat solo verifica técnicamente, muestra diagnóstico y extrae listado visible.</p>
         <div class="assisted-grid">
@@ -570,10 +554,13 @@ function buildUI(container) {
             </div>
           </article>
         </div>
+        <div class="assisted-reset-row">
+          <button id="assistedResetBtn" class="btn btn-3d" type="button">Reiniciar proceso</button>
+        </div>
       </section>
 
       <section id="legacyModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
-        <h2 style="margin:0;font-size:1.06rem;">Inicio asistido PJUD</h2>
+        <h2 style="margin:0;font-size:1.06rem;">Modo antiguo (vigente temporalmente)</h2>
         <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas con todas las materias visibles. 3) Presione Continuar/Iniciar lote.</p>
         <div class="massive-control__grid">
           <label style="display:grid;gap:6px;">
@@ -913,19 +900,13 @@ function renderCarga(container, context = {}) {
     executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
   })
 
-  const setActiveMode = (modeId) => {
-    assistedState.selectedMode = modeId
-    const assistedContainer = container.querySelector('#assistedModeContainer')
-    const legacyContainer = container.querySelector('#legacyModeContainer')
-    if (assistedContainer) assistedContainer.style.display = modeId === ASSISTED_MODE_ID ? 'grid' : 'none'
-    if (legacyContainer) legacyContainer.style.display = modeId === LEGACY_MODE_ID ? 'grid' : 'none'
-  }
-
-  container.querySelectorAll('input[name="flowMode"]').forEach((input) => {
-    input.addEventListener('change', (event) => {
-      const mode = event.target?.value || ASSISTED_MODE_ID
-      setActiveMode(mode)
-    })
+  container.querySelector('#assistedResetBtn')?.addEventListener('click', () => {
+    assistedState.currentStepId = null
+    assistedState.extractedCauses = []
+    assistedState.listDetection = { selector: '', count: 0, sample: [] }
+    assistedState.steps = ASSISTED_STEPS.map((step) => ({ ...step, status: 'pending', detail: 'Pendiente de verificación' }))
+    appendAssistedLog(assistedState, 'Proceso reiniciado manualmente. Todos los pasos vuelven a estado Pendiente.')
+    refreshAssistedUI(container, assistedState)
   })
 
   container.addEventListener('click', (event) => {
@@ -939,7 +920,6 @@ function renderCarga(container, context = {}) {
 
   refreshAuditUI(container, state)
   refreshAssistedUI(container, assistedState)
-  setActiveMode(ASSISTED_MODE_ID)
 
   if (context?.source) {
     console.info('[Alpha Avocat][carga] Módulo real abierto desde:', context.source)
