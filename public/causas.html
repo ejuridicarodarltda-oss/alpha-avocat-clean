@@ -1871,9 +1871,9 @@
           <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
         </div>
         <div class="screen-actions">
-          <button class="btn" id="btnQuickInfo">Información</button>
+          <button class="btn" id="btnQuickInfo">Ver historia activa</button>
           <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
-          <button class="btn" id="btnQuickProduction">Producción</button>
+          <button class="btn" id="btnQuickProduction">Ir a producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
       </div>
@@ -3460,8 +3460,11 @@
     function navigateToCausasSection(target, origin = 'unknown'){
       const routes = {
         informacion: './informacion-clientes-asesorias-causas.html',
+        'historia-procesal': './informacion-clientes-asesorias-causas.html',
         expedientes: './expedientes-digitales.html',
+        'contenedor-documental': './expedientes-digitales.html',
         produccion: './produccion.html',
+        'produccion-en-curso': './produccion.html',
         alertas: './causas-alertas-plazos.html',
       };
       const href = routes[target];
@@ -6831,9 +6834,9 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes Digitales' },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
+        { id:'informacion', icon:'📘', title:'Historia procesal', copy:'Pilar Información: identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Historia procesal' },
+        { id:'expedientes', icon:'🗂️', title:'Contenedor documental', copy:'Pilar Expedientes digitales: archivadores por tribunal con carpeta individual por causa y subcarpetas jurídicas.', badge:'Expedientes digitales', button:'Abrir Contenedor documental' },
+        { id:'produccion', icon:'✍️', title:'Producción en curso', copy:'Pilar Producción: redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción en curso', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -12735,8 +12738,19 @@
     }
 
     function openSyncModal(){
-      const current = getCurrentCause();
-      if (!current) return;
+      let current = getCurrentCause();
+      if (!current) {
+        const fallback = getVisibleCases()[0] || getAllCases()[0] || null;
+        if (fallback?.id) {
+          state.selectedId = fallback.id;
+          current = fallback;
+        }
+      }
+      if (!current) {
+        openModal();
+        setMessage('caseMsg', 'No hay causas disponibles para actualizar. Crea una causa para habilitar la actualización de estado.', 'warn');
+        return;
+      }
       $('formSincronizacion').reset();
       $('sync_url').value = current.pjudUrl || current.poderJudicial?.link || '';
       setMessage('syncMsg', '', '');
