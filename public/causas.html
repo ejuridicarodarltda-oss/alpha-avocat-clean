@@ -1874,6 +1874,7 @@
       </div>
       <div class="pjud-index-actions">
         <button id="btnPjudSyncIndex" class="btn btn-primary" type="button" disabled aria-disabled="true">Sincronizar índice PJUD</button>
+        <button id="btnPjudImportIndexIntoCases" class="btn" type="button">Importar causas desde índice PJUD</button>
       </div>
       <div class="pjud-access-stats" id="pjudIndexSyncStats"></div>
       <div id="pjudIndexSyncProgress" class="pjud-access-progress" role="status" aria-live="polite">
@@ -3207,6 +3208,12 @@
           materia: materiaLabel,
           competencia: competenciaLabel,
           caratulado: caratulaLabel,
+          estado: row.estado || '',
+          fecha_ingreso: row.fecha_ingreso || '',
+          corte: row.corte || '',
+          tableId: row.tableId || '',
+          tableHeaders: row.tableHeaders || [],
+          rowAttributes: row.rowAttributes || {},
           basic: {
             rol: roleLabel,
             rit: ritLabel,
@@ -3215,6 +3222,7 @@
             caratula: caratulaLabel,
             materia: materiaLabel,
             competencia: competenciaLabel,
+            estadoProcesal: row.estado || '',
             link: routeUrl,
           },
           pjudRouteAudit: {
@@ -3222,6 +3230,12 @@
             rowVisibleText: visible,
             href: row.href || '',
             onclick: row.onclick || '',
+            actionToken: row.actionToken || '',
+            detailHandler: row.detailHandler || '',
+            rawRowHtml: row.rawRowHtml || '',
+            tableId: row.tableId || '',
+            tableHeadId: row.tableHeadId || '',
+            tableBodyId: row.tableBodyId || '',
             dataset: row.dataset || {},
             routeUrl,
             routeAction: row.routeAction || '',
@@ -5971,27 +5985,70 @@
     async function persistPjudCausesIndexRows(rows = []){
       if (!rows.length) return [];
       const nowIso = new Date().toISOString();
+      const asDate = (value = '') => {
+        const raw = String(value || '').trim();
+        if (!raw) return null;
+        const normalized = raw.replace(/\./g, '/').replace(/-/g, '/');
+        const ddmmyyyy = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+        if (ddmmyyyy) {
+          const day = ddmmyyyy[1].padStart(2, '0');
+          const month = ddmmyyyy[2].padStart(2, '0');
+          let year = ddmmyyyy[3];
+          if (year.length === 2) year = `20${year}`;
+          return `${year}-${month}-${day}`;
+        }
+        const parsed = new Date(raw);
+        if (Number.isNaN(parsed.getTime())) return null;
+        return parsed.toISOString().slice(0, 10);
+      };
       const payload = rows.map((item, idx) => {
         const rowPosition = Number(item?.pjudRouteAudit?.rowIndex || item?.rowIndex || idx + 1) || null;
         const roleYear = Number(item?.pjudRoleYear || 0);
+        const rawPayload = {
+          ...(item || {}),
+          tableHeaders: item?.tableHeaders || [],
+          rowAttributes: item?.rowAttributes || {},
+          extraction: {
+            actionToken: item?.pjudRouteAudit?.actionToken || '',
+            detailHandler: item?.pjudRouteAudit?.detailHandler || '',
+            routeActionType: item?.routeActionType || '',
+          },
+        };
         return {
           user_id: authenticatedUser.id,
+          source: 'pjud',
           access_connection_id: state.pjudAccess.record?.id || null,
           pjud_row_key: item?.pjudCaseKey || normalizePjudKey([item?.rol || '', item?.rit || '', item?.tribunal || '', rowPosition || ''].join('|')) || `row-${Date.now()}-${idx + 1}`,
           row_position: rowPosition,
+          pjud_url: item?.sourceUrl || item?.routeUrl || state.pjudAccess.record?.base_url_mis_causas || null,
+          competencia: item?.competencia || null,
+          tribunal: item?.tribunal || item?.pjudCourtName || null,
+          pjud_case_id: item?.pjudCaseId || item?.pjudCaseKey || null,
+          action_token: item?.pjudRouteAudit?.actionToken || null,
+          detail_handler: item?.pjudRouteAudit?.detailHandler || null,
+          origen_tabla: item?.tableId || item?.pjudRouteAudit?.tableId || null,
           rol: item?.rol || null,
           rit: item?.rit || null,
+          ruc: item?.ruc || null,
           procedure_type: item?.competencia || null,
           year: Number.isFinite(roleYear) && roleYear > 0 ? roleYear : null,
-          court_name: item?.tribunal || null,
+          court_name: item?.tribunal || item?.pjudCourtName || null,
           court_code: item?.pjudCourtCode || null,
+          corte: item?.corte || null,
           caratula: item?.caratulado || item?.basic?.caratula || null,
+          estado: item?.estado || null,
           materia: item?.materia || null,
           estado_causa: item?.estado || null,
-          fecha_ingreso: item?.fecha_ingreso || null,
-          fecha_ultima_gestion: item?.fecha_ultima_gestion || null,
-          raw_row_payload: item || {},
+          fecha_ingreso: asDate(item?.fecha_ingreso),
+          fecha_ultima_gestion: item?.fecha_ultima_actuacion || item?.fecha_ultima_gestion || null,
+          fecha_ultima_actuacion: item?.fecha_ultima_actuacion || item?.fecha_ultima_gestion || null,
+          fecha_ultima_sincronizacion: nowIso,
+          institucion: item?.institucion || null,
+          raw_row_html: item?.pjudRouteAudit?.rawRowHtml || null,
+          raw_payload: rawPayload,
+          raw_row_payload: rawPayload,
           detail_url: item?.routeUrl || item?.sourceUrl || null,
+          detail_action: item?.routeAction || item?.routeActionType || null,
           has_detail_access: Boolean(item?.routeUrl || (item?.routeActionType && item?.routeActionType !== 'none')),
           alpha_case_id: null,
           sync_status: 'indexed',
@@ -6014,10 +6071,16 @@
       const statsNode = $('pjudIndexSyncStats');
       const rowsNode = $('pjudIndexSyncRows');
       const syncButton = $('btnPjudSyncIndex');
+      const importButton = $('btnPjudImportIndexIntoCases');
       if (syncButton) {
         const enabled = hasActivePjudAccess() && state.pjudAccess.available;
         syncButton.disabled = !enabled;
         syncButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+      }
+      if (importButton) {
+        const enabled = state.pjudCausesIndex.items.length > 0;
+        importButton.disabled = !enabled;
+        importButton.setAttribute('aria-disabled', enabled ? 'false' : 'true');
       }
       if (statsNode) {
         const total = Number(state.pjudCausesIndex.items.length || 0);
@@ -6041,10 +6104,10 @@
       rowsNode.innerHTML = state.pjudCausesIndex.items.slice(0, 120).map((item) => `
         <tr>
           <td>${escapeHtml(item.rol || item.rit || 'Sin Rol/RIT')}</td>
-          <td>${escapeHtml(item.court_name || 'Sin tribunal')}</td>
-          <td>${escapeHtml(item.caratula || 'Sin carátula')}</td>
+          <td>${escapeHtml(item.tribunal || item.court_name || 'Sin tribunal')}</td>
+          <td>${escapeHtml(item.caratula || item.caratulado || 'Sin carátula')}</td>
           <td>${escapeHtml(item.materia || 'Sin materia')}</td>
-          <td>${escapeHtml(item.estado_causa || item.sync_status || 'Sin estado')}</td>
+          <td>${escapeHtml(item.estado || item.estado_causa || item.sync_status || 'Sin estado')}</td>
           <td>${escapeHtml(item.synced_at ? formatDate(item.synced_at) : 'Sin fecha')}</td>
           <td>${item.alpha_case_id ? 'Vinculada' : 'Pendiente'}</td>
           <td>
@@ -6082,7 +6145,7 @@
         }
 
         setPjudIndexSyncProgress({ percent: 35, stage: 'Fuente PJUD adquirida', status: 'in_progress' });
-        const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+        const extraction = await safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
         state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
         if (!extraction?.diagnostics?.sourceAcquired || !extraction?.diagnostics?.extractionReady) {
           const message = 'No fue posible inspeccionar Mis Causas porque Alpha no tiene una fuente PJUD disponible para lectura. Detalle: ventana no disponible, URL no informada o sin snapshot técnico.';
@@ -6105,7 +6168,7 @@
         }
 
         setPjudIndexSyncProgress({ percent: 70, stage: 'Leyendo filas reales', status: 'in_progress' });
-        const visibleRows = extraction.queue;
+        const visibleRows = await enrichPjudRowsWithDetail(state.pjudMisCausasWindow, extraction.queue);
         if (!visibleRows.length) {
           const message = 'No se detectaron causas visibles para indexar en esta sesión.';
           setPjudIndexSyncProgress({ percent: 70, stage: message, status: 'error' });
@@ -6131,7 +6194,155 @@
       }
     }
 
-    function validatePjudAssistedSource(){
+    function parsePjudDateToIso(value = ''){
+      const raw = String(value || '').trim();
+      if (!raw) return null;
+      const normalized = raw.replace(/\./g, '/').replace(/-/g, '/');
+      const ddmmyyyy = normalized.match(/^(\d{1,2})\/(\d{1,2})\/(\d{2,4})$/);
+      if (ddmmyyyy) {
+        const day = ddmmyyyy[1].padStart(2, '0');
+        const month = ddmmyyyy[2].padStart(2, '0');
+        let year = ddmmyyyy[3];
+        if (year.length === 2) year = `20${year}`;
+        return `${year}-${month}-${day}`;
+      }
+      const parsed = new Date(raw);
+      if (Number.isNaN(parsed.getTime())) return null;
+      return parsed.toISOString().slice(0, 10);
+    }
+
+    function findExistingCaseFromIndexRow(indexRow, existingCases = []){
+      const tribunal = normalizePjudCourt(indexRow?.tribunal || indexRow?.court_name || '');
+      const byPriority = [
+        (cause) => normalizePjudKey(cause?.pjudCaseId || cause?.pjud_case_id || cause?.pjudCaseKey || cause?.pjud_case_key || '') && normalizePjudKey(cause?.pjudCaseId || cause?.pjud_case_id || cause?.pjudCaseKey || cause?.pjud_case_key || '') === normalizePjudKey(indexRow?.pjud_case_id || ''),
+        (cause) => normalizePjudKey(cause?.pjud_action_token || cause?.pjudActionToken || '') && normalizePjudKey(cause?.pjud_action_token || cause?.pjudActionToken || '') === normalizePjudKey(indexRow?.action_token || ''),
+        (cause) => normalizePjudKey(cause?.rol) && normalizePjudKey(cause?.rol) === normalizePjudKey(indexRow?.rol || '') && normalizePjudCourt(cause?.tribunal || cause?.court || cause?.pjud_tribunal || '') === tribunal,
+        (cause) => normalizePjudKey(cause?.rit || cause?.pjud_rit || '') && normalizePjudKey(cause?.rit || cause?.pjud_rit || '') === normalizePjudKey(indexRow?.rit || '') && normalizePjudCourt(cause?.tribunal || cause?.court || cause?.pjud_tribunal || '') === tribunal,
+        (cause) => normalizePjudKey(cause?.ruc || cause?.pjud_ruc || '') && normalizePjudKey(cause?.ruc || cause?.pjud_ruc || '') === normalizePjudKey(indexRow?.ruc || '') && normalizePjudCourt(cause?.tribunal || cause?.court || cause?.pjud_tribunal || '') === tribunal,
+        (cause) => normalizePjudText(cause?.caratula || '') && normalizePjudText(cause?.caratula || '') === normalizePjudText(indexRow?.caratula || '') && normalizePjudCourt(cause?.tribunal || cause?.court || cause?.pjud_tribunal || '') === tribunal,
+      ];
+      for (const matcher of byPriority) {
+        const found = existingCases.find((cause) => matcher(cause));
+        if (found) return found;
+      }
+      return null;
+    }
+
+    async function importPjudIndexIntoCases(){
+      setPjudIndexSyncProgress({ percent: 5, stage: 'Leyendo índice PJUD en staging', status: 'in_progress' });
+      const rows = await loadPjudCausesIndexRows();
+      if (!rows.length) {
+        setPjudIndexSyncProgress({ percent: 5, stage: 'Sin filas indexadas para importar', status: 'error' });
+        setMessage('pjudIndexSyncMsg', 'No hay filas en pjud_causes_index para importar.', 'warn');
+        return { total: 0, created: 0, updated: 0, omitted: 0, errors: 0 };
+      }
+      await loadCases();
+      const existingCases = getAllCases();
+      const summary = { total: rows.length, created: 0, updated: 0, omitted: 0, errors: 0 };
+      for (let i = 0; i < rows.length; i += 1) {
+        const row = rows[i];
+        setPjudIndexSyncProgress({
+          percent: Math.round(10 + (((i + 1) / rows.length) * 80)),
+          stage: `Importando causa ${i + 1} de ${rows.length}`,
+          status: 'in_progress',
+        });
+        const existing = findExistingCaseFromIndexRow(row, existingCases);
+        const minimalIdentity = Boolean(row?.rol || row?.rit || row?.ruc || row?.caratula);
+        if (!minimalIdentity) {
+          summary.omitted += 1;
+          continue;
+        }
+        const structured = buildPjudStructuredPayload({
+          pjudCaseKey: row?.pjud_case_id || row?.pjud_row_key || '',
+          rol: row?.rol || '',
+          rit: row?.rit || '',
+          ruc: row?.ruc || '',
+          tribunal: row?.tribunal || row?.court_name || '',
+          corte: row?.corte || '',
+          caratulado: row?.caratula || row?.caratulado || '',
+          materia: row?.materia || '',
+          estadoCausa: row?.estado || row?.estado_causa || '',
+          fechaIngreso: row?.fecha_ingreso ? parsePjudDateToIso(row.fecha_ingreso) : null,
+          institucion: row?.institucion || '',
+          sourceUrl: row?.pjud_url || row?.detail_url || '',
+          routeUrl: row?.detail_url || '',
+          routeActionType: row?.detail_action || '',
+          routeActionPayload: row?.raw_payload || row?.raw_row_payload || {},
+          mode: 'massive_auto',
+          origin: 'pjud_index_staging',
+          basic: {
+            rol: row?.rol || '',
+            rit: row?.rit || '',
+            ruc: row?.ruc || '',
+            tribunal: row?.tribunal || row?.court_name || '',
+            caratula: row?.caratula || row?.caratulado || '',
+            materia: row?.materia || '',
+            estadoProcesal: row?.estado || row?.estado_causa || '',
+          },
+        }, { primaryClientName: 'Cliente asociado por Mis Causas', importBatchId: null });
+        structured.pjud_source_mode = 'modo_directo_pjud';
+        structured.pjud_action_token = row?.action_token || null;
+        structured.pjud_detail_handler = row?.detail_handler || null;
+        structured.pjud_index_row_id = row?.id || null;
+        structured.pjud_last_sync_at = new Date().toISOString();
+        structured.pjud_ultima_sincronizacion = new Date().toISOString();
+        try {
+          let saved = null;
+          if (existing?.id) {
+            const { data, error } = await supabase
+              .from(T_CASES)
+              .update(structured)
+              .eq('id', existing.id)
+              .eq('owner_user_id', authenticatedUser.id)
+              .select('id')
+              .maybeSingle();
+            if (error) throw error;
+            saved = data;
+            summary.updated += 1;
+          } else {
+            const { data, error } = await supabase.from(T_CASES).insert(structured).select('id').single();
+            if (error) throw error;
+            saved = data;
+            summary.created += 1;
+          }
+          if (saved?.id) {
+            if (!existing) {
+              existingCases.push({
+                ...structured,
+                id: saved.id,
+                tribunal: structured.pjud_tribunal || structured[C.k_court] || '',
+                caratula: structured.pjud_caratulado || '',
+                rol: structured[C.k_rol] || '',
+                rit: structured.pjud_rit || '',
+                ruc: structured.pjud_ruc || '',
+              });
+            }
+            await supabase
+              .from(T_PJUD_CAUSES_INDEX)
+              .update({
+                alpha_case_id: saved.id,
+                sync_status: 'linked',
+                updated_at: new Date().toISOString(),
+                fecha_ultima_sincronizacion: new Date().toISOString(),
+              })
+              .eq('id', row.id)
+              .eq('user_id', authenticatedUser.id);
+          }
+        } catch (error) {
+          console.error('[Alpha Avocat][pjud-index-import] Error importando fila del índice PJUD.', error);
+          summary.errors += 1;
+        }
+      }
+      await loadPjudCausesIndexRows();
+      await loadCases();
+      renderAll();
+      setPjudIndexSyncProgress({ percent: 100, stage: 'Importación real desde índice PJUD completada', status: 'completed', keepUntilStable: true });
+      setMessage('pjudIndexSyncMsg', `Importación finalizada. Total ${summary.total}, creadas ${summary.created}, actualizadas ${summary.updated}, omitidas ${summary.omitted}, errores ${summary.errors}.`, summary.errors ? 'warn' : 'ok');
+      renderPjudIndexSyncPanel();
+      return summary;
+    }
+
+    async function validatePjudAssistedSource(){
       const assisted = updatePjudAssistedSourceFromInputs();
       const rawHtml = String(assisted.tableHtml || assisted.sourceHtml || '').trim();
       const sourceLabel = assisted.tableHtml ? 'HTML de tabla manual' : 'HTML fuente manual';
@@ -6164,7 +6375,7 @@
         setMessage('pjudIndexSyncMsg', `Error al validar fuente: ${error?.message || 'HTML inválido'}`, 'error');
       }
 
-      const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      const extraction = await safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
       if (assisted.sourceUrl !== (state.pjudAccess.record?.base_url_mis_causas || '')) renderPjudIndexSyncPanel();
     }
@@ -6312,7 +6523,7 @@
             <strong>Ejecutar migración de acceso PJUD</strong>
           </article>
         `;
-        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar', 'btnPjudSyncIndex'].forEach((id) => {
+        ['btnPjudCrearAcceso', 'btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar', 'btnPjudSyncIndex', 'btnPjudImportIndexIntoCases'].forEach((id) => {
           const button = $(id);
           if (!button) return;
           button.disabled = true;
@@ -8910,7 +9121,59 @@
       return { diagnostics, doc: null, sourceUrl: diagnostics.sourceUrl, sourceType: diagnostics.sourceType };
     }
 
-    function safeExtractMisCausasRowsFromWindow(misCausasWindow){
+    function parsePjudActionToken(raw = ''){
+      const source = String(raw || '').trim();
+      if (!source) return { actionToken: '', detailHandler: '' };
+      const fnMatch = source.match(/([a-zA-Z_$][\w$]*)\s*\(/);
+      const tokenMatch = source.match(/['"]([a-zA-Z0-9\-_:./]{6,})['"]/);
+      return {
+        actionToken: String(tokenMatch?.[1] || '').trim(),
+        detailHandler: String(fnMatch?.[1] || '').trim(),
+      };
+    }
+
+    function findPjudDynamicTables(doc){
+      if (!doc?.body) return [];
+      const targeted = [...doc.querySelectorAll('table[id*="dtaTableDetalleMisCau"],table[id*="dtaTableDetalle"],table[id*="misCau"],table[id*="misCausa"]')]
+        .filter((table) => table.querySelector('tbody'));
+      if (targeted.length) return targeted;
+      return [...doc.querySelectorAll('table')].filter((table) => table.querySelector('tbody'));
+    }
+
+    async function waitForMisCausasDynamicRows(misCausasWindow, { timeoutMs = 18000 } = {}){
+      const startedAt = Date.now();
+      while (Date.now() - startedAt < timeoutMs) {
+        try {
+          if (!misCausasWindow || misCausasWindow.closed) break;
+          const doc = misCausasWindow.document;
+          if (!doc?.body) {
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+            continue;
+          }
+          if (typeof misCausasWindow.misCausas === 'function') {
+            const contMain = doc.querySelector('#contMain');
+            const hasRowsInContMain = Boolean(contMain?.querySelector('tbody tr'));
+            if (!hasRowsInContMain) {
+              try { misCausasWindow.misCausas(); } catch { /* noop */ }
+            }
+          }
+          const dynamicTables = findPjudDynamicTables(doc);
+          const hasRows = dynamicTables.some((table) => table.querySelectorAll('tbody tr').length > 0);
+          if (hasRows) return { ready: true, doc, dynamicTables };
+        } catch {
+          // noop
+        }
+        await new Promise((resolve) => window.setTimeout(resolve, 450));
+      }
+      try {
+        const doc = misCausasWindow?.document || null;
+        return { ready: false, doc, dynamicTables: findPjudDynamicTables(doc) };
+      } catch {
+        return { ready: false, doc: null, dynamicTables: [] };
+      }
+    }
+
+    async function safeExtractMisCausasRowsFromWindow(misCausasWindow){
       const sourceContext = resolvePjudSourceContext(misCausasWindow);
       const diagnostics = sourceContext.diagnostics;
       if (!diagnostics.extractionReady || !sourceContext.doc?.body) {
@@ -8929,11 +9192,20 @@
         return { queue: [], diagnostics, error: 'La vista de Mis Causas está vacía o no terminó de cargar.' };
       }
 
-      const tableNodes = [...doc.querySelectorAll('table')];
+      const dynamicState = await waitForMisCausasDynamicRows(misCausasWindow, { timeoutMs: 18000 });
+      if (dynamicState.ready && dynamicState.doc?.body) {
+        diagnostics.sourceType = 'window_document_dynamic_mis_causas';
+        diagnostics.extractionReady = true;
+        diagnostics.sourceAcquired = true;
+        diagnostics.sourceSnapshotAvailable = true;
+      }
+      const effectiveDoc = dynamicState.doc?.body ? dynamicState.doc : doc;
+
+      const tableNodes = [...effectiveDoc.querySelectorAll('table')];
       diagnostics.tablesDetected = tableNodes.length;
       diagnostics.tableRows = tableNodes.map((table) => table.querySelectorAll('tr').length);
-      diagnostics.anchorsDetected = doc.querySelectorAll('a[href]').length;
-      diagnostics.buttonsWithOnclick = doc.querySelectorAll('button[onclick],[onclick]').length;
+      diagnostics.anchorsDetected = effectiveDoc.querySelectorAll('a[href]').length;
+      diagnostics.buttonsWithOnclick = effectiveDoc.querySelectorAll('button[onclick],[onclick]').length;
 
       const selectorLayers = [
         'table tbody tr',
@@ -8951,7 +9223,7 @@
       let candidateRows = [];
       selectorLayers.forEach((selector) => {
         if (candidateRows.length) return;
-        const nodes = [...doc.querySelectorAll(selector)]
+        const nodes = [...effectiveDoc.querySelectorAll(selector)]
           .filter((node) => {
             const text = String(node?.innerText || '').trim();
             if (text.length < 10) return false;
@@ -8960,16 +9232,16 @@
           });
         if (nodes.length) {
           winnerSelector = selector;
-          winnerContainer = nodes[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          winnerContainer = nodes[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || effectiveDoc.body;
           candidateRows = nodes;
         }
       });
 
       if (!candidateRows.length) {
-        const anchors = [...doc.querySelectorAll('a[href], a[onclick], button[onclick], [data-href], [data-url], [data-action], [onclick]')];
+        const anchors = [...effectiveDoc.querySelectorAll('a[href], a[onclick], button[onclick], [data-href], [data-url], [data-action], [onclick]')];
         if (anchors.length) {
           winnerSelector = 'anchors_indirectos';
-          winnerContainer = anchors[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || doc.body;
+          winnerContainer = anchors[0]?.closest('table, tbody, .grid, .list, .content, .panel, body') || effectiveDoc.body;
           candidateRows = anchors.map((node) => node.closest('tr,[role="row"],.row,.table-row,li,article,div') || node)
             .filter(Boolean)
             .filter((node, idx, arr) => arr.indexOf(node) === idx);
@@ -8986,13 +9258,33 @@
       }
 
       const extractedRows = candidateRows.map((rowNode, index) => {
+        const tableNode = rowNode.closest('table');
+        const tableId = String(tableNode?.id || '').trim();
+        const tableHeadId = String(tableNode?.querySelector('thead')?.id || '').trim();
+        const tableBodyId = String(rowNode?.parentElement?.id || tableNode?.querySelector('tbody')?.id || '').trim();
+        const headers = tableNode
+          ? [...tableNode.querySelectorAll('thead th, tr th')].map((th) => String(th?.innerText || '').trim()).filter(Boolean)
+          : [];
+        const cells = [...rowNode.querySelectorAll('td')].map((td) => String(td?.innerText || '').trim());
+        const rowAttributes = rowNode?.attributes
+          ? [...rowNode.attributes].reduce((acc, attr) => {
+            acc[String(attr.name || '').trim()] = String(attr.value || '');
+            return acc;
+          }, {})
+          : {};
+        const inferFromHeaders = (patterns = []) => {
+          const idx = headers.findIndex((header) => patterns.some((pattern) => pattern.test(normalizePjudText(header))));
+          return idx >= 0 ? String(cells[idx] || '').trim() : '';
+        };
         const anchor = rowNode.querySelector('a[href],a[data-href],a[data-url],a[href*=\"causa\"],a[href*=\"detalle\"],a[href*=\"ebook\"],a[href*=\"consulta\"]');
         const clickable = rowNode.querySelector('button,[onclick],[data-href],[data-url],[data-action],a') || rowNode;
         const href = String(anchor?.getAttribute('href') || clickable?.getAttribute?.('href') || '').trim();
         const onclick = String(clickable?.getAttribute?.('onclick') || rowNode.getAttribute?.('onclick') || '').trim();
+        const handlerRaw = String(onclick || anchor?.getAttribute('href') || '').trim();
+        const actionMeta = parsePjudActionToken(handlerRaw);
         const jsHref = String(anchor?.getAttribute('href') || '').trim().startsWith('javascript:') ? String(anchor?.getAttribute('href') || '').trim() : '';
         const dataset = rowNode?.dataset ? { ...rowNode.dataset } : {};
-        const form = rowNode.closest('form') || doc.querySelector('form');
+        const form = rowNode.closest('form') || effectiveDoc.querySelector('form');
         const hiddenInputs = form
           ? [...form.querySelectorAll('input[type=\"hidden\"]')].slice(0, 12).reduce((acc, input) => {
             const key = String(input?.name || input?.id || '').trim();
@@ -9028,13 +9320,25 @@
           routeActionType,
           routeActionPayload,
           dataset,
+          tableId,
+          tableHeadId,
+          tableBodyId,
+          tableHeaders: headers,
+          rowCells: cells,
+          rowAttributes,
+          actionToken: actionMeta.actionToken,
+          detailHandler: actionMeta.detailHandler,
+          rawRowHtml: String(rowNode?.outerHTML || ''),
           currentPageUrl: diagnostics.inspectedUrl || '',
-          rol: parsed.rol || dataset?.rol || dataset?.role || '',
-          rit: parsed.rit || dataset?.rit || '',
-          ruc: parsed.ruc || dataset?.ruc || '',
-          tribunal: parsed.tribunal || dataset?.tribunal || dataset?.court || '',
-          caratula: parsed.caratula || dataset?.caratula || dataset?.caratulado || '',
-          materia: parsed.materia || dataset?.materia || '',
+          rol: parsed.rol || inferFromHeaders([/^rol$/, /rol causa/, /rol\/rit/]) || dataset?.rol || dataset?.role || '',
+          rit: parsed.rit || inferFromHeaders([/^rit$/, /rit\/ruc/]) || dataset?.rit || '',
+          ruc: parsed.ruc || inferFromHeaders([/^ruc$/, /rit\/ruc/]) || dataset?.ruc || '',
+          estado: inferFromHeaders([/^estado$/, /estado causa/]) || '',
+          fecha_ingreso: inferFromHeaders([/^fecha ingreso$/, /ingreso/]) || '',
+          corte: inferFromHeaders([/^corte$/]) || '',
+          tribunal: parsed.tribunal || inferFromHeaders([/tribunal/, /juzgado/]) || dataset?.tribunal || dataset?.court || '',
+          caratula: parsed.caratula || inferFromHeaders([/caratula/, /carátula/, /caratulado/]) || dataset?.caratula || dataset?.caratulado || '',
+          materia: parsed.materia || inferFromHeaders([/materia/]) || dataset?.materia || '',
         };
       });
 
@@ -9045,6 +9349,48 @@
         ? ''
         : 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.';
       return { queue, diagnostics, error };
+    }
+
+    async function enrichPjudRowsWithDetail(misCausasWindow, queue = []){
+      if (!misCausasWindow || misCausasWindow.closed || !queue.length) return queue;
+      const enriched = [];
+      for (const row of queue) {
+        const actionToken = String(row?.pjudRouteAudit?.actionToken || '').trim();
+        const detailHandler = String(row?.pjudRouteAudit?.detailHandler || '').trim();
+        if (!actionToken || !detailHandler || typeof misCausasWindow[detailHandler] !== 'function') {
+          enriched.push(row);
+          continue;
+        }
+        try {
+          const beforeHtml = String(misCausasWindow.document?.querySelector('#contMain')?.innerHTML || '');
+          misCausasWindow[detailHandler](actionToken);
+          await new Promise((resolve) => window.setTimeout(resolve, 900));
+          const afterDoc = misCausasWindow.document;
+          const detailNode = afterDoc?.querySelector('#contMain, .modal-body, #detalleCausa, #detalleMisCausa, .detalle-causa');
+          const detailText = String(detailNode?.innerText || '').trim();
+          const detailHtml = String(detailNode?.innerHTML || '').trim();
+          const tribunal = parsePjudFieldsFromVisibleText(detailText).tribunal || row.tribunal || '';
+          const materia = parsePjudFieldsFromVisibleText(detailText).materia || row.materia || '';
+          const fechaUltima = (detailText.match(/(?:ultima|última)\s+actuaci[oó]n\s*[:\-]?\s*([0-9./:-\s]+)/i)?.[1] || '').trim();
+          enriched.push({
+            ...row,
+            tribunal,
+            materia,
+            fecha_ultima_actuacion: fechaUltima || row.fecha_ultima_actuacion || '',
+            rawDetailHtml: detailHtml || beforeHtml || '',
+            rawDetailText: detailText || '',
+            pjudRouteAudit: {
+              ...(row.pjudRouteAudit || {}),
+              detailActionToken: actionToken,
+              detailHandler,
+              detailSnapshot: detailHtml.slice(0, 6000),
+            },
+          });
+        } catch {
+          enriched.push(row);
+        }
+      }
+      return enriched;
     }
 
     async function connectWithPjud(){
@@ -11629,7 +11975,7 @@
       }
       state.pendingPjudWorkbook = null;
       configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
-      const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      const { queue, diagnostics, error } = await safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       const queueSummary = summarizeQueueByMateria(queue);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
@@ -12555,6 +12901,7 @@
       bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
       bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
       bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
+      bindEvent('btnPjudImportIndexIntoCases', 'click', () => importPjudIndexIntoCases(), { scope: 'indice-pjud' });
       bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
       bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
       bindEvent('btnIndiceCrearAccess', 'click', () => {
