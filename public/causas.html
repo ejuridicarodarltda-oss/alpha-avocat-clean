@@ -7487,7 +7487,6 @@
               <button class="btn btn-primary" data-pjud-action="open-import-modal">Nueva importación PJUD</button>
             </div>
           </div>
-          ${renderPjudAssistedVisiblePanel()}
           ${state.pjudHistory.loading ? '<div class="helper-box">Cargando historial de importaciones PJUD…</div>' : ''}
           ${state.pjudHistory.error ? `<div class="helper-box">${escapeHtml(state.pjudHistory.error)}</div>` : ''}
           <div class="timeline">
@@ -7567,6 +7566,7 @@
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
+        ${renderPjudAssistedVisiblePanel()}
         ${renderPjudImportHistoryPanel()}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
