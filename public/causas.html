@@ -418,7 +418,7 @@
       display:none;
     }
 
-    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type){
+    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type):not(.top-overview){
       display:none !important;
     }
 
@@ -5531,6 +5531,10 @@
 
     function disableLandingMode(){
       document.body.classList.remove('landing-mode');
+    }
+
+    function enableLandingMode(){
+      document.body.classList.add('landing-mode');
     }
 
     function closeWorkspaceModal(){
@@ -13280,11 +13284,9 @@
       $('pillarGrid')?.addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
-        if (event.target.closest('[data-open-block]')) {
-          openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
-          return;
-        }
-        openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
+        const targetTab = tab.dataset.tab;
+        const origin = event.target.closest('[data-open-block]') ? 'pillar-open-button' : 'pillar-card';
+        navigateToCausasSection(targetTab, origin);
       });
 
       $('detailActions')?.addEventListener('click', event => {
@@ -13674,8 +13676,8 @@
         document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
         return;
       }
-      disableLandingMode();
       initNonFatalPhase();
+      enableLandingMode();
       try {
         await loadPjudAccessConnection();
       } catch (error) {
