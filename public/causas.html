@@ -415,11 +415,7 @@
     }
 
     .causas-page.landing-mode .screen-grid{
-      display:none;
-    }
-
-    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type){
-      display:none !important;
+      display:grid;
     }
 
     .causas-page .panel-card{
@@ -3457,26 +3453,14 @@
       });
     }
 
-    function navigateToCausasSection(target, origin = 'unknown'){
-      const routes = {
-        informacion: './informacion-clientes-asesorias-causas.html',
-        expedientes: './expedientes-digitales.html',
-        produccion: './produccion.html',
-        alertas: './causas-alertas-plazos.html',
-      };
-      const href = routes[target];
-      if (!href) {
-        setDetailStatus('Acceso aún no disponible para esta sección. Usa una opción habilitada del módulo.', 'warn');
-        return false;
-      }
-      console.info('[CAUSAS][NAVEGACIÓN] Redirección directa desde portada.', { origin, target, href });
-      window.location.href = href;
-      return true;
-    }
-
     function openBranchScreen(branch, origin = 'unknown'){
       const tabId = TAB_CONFIG.some(([id]) => id === branch) ? branch : 'informacion';
-      navigateToCausasSection(tabId, origin);
+      console.info('[CAUSAS][NAVEGACIÓN] Se abrirá la sección dentro del contenedor activo del módulo.', {
+        origin,
+        branch,
+        tabId,
+      });
+      openWorkspaceModal({ tabId, origin });
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -13158,11 +13142,11 @@
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
       bindEvent('btnMonitoreo', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'topbar' });
       bindEvent('btnActualizarEstado', 'click', () => openSyncModal(), { scope: 'acciones' });
-      bindEvent('btnQuickInfo', 'click', () => navigateToCausasSection('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
-      bindEvent('btnQuickExpedientes', 'click', () => navigateToCausasSection('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
-      bindEvent('btnTopExpedientes', 'click', () => navigateToCausasSection('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
-      bindEvent('btnQuickProduction', 'click', () => navigateToCausasSection('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
-      bindEvent('btnQuickAlerts', 'click', () => navigateToCausasSection('alertas', 'btnQuickAlerts'), { scope: 'quick-nav' });
+      bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
+      bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
       bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
