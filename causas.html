@@ -415,7 +415,11 @@
     }
 
     .causas-page.landing-mode .screen-grid{
-      display:grid;
+      display:none;
+    }
+
+    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type):not(.top-overview){
+      display:none !important;
     }
 
     .causas-page .panel-card{
