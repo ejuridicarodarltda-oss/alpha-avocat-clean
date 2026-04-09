@@ -3524,7 +3524,7 @@
       return true;
     }
 
-    function bindFallbackClick(buttonId, handler, scope){
+    function bindFallbackClick(buttonId, handler, scope, fallbackUrl = ''){
       const button = $(buttonId);
       if (!button) return;
       if (button.dataset.primaryBound_click === '1') return;
@@ -3537,8 +3537,27 @@
           await handler(event);
         } catch (error) {
           console.error(`[CAUSAS][BOTONES][${scope}] Falló fallback de #${buttonId}.`, error);
+          if (fallbackUrl) window.location.href = fallbackUrl;
         }
       });
+    }
+
+    function wireCriticalButtonsFallback(){
+      const criticalButtonSpecs = [
+        { id: 'btnQuickInfo', scope: 'critical-info', handler: () => navigateToCausasSection('informacion', 'fallback-btnQuickInfo'), fallbackUrl: './informacion-clientes-asesorias-causas.html' },
+        { id: 'btnQuickExpedientes', scope: 'critical-expedientes', handler: () => navigateToCausasSection('expedientes', 'fallback-btnQuickExpedientes'), fallbackUrl: './expedientes-digitales.html' },
+        { id: 'btnQuickProduction', scope: 'critical-produccion', handler: () => navigateToCausasSection('produccion', 'fallback-btnQuickProduction'), fallbackUrl: './produccion.html' },
+        { id: 'btnQuickAlerts', scope: 'critical-alertas', handler: () => navigateToCausasSection('alertas', 'fallback-btnQuickAlerts'), fallbackUrl: './causas-alertas-plazos.html' },
+        { id: 'btnTopExpedientes', scope: 'critical-top-expedientes', handler: () => navigateToCausasSection('expedientes', 'fallback-btnTopExpedientes'), fallbackUrl: './expedientes-digitales.html' },
+        { id: 'btnMonitoreo', scope: 'critical-top-monitoreo', handler: () => { window.location.href = './monitoreo.html'; }, fallbackUrl: './monitoreo.html' },
+        { id: 'btnCalendario', scope: 'critical-top-calendario', handler: () => { window.location.href = './agenda.html'; }, fallbackUrl: './agenda.html' },
+        { id: 'btnNuevaCausa', scope: 'critical-top-nueva', handler: () => openModal(), fallbackUrl: './informacion-clientes-asesorias-causas.html' },
+        { id: 'btnSistemaAutomatico', scope: 'critical-top-semia', handler: () => openImportModal(), fallbackUrl: './expedientes-digitales.html' },
+        { id: 'btnImportar', scope: 'critical-top-importar', handler: () => openImportModal(), fallbackUrl: './expedientes-digitales.html' },
+        { id: 'btnActualizarEstado', scope: 'critical-top-actualizar', handler: () => openSyncModal(), fallbackUrl: './causas-alertas-plazos.html' },
+      ];
+
+      criticalButtonSpecs.forEach((spec) => bindFallbackClick(spec.id, spec.handler, spec.scope, spec.fallbackUrl || ''));
     }
 
     function auditAndRepairAutomaticFlowButtons(){
@@ -13666,6 +13685,7 @@
 
     async function init(){
       console.info('[CAUSAS] Corrección activa: identificador genérico habilitado (Rol > RIT > RUC > ID).');
+      wireCriticalButtonsFallback();
       try {
         await initFatalPhase();
       } catch (error) {
