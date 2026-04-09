@@ -415,7 +415,11 @@
     }
 
     .causas-page.landing-mode .screen-grid{
-      display:grid;
+      display:none;
+    }
+
+    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type):not(.top-overview){
+      display:none !important;
     }
 
     .causas-page .panel-card{
@@ -6129,22 +6133,39 @@
 
     function validatePjudAssistedSource(){
       const assisted = updatePjudAssistedSourceFromInputs();
+      const rawHtml = String(assisted.tableHtml || assisted.sourceHtml || '').trim();
+      const sourceLabel = assisted.tableHtml ? 'HTML de tabla manual' : 'HTML fuente manual';
+
+      if (!rawHtml) {
+        setMessage('pjudIndexSyncMsg', 'Error: no hay HTML para validar. Pega primero la fuente y vuelve a intentar.', 'warn');
+        return;
+      }
+
+      try {
+        const parsed = new DOMParser().parseFromString(rawHtml, 'text/html');
+        const tables = [...parsed.querySelectorAll('table')];
+        const rows = [...parsed.querySelectorAll('tr')];
+        const hasBasicStructure = Boolean(parsed?.body?.children?.length);
+
+        state.pjudCausesIndex.sourceAssisted.lastValidatedAt = new Date().toISOString();
+
+        if (!tables.length) {
+          setMessage('pjudIndexSyncMsg', `Error: no hay tabla en la fuente (${sourceLabel}).`, 'warn');
+          return;
+        }
+
+        if (!hasBasicStructure) {
+          setMessage('pjudIndexSyncMsg', 'Error: estructura HTML inválida o vacía.', 'warn');
+          return;
+        }
+
+        setMessage('pjudIndexSyncMsg', `Tabla detectada (${tables.length}). Número de filas <tr>: ${rows.length}.`, 'ok');
+      } catch (error) {
+        setMessage('pjudIndexSyncMsg', `Error al validar fuente: ${error?.message || 'HTML inválido'}`, 'error');
+      }
+
       const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
-      state.pjudCausesIndex.sourceAssisted.lastValidatedAt = new Date().toISOString();
-      if (extraction?.diagnostics?.sourceAcquired && extraction?.diagnostics?.extractionReady) {
-        const sourceTypeLabel = extraction.diagnostics.sourceType || 'fuente_desconocida';
-        const rowsDetected = Number(extraction.diagnostics.totalRowsDetected || 0);
-        setMessage('pjudIndexSyncMsg', `Fuente PJUD válida (${sourceTypeLabel}). Filas detectadas: ${rowsDetected}.`, 'ok');
-      } else {
-        const message = 'No fue posible inspeccionar Mis Causas porque Alpha no tiene una fuente PJUD disponible para lectura.';
-        const detail = [
-          extraction?.diagnostics?.sourceWindowAvailable ? null : 'ventana no disponible',
-          extraction?.diagnostics?.sourceUrl ? null : 'URL no informada',
-          extraction?.diagnostics?.sourceSnapshotAvailable ? null : 'sin snapshot técnico',
-        ].filter(Boolean).join(' · ');
-        setMessage('pjudIndexSyncMsg', `${message} ${detail || ''}`.trim(), 'warn');
-      }
       if (assisted.sourceUrl !== (state.pjudAccess.record?.base_url_mis_causas || '')) renderPjudIndexSyncPanel();
     }
 
@@ -12603,6 +12624,10 @@
       $('pjudAssistedSourceUrl')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
       $('pjudAssistedSourceHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
       $('pjudAssistedTableHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
+      const validateSourceButton = $('btnPjudValidateSource');
+      if (validateSourceButton && validateSourceButton.dataset.primaryBound_click !== '1') {
+        validateSourceButton.addEventListener('click', () => validatePjudAssistedSource());
+      }
       $('batch_scope_materias')?.addEventListener('input', (event) => {
         const value = String(event?.target?.value || '');
         state.batchScopeMaterias = parseBatchScopeMateriasInput(value);
