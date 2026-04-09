@@ -605,7 +605,7 @@ function buildUI(container) {
     <section class="card" style="max-width:1200px;margin:0 auto;display:grid;gap:16px;">
       <header style="display:grid;gap:6px;">
         <h1 style="margin:0;">Módulo ${MODULE_TITLE}</h1>
-        <p class="muted" style="margin:0;">Modo antiguo y nuevo modo asistido PJUD conviven temporalmente para validación en paralelo.</p>
+        <p class="muted" style="margin:0;">Modo asistido PJUD exclusivo para verificación técnica paso a paso y extracción del listado visible.</p>
       </header>
 
       <section id="assistedModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
@@ -635,81 +635,6 @@ function buildUI(container) {
         </div>
       </section>
 
-      <section id="legacyModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:12px;">
-        <h2 style="margin:0;font-size:1.06rem;">Sistema actual (modo antiguo)</h2>
-        <p class="muted" style="margin:0;">1) Abra sesión manualmente en PJUD con su Clave Única. 2) Abra PJUD → Mis Causas con todas las materias visibles. 3) Presione Continuar/Iniciar lote.</p>
-        <div class="massive-control__grid">
-          <label style="display:grid;gap:6px;">
-            <span>Tamaño de lote (causas por corrida)</span>
-            <input id="massiveBatchSizeInput" class="input" type="number" min="1" max="200" value="20">
-          </label>
-          <div class="massive-control__actions" style="display:flex;gap:8px;flex-wrap:wrap;">
-            <button id="massiveManualLoginBtn" class="btn btn-3d" type="button">Abrí sesión en PJUD</button>
-            <button id="massiveMisCausasBtn" class="btn btn-3d" type="button">Ya abrí Mis Causas (todas las materias)</button>
-            <button id="massiveStartBtn" class="btn btn-3d btn-primary" type="button">Iniciar lote</button>
-            <button id="massivePauseBtn" class="btn btn-3d" type="button">Pausar</button>
-            <button id="massiveResumeBtn" class="btn btn-3d" type="button">Reanudar</button>
-            <button id="massiveRetryAuthBtn" class="btn btn-3d" type="button">Reintentar autenticación</button>
-            <button id="massiveContinueFromCheckpointBtn" class="btn btn-3d" type="button">Continuar desde última causa</button>
-          </div>
-          <small class="muted">No se guarda Clave Única ni credenciales. Solo se opera con la sesión viva abierta manualmente por el usuario.</small>
-        </div>
-      </section>
-
-      <section class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
-        <h2 style="margin:0;font-size:1.06rem;">Panel operativo y diagnóstico</h2>
-        <div class="massive-audit__grid">
-          <article class="massive-audit__card">
-            <h3>Estado</h3>
-            <p>Flujo: <strong id="massiveFlowStatus"></strong></p>
-            <p>Paso actual: <strong id="massiveCurrentStepName"></strong></p>
-            <p>Subacción: <strong id="massiveCurrentSubaction"></strong></p>
-            <p>Resultado: <strong id="massiveProcessOutcome"></strong></p>
-            <p>Sesión PJUD: <strong id="massivePjudState"></strong></p>
-            <p>Pausa: <strong id="massivePauseReason"></strong></p>
-          </article>
-
-          <article class="massive-audit__card">
-            <h3>Lote</h3>
-            <ul class="massive-stats">
-              <li>Batch ID: <strong id="massiveBatchId">-</strong></li>
-              <li>Tamaño lote: <strong id="massiveBatchSize">20</strong></li>
-              <li>Causas del lote: <strong id="massiveBatchTotal">0</strong></li>
-              <li>Procesadas: <strong id="massiveBatchProcessed">0</strong></li>
-              <li>Exitosas: <strong id="massiveBatchSuccess">0</strong></li>
-              <li>Fallidas: <strong id="massiveBatchFailed">0</strong></li>
-              <li>Pendientes: <strong id="massiveBatchPending">0</strong></li>
-              <li>Archivos descargados: <strong id="massiveDownloadedFiles">0</strong></li>
-              <li>Causas guardadas en Alpha: <strong id="massiveSavedInAlpha">0</strong></li>
-            </ul>
-          </article>
-
-          <article class="massive-audit__card massive-audit__card--full">
-            <h3>Diagnóstico técnico visible</h3>
-            <ul class="massive-stats">
-              <li>Causas detectadas: <strong id="massiveDiagCauses">0</strong></li>
-              <li>Tamaño de lote actual: <strong id="massiveDiagBatch">20</strong></li>
-              <li>Subacción actual: <strong id="massiveDiagSubaction">-</strong></li>
-              <li>URL actual: <strong id="massiveDiagUrl">-</strong></li>
-            </ul>
-          </article>
-
-          <article class="massive-audit__card massive-audit__card--full">
-            <h3>Causa actual</h3>
-            <p id="massiveCurrentCause">Sin causa en ejecución</p>
-          </article>
-
-          <article class="massive-audit__card massive-audit__card--full">
-            <h3>Pasos</h3>
-            <ol id="massiveStepList" class="massive-steps"></ol>
-          </article>
-
-          <article class="massive-audit__card massive-audit__card--full">
-            <h3>Bitácora</h3>
-            <ul id="massiveAuditLog" class="massive-log"></ul>
-          </article>
-        </div>
-      </section>
     </section>
   `
 }
@@ -906,157 +831,7 @@ async function executeMassiveFlow(root, state, options = {}) {
 function renderCarga(container, context = {}) {
   buildUI(container)
 
-  const state = createInitialAuditState()
   const assistedState = createInitialAssistedState()
-  state.pjud.sessionState = inferPjudSessionState()
-  state.checkpoint = restoreCheckpoint()
-  if (state.checkpoint) {
-    appendAuditLog(state, `Checkpoint detectado: batch ${state.checkpoint.batch_id || '-'} en índice ${state.checkpoint.cause_index || 0}.`)
-  }
-
-  const bridge = {
-    token: `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
-    channel: null
-  }
-
-  const applySnapshot = (snapshot, source = 'bridge') => {
-    const normalized = saveBridgeSnapshot(snapshot)
-    if (!normalized) return
-    state.pjud.sessionState = inferPjudSessionState()
-    state.pjud.currentUrl = normalized.url || ''
-    state.diagnostics.currentUrl = normalized.url || '-'
-    appendAuditLog(state, `Contexto PJUD actualizado desde ${source}: ${normalized.host || '-'} · ${getPjudSessionStateLabel(state.pjud.sessionState)}.`)
-    refreshAuditUI(container, state)
-  }
-
-  const buildBridgeHelperSnippet = () => {
-    const targetOrigin = window.location.origin
-    return `(function(){
-  const token=${JSON.stringify(bridge.token)};
-  const targetOrigin=${JSON.stringify(targetOrigin)};
-  const channelName=${JSON.stringify(BRIDGE_CHANNEL_NAME)};
-  const type=${JSON.stringify(BRIDGE_MESSAGE_TYPE)};
-  function rows(){
-    return Array.from(document.querySelectorAll('table tbody tr,.mis-causas-table tbody tr,.causas-list .row')).filter((r)=>r.offsetParent!==null).slice(0,200).map((row,idx)=>{
-      const cells=Array.from(row.querySelectorAll('td'));
-      const opener=row.querySelector('button,a,[onclick],[role="button"]');
-      return {
-        rol:(cells[0]?.textContent||row.getAttribute('data-rol')||'SIN-ROL-'+(idx+1)).trim(),
-        caratula:(cells[1]?.textContent||'').trim(),
-        tribunal:(cells[2]?.textContent||'').trim(),
-        openRef:(opener?.getAttribute('onclick')||opener?.getAttribute('href')||opener?.className||'').trim()
-      };
-    });
-  }
-  function hasClaveUnicaReturn(){
-    const txt=(document.body?.innerText||'').toLowerCase();
-    return txt.includes('clave única') || txt.includes('clave unica') || /claveunica|account\.claveunica/i.test(location.href);
-  }
-  function publish(){
-    const payload={
-      timestamp:Date.now(),
-      host:location.hostname,
-      url:location.href,
-      title:document.title||'',
-      source:'pjud-bridge-script',
-      view:/mis\\s*causas/i.test(document.body?.innerText||'')?'Mis Causas':'Vista PJUD',
-      hasOJV:/oficinajudicialvirtual|oficina judicial virtual/i.test(location.href+' '+document.title+' '+(document.body?.innerText||'')),
-      hasClaveUnicaReturn:hasClaveUnicaReturn(),
-      hasMisCausas:/mis\\s*causas/i.test(document.body?.innerText||''),
-      isAuthenticated:!/clave\\s*única|login|iniciar sesión/i.test(document.body?.innerText||''),
-      causes:rows(),
-      openerControls:Array.from(document.querySelectorAll('button,a,[onclick],[role=\"button\"]')).slice(0,50).map((el)=>el.getAttribute('onclick')||el.getAttribute('href')||el.className||el.id||'').filter(Boolean)
-    };
-    if(window.opener){ window.opener.postMessage({type,token,payload},targetOrigin); }
-    try{
-      const bc=new BroadcastChannel(channelName);
-      bc.postMessage({type,token,payload});
-      bc.close();
-    }catch(e){}
-  }
-  publish();
-  window.__ALPHA_PJUD_BRIDGE_TIMER__=setInterval(publish,1500);
-})();`
-  }
-
-  window.__ALPHA_PJUD_BRIDGE__ = {
-    token: bridge.token,
-    getHelperSnippet: buildBridgeHelperSnippet
-  }
-
-  const onBridgeMessage = (rawData, source) => {
-    const message = rawData && typeof rawData === 'object' ? rawData : {}
-    if (message.type !== BRIDGE_MESSAGE_TYPE || message.token !== bridge.token || !message.payload) return
-    applySnapshot(message.payload, source)
-  }
-
-  window.addEventListener('message', (event) => onBridgeMessage(event.data, 'window.postMessage'))
-  try {
-    bridge.channel = new BroadcastChannel(BRIDGE_CHANNEL_NAME)
-    bridge.channel.addEventListener('message', (event) => onBridgeMessage(event.data, 'BroadcastChannel'))
-  } catch {
-    appendAuditLog(state, 'BroadcastChannel no disponible. Se utilizará postMessage si existe ventana hija conectada.')
-  }
-
-  appendAuditLog(state, 'Limitación técnica: Alpha Avocat no puede leer DOM/cookies de una pestaña PJUD externa por Same-Origin Policy.')
-  appendAuditLog(state, 'Puente real habilitado: abra PJUD en una ventana hija y ejecute window.__ALPHA_PJUD_BRIDGE__.getHelperSnippet() en consola de PJUD.')
-
-  container.querySelector('#massiveManualLoginBtn')?.addEventListener('click', () => {
-    state.flowStatus = 'waiting_manual_login'
-    appendAuditLog(state, 'Sin puente activo aún. Debe inyectar el helper en la pestaña PJUD para evidencias técnicas reales.')
-    refreshAuditUI(container, state)
-  })
-
-  container.querySelector('#massiveMisCausasBtn')?.addEventListener('click', () => {
-    state.flowStatus = 'validating_view'
-    appendAuditLog(state, 'Botón informativo: la validación real depende exclusivamente del puente técnico y heartbeat PJUD.')
-    refreshAuditUI(container, state)
-  })
-
-  container.querySelector('#massiveStartBtn')?.addEventListener('click', () => {
-    if (state.isRunning) return
-    executeMassiveFlow(container, state, { resumeFromCheckpoint: false })
-  })
-
-  container.querySelector('#massivePauseBtn')?.addEventListener('click', () => {
-    if (!state.isRunning) return
-    state.pjud.paused = true
-    state.pjud.pauseReason = 'Pausado manualmente por usuario'
-    state.flowStatus = 'paused_reauth'
-    state.processOutcome = 'Pausado manual'
-    saveCheckpoint(state, 'manual_pause')
-    appendAuditLog(state, 'Proceso pausado manualmente.')
-    refreshAuditUI(container, state)
-  })
-
-  container.querySelector('#massiveResumeBtn')?.addEventListener('click', () => {
-    if (state.isRunning || !state.pjud.paused) return
-    state.flowStatus = 'resumed'
-    appendAuditLog(state, 'Reanudación solicitada. Se revalidará estado real desde puente PJUD.')
-    executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
-  })
-
-  container.querySelector('#massiveRetryAuthBtn')?.addEventListener('click', () => {
-    state.flowStatus = 'waiting_manual_login'
-    appendAuditLog(state, 'Reintento solicitado. Debe existir heartbeat real desde PJUD para pasar validación.')
-    refreshAuditUI(container, state)
-  })
-
-  container.querySelector('#massiveContinueFromCheckpointBtn')?.addEventListener('click', () => {
-    if (state.isRunning) return
-    const checkpoint = restoreCheckpoint()
-    if (!checkpoint) {
-      appendAuditLog(state, 'No hay checkpoint disponible para continuar.')
-      refreshAuditUI(container, state)
-      return
-    }
-    state.checkpoint = checkpoint
-    state.batch.id = checkpoint.batch_id || state.batch.id
-    state.queueCursor = Number(checkpoint.cause_index || 0)
-    state.flowStatus = 'resumed'
-    appendAuditLog(state, `Reanudando desde checkpoint: lote ${state.batch.id || '-'} en índice ${state.queueCursor}.`)
-    executeMassiveFlow(container, state, { resumeFromCheckpoint: true })
-  })
 
   container.addEventListener('click', (event) => {
     const verifyBtn = event.target?.closest?.('[data-assisted-verify]')
@@ -1085,7 +860,6 @@ function renderCarga(container, context = {}) {
     refreshAssistedUI(container, assistedState)
   })
 
-  refreshAuditUI(container, state)
   refreshAssistedUI(container, assistedState)
 
   if (context?.source) {
