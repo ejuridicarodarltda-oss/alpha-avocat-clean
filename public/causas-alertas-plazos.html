@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Alertas y plazos — Módulo Causas</title>
+  <link rel="stylesheet" href="./style.css" />
+  <style>
+    body{ margin:0; font-family:Arial,sans-serif; background:#2D7C74; color:#10211f; }
+    .wrap{ max-width:1080px; margin:0 auto; padding:18px; display:grid; gap:12px; }
+    .card{ background:#fff; border-radius:16px; padding:14px; border:1px solid rgba(36,95,89,.18); box-shadow:0 10px 24px rgba(11,37,34,.15); }
+    .actions{ display:flex; flex-wrap:wrap; gap:8px; }
+    .btn{ appearance:none; border:1px solid #5f9f97; background:#f5fffd; color:#10211f; border-radius:12px; padding:8px 12px; cursor:pointer; text-decoration:none; font-weight:700; }
+    .btn-primary{ background:#163A5F; border-color:#163A5F; color:#fff; }
+    .list{ display:grid; gap:8px; margin-top:8px; }
+    .item{ border:1px solid rgba(95,159,151,.24); border-radius:12px; padding:10px; background:#f7fffd; }
+    .muted{ color:#294542; }
+    h1,h2,p{ margin:0; }
+  </style>
+</head>
+<body>
+  <main class="wrap">
+    <section class="card">
+      <h1>Alertas y plazos judiciales</h1>
+      <p class="muted">Vista dedicada para revisar vencimientos y audiencias sin mezclar Información, Expedientes ni Producción.</p>
+      <div class="actions" style="margin-top:10px;">
+        <a class="btn" href="./causas.html">Volver a portada de Causas</a>
+        <a class="btn btn-primary" href="./agenda.html">Ver calendario judicial</a>
+        <a class="btn" href="./monitoreo.html">Abrir monitoreo</a>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Próximos hitos detectados</h2>
+      <p id="alertsSummary" class="muted" style="margin-top:6px;">Cargando alertas/plazos…</p>
+      <div id="alertsList" class="list"></div>
+    </section>
+  </main>
+
+  <script>
+    (function renderAlertsAndDeadlines(){
+      const summary = document.getElementById('alertsSummary');
+      const list = document.getElementById('alertsList');
+      const candidateKeys = ['causas', 'causes', 'alphaCausas', 'alpha_cases'];
+      let causes = [];
+
+      for (const key of candidateKeys) {
+        try {
+          const parsed = JSON.parse(localStorage.getItem(key) || '[]');
+          if (Array.isArray(parsed) && parsed.length) {
+            causes = parsed;
+            break;
+          }
+        } catch (_error) {
+          // clave inválida: continuar con la siguiente
+        }
+      }
+
+      const toDateValue = (value) => {
+        if (!value) return null;
+        const date = new Date(value);
+        return Number.isNaN(date.getTime()) ? null : date;
+      };
+
+      const today = new Date();
+      const rows = causes
+        .map((cause) => {
+          const audiencia = toDateValue(cause.proximaAudiencia || cause.audiencia);
+          const plazo = toDateValue(cause.proximoPlazo || cause.plazo);
+          const nearest = [audiencia, plazo].filter(Boolean).sort((a, b) => a - b)[0] || null;
+          return {
+            id: cause.id || cause.case_id || cause.rol || cause.rit || 'sin-id',
+            caratula: cause.caratula || cause.rol || cause.rit || 'Causa sin carátula',
+            tribunal: cause.tribunal || 'Tribunal no informado',
+            audiencia,
+            plazo,
+            nearest,
+          };
+        })
+        .filter((row) => row.nearest && row.nearest >= new Date(today.getFullYear(), today.getMonth(), today.getDate()))
+        .sort((a, b) => a.nearest - b.nearest)
+        .slice(0, 15);
+
+      if (!rows.length) {
+        summary.textContent = 'No hay hitos próximos en almacenamiento local. Puedes revisar Agenda o Monitoreo para gestionar alertas judiciales.';
+        list.innerHTML = '<article class="item">Placeholder funcional: la vista está operativa y lista para mostrar alertas reales al registrar fechas de audiencia/plazo.</article>';
+        return;
+      }
+
+      summary.textContent = `Se muestran ${rows.length} hito(s) próximos detectados en causas almacenadas localmente.`;
+      list.innerHTML = rows.map((row) => `
+        <article class="item">
+          <strong>${row.caratula}</strong>
+          <div class="muted">${row.tribunal}</div>
+          <div>Audiencia: ${row.audiencia ? row.audiencia.toLocaleDateString('es-CL') : '—'} | Plazo: ${row.plazo ? row.plazo.toLocaleDateString('es-CL') : '—'}</div>
+        </article>
+      `).join('');
+    })();
+  </script>
+</body>
+</html>
