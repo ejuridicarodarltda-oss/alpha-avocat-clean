@@ -415,11 +415,7 @@
     }
 
     .causas-page.landing-mode .screen-grid{
-      display:none;
-    }
-
-    .causas-page.landing-mode .causas-shell > :not(.screen-card:first-of-type):not(.top-overview){
-      display:none !important;
+      display:grid;
     }
 
     .causas-page .panel-card{
@@ -1696,49 +1692,6 @@
       color:var(--causas-text-secondary);
     }
 
-    .causas-page .pjud-assisted-visible-panel{
-      border:1px solid rgba(95,159,151,.55);
-      background:rgba(255,255,255,.92);
-    }
-
-    .causas-page .pjud-assisted-visible-list{
-      display:grid;
-      gap:8px;
-    }
-
-    .causas-page .pjud-assisted-visible-row{
-      display:grid;
-      grid-template-columns:minmax(280px, 1fr) auto auto;
-      gap:10px;
-      align-items:center;
-      border:1px solid rgba(95,159,151,.32);
-      border-radius:14px;
-      background:#f7fffd;
-      padding:10px 12px;
-    }
-
-    .causas-page .pjud-assisted-visible-instruction{
-      font-weight:700;
-      color:var(--causas-text);
-    }
-
-    .causas-page .pjud-assisted-visible-status{
-      font-weight:800;
-      color:#5f6d7a;
-      min-width:86px;
-      text-align:right;
-    }
-
-    @media (max-width: 920px){
-      .causas-page .pjud-assisted-visible-row{
-        grid-template-columns:1fr;
-        align-items:flex-start;
-      }
-      .causas-page .pjud-assisted-visible-status{
-        text-align:left;
-      }
-    }
-
     @media (max-width: 1280px){
       .screen-grid{ grid-template-columns:1fr; }
       .list-wrap{ max-height:none; }
@@ -1871,9 +1824,9 @@
           <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
         </div>
         <div class="screen-actions">
-          <button class="btn" id="btnQuickInfo">Ver historia activa</button>
+          <button class="btn" id="btnQuickInfo">Información</button>
           <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
-          <button class="btn" id="btnQuickProduction">Ir a producción</button>
+          <button class="btn" id="btnQuickProduction">Producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
       </div>
@@ -1895,17 +1848,6 @@
         <button id="btnPjudIrMisCausas" class="btn" type="button" disabled aria-disabled="true">Ir a Mis Causas</button>
         <button id="btnPjudActualizarAcceso" class="btn" type="button" disabled aria-disabled="true">Actualizar acceso</button>
         <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
-      </div>
-      <div class="field" style="margin-top:10px;">
-        <label for="pjudEntryUrlInput">URL de entrada PJUD</label>
-        <small class="muted">Pegue aquí la URL exacta de la pantalla PJUD donde ya aparecen sus causas con la lupa.</small>
-        <input id="pjudEntryUrlInput" class="input" type="url" placeholder="Pegue aquí la URL exacta de la pantalla PJUD donde ya aparecen sus causas con la lupa." />
-      </div>
-      <div class="pjud-access-actions">
-        <button id="btnPjudValidarUrl" class="btn" type="button">Validar URL</button>
-        <button id="btnPjudUsarUrl" class="btn" type="button">Usar esta URL</button>
-        <button id="btnPjudGuardarAccesoUrl" class="btn btn-primary" type="button">Guardar acceso</button>
-        <button id="btnPjudProbarDesdeUrl" class="btn" type="button">Probar acceso desde URL</button>
       </div>
       <div class="pjud-access-stats" id="pjudAccessStats"></div>
       <div id="pjudAccessProgress" class="pjud-access-progress" role="status" aria-live="polite">
@@ -1941,6 +1883,28 @@
         <p id="pjudIndexSyncProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
       </div>
       <div id="pjudIndexSyncMsg" class="msg" aria-live="polite"></div>
+      <div class="helper-box" id="pjudAssistedSourceBox">
+        <strong>Modo asistido de fuente PJUD</strong>
+        <p class="timeline-meta">Si Alpha no puede leer automáticamente la ventana real de Mis Causas, puedes aportar una fuente manual para inspección técnica.</p>
+        <div class="source-grid">
+          <label class="source-item">
+            <span>Pegar URL actual de la pantalla Mis Causas</span>
+            <input id="pjudAssistedSourceUrl" class="input" type="url" placeholder="https://oficinajudicialvirtual.pjud.cl/..." autocomplete="off">
+          </label>
+          <label class="source-item">
+            <span>Capturar HTML fuente</span>
+            <textarea id="pjudAssistedSourceHtml" class="input" rows="4" placeholder="Pega aquí el HTML completo capturado desde PJUD."></textarea>
+          </label>
+          <label class="source-item">
+            <span>Pegar HTML de la tabla/listado</span>
+            <textarea id="pjudAssistedTableHtml" class="input" rows="4" placeholder="Pega aquí el HTML puntual de la tabla de Mis Causas."></textarea>
+          </label>
+        </div>
+        <div class="pjud-index-actions" style="margin-top:8px;">
+          <button id="btnPjudValidateSource" class="btn" type="button">Validar fuente</button>
+          <button id="btnPjudRetryInspection" class="btn" type="button">Reintentar inspección</button>
+        </div>
+      </div>
       <div class="table-wrap">
         <table class="table" id="pjudIndexSyncTable">
           <thead>
@@ -2813,7 +2777,6 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
-      pjudAssistedVisibleStepStatus: Object.fromEntries(PJUD_ASSISTED_VISIBLE_STEPS.map((step) => [step.id, 'Pendiente'])),
       batchScopeMode: 'all',
       batchScopeMaterias: [],
       pjudLinking: {
@@ -2833,8 +2796,6 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         mode: 'create',
-        draftUrl: '',
-        validation: null,
         stableTimer: null,
       },
       pjudCausesIndex: {
@@ -2844,6 +2805,12 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         stableTimer: null,
+        sourceAssisted: {
+          sourceUrl: '',
+          sourceHtml: '',
+          tableHtml: '',
+          lastValidatedAt: null,
+        },
       },
     };
 
@@ -2859,17 +2826,8 @@
       retrying: 'En ejecución',
       skipped: 'Pendiente',
     };
-    const PJUD_ASSISTED_VISIBLE_STEPS = [
-      { id: 1, instruction: 'Ingrese a www.pjud.cl', buttonLabel: 'Verificar paso' },
-      { id: 2, instruction: 'Ingrese a Oficina Judicial Virtual', buttonLabel: 'Verificar paso' },
-      { id: 3, instruction: 'Ingrese a Todos los Servicios mediante Clave Única', buttonLabel: 'Verificar paso' },
-      { id: 4, instruction: 'Ingrese a Mis Causas', buttonLabel: 'Verificar paso' },
-      { id: 5, instruction: 'Posicione el cursor sobre el inicio de la primera causa o sobre la lupa', buttonLabel: 'Verificar paso' },
-      { id: 6, instruction: 'Verificar listado de causas', buttonLabel: 'Verificar paso' },
-      { id: 7, instruction: 'Extraer listado de causas', buttonLabel: 'Extraer listado de causas' },
-    ];
     const MASSIVE_FLOW_STEPS = [
-      { id: 1, name: 'Adquirir fuente y rutas PJUD' },
+      { id: 1, name: 'Conectar con PJUD' },
       { id: 2, name: 'Abrir Mis Causas / usar sesión activa' },
       { id: 3, name: 'Resolver rutas PJUD' },
       { id: 4, name: 'Recorrer causas del lote' },
@@ -2897,17 +2855,6 @@
         currentInternalProgress: '',
         currentError: '',
         continueAfterError: null,
-        directPjudRouting: {
-          accessActive: false,
-          sourceAvailable: false,
-          sourceUrlAvailable: false,
-          rowsDetected: 0,
-          lupaActionsDetected: 0,
-          validRoutesConverted: 0,
-          stage: 'Sin proceso en ejecución.',
-          technicalDetail: '',
-          progressPercent: 0,
-        },
         log: [],
         summarizedLog: [],
         lastLogEvent: null,
@@ -3035,6 +2982,14 @@
 
     function createDefaultRouteDiagnostics(){
       return {
+        sourceAcquired: false,
+        sourceType: 'none',
+        sourceUrl: '',
+        sourceWindowAvailable: false,
+        sourceDocumentAvailable: false,
+        sourceSnapshotAvailable: false,
+        extractionReady: false,
+        extractionFailureReason: '',
         inspectedUrl: '',
         finalUrl: '',
         tablesDetected: 0,
@@ -3048,39 +3003,9 @@
         totalRowsDetected: 0,
         rowsWithHref: 0,
         rowsWithOnclick: 0,
-        rowsWithDetailActions: 0,
         rowsConvertedToRoute: 0,
         rowsDiscarded: 0,
         discardedReasons: [],
-      };
-    }
-
-    const DIRECT_PJUD_ROUTING_STAGE_MAP = {
-      verify_access: { percent: 10, label: 'Verificando acceso PJUD' },
-      verify_source: { percent: 25, label: 'Verificando fuente Mis Causas' },
-      detect_rows: { percent: 40, label: 'Detectando filas visibles' },
-      detect_lupa: { percent: 60, label: 'Detectando acciones de lupa' },
-      convert_routes: { percent: 80, label: 'Convirtiendo acciones en rutas válidas' },
-      ready: { percent: 100, label: 'Rutas PJUD listas para indexación' },
-    };
-
-    function updateDirectPjudRoutingProgress(stageKey = 'verify_access', overrides = {}){
-      if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
-      const stageMeta = DIRECT_PJUD_ROUTING_STAGE_MAP[stageKey] || DIRECT_PJUD_ROUTING_STAGE_MAP.verify_access;
-      const next = state.massiveAudit.directPjudRouting || {};
-      state.massiveAudit.directPjudRouting = {
-        ...next,
-        stage: overrides.stage || stageMeta.label,
-        progressPercent: Number.isFinite(Number(overrides.progressPercent))
-          ? Math.max(0, Math.min(100, Number(overrides.progressPercent)))
-          : stageMeta.percent,
-        technicalDetail: overrides.technicalDetail ?? next.technicalDetail ?? '',
-        accessActive: Boolean(overrides.accessActive ?? next.accessActive),
-        sourceAvailable: Boolean(overrides.sourceAvailable ?? next.sourceAvailable),
-        sourceUrlAvailable: Boolean(overrides.sourceUrlAvailable ?? next.sourceUrlAvailable),
-        rowsDetected: Number(overrides.rowsDetected ?? next.rowsDetected ?? 0),
-        lupaActionsDetected: Number(overrides.lupaActionsDetected ?? next.lupaActionsDetected ?? 0),
-        validRoutesConverted: Number(overrides.validRoutesConverted ?? next.validRoutesConverted ?? 0),
       };
     }
 
@@ -3182,50 +3107,33 @@
       const diagnostics = state.pendingPjudRouteDiagnostics;
       if (!diagnostics) return '';
       const discarded = (diagnostics.discardedReasons || []).slice(0, 20);
-      const exactReasonLabels = {
-        no_hay_fuente_pjud_disponible: 'no hay fuente PJUD disponible',
-        no_hay_url_disponible: 'no hay URL disponible',
-        no_se_detecto_tabla_o_listado: 'no se detectó tabla/listado',
-        tabla_detectada_pero_sin_filas: 'se detectó tabla pero no filas',
-        filas_detectadas_sin_acciones_de_detalle: 'se detectaron filas pero no acciones de detalle',
-        acciones_detectadas_pero_no_convertidas_a_rutas_validas: 'se detectaron acciones pero no se pudieron convertir en rutas válidas',
-      };
-      const exactReason = exactReasonLabels[diagnostics.exactFailureReason] || diagnostics.exactFailureReason || 'No aplica';
       return `
         <div class="selection-card">
           <strong>Diagnóstico técnico de extracción PJUD</strong>
+          <div class="timeline-meta">sourceAcquired: ${escapeHtml(diagnostics.sourceAcquired ? 'true' : 'false')}</div>
+          <div class="timeline-meta">sourceType: ${escapeHtml(diagnostics.sourceType || 'none')}</div>
+          <div class="timeline-meta">sourceUrl: ${escapeHtml(diagnostics.sourceUrl || 'No informada')}</div>
+          <div class="timeline-meta">sourceWindowAvailable: ${escapeHtml(diagnostics.sourceWindowAvailable ? 'true' : 'false')}</div>
+          <div class="timeline-meta">sourceDocumentAvailable: ${escapeHtml(diagnostics.sourceDocumentAvailable ? 'true' : 'false')}</div>
+          <div class="timeline-meta">sourceSnapshotAvailable: ${escapeHtml(diagnostics.sourceSnapshotAvailable ? 'true' : 'false')}</div>
+          <div class="timeline-meta">extractionReady: ${escapeHtml(diagnostics.extractionReady ? 'true' : 'false')}</div>
+          <div class="timeline-meta">extractionFailureReason: ${escapeHtml(diagnostics.extractionFailureReason || 'No aplica')}</div>
           <div class="timeline-meta">URL inspeccionada: ${escapeHtml(diagnostics.inspectedUrl || 'No informada')}</div>
           <div class="timeline-meta">URL final: ${escapeHtml(diagnostics.finalUrl || diagnostics.inspectedUrl || 'No informada')}</div>
           <div class="timeline-meta">Tablas detectadas: ${escapeHtml(diagnostics.tablesDetected || 0)}</div>
           <div class="timeline-meta">Filas por tabla: ${escapeHtml((diagnostics.tableRows || []).join(', ') || '0')}</div>
           <div class="timeline-meta">Anchors detectados: ${escapeHtml(diagnostics.anchorsDetected || 0)}</div>
           <div class="timeline-meta">Botones con onclick: ${escapeHtml(diagnostics.buttonsWithOnclick || 0)}</div>
-          <div class="timeline-meta">Selectores probados: ${escapeHtml((diagnostics.selectorsTried || []).join(' · ') || 'Sin registro')}</div>
+          <div class="timeline-meta">Selectores probados: ${escapeHtml((diagnostics.selectorsTried || []).join(' · ') || (diagnostics.extractionReady ? 'Sin registro' : 'No ejecutado: sin fuente PJUD'))}</div>
           <div class="timeline-meta">Selector ganador: ${escapeHtml(diagnostics.winnerSelector || 'Sin selector ganador')}</div>
           <div class="timeline-meta">Filas detectadas en “Mis Causas”: ${escapeHtml(diagnostics.totalRowsDetected || 0)}</div>
           <div class="timeline-meta">Filas con href: ${escapeHtml(diagnostics.rowsWithHref || 0)}</div>
           <div class="timeline-meta">Filas con onclick: ${escapeHtml(diagnostics.rowsWithOnclick || 0)}</div>
-          <div class="timeline-meta">Filas con acciones de detalle detectadas: ${escapeHtml(diagnostics.rowsWithDetailActions || 0)}</div>
           <div class="timeline-meta">Filas convertidas en rutas válidas: ${escapeHtml(diagnostics.rowsConvertedToRoute || 0)}</div>
           <div class="timeline-meta">Filas descartadas: ${escapeHtml(diagnostics.rowsDiscarded || 0)}</div>
-          <div class="timeline-meta">Razón exacta de fallo: ${escapeHtml(exactReason)}</div>
+          <div class="timeline-meta">Razón exacta de fallo: ${escapeHtml(diagnostics.exactFailureReason || 'No aplica')}</div>
           <div class="timeline-meta">Snapshot técnico: ${escapeHtml(diagnostics.containerSnapshot || 'Sin snapshot')}</div>
           ${discarded.length ? `<div class="timeline-meta" style="margin-top:8px;"><strong>Motivos de descarte:</strong> ${discarded.map((entry) => `Fila ${escapeHtml(entry.rowIndex)}: ${escapeHtml(entry.reason)}`).join(' · ')}</div>` : '<div class="timeline-meta">Sin descartes reportados.</div>'}
-          ${(diagnostics.rowsConvertedToRoute || 0) === 0 ? `
-            <div class="selection-card" style="margin-top:10px;">
-              <strong>Modo asistido de extracción PJUD</strong>
-              <div class="timeline-meta">Si la captura automática falla, pega la URL y/o HTML para reintentar extracción desde esta misma vista.</div>
-              <label style="display:block;margin-top:8px;">URL actual de Mis Causas</label>
-              <input id="pjudRouteAssistUrl" class="input" placeholder="https://oficinajudicialvirtual.pjud.cl/..." />
-              <label style="display:block;margin-top:8px;">HTML fuente de la tabla/listado</label>
-              <textarea id="pjudRouteAssistHtml" class="textarea" style="min-height:100px;" placeholder="<table>...</table>"></textarea>
-              <label style="display:block;margin-top:8px;">HTML de fila o bloque con lupa (opcional)</label>
-              <textarea id="pjudRouteAssistRowHtml" class="textarea" style="min-height:80px;" placeholder="<tr>...</tr>"></textarea>
-              <div class="modal-actions" style="margin-top:8px;">
-                <button type="button" class="btn" data-route-assist-action="retry">Reintentar extracción</button>
-              </div>
-            </div>
-          ` : ''}
         </div>
       `;
     }
@@ -3238,7 +3146,7 @@
         const hasUrl = routeUrl && isHttpUrl(routeUrl);
         const hasIndirectAction = Boolean(row?.routeActionType && row.routeActionType !== 'none' && row.routeActionPayload);
         if (!hasUrl && !hasIndirectAction) {
-          pushRouteDiscardReason(diagnostics, rowIndex, 'sin enlace navegable', row);
+          pushRouteDiscardReason(diagnostics, rowIndex, 'detail_route_not_found', row);
           return;
         }
         const visible = row.visibleText || '';
@@ -3272,25 +3180,14 @@
           tribunalLabel || '',
           caratulaLabel || '',
         ].join('|'));
-        const detailActionPayload = row?.detailActionRaw
-          || row?.onclick
-          || (row?.routeActionPayload ? JSON.stringify(row.routeActionPayload) : '')
-          || '';
         queue.push({
           mode: 'massive_auto',
           origin: 'pjud_dom_mis_causas',
-          source: 'pjud_live_mis_causas',
           sourceUrl: routeUrl || row.currentPageUrl || '',
           routeUrl,
           routeAction: row.routeAction || '',
           routeActionType: row.routeActionType || 'none',
           routeActionPayload: row.routeActionPayload || null,
-          detailUrl: routeUrl || null,
-          pjudRowKey: row.pjudRowKey || `${normalizedKey || roleLabel || ritLabel || rowIndex}|${rowIndex}`,
-          detailAction: detailActionPayload || row.routeActionType || 'none',
-          rowPosition: rowIndex,
-          detailSelector: row.detailSelector || '',
-          hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
           rawText: visible,
           pjudCaseKey: row.caseKey || normalizedKey || `${roleLabel}|${ritLabel}|${tribunalLabel}|${rowIndex}`,
           pjudNormalizedKey: normalizedKey || '',
@@ -3315,14 +3212,9 @@
             materia: materiaLabel,
             competencia: competenciaLabel,
             link: routeUrl,
-            detailUrl: routeUrl || null,
-            rowPosition: rowIndex,
-            hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
           },
           pjudRouteAudit: {
             rowIndex,
-            rowPosition: rowIndex,
-            pjudRowKey: row.pjudRowKey || `${normalizedKey || roleLabel || ritLabel || rowIndex}|${rowIndex}`,
             rowVisibleText: visible,
             href: row.href || '',
             onclick: row.onclick || '',
@@ -3331,11 +3223,6 @@
             routeAction: row.routeAction || '',
             routeActionType: row.routeActionType || 'none',
             routeActionPayload: row.routeActionPayload || null,
-            detailUrl: routeUrl || null,
-            detailAction: detailActionPayload || row.routeActionType || 'none',
-            detailSelector: row.detailSelector || '',
-            hasDetailAccess: Boolean(hasUrl || hasIndirectAction),
-            rawPayload: row.rawPayload || null,
           },
         });
       });
@@ -3457,29 +3344,14 @@
       });
     }
 
-    function navigateToCausasSection(target, origin = 'unknown'){
-      const routes = {
-        informacion: './informacion-clientes-asesorias-causas.html',
-        'historia-procesal': './informacion-clientes-asesorias-causas.html',
-        expedientes: './expedientes-digitales.html',
-        'contenedor-documental': './expedientes-digitales.html',
-        produccion: './produccion.html',
-        'produccion-en-curso': './produccion.html',
-        alertas: './causas-alertas-plazos.html',
-      };
-      const href = routes[target];
-      if (!href) {
-        setDetailStatus('Acceso aún no disponible para esta sección. Usa una opción habilitada del módulo.', 'warn');
-        return false;
-      }
-      console.info('[CAUSAS][NAVEGACIÓN] Redirección directa desde portada.', { origin, target, href });
-      window.location.href = href;
-      return true;
-    }
-
     function openBranchScreen(branch, origin = 'unknown'){
       const tabId = TAB_CONFIG.some(([id]) => id === branch) ? branch : 'informacion';
-      navigateToCausasSection(tabId, origin);
+      console.info('[CAUSAS][NAVEGACIÓN] Se abrirá la sección dentro del contenedor activo del módulo.', {
+        origin,
+        branch,
+        tabId,
+      });
+      openWorkspaceModal({ tabId, origin });
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -3527,7 +3399,7 @@
       return true;
     }
 
-    function bindFallbackClick(buttonId, handler, scope, fallbackUrl = ''){
+    function bindFallbackClick(buttonId, handler, scope){
       const button = $(buttonId);
       if (!button) return;
       if (button.dataset.primaryBound_click === '1') return;
@@ -3540,27 +3412,8 @@
           await handler(event);
         } catch (error) {
           console.error(`[CAUSAS][BOTONES][${scope}] Falló fallback de #${buttonId}.`, error);
-          if (fallbackUrl) window.location.href = fallbackUrl;
         }
       });
-    }
-
-    function wireCriticalButtonsFallback(){
-      const criticalButtonSpecs = [
-        { id: 'btnQuickInfo', scope: 'critical-info', handler: () => navigateToCausasSection('informacion', 'fallback-btnQuickInfo'), fallbackUrl: './informacion-clientes-asesorias-causas.html' },
-        { id: 'btnQuickExpedientes', scope: 'critical-expedientes', handler: () => navigateToCausasSection('expedientes', 'fallback-btnQuickExpedientes'), fallbackUrl: './expedientes-digitales.html' },
-        { id: 'btnQuickProduction', scope: 'critical-produccion', handler: () => navigateToCausasSection('produccion', 'fallback-btnQuickProduction'), fallbackUrl: './produccion.html' },
-        { id: 'btnQuickAlerts', scope: 'critical-alertas', handler: () => navigateToCausasSection('alertas', 'fallback-btnQuickAlerts'), fallbackUrl: './causas-alertas-plazos.html' },
-        { id: 'btnTopExpedientes', scope: 'critical-top-expedientes', handler: () => navigateToCausasSection('expedientes', 'fallback-btnTopExpedientes'), fallbackUrl: './expedientes-digitales.html' },
-        { id: 'btnMonitoreo', scope: 'critical-top-monitoreo', handler: () => { window.location.href = './monitoreo.html'; }, fallbackUrl: './monitoreo.html' },
-        { id: 'btnCalendario', scope: 'critical-top-calendario', handler: () => { window.location.href = './agenda.html'; }, fallbackUrl: './agenda.html' },
-        { id: 'btnNuevaCausa', scope: 'critical-top-nueva', handler: () => openModal(), fallbackUrl: './informacion-clientes-asesorias-causas.html' },
-        { id: 'btnSistemaAutomatico', scope: 'critical-top-semia', handler: () => openImportModal(), fallbackUrl: './expedientes-digitales.html' },
-        { id: 'btnImportar', scope: 'critical-top-importar', handler: () => openImportModal(), fallbackUrl: './expedientes-digitales.html' },
-        { id: 'btnActualizarEstado', scope: 'critical-top-actualizar', handler: () => openSyncModal(), fallbackUrl: './causas-alertas-plazos.html' },
-      ];
-
-      criticalButtonSpecs.forEach((spec) => bindFallbackClick(spec.id, spec.handler, spec.scope, spec.fallbackUrl || ''));
     }
 
     function auditAndRepairAutomaticFlowButtons(){
@@ -4888,11 +4741,9 @@
     ]);
 
     function buildPjudBatchInsertPayload(summary, { status = 'processing', errorSummary = [] } = {}, { discardedColumn = 'discarded_count' } = {}){
-      const isManifestMode = state.massiveAudit?.executionMode === 'modo_manifiesto_excel';
-      const sourceCode = isManifestMode ? 'pjud_manifest_excel_aux' : 'pjud_live_mis_causas';
       return {
         owner_user_id: authenticatedUser.id,
-        source: sourceCode,
+        source: 'pjud_excel_mis_causas',
         source_confidence: 'high',
         file_name: summary.fileName || null,
         file_size_bytes: Number($('batch_excel_file')?.files?.[0]?.size || 0),
@@ -4909,7 +4760,7 @@
         [discardedColumn]: 0,
         summary: {
           mode: 'massive_auto',
-          sourceOrigin: isManifestMode ? 'manifest_excel_aux' : 'mis_causas_listado_vivo',
+          sourceOrigin: 'pjud_auto',
           fileName: summary.fileName || null,
           rowsProcessed: summary.rowsProcessed || 0,
           invalidRows: summary.invalidRows || 0,
@@ -4919,7 +4770,7 @@
         error_summary: (errorSummary || []).slice(0, 20),
         metadata: {
           mode: 'massive_auto',
-          sourceOrigin: isManifestMode ? 'manifest_excel_aux' : 'mis_causas_listado_vivo',
+          sourceOrigin: 'pjud_auto',
           importedAtClient: new Date().toISOString(),
           status,
           errorSummary: (errorSummary || []).slice(0, 20),
@@ -5555,10 +5406,6 @@
       document.body.classList.remove('landing-mode');
     }
 
-    function enableLandingMode(){
-      document.body.classList.add('landing-mode');
-    }
-
     function closeWorkspaceModal(){
       closeManagedModal('workspaceModal');
     }
@@ -5989,111 +5836,19 @@
       `).join('');
     }
 
-    function normalizePjudEntryUrl(urlValue = ''){
-      const raw = String(urlValue || '').trim();
-      if (!raw) return '';
-      try {
-        return new URL(raw).toString();
-      } catch {
-        return '';
-      }
-    }
-
     function isPjudMisCausasUrl(urlValue = ''){
-      const normalized = normalizePjudEntryUrl(urlValue);
-      if (!normalized) return false;
-      const lower = normalized.toLowerCase();
-      return (
-        lower.includes('miscausas')
-        || lower.includes('mis-causas')
-        || lower.includes('mis_causas')
-        || lower.includes('causas')
-        || lower.includes('buscar')
-        || lower.includes('consulta')
-      );
-    }
-
-    function validatePjudEntryUrl(urlValue = ''){
       const raw = String(urlValue || '').trim();
-      if (!raw) {
-        return {
-          rawUserUrl: '',
-          normalizedEntryUrl: '',
-          validationStatus: 'invalid',
-          message: 'Debes pegar la URL de entrada PJUD para poder validarla.',
-          isUsable: false,
-          belongsToPjud: false,
-        };
-      }
+      if (!raw) return false;
       try {
         const parsed = new URL(raw);
         const host = parsed.hostname.toLowerCase();
-        const belongsToPjud = host.endsWith('pjud.cl') || host.endsWith('ojv.cl');
-        if (!belongsToPjud) {
-          return {
-            rawUserUrl: raw,
-            normalizedEntryUrl: parsed.toString(),
-            validationStatus: 'invalid',
-            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
-            isUsable: false,
-            belongsToPjud: false,
-          };
-        }
+        if (!host.endsWith('pjud.cl')) return false;
         const path = parsed.pathname.toLowerCase();
         const hash = parsed.hash.toLowerCase();
-        const query = parsed.search.toLowerCase();
         const normalizedHref = parsed.href.toLowerCase();
-        const looksLogin = ['login', 'claveunica', 'autent', 'signin', 'ingreso', 'session'].some((token) => normalizedHref.includes(token));
-        if (looksLogin) {
-          return {
-            rawUserUrl: raw,
-            normalizedEntryUrl: parsed.toString(),
-            validationStatus: 'invalid',
-            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
-            isUsable: false,
-            belongsToPjud: true,
-          };
-        }
-        const cues = `${path} ${hash} ${query} ${normalizedHref}`;
-        const hasMisCausasCue = ['miscausas', 'mis-causas', 'mis_causas', 'mis%20causas', 'causas', 'consulta', 'buscar'].some((token) => cues.includes(token));
-        const looksRoot = path === '/' || path === '/indexn.php' || path === '/index.php';
-        if (hasMisCausasCue && !looksRoot) {
-          return {
-            rawUserUrl: raw,
-            normalizedEntryUrl: parsed.toString(),
-            validationStatus: 'valid',
-            message: 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.',
-            isUsable: true,
-            belongsToPjud: true,
-          };
-        }
-        if (looksRoot) {
-          return {
-            rawUserUrl: raw,
-            normalizedEntryUrl: parsed.toString(),
-            validationStatus: 'invalid',
-            message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
-            isUsable: false,
-            belongsToPjud: true,
-          };
-        }
-        return {
-          rawUserUrl: raw,
-          normalizedEntryUrl: parsed.toString(),
-          validationStatus: 'valid_with_reservations',
-          message: 'URL PJUD válida con reservas: no se identifica claramente “Mis Causas”, pero se usará como entrada.',
-          isUsable: true,
-          belongsToPjud: true,
-        };
+        return path.includes('indexn.php') || hash.includes('mis') || normalizedHref.includes('miscausas');
       } catch {
-        return {
-          rawUserUrl: raw,
-          normalizedEntryUrl: '',
-          validationStatus: 'invalid',
-          message: 'La URL indicada no corresponde a una pantalla utilizable de PJUD.',
-          isUsable: false,
-          belongsToPjud: false,
-        };
+        return false;
       }
     }
 
@@ -6192,13 +5947,8 @@
 
     function hasActivePjudAccess(){
       const access = state.pjudAccess.record || null;
-      const status = String(access?.access_status || access?.status || '').toLowerCase();
-      const validationStatus = String(access?.url_validation_status || '').toLowerCase();
-      const url = access?.normalized_entry_url || access?.base_url_mis_causas || '';
-      return Boolean(access?.id)
-        && status === 'active'
-        && ['valid', 'valid_with_reservations'].includes(validationStatus)
-        && Boolean(url);
+      const status = String(access?.status || '').toLowerCase();
+      return Boolean(access?.id) && status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
     }
 
     async function loadPjudCausesIndexRows(){
@@ -6238,8 +5988,6 @@
           fecha_ultima_gestion: item?.fecha_ultima_gestion || null,
           raw_row_payload: item || {},
           detail_url: item?.routeUrl || item?.sourceUrl || null,
-          detail_action: item?.detailAction || item?.routeActionType || null,
-          detail_selector: item?.detailSelector || item?.pjudRouteAudit?.detailSelector || null,
           has_detail_access: Boolean(item?.routeUrl || (item?.routeActionType && item?.routeActionType !== 'none')),
           alpha_case_id: null,
           sync_status: 'indexed',
@@ -6316,8 +6064,8 @@
         return;
       }
       try {
-        const accessUrl = state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
-        setPjudIndexSyncProgress({ percent: 20, stage: 'Abriendo pantalla Mis Causas', status: 'in_progress' });
+        const accessUrl = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        setPjudIndexSyncProgress({ percent: 20, stage: 'Verificando disponibilidad de fuente PJUD', status: 'in_progress' });
         if (!state.pjudMisCausasWindow || state.pjudMisCausasWindow.closed) {
           state.pjudMisCausasWindow = window.open(accessUrl, '_blank', 'noopener,noreferrer');
         } else {
@@ -6329,34 +6077,43 @@
           }
         }
 
-        setPjudIndexSyncProgress({ percent: 35, stage: 'Detectando tabla de causas', status: 'in_progress' });
+        setPjudIndexSyncProgress({ percent: 35, stage: 'Fuente PJUD adquirida', status: 'in_progress' });
         const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+        state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
+        if (!extraction?.diagnostics?.sourceAcquired || !extraction?.diagnostics?.extractionReady) {
+          const message = 'No fue posible inspeccionar Mis Causas porque Alpha no tiene una fuente PJUD disponible para lectura. Detalle: ventana no disponible, URL no informada o sin snapshot técnico.';
+          setPjudIndexSyncProgress({ percent: 20, stage: 'Fuente PJUD no disponible para inspección', status: 'error' });
+          setMessage('pjudIndexSyncMsg', message, 'error');
+          renderPjudIndexSyncPanel();
+          return;
+        }
+        setPjudIndexSyncProgress({ percent: 50, stage: 'Detectando tabla/listado de Mis Causas', status: 'in_progress' });
         if (!extraction?.queue?.length) {
           const normalizedError = String(extraction?.error || '').toLowerCase();
-          let message = 'No fue posible detectar la tabla de Mis Causas del PJUD.';
+          let message = 'No fue posible detectar la tabla/listado de Mis Causas del PJUD.';
           if (normalizedError.includes('expir')) message = 'La sesión PJUD expiró antes de sincronizar el índice.';
+          if (String(extraction?.diagnostics?.extractionFailureReason || '') === 'table_not_found') message = 'Hay fuente PJUD disponible, pero no se encontró tabla/listado de Mis Causas.';
           if (normalizedError.includes('no se detectaron filas')) message = 'No se detectaron causas visibles para indexar en esta sesión.';
-          setPjudIndexSyncProgress({ percent: 35, stage: message, status: 'error' });
+          setPjudIndexSyncProgress({ percent: 50, stage: message, status: 'error' });
           setMessage('pjudIndexSyncMsg', message, message.includes('No se detectaron causas visibles') ? 'warn' : 'error');
           renderPjudIndexSyncPanel();
           return;
         }
 
-        setPjudIndexSyncProgress({ percent: 50, stage: 'Leyendo filas visibles', status: 'in_progress' });
+        setPjudIndexSyncProgress({ percent: 70, stage: 'Leyendo filas reales', status: 'in_progress' });
         const visibleRows = extraction.queue;
         if (!visibleRows.length) {
           const message = 'No se detectaron causas visibles para indexar en esta sesión.';
-          setPjudIndexSyncProgress({ percent: 50, stage: message, status: 'error' });
+          setPjudIndexSyncProgress({ percent: 70, stage: message, status: 'error' });
           setMessage('pjudIndexSyncMsg', message, 'warn');
           renderPjudIndexSyncPanel();
           return;
         }
 
-        setPjudIndexSyncProgress({ percent: 70, stage: 'Extrayendo campos estructurados', status: 'in_progress' });
-        setPjudIndexSyncProgress({ percent: 85, stage: 'Guardando índice PJUD', status: 'in_progress' });
+        setPjudIndexSyncProgress({ percent: 85, stage: 'Conservando rutas de lupa', status: 'in_progress' });
         await persistPjudCausesIndexRows(visibleRows);
         await loadPjudCausesIndexRows();
-        setPjudIndexSyncProgress({ percent: 100, stage: 'Índice PJUD sincronizado correctamente', status: 'completed', keepUntilStable: true });
+        setPjudIndexSyncProgress({ percent: 100, stage: 'Índice PJUD sincronizado', status: 'completed', keepUntilStable: true });
         setMessage('pjudIndexSyncMsg', 'Índice PJUD sincronizado correctamente.', 'ok');
         renderPjudIndexSyncPanel();
       } catch (error) {
@@ -6370,6 +6127,32 @@
       }
     }
 
+    function validatePjudAssistedSource(){
+      const assisted = updatePjudAssistedSourceFromInputs();
+      const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
+      state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
+      state.pjudCausesIndex.sourceAssisted.lastValidatedAt = new Date().toISOString();
+      if (extraction?.diagnostics?.sourceAcquired && extraction?.diagnostics?.extractionReady) {
+        const sourceTypeLabel = extraction.diagnostics.sourceType || 'fuente_desconocida';
+        const rowsDetected = Number(extraction.diagnostics.totalRowsDetected || 0);
+        setMessage('pjudIndexSyncMsg', `Fuente PJUD válida (${sourceTypeLabel}). Filas detectadas: ${rowsDetected}.`, 'ok');
+      } else {
+        const message = 'No fue posible inspeccionar Mis Causas porque Alpha no tiene una fuente PJUD disponible para lectura.';
+        const detail = [
+          extraction?.diagnostics?.sourceWindowAvailable ? null : 'ventana no disponible',
+          extraction?.diagnostics?.sourceUrl ? null : 'URL no informada',
+          extraction?.diagnostics?.sourceSnapshotAvailable ? null : 'sin snapshot técnico',
+        ].filter(Boolean).join(' · ');
+        setMessage('pjudIndexSyncMsg', `${message} ${detail || ''}`.trim(), 'warn');
+      }
+      if (assisted.sourceUrl !== (state.pjudAccess.record?.base_url_mis_causas || '')) renderPjudIndexSyncPanel();
+    }
+
+    async function retryPjudIndexInspection(){
+      setMessage('pjudIndexSyncMsg', 'Reintentando inspección de Mis Causas con prioridad de fuente actualizada…', 'ok');
+      await syncPjudCausesIndex();
+    }
+
     async function handlePjudIndexRowAction(event){
       const action = event?.target?.dataset?.pjudIndexAction;
       const rowId = event?.target?.dataset?.pjudIndexId;
@@ -6377,7 +6160,7 @@
       const item = state.pjudCausesIndex.items.find((entry) => String(entry.id) === String(rowId));
       if (!item) return;
       if (action === 'open') {
-        const targetUrl = item.detail_url || state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const targetUrl = item.detail_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
         const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
         if (!popup) {
           setMessage('pjudIndexSyncMsg', 'El navegador bloqueó la apertura de la causa. Habilita pop-ups e inténtalo nuevamente.', 'error');
@@ -6449,16 +6232,6 @@
       state.pjudAccess.available = true;
       state.pjudAccess.degradedMessage = '';
       state.pjudAccess.record = data || null;
-      state.pjudAccess.draftUrl = data?.raw_user_url || data?.normalized_entry_url || data?.base_url_mis_causas || '';
-      state.pjudAccess.validation = data
-        ? {
-          rawUserUrl: data?.raw_user_url || '',
-          normalizedEntryUrl: data?.normalized_entry_url || data?.base_url_mis_causas || '',
-          validationStatus: data?.url_validation_status || '',
-          isUsable: ['valid', 'valid_with_reservations'].includes(String(data?.url_validation_status || '').toLowerCase()),
-          message: '',
-        }
-        : null;
       return state.pjudAccess.record;
     }
 
@@ -6469,9 +6242,6 @@
     async function persistPjudAccessConnection({
       status = 'active',
       baseUrl = '',
-      rawUserUrl = '',
-      normalizedEntryUrl = '',
-      urlValidationStatus = 'invalid',
       verificationMode = 'manual',
       message = '',
     } = {}){
@@ -6483,21 +6253,13 @@
         user_id: authenticatedUser.id,
         access_type: 'pjud',
         status,
-        access_status: status,
         base_url_mis_causas: baseUrl || null,
-        raw_user_url: rawUserUrl || null,
-        normalized_entry_url: normalizedEntryUrl || baseUrl || null,
-        url_validation_status: urlValidationStatus || null,
-        last_validated_at: nowIso,
         last_connected_at: status === 'active' ? nowIso : state.pjudAccess.record?.last_connected_at || null,
         last_verified_at: nowIso,
         session_context: {
           verification_mode: verificationMode,
           user_agent: navigator.userAgent || '',
           message: message || '',
-          raw_user_url: rawUserUrl || null,
-          normalized_entry_url: normalizedEntryUrl || baseUrl || null,
-          url_validation_status: urlValidationStatus || null,
         },
       };
       const { data, error } = await supabase
@@ -6540,9 +6302,8 @@
       }
       const access = state.pjudAccess.record || null;
       const hasAccessRecord = Boolean(access?.id);
-      const status = String(access?.access_status || access?.status || 'disconnected').toLowerCase();
-      const validationStatus = String(access?.url_validation_status || 'invalid').toLowerCase();
-      const isActive = status === 'active' && ['valid', 'valid_with_reservations'].includes(validationStatus);
+      const status = String(access?.status || 'disconnected').toLowerCase();
+      const isActive = status === 'active' && isPjudMisCausasUrl(access?.base_url_mis_causas || '');
       const statusText = !hasAccessRecord
         ? PJUD_ACCESS_PENDING_MESSAGE
         : (isActive
@@ -6550,27 +6311,16 @@
           : (status === 'expired'
             ? 'La sesión PJUD expiró. Debe actualizar el acceso.'
             : 'Sin acceso PJUD activo'));
-      const validationLabel = ({
-        valid: 'Válida',
-        valid_with_reservations: 'Válida con reservas',
-        invalid: 'Inválida',
-      })[validationStatus] || 'Sin validar';
       statsNode.innerHTML = [
         { label: 'Estado', value: `<span class="connection-dot ${isActive ? 'active' : ''}" aria-hidden="true"></span>${escapeHtml(statusText)}` },
         { label: 'Última conexión', value: escapeHtml(access?.last_connected_at ? formatDate(access.last_connected_at) : 'Sin registro') },
-        { label: 'URL de entrada normalizada', value: escapeHtml(access?.normalized_entry_url || access?.base_url_mis_causas || 'No detectada') },
-        { label: 'Validación URL', value: escapeHtml(validationLabel) },
+        { label: 'URL base Mis Causas', value: escapeHtml(access?.base_url_mis_causas || 'No detectada') },
       ].map((item) => `
         <article class="metric">
           <span class="mini-label">${escapeHtml(item.label)}</span>
           <strong>${item.value}</strong>
         </article>
       `).join('');
-
-      const urlInput = $('pjudEntryUrlInput');
-      if (urlInput && !urlInput.value.trim()) {
-        urlInput.value = access?.raw_user_url || access?.normalized_entry_url || access?.base_url_mis_causas || '';
-      }
 
       if (!hasAccessRecord) {
         setMessage('pjudAccessMsg', PJUD_ACCESS_PENDING_MESSAGE, 'info');
@@ -6582,15 +6332,11 @@
         createButton.setAttribute('aria-disabled', 'false');
       }
       const enableActions = isActive;
-      const hasUrl = Boolean(access?.normalized_entry_url || access?.base_url_mis_causas || state.pjudAccess.draftUrl);
-      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar', 'btnPjudValidarUrl', 'btnPjudUsarUrl', 'btnPjudGuardarAccesoUrl', 'btnPjudProbarDesdeUrl'].forEach((id) => {
+      ['btnPjudAbrir', 'btnPjudIrMisCausas', 'btnPjudActualizarAcceso', 'btnPjudDesconectar'].forEach((id) => {
         const button = $(id);
         if (!button) return;
-        const enabled = ['btnPjudAbrir', 'btnPjudValidarUrl', 'btnPjudUsarUrl', 'btnPjudGuardarAccesoUrl', 'btnPjudProbarDesdeUrl'].includes(id)
-          ? true
-          : (id === 'btnPjudDesconectar' ? hasAccessRecord : isActive && hasUrl);
-        button.disabled = !enabled;
-        button.setAttribute('aria-disabled', enabled ? 'false' : 'true');
+        button.disabled = !enableActions;
+        button.setAttribute('aria-disabled', enableActions ? 'false' : 'true');
       });
       const syncButton = $('btnPjudSyncIndex');
       if (syncButton) {
@@ -6599,99 +6345,17 @@
       }
     }
 
-    function resolvePjudEntryUrlFromUi(){
-      const typed = $('pjudEntryUrlInput')?.value?.trim() || '';
-      if (typed) return typed;
-      return state.pjudAccess.draftUrl || state.pjudAccess.record?.raw_user_url || state.pjudAccess.record?.normalized_entry_url || '';
-    }
-
-    function validatePjudEntryUrlFromUi({ persistDraft = true } = {}){
-      const candidateUrl = resolvePjudEntryUrlFromUi();
-      const validation = validatePjudEntryUrl(candidateUrl);
-      state.pjudAccess.validation = validation;
-      if (persistDraft) state.pjudAccess.draftUrl = validation.rawUserUrl || candidateUrl;
-      if ($('pjudEntryUrlInput') && (validation.rawUserUrl || candidateUrl)) {
-        $('pjudEntryUrlInput').value = validation.rawUserUrl || candidateUrl;
-      }
-      return validation;
-    }
-
-    async function validatePjudEntryUrlAction(){
-      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
-      setPjudAccessProgress({
-        percent: 10,
-        stage: 'Validando URL entregada',
-        status: validation.isUsable ? 'in_progress' : 'error',
-      });
-      if (!validation.isUsable) {
-        setMessage('pjudAccessMsg', validation.message, 'error');
-        return;
-      }
-      setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
-      setMessage('pjudAccessMsg', validation.message, validation.validationStatus === 'valid' ? 'ok' : 'warn');
-    }
-
-    async function usePjudEntryUrlAction(){
-      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
-      if (!validation.isUsable) {
-        setMessage('pjudAccessMsg', validation.message, 'error');
-        return;
-      }
-      setPjudAccessProgress({ percent: 45, stage: 'Abriendo fuente PJUD desde la URL', status: 'in_progress' });
-      state.pjudAccess.record = {
-        ...(state.pjudAccess.record || {}),
-        raw_user_url: validation.rawUserUrl,
-        normalized_entry_url: validation.normalizedEntryUrl,
-        base_url_mis_causas: validation.normalizedEntryUrl,
-        url_validation_status: validation.validationStatus,
-      };
-      renderPjudAccessPanel();
-      setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-        ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
-        : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
-    }
-
-    async function savePjudEntryUrlAccessAction(){
-      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
-      if (!validation.isUsable) {
-        setMessage('pjudAccessMsg', validation.message, 'error');
-        return;
-      }
-      await persistPjudAccessConnection({
-        status: 'active',
-        baseUrl: validation.normalizedEntryUrl,
-        rawUserUrl: validation.rawUserUrl,
-        normalizedEntryUrl: validation.normalizedEntryUrl,
-        urlValidationStatus: validation.validationStatus,
-        verificationMode: 'manual_url_saved',
-        message: 'URL de entrada PJUD guardada por el usuario.',
-      });
-      setPjudAccessProgress({ percent: 100, stage: 'ACCESS PJUD operativo desde URL asistida', status: 'completed', keepUntilStable: true });
-      setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-        ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
-        : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
-      renderPjudAccessPanel();
-    }
-
-    async function testPjudEntryUrlAccessAction(){
-      const validation = validatePjudEntryUrlFromUi({ persistDraft: true });
-      if (!validation.isUsable) {
-        setMessage('pjudAccessMsg', validation.message, 'error');
-        return;
-      }
-      const popup = window.open(validation.normalizedEntryUrl, '_blank', 'noopener,noreferrer');
-      if (!popup) {
-        setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de la URL PJUD. Habilita pop-ups e inténtalo nuevamente.', 'error');
-        return;
-      }
-      setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
-      setMessage('pjudAccessMsg', 'Se abrió la URL de entrada PJUD para probar acceso con sesión activa.', 'ok');
+    function resolvePjudMisCausasUrlInput(defaultValue = ''){
+      return window.prompt(
+        'Cuando ya estés dentro de "Mis Causas" en PJUD, pega aquí la URL real de esa vista para validar el acceso.',
+        defaultValue || PJUD_MIS_CAUSAS_DEFAULT_URL,
+      );
     }
 
     async function createOrRefreshPjudAccess({ mode = 'create' } = {}){
       const normalizedMode = mode === 'refresh' ? 'refresh' : 'create';
       state.pjudAccess.mode = normalizedMode;
-      setPjudAccessProgress({ percent: 0, stage: 'Preparando acceso PJUD asistido por URL...', status: 'in_progress' });
+      setPjudAccessProgress({ percent: 0, stage: 'Preparando acceso PJUD...', status: 'in_progress' });
       try {
         if (!state.pjudAccess.available) {
           setPjudAccessProgress({
@@ -6703,73 +6367,76 @@
           return;
         }
 
-        setPjudAccessProgress({ percent: 10, stage: 'Validando URL entregada', status: 'in_progress' });
-        const typedUrl = $('pjudEntryUrlInput')?.value?.trim()
-          || state.pjudAccess.draftUrl
-          || state.pjudAccess.record?.raw_user_url
-          || state.pjudAccess.record?.normalized_entry_url
-          || '';
-        const validation = validatePjudEntryUrl(typedUrl);
-        state.pjudAccess.validation = validation;
-        state.pjudAccess.draftUrl = validation.rawUserUrl || typedUrl;
-        if (!validation.isUsable) {
-          setPjudAccessProgress({ percent: 10, stage: validation.message, status: 'error' });
-          setMessage('pjudAccessMsg', validation.message, 'error');
-          renderPjudAccessPanel();
-          return;
-        }
+        setPjudAccessProgress({ percent: 10, stage: 'Verificando infraestructura del acceso PJUD...', status: 'in_progress' });
+        setPjudAccessProgress({ percent: 20, stage: 'Comprobando disponibilidad del módulo de acceso...', status: 'in_progress' });
 
-        setPjudAccessProgress({ percent: 25, stage: 'Verificando sesión activa sobre la URL', status: 'in_progress' });
-        const popup = window.open(validation.normalizedEntryUrl, '_blank', 'noopener,noreferrer');
+        const popup = window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
         if (!popup) {
           setPjudAccessProgress({
-            percent: 25,
-            stage: 'No se pudo abrir la URL PJUD entregada. Habilita pop-ups para continuar.',
+            percent: 35,
+            stage: 'No se pudo abrir PJUD/OJV. Habilita pop-ups para continuar.',
             status: 'error',
           });
-          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de la URL PJUD. Habilita pop-ups e inténtalo nuevamente.', 'error');
+          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de PJUD/OJV. Habilita pop-ups e inténtalo nuevamente.', 'error');
           return;
         }
 
         state.pjudMisCausasWindow = popup;
-        setPjudAccessProgress({ percent: 45, stage: 'Abriendo fuente PJUD desde la URL', status: 'in_progress' });
-        setPjudAccessProgress({ percent: 65, stage: 'Detectando listado de causas', status: 'in_progress' });
-        setPjudAccessProgress({ percent: 85, stage: 'Detectando rutas de lupa', status: 'in_progress' });
-        const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
-        if (!extraction?.queue?.length) {
-          const normalizedExtractionError = String(extraction?.error || '').toLowerCase();
-          if (normalizedExtractionError.includes('expir') || normalizedExtractionError.includes('autentic')) {
-            setMessage('pjudAccessMsg', 'La URL es correcta, pero la sesión PJUD no está activa.', 'warn');
-          } else {
-            setMessage('pjudAccessMsg', 'La URL fue aceptada, pero aún no fue posible leer el listado de causas.', 'warn');
-          }
-        }
-
-        await persistPjudAccessConnection({
-          status: 'active',
-          baseUrl: validation.normalizedEntryUrl,
-          rawUserUrl: validation.rawUserUrl,
-          normalizedEntryUrl: validation.normalizedEntryUrl,
-          urlValidationStatus: validation.validationStatus,
-          verificationMode: normalizedMode === 'refresh' ? 'manual_url_refresh' : 'manual_url_create',
-          message: normalizedMode === 'refresh'
-            ? 'Acceso PJUD revalidado desde URL entregada por el usuario.'
-            : 'Acceso PJUD creado desde URL entregada por el usuario.',
+        setPjudAccessProgress({ percent: 35, stage: 'Abriendo PJUD / Oficina Judicial Virtual...', status: 'in_progress' });
+        setPjudAccessProgress({
+          percent: 50,
+          stage: 'Esperando autenticación del usuario en ClaveÚnica...',
+          status: 'waiting_user',
+        });
+        setPjudAccessProgress({
+          percent: 50,
+          stage: 'Esperando que el usuario complete el ingreso en PJUD...',
+          status: 'waiting_user',
         });
 
+        const urlInput = resolvePjudMisCausasUrlInput(state.pjudAccess.record?.base_url_mis_causas || '');
+        const candidateUrl = String(urlInput || '').trim();
+        setPjudAccessProgress({ percent: 65, stage: 'Detectando navegación hacia Mis Causas...', status: 'in_progress' });
+
+        if (!isPjudMisCausasUrl(candidateUrl)) {
+          setPjudAccessProgress({
+            percent: 65,
+            stage: 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.',
+            status: 'error',
+          });
+          setMessage('pjudAccessMsg', 'No fue posible detectar la pantalla Mis Causas. El acceso PJUD no se completó.', 'error');
+          await persistPjudAccessConnection({
+            status: 'expired',
+            baseUrl: '',
+            verificationMode: 'manual_missing_mis_causas',
+            message: 'No se validó la vista Mis Causas durante la creación/actualización.',
+          });
+          renderPjudAccessPanel();
+          return;
+        }
+
+        setPjudAccessProgress({ percent: 80, stage: 'Registrando o actualizando el acceso PJUD del usuario...', status: 'in_progress' });
+        await persistPjudAccessConnection({
+          status: 'active',
+          baseUrl: candidateUrl,
+          verificationMode: normalizedMode === 'refresh' ? 'manual_refresh' : 'manual_create',
+          message: normalizedMode === 'refresh' ? 'Acceso PJUD revalidado por el usuario.' : 'Acceso PJUD creado por el usuario.',
+        });
+
+        setPjudAccessProgress({ percent: 90, stage: 'Validando acceso activo...', status: 'in_progress' });
         setPjudAccessProgress({
           percent: 100,
-          stage: 'ACCESS PJUD operativo desde URL asistida',
+          stage: 'Acceso PJUD creado correctamente.',
           status: 'completed',
           keepUntilStable: true,
         });
 
-        setMessage('pjudAccessMsg', validation.validationStatus === 'valid'
-          ? 'URL PJUD válida. ACCESS utilizará esta ruta como punto de entrada.'
-          : 'URL PJUD válida con reservas. ACCESS utilizará esta ruta como punto de entrada.', validation.validationStatus === 'valid' ? 'ok' : 'warn');
+        setMessage('pjudAccessMsg', normalizedMode === 'refresh'
+          ? 'Acceso PJUD actualizado correctamente desde la vista Mis Causas.'
+          : 'Acceso PJUD creado y validado correctamente desde la vista Mis Causas.', 'ok');
         renderPjudAccessPanel();
       } catch (error) {
-        const failedPercent = Math.max(0, Math.min(95, Number(state.pjudAccess.progressPercent || 0)));
+        const failedPercent = Math.max(0, Math.min(90, Number(state.pjudAccess.progressPercent || 0)));
         const normalizedMessage = String(error?.message || '').toLowerCase();
         const errorStage = normalizedMessage.includes('expir')
           ? 'La sesión PJUD expiró antes de completar el acceso.'
@@ -6834,9 +6501,9 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Historia procesal', copy:'Pilar Información: identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Historia procesal' },
-        { id:'expedientes', icon:'🗂️', title:'Contenedor documental', copy:'Pilar Expedientes digitales: archivadores por tribunal con carpeta individual por causa y subcarpetas jurídicas.', badge:'Expedientes digitales', button:'Abrir Contenedor documental' },
-        { id:'produccion', icon:'✍️', title:'Producción en curso', copy:'Pilar Producción: redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción en curso', fullWidth:true },
+        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes Digitales' },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -7485,33 +7152,6 @@
       });
     }
 
-    function renderPjudAssistedVisiblePanel(){
-      return `
-        <section class="section-card pjud-assisted-visible-panel">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">MODO ASISTIDO PJUD PASO A PASO</h4>
-              <p class="section-copy">Bloque visible e independiente del sistema antiguo. Cada fila muestra instrucción, botón y estado.</p>
-            </div>
-          </div>
-          <div class="pjud-assisted-visible-list">
-            ${PJUD_ASSISTED_VISIBLE_STEPS.map((step) => `
-              <article class="pjud-assisted-visible-row">
-                <div class="pjud-assisted-visible-instruction">${step.id}. ${escapeHtml(step.instruction)}</div>
-                <div>
-                  <button type="button" class="btn" data-pjud-assisted-visible-step="${step.id}">${escapeHtml(step.buttonLabel)}</button>
-                </div>
-                <div class="pjud-assisted-visible-status">${escapeHtml(state.pjudAssistedVisibleStepStatus?.[step.id] || 'Pendiente')}</div>
-              </article>
-            `).join('')}
-          </div>
-          <div class="modal-actions" style="margin-top:10px;">
-            <button type="button" class="btn" data-pjud-assisted-visible-action="reset">Reiniciar proceso</button>
-          </div>
-        </section>
-      `;
-    }
-
     function renderPjudImportHistoryPanel(){
       const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
       const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
@@ -7608,7 +7248,6 @@
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
-        ${renderPjudAssistedVisiblePanel()}
         ${renderPjudImportHistoryPanel()}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
@@ -9170,34 +8809,102 @@
       return query ? `${base}?${query}` : base;
     }
 
-    function safeExtractMisCausasRowsFromWindow(misCausasWindow){
+    function getPjudAssistedSourceInput(){
+      return {
+        sourceUrl: String($('pjudAssistedSourceUrl')?.value || '').trim(),
+        sourceHtml: String($('pjudAssistedSourceHtml')?.value || '').trim(),
+        tableHtml: String($('pjudAssistedTableHtml')?.value || '').trim(),
+      };
+    }
+
+    function updatePjudAssistedSourceFromInputs(){
+      state.pjudCausesIndex.sourceAssisted = {
+        ...state.pjudCausesIndex.sourceAssisted,
+        ...getPjudAssistedSourceInput(),
+      };
+      return state.pjudCausesIndex.sourceAssisted;
+    }
+
+    function resolvePjudSourceContext(misCausasWindow){
       const diagnostics = createDefaultRouteDiagnostics();
-      if (!misCausasWindow || misCausasWindow.closed) {
-        diagnostics.exactFailureReason = 'no_hay_fuente_pjud_disponible';
-        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'ventana_mis_causas_no_disponible' });
-        return { queue: [], diagnostics, error: 'No hay ventana activa de Mis Causas para extraer filas.' };
+      const assisted = updatePjudAssistedSourceFromInputs();
+      diagnostics.sourceSnapshotAvailable = Boolean(assisted.sourceHtml || assisted.tableHtml);
+      diagnostics.sourceUrl = assisted.sourceUrl || '';
+      diagnostics.sourceWindowAvailable = Boolean(misCausasWindow && !misCausasWindow.closed);
+      if (diagnostics.sourceWindowAvailable) {
+        try {
+          diagnostics.sourceUrl = String(misCausasWindow.location?.href || diagnostics.sourceUrl || '');
+          diagnostics.inspectedUrl = diagnostics.sourceUrl;
+          diagnostics.finalUrl = diagnostics.sourceUrl;
+          const doc = misCausasWindow.document;
+          diagnostics.sourceDocumentAvailable = Boolean(doc?.body);
+          if (diagnostics.sourceDocumentAvailable) {
+            diagnostics.sourceAcquired = true;
+            diagnostics.sourceType = 'window_document';
+            diagnostics.extractionReady = true;
+            return { diagnostics, doc, sourceUrl: diagnostics.sourceUrl, sourceType: diagnostics.sourceType };
+          }
+        } catch {
+          diagnostics.sourceDocumentAvailable = false;
+          diagnostics.extractionFailureReason = 'document_unavailable';
+        }
       }
-      let doc = null;
-      try {
-        doc = misCausasWindow.document;
-        diagnostics.inspectedUrl = String(misCausasWindow.location?.href || '');
-        diagnostics.finalUrl = diagnostics.inspectedUrl;
-      } catch (error) {
-        diagnostics.exactFailureReason = 'acceso_dom_bloqueado_por_origen';
-        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'acceso_dom_bloqueado_por_origen' });
+      const htmlSource = assisted.sourceHtml || assisted.tableHtml;
+      if (htmlSource) {
+        try {
+          const parser = new DOMParser();
+          const doc = parser.parseFromString(htmlSource, 'text/html');
+          diagnostics.sourceDocumentAvailable = Boolean(doc?.body);
+          diagnostics.sourceSnapshotAvailable = true;
+          if (diagnostics.sourceDocumentAvailable) {
+            diagnostics.sourceAcquired = true;
+            diagnostics.sourceType = assisted.tableHtml ? 'manual_table_html' : 'manual_snapshot_html';
+            diagnostics.extractionReady = true;
+            diagnostics.inspectedUrl = assisted.sourceUrl || diagnostics.inspectedUrl || '';
+            diagnostics.finalUrl = diagnostics.inspectedUrl || diagnostics.finalUrl || '';
+            return { diagnostics, doc, sourceUrl: diagnostics.inspectedUrl, sourceType: diagnostics.sourceType };
+          }
+        } catch {
+          diagnostics.sourceDocumentAvailable = false;
+        }
+      }
+
+      diagnostics.extractionReady = false;
+      diagnostics.sourceAcquired = false;
+      if (!diagnostics.sourceWindowAvailable) {
+        diagnostics.extractionFailureReason = 'source_unavailable';
+        diagnostics.exactFailureReason = 'ventana_mis_causas_no_disponible';
+      } else if (!diagnostics.sourceUrl) {
+        diagnostics.extractionFailureReason = 'url_missing';
+        diagnostics.exactFailureReason = 'url_no_informada';
+      } else if (!diagnostics.sourceDocumentAvailable) {
+        diagnostics.extractionFailureReason = 'document_unavailable';
+        diagnostics.exactFailureReason = 'documento_no_disponible';
+      } else if (!diagnostics.sourceSnapshotAvailable) {
+        diagnostics.extractionFailureReason = 'snapshot_missing';
+        diagnostics.exactFailureReason = 'snapshot_tecnico_no_disponible';
+      } else {
+        diagnostics.extractionFailureReason = diagnostics.extractionFailureReason || 'source_unavailable';
+      }
+      return { diagnostics, doc: null, sourceUrl: diagnostics.sourceUrl, sourceType: diagnostics.sourceType };
+    }
+
+    function safeExtractMisCausasRowsFromWindow(misCausasWindow){
+      const sourceContext = resolvePjudSourceContext(misCausasWindow);
+      const diagnostics = sourceContext.diagnostics;
+      if (!diagnostics.extractionReady || !sourceContext.doc?.body) {
+        pushRouteDiscardReason(diagnostics, 0, 'source_unavailable', { detail: diagnostics.extractionFailureReason || 'source_unavailable' });
         return {
           queue: [],
           diagnostics,
-          error: 'No se pudo leer el DOM de Mis Causas desde esta pestaña (restricción de origen del navegador).',
+          error: 'Fuente PJUD no disponible para inspección.',
         };
       }
-      if (!diagnostics.inspectedUrl) {
-        diagnostics.exactFailureReason = 'no_hay_url_disponible';
-        pushRouteDiscardReason(diagnostics, 0, 'sin URL disponible', { detail: 'no_hay_url_disponible' });
-      }
+      const doc = sourceContext.doc;
       if (!doc?.body) {
         diagnostics.exactFailureReason = 'vista_pjud_vacia';
-        pushRouteDiscardReason(diagnostics, 0, 'PJUD devolvió vista vacía');
+        diagnostics.extractionFailureReason = 'document_unavailable';
+        pushRouteDiscardReason(diagnostics, 0, 'document_unavailable');
         return { queue: [], diagnostics, error: 'La vista de Mis Causas está vacía o no terminó de cargar.' };
       }
 
@@ -9251,10 +8958,9 @@
       diagnostics.containerSnapshot = buildContainerSnapshot(winnerContainer || doc.body);
       diagnostics.totalRowsDetected = candidateRows.length;
       if (!candidateRows.length) {
-        diagnostics.exactFailureReason = diagnostics.tablesDetected > 0
-          ? 'tabla_detectada_pero_sin_filas'
-          : 'no_se_detecto_tabla_o_listado';
-        pushRouteDiscardReason(diagnostics, 0, 'selector no encontrado', { detail: 'sin_filas_detectadas' });
+        diagnostics.exactFailureReason = diagnostics.tablesDetected ? 'sin_filas_detectadas_dom_pjud' : 'table_not_found';
+        diagnostics.extractionFailureReason = diagnostics.tablesDetected ? 'rows_not_found' : 'table_not_found';
+        pushRouteDiscardReason(diagnostics, 0, diagnostics.tablesDetected ? 'rows_not_found' : 'table_not_found', { detail: diagnostics.exactFailureReason });
         return { queue: [], diagnostics, error: 'No se detectaron filas de causas en el DOM visible de Mis Causas.' };
       }
 
@@ -9276,7 +8982,9 @@
           : {};
         if (href) diagnostics.rowsWithHref += 1;
         if (onclick) diagnostics.rowsWithOnclick += 1;
-        const normalizedHref = href && !href.toLowerCase().startsWith('javascript:') ? new URL(href, misCausasWindow.location.href).toString() : '';
+        const normalizedHref = href && !href.toLowerCase().startsWith('javascript:')
+          ? new URL(href, sourceContext.sourceUrl || misCausasWindow?.location?.href || window.location.href).toString()
+          : '';
         const onclickUrlMatch = (onclick || jsHref).match(/https?:\/\/[^\s'"`]+/i);
         const onclickUrl = onclickUrlMatch?.[0] || '';
         const postbackMatch = (onclick || jsHref).match(/__doPostBack\((['"])([^'"]+)\1,\s*(['"])([^'"]*)\3\)/i);
@@ -9286,27 +8994,11 @@
         const routeActionPayload = routeActionType === 'postback'
           ? { target: postbackMatch?.[2] || '', argument: postbackMatch?.[4] || '', hiddenInputs }
           : (routeActionType === 'onclick' ? { script: onclick || jsHref, hiddenInputs } : (routeActionType === 'form_hidden' ? { hiddenInputs } : null));
-        if (routeActionType !== 'none') diagnostics.rowsWithDetailActions += 1;
         const routeUrl = normalizedHref || onclickUrl || '';
-        const selectorBase = anchor || clickable || rowNode;
-        const selectorTag = String(selectorBase?.tagName || '').toLowerCase();
-        const selectorId = String(selectorBase?.id || '').trim();
-        const selectorClass = String(selectorBase?.className || '').trim().split(/\s+/).filter(Boolean).slice(0, 3).join('.');
-        const detailSelector = selectorId
-          ? `${selectorTag}#${selectorId}`
-          : (selectorClass ? `${selectorTag}.${selectorClass}` : selectorTag || '');
-        const pjudRowKey = [
-          String(rowNode?.getAttribute?.('data-id') || ''),
-          String(rowNode?.getAttribute?.('data-key') || ''),
-          String(rowNode?.id || ''),
-          `row_${index + 1}`,
-        ].filter(Boolean).join('|');
         const visibleText = String(rowNode.innerText || '').trim();
         const parsed = parsePjudFieldsFromVisibleText(visibleText);
         return {
           rowIndex: index + 1,
-          pjudRowKey,
-          detailSelector,
           visibleText,
           href: normalizedHref,
           onclick,
@@ -9314,7 +9006,6 @@
           routeAction: routeUrl ? 'href|onclick' : routeActionType,
           routeActionType,
           routeActionPayload,
-          detailActionRaw: onclick || jsHref || '',
           dataset,
           currentPageUrl: diagnostics.inspectedUrl || '',
           rol: parsed.rol || dataset?.rol || dataset?.role || '',
@@ -9323,81 +9014,16 @@
           tribunal: parsed.tribunal || dataset?.tribunal || dataset?.court || '',
           caratula: parsed.caratula || dataset?.caratula || dataset?.caratulado || '',
           materia: parsed.materia || dataset?.materia || '',
-          rawPayload: {
-            routeActionType,
-            routeActionPayload,
-            hiddenInputs,
-            dataset,
-          },
         };
       });
 
       const queue = buildCauseQueueFromPjudDomRows(extractedRows, diagnostics);
-      if (!queue.length && !diagnostics.exactFailureReason) {
-        diagnostics.exactFailureReason = diagnostics.rowsWithDetailActions > 0
-          ? 'acciones_detectadas_pero_no_convertidas_a_rutas_validas'
-          : 'filas_detectadas_sin_acciones_de_detalle';
-      }
+      if (!queue.length && !diagnostics.exactFailureReason) diagnostics.exactFailureReason = 'sin_rutas_validas_despues_de_extraer';
+      if (!queue.length && !diagnostics.extractionFailureReason) diagnostics.extractionFailureReason = 'detail_route_not_found';
       const error = queue.length
         ? ''
         : 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.';
       return { queue, diagnostics, error };
-    }
-
-    function extractMisCausasRowsFromHtmlSource(rawHtml = '', sourceUrl = ''){
-      const diagnostics = createDefaultRouteDiagnostics();
-      diagnostics.inspectedUrl = String(sourceUrl || '').trim();
-      diagnostics.finalUrl = diagnostics.inspectedUrl;
-      const html = String(rawHtml || '').trim();
-      if (!html) {
-        diagnostics.exactFailureReason = 'no_hay_fuente_pjud_disponible';
-        return { queue: [], diagnostics, error: 'No se proporcionó HTML fuente para extracción asistida.' };
-      }
-      const parser = new DOMParser();
-      const doc = parser.parseFromString(html, 'text/html');
-      const rows = [...doc.querySelectorAll('table tbody tr, table tr, tbody tr, [role=\"row\"], .row')];
-      diagnostics.tablesDetected = doc.querySelectorAll('table').length;
-      diagnostics.tableRows = [...doc.querySelectorAll('table')].map((table) => table.querySelectorAll('tr').length);
-      diagnostics.totalRowsDetected = rows.length;
-      diagnostics.anchorsDetected = doc.querySelectorAll('a[href],a[data-href],a[data-url]').length;
-      diagnostics.buttonsWithOnclick = doc.querySelectorAll('button[onclick],[onclick]').length;
-      diagnostics.rowsWithDetailActions = 0;
-      if (!rows.length) {
-        diagnostics.exactFailureReason = diagnostics.tablesDetected > 0 ? 'tabla_detectada_pero_sin_filas' : 'no_se_detecto_tabla_o_listado';
-        return { queue: [], diagnostics, error: 'No se detectaron filas válidas en el HTML asistido.' };
-      }
-      const extractedRows = rows.map((rowNode, index) => {
-        const anchor = rowNode.querySelector('a[href],a[data-href],a[data-url],button[onclick],[onclick],[data-action]');
-        const hrefRaw = String(anchor?.getAttribute('href') || anchor?.getAttribute('data-href') || anchor?.getAttribute('data-url') || '').trim();
-        const onclickRaw = String(anchor?.getAttribute('onclick') || rowNode.getAttribute('onclick') || '').trim();
-        const dataset = rowNode?.dataset ? { ...rowNode.dataset } : {};
-        const routeUrl = hrefRaw && !hrefRaw.toLowerCase().startsWith('javascript:') ? new URL(hrefRaw, diagnostics.inspectedUrl || window.location.href).toString() : '';
-        const routeActionType = routeUrl ? 'href' : (onclickRaw ? 'onclick' : 'none');
-        if (routeActionType !== 'none') diagnostics.rowsWithDetailActions += 1;
-        return {
-          rowIndex: index + 1,
-          visibleText: String(rowNode.innerText || '').trim(),
-          href: routeUrl,
-          onclick: onclickRaw,
-          routeUrl,
-          routeAction: routeActionType,
-          routeActionType,
-          routeActionPayload: onclickRaw ? { script: onclickRaw } : null,
-          detailActionRaw: onclickRaw,
-          detailSelector: String(anchor?.tagName || rowNode?.tagName || '').toLowerCase(),
-          dataset,
-          currentPageUrl: diagnostics.inspectedUrl || '',
-        };
-      });
-      const queue = buildCauseQueueFromPjudDomRows(extractedRows, diagnostics);
-      diagnostics.exactFailureReason = queue.length
-        ? ''
-        : (diagnostics.rowsWithDetailActions > 0 ? 'acciones_detectadas_pero_no_convertidas_a_rutas_validas' : 'filas_detectadas_sin_acciones_de_detalle');
-      return {
-        queue,
-        diagnostics,
-        error: queue.length ? '' : 'No se pudieron convertir rutas válidas desde el HTML asistido.',
-      };
     }
 
     async function connectWithPjud(){
@@ -10497,41 +10123,26 @@
         pushMassiveAuditLog(`Esperando: ${waitingReason}.`);
       }
       if (currentStepId) setMassiveAuditStep(currentStepId, currentStepStatus || 'running', stepDetail || '');
-      const isDirectPjudMode = audit.executionMode === 'modo_directo_pjud';
-      if (!audit.directPjudRouting) {
-        audit.directPjudRouting = createDefaultMassiveAuditState().directPjudRouting;
-      }
       updateMassiveStepMetrics(4, { progress: audit.percentage, metricText: `${audit.processedCauses} de ${audit.totalCauses} causas revisadas`, progressText: `${audit.percentage}%` });
       if (logEvent) pushMassiveAuditLog(logEvent);
       preview.innerHTML = `
         <div class="selection-grid" style="grid-template-columns:1fr;">
           <div class="selection-card">
-            <strong style="font-size:1.06rem;">${isDirectPjudMode ? 'Progreso de acceso/ruteo PJUD' : 'Progreso total del lote'}: ${escapeHtml(isDirectPjudMode ? audit.directPjudRouting.progressPercent : audit.percentage)}%</strong>
+            <strong style="font-size:1.06rem;">Progreso total del lote: ${escapeHtml(audit.percentage)}%</strong>
             <div style="margin-top:10px;background:rgba(15,23,42,.08);border-radius:999px;height:18px;overflow:hidden;border:1px solid rgba(15,23,42,.12);">
-              <div style="height:18px;background:${progressBarColor};width:${escapeHtml(isDirectPjudMode ? audit.directPjudRouting.progressPercent : audit.percentage)}%;transition:width .25s ease;"></div>
+              <div style="height:18px;background:${progressBarColor};width:${escapeHtml(audit.percentage)}%;transition:width .25s ease;"></div>
             </div>
+            <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
             <div class="timeline-meta"><strong>Modo ejecutado:</strong> ${escapeHtml(audit.executionMode === 'modo_manifiesto_excel' ? 'modo_manifiesto_excel (contingencia)' : 'modo_directo_pjud (principal)')}</div>
-            ${isDirectPjudMode ? `
-              <div class="timeline-meta"><strong>Estado del acceso PJUD:</strong> ${escapeHtml(audit.directPjudRouting.accessActive ? 'activo' : 'no activo')}</div>
-              <div class="timeline-meta"><strong>Fuente Mis Causas:</strong> ${escapeHtml(audit.directPjudRouting.sourceAvailable ? 'disponible' : 'no disponible')}</div>
-              <div class="timeline-meta"><strong>Fuente PJUD disponible:</strong> ${escapeHtml(audit.directPjudRouting.sourceUrlAvailable ? 'sí' : 'no')}</div>
-              <div class="timeline-meta"><strong>Filas detectadas:</strong> ${escapeHtml(audit.directPjudRouting.rowsDetected || 0)}</div>
-              <div class="timeline-meta"><strong>Lupas detectadas:</strong> ${escapeHtml(audit.directPjudRouting.lupaActionsDetected || 0)}</div>
-              <div class="timeline-meta"><strong>Rutas válidas:</strong> ${escapeHtml(audit.directPjudRouting.validRoutesConverted || 0)}</div>
-              <div class="timeline-meta"><strong>Etapa actual:</strong> ${escapeHtml(audit.directPjudRouting.stage || 'Sin etapa activa')}</div>
-              <div class="timeline-meta"><strong>Detalle técnico:</strong> ${escapeHtml(audit.directPjudRouting.technicalDetail || audit.currentSubaction || 'Sin detalle técnico')}</div>
-            ` : `
-              <div class="case-meta" style="margin-top:10px;"><strong>Causas procesadas:</strong> ${escapeHtml(audit.processedCauses)} de ${escapeHtml(audit.totalCauses)}</div>
-              <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(audit.sourceLabel || 'No informada')}</div>
-              <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
-              <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
-              <div class="timeline-meta"><strong>Estado del paso actual:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
-              <div class="timeline-meta"><strong>Causa actual:</strong> ${escapeHtml(audit.currentCauseLabel || 'Sin causa en ejecución')}</div>
-              <div class="timeline-meta"><strong>Subacción actual:</strong> ${escapeHtml(audit.currentSubaction || 'Sin subacción activa')}</div>
-              <div class="timeline-meta"><strong>Indicador interno:</strong> ${escapeHtml(audit.currentInternalProgress || 'Sin indicador interno')}</div>
-            `}
+            <div class="timeline-meta"><strong>Fuente del lote:</strong> ${escapeHtml(audit.sourceLabel || 'No informada')}</div>
+            <div class="timeline-meta"><strong>Estado general:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)} · Chunk ${escapeHtml(chunkNumber || 0)}/${escapeHtml(totalChunks || 0)}</div>
+            <div class="timeline-meta"><strong>Paso actual:</strong> ${escapeHtml(audit.currentStepName || 'Sin paso activo')}</div>
+            <div class="timeline-meta"><strong>Estado del paso actual:</strong> ${escapeHtml(audit.currentStepStatus || MASSIVE_STEP_STATUS_LABELS.pending)}</div>
+            <div class="timeline-meta"><strong>Causa actual:</strong> ${escapeHtml(audit.currentCauseLabel || 'Sin causa en ejecución')}</div>
+            <div class="timeline-meta"><strong>Subacción actual:</strong> ${escapeHtml(audit.currentSubaction || 'Sin subacción activa')}</div>
+            <div class="timeline-meta"><strong>Indicador interno:</strong> ${escapeHtml(audit.currentInternalProgress || 'Sin indicador interno')}</div>
             ${audit.currentError ? `<div class="timeline-meta"><strong>Error actual:</strong> ${escapeHtml(audit.currentError)} · ${audit.continueAfterError === true ? 'El lote continúa.' : (audit.continueAfterError === false ? 'El lote se detiene.' : 'Continuidad no determinada.')}</div>` : ''}
-            ${isDirectPjudMode ? '' : `<div class="timeline-meta">Batch ID: ${escapeHtml(audit.batchId || 'sin registro de batch (modo tolerante)')}</div>`}
+            <div class="timeline-meta">Batch ID: ${escapeHtml(audit.batchId || 'sin registro de batch (modo tolerante)')}</div>
           </div>
           <div class="selection-card">
             <strong>Estado por paso</strong>
@@ -10713,7 +10324,7 @@
         [C.k_withheld_by]: 'Retiene receptor',
         [C.k_notes]: null,
         owner_user_id: authenticatedUser.id,
-        source: 'pjud_live_mis_causas',
+        source: 'pjud_index_manifest',
         source_confidence: 'high',
         import_batch_id: importBatchId,
         imported_at: new Date().toISOString(),
@@ -10766,7 +10377,7 @@
         content_detected_count: importedDocumentsCount,
         content_downloaded_count: Number((importData.documents || []).filter((doc) => doc?.content || doc?.sourceUrl || doc?.sourcePageUrl).length + (importData.ebook ? 1 : 0)),
         pjud_traceability: {
-          source: 'pjud_live_mis_causas',
+          source: 'pjud_index_manifest',
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
@@ -10792,12 +10403,6 @@
           pjud_case_detail_url: routeData.pjudCaseDetailUrl,
           pjud_ebook_url: routeData.pjudEbookUrl,
           pjud_documents_url: routeData.pjudDocumentsUrl,
-          detail_url: routeData.detailUrl,
-          pjud_row_key: routeData.pjudRowKey,
-          detail_action: routeData.detailAction,
-          row_position: routeData.rowPosition,
-          detail_selector: routeData.detailSelector,
-          has_detail_access: routeData.hasDetailAccess,
           content_source: routeData.contentSource,
         },
       };
@@ -10845,9 +10450,9 @@
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
       return {
         ...safeFallback,
-        source: safeFallback.source || rowPayload?.source || 'pjud_live_mis_causas',
+        source: 'pjud_excel_mis_causas',
         sourceConfidence: 'high',
-        mode: safeFallback.mode || 'mis_causas_live',
+        mode: 'mis_causas_excel',
         importBatchId: importBatchId || safeFallback.importBatchId || null,
         pjudCaseKey,
         rol,
@@ -10876,12 +10481,6 @@
         documents: safeFallback.documents || [],
         ebook: safeFallback.ebook || null,
         rawText: safeFallback.rawText || '',
-        detailUrl: rowPayload?.pjud_case_detail_url || safeFallback.detailUrl || safeFallback.basic?.detailUrl || safeFallback.basic?.link || '',
-        pjudRowKey: rowPayload?.pjud_row_key || safeFallback.pjudRowKey || safeFallback.pjudRouteAudit?.pjudRowKey || '',
-        detailAction: rowPayload?.detail_action || safeFallback.detailAction || safeFallback.routeActionType || '',
-        rowPosition: rowPayload?.row_position || safeFallback.rowPosition || safeFallback.pjudRouteAudit?.rowPosition || null,
-        detailSelector: rowPayload?.detail_selector || safeFallback.detailSelector || safeFallback.pjudRouteAudit?.detailSelector || '',
-        hasDetailAccess: rowPayload?.has_detail_access ?? safeFallback.hasDetailAccess ?? safeFallback.pjudRouteAudit?.hasDetailAccess ?? false,
         basic: {
           rol,
           rit,
@@ -10892,7 +10491,6 @@
           fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
           caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
           link: safeFallback.basic?.link || '',
-          detailUrl: rowPayload?.pjud_case_detail_url || safeFallback.detailUrl || safeFallback.basic?.detailUrl || safeFallback.basic?.link || '',
           importedAt,
           pjudCaseKey,
         },
@@ -10949,47 +10547,11 @@
         || documents.find((doc) => isHttpUrl(doc?.sourceUrl || ''))?.sourceUrl
         || '';
       const routeResolved = Boolean(isHttpUrl(pjudCaseUrl) || isHttpUrl(pjudCaseDetailUrl) || isHttpUrl(pjudEbookUrl) || isHttpUrl(pjudDocumentsUrl));
-      const detailUrl = pjudCaseDetailUrl || pjudCaseUrl || pjudEbookUrl || null;
-      const pjudRowKey = rowPayload?.pjud_row_key
-        || safeImportData?.pjudRowKey
-        || safeImportData?.pjudRouteAudit?.pjudRowKey
-        || rowPayload?.pjud_case_key
-        || safeImportData?.pjudCaseKey
-        || null;
-      const detailAction = rowPayload?.detail_action
-        || safeImportData?.detailAction
-        || safeImportData?.routeActionType
-        || safeImportData?.routeAction
-        || safeImportData?.pjudRouteAudit?.routeActionType
-        || 'none';
-      const rowPosition = Number(
-        rowPayload?.row_position
-        ?? safeImportData?.rowPosition
-        ?? safeImportData?.pjudRouteAudit?.rowPosition
-        ?? safeImportData?.pjudRouteAudit?.rowIndex
-        ?? 0
-      ) || null;
-      const detailSelector = rowPayload?.detail_selector
-        || safeImportData?.detailSelector
-        || safeImportData?.pjudRouteAudit?.detailSelector
-        || null;
-      const hasDetailAccess = Boolean(
-        routeResolved
-        || rowPayload?.has_detail_access === true
-        || safeImportData?.hasDetailAccess === true
-        || safeImportData?.pjudRouteAudit?.hasDetailAccess === true
-      );
       return {
         pjudCaseUrl: pjudCaseUrl || null,
         pjudCaseDetailUrl: pjudCaseDetailUrl || null,
         pjudEbookUrl: pjudEbookUrl || null,
         pjudDocumentsUrl: pjudDocumentsUrl || null,
-        detailUrl,
-        pjudRowKey,
-        detailAction,
-        rowPosition,
-        detailSelector,
-        hasDetailAccess,
         routeStatus: routeResolved ? 'ruta_resuelta' : 'sin_ruta_documental',
         routeError: routeResolved ? null : 'acceso_documental_no_encontrado',
         contentSource: 'pjud_url',
@@ -11051,12 +10613,6 @@
         pjudCaseDetailUrl: routeData.pjudCaseDetailUrl,
         pjudEbookUrl: routeData.pjudEbookUrl,
         pjudDocumentsUrl: routeData.pjudDocumentsUrl,
-        detailUrl: routeData.detailUrl,
-        pjudRowKey: routeData.pjudRowKey,
-        detailAction: routeData.detailAction,
-        rowPosition: routeData.rowPosition,
-        detailSelector: routeData.detailSelector,
-        hasDetailAccess: routeData.hasDetailAccess,
         routeStatus: routeData.routeStatus,
         routeError: routeData.routeError,
         contentSource: routeData.contentSource,
@@ -11144,9 +10700,7 @@
 
     async function appendPjudImportRows(batchId, rows = [], { isValid = true } = {}){
       if (!batchId) return false;
-      const rowPayloads = rows.map((row) => {
-        const constSource = row.source || row.payload?.source || row.traceability?.source || 'pjud_live_mis_causas';
-        return {
+      const rowPayloads = rows.map((row) => ({
         batch_id: batchId,
         owner_user_id: authenticatedUser.id,
         materia: row.materia,
@@ -11159,7 +10713,7 @@
         represented_client_role: row.representedClientRole || null,
         imported_documents_count: Number((row.documents || []).length + (row.ebook ? 1 : 0)),
         traceability: {
-          source: constSource,
+          source: 'pjud_excel_mis_causas',
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || null,
           row_number: row.rowNumber,
           sheet_name: row.sheetName,
@@ -11169,7 +10723,7 @@
         },
         payload: {
           pjud_case_key: row.pjudCaseKey || row.dedupeKey || row.payload?.pjud_case_key || null,
-          source: constSource,
+          source: 'pjud_excel_mis_causas',
           status: row.payload?.status || (isValid ? 'ok' : 'discarded'),
           reason: row.reason || row.payload?.reason || null,
           rol: row.rol || row.payload?.rol || null,
@@ -11183,15 +10737,8 @@
           materialized: row.materialized ?? row.payload?.materialized ?? null,
           destination: row.destination || row.payload?.destination || null,
           persistence: row.persistence || row.payload?.persistence || null,
-          detail_url: row.payload?.detail_url || row.detailUrl || null,
-          pjud_row_key: row.payload?.pjud_row_key || row.pjudRowKey || null,
-          detail_action: row.payload?.detail_action || row.detailAction || null,
-          row_position: row.payload?.row_position || row.rowPosition || null,
-          detail_selector: row.payload?.detail_selector || row.detailSelector || null,
-          has_detail_access: row.payload?.has_detail_access ?? row.hasDetailAccess ?? null,
         },
-        };
-      });
+      }));
       for (let index = 0; index < rowPayloads.length; index += PJUD_ROW_LOG_CHUNK_SIZE) {
         const slice = rowPayloads.slice(index, index + PJUD_ROW_LOG_CHUNK_SIZE);
         if (!slice.length) continue;
@@ -11882,7 +11429,6 @@
       }
       if (processedRows.length) {
         await appendPjudImportRows(batch?.id || null, processedRows.slice(0, 2000).map((item, index) => ({
-          source: item.source || 'pjud_live_mis_causas',
           materia: item.materia || '',
           sheetName: item.sheetName || '',
           rowNumber: index + 1,
@@ -11906,12 +11452,6 @@
               pjud_case_detail_url: item.pjudCaseDetailUrl || null,
               pjud_ebook_url: item.pjudEbookUrl || null,
               pjud_documents_url: item.pjudDocumentsUrl || null,
-              detail_url: item.detailUrl || null,
-              pjud_row_key: item.pjudRowKey || null,
-              detail_action: item.detailAction || null,
-              row_position: item.rowPosition || null,
-              detail_selector: item.detailSelector || null,
-              has_detail_access: item.hasDetailAccess ?? null,
               content_source: item.contentSource || 'pjud_url',
               downloaded_real: item.downloadedReal ?? false,
             detected_documents: Number(item.detectedDocuments || 0),
@@ -12068,29 +11608,11 @@
       }
       state.pendingPjudWorkbook = null;
       configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
-      updateDirectPjudRoutingProgress('verify_source', {
-        accessActive: Boolean(state.pjudMisCausasWindow && !state.pjudMisCausasWindow.closed),
-        sourceAvailable: Boolean(state.pjudMisCausasWindow && !state.pjudMisCausasWindow.closed),
-        technicalDetail: 'Verificando fuente disponible de Mis Causas.',
-      });
       const { queue, diagnostics, error } = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
-      updateDirectPjudRoutingProgress('detect_rows', {
-        sourceUrlAvailable: Boolean(diagnostics.inspectedUrl),
-        rowsDetected: diagnostics.totalRowsDetected || 0,
-        technicalDetail: diagnostics.exactFailureReason || `Filas visibles detectadas: ${diagnostics.totalRowsDetected || 0}.`,
-      });
-      updateDirectPjudRoutingProgress('detect_lupa', {
-        lupaActionsDetected: diagnostics.rowsWithDetailActions || 0,
-        technicalDetail: diagnostics.exactFailureReason || `Acciones de detalle/lupa detectadas: ${diagnostics.rowsWithDetailActions || 0}.`,
-      });
       const queueSummary = summarizeQueueByMateria(queue);
       state.pendingPjudRouteDiagnostics = diagnostics;
       state.pendingBatchImports = queue;
-      updateDirectPjudRoutingProgress(queue.length ? 'ready' : 'convert_routes', {
-        validRoutesConverted: queue.length,
-        technicalDetail: diagnostics.exactFailureReason || `Rutas válidas convertidas: ${queue.length}.`,
-      });
-      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Índice PJUD construido desde el listado vivo de Mis Causas: ${queue.length} causas con ruta de detalle conservada` : 'Sin listado vivo accesible; no fue posible resolver rutas desde Mis Causas');
+      setMassiveAuditStep(3, queue.length ? 'success' : 'failed', queue.length ? `Rutas directas resueltas para ${queue.length} causas desde DOM PJUD` : 'Sin manifiesto Excel; no fue posible resolver rutas desde Mis Causas');
       renderBatchImportPreview([], null);
       if (!queue.length) {
         setMassiveAuditStep(4, 'skipped', 'Paso 4 bloqueado: el Paso 3 no resolvió rutas válidas.');
@@ -12098,26 +11620,17 @@
         setMassiveAuditStep(6, 'skipped', 'Paso 6 bloqueado por falla previa en resolución de rutas.');
         setMassiveAuditStep(7, 'skipped', 'Paso 7 bloqueado por falla previa en resolución de rutas.');
         setMassiveAuditStep(8, 'skipped', 'Paso 8 bloqueado por falla previa en resolución de rutas.');
-        const exactReasonMap = {
-          no_hay_fuente_pjud_disponible: 'no hay fuente PJUD disponible',
-          no_hay_url_disponible: 'no hay URL disponible',
-          no_se_detecto_tabla_o_listado: 'no se detectó tabla/listado',
-          tabla_detectada_pero_sin_filas: 'se detectó tabla pero no filas',
-          filas_detectadas_sin_acciones_de_detalle: 'se detectaron filas pero no acciones de detalle',
-          acciones_detectadas_pero_no_convertidas_a_rutas_validas: 'se detectaron acciones pero no se pudieron convertir en rutas válidas',
-        };
-        const exactReason = exactReasonMap[diagnostics.exactFailureReason] || diagnostics.exactFailureReason || 'error_no_clasificado_en_extraccion';
-        state.massiveAudit.currentError = `error de extracción de rutas: ${exactReason}`;
-        updateDirectPjudRoutingProgress('convert_routes', {
-          technicalDetail: `Fallo técnico exacto: ${exactReason}`,
-        });
-        setMessage('importMsg', `${error || 'No se generó ninguna causa procesable desde Mis Causas.'} Detalle técnico exacto: ${exactReason}.`, 'error');
+        if (!diagnostics?.sourceAcquired || !diagnostics?.extractionReady) {
+          setMessage('importMsg', 'Fuente PJUD no disponible para inspección. No se ejecuta extracción ni sincronización de índice hasta adquirir fuente real (ventana, snapshot o HTML manual).', 'error');
+          return;
+        }
+        setMessage('importMsg', error || 'No se generó ninguna causa procesable desde Mis Causas. Revise selectores, navegación real y resolución de rutas.', 'error');
         return;
       }
       if (excelFile && !useManifestMode) {
         setMessage('importMsg', `Excel cargado como apoyo (${excelFile.name}). El lote sigue en modo_directo_pjud y no usa Excel como fuente principal. Rutas resueltas: ${queue.length}. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       } else {
-        setMessage('importMsg', `Índice PJUD construido desde el listado vivo de Mis Causas. Se conservaron rutas de detalle desde la lupa para ${queue.length} causa(s). Alpha puede navegar al detalle real sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
+        setMessage('importMsg', `Rutas PJUD resueltas desde sesión activa: ${queue.length} causa(s) en cola sin depender de Excel. Totales por materia: ${Object.entries(queueSummary.counts).map(([materia, count]) => `${materia}=${count}`).join(', ') || 'sin datos'}.`, 'ok');
       }
     }
 
@@ -12188,22 +11701,15 @@
         return;
       }
       configureMassiveExecutionMode('modo_directo_pjud', 'Modo directo PJUD / Mis Causas');
-      setMassiveAuditStep(1, 'running', 'Paso 1: adquirir fuente y rutas PJUD');
-      updateDirectPjudRoutingProgress('verify_access', {
-        technicalDetail: 'Subpaso 1.1 verificar acceso PJUD activo.',
-      });
+      setMassiveAuditStep(1, 'running', 'Conectando con PJUD');
       renderImportProgressPreview({
         currentStepId: 1,
         currentStepStatus: 'running',
-        stepDetail: 'Paso 1: adquirir fuente y rutas PJUD',
+        stepDetail: 'Conectando con PJUD',
         waitingReason: 'esperando sesión activa',
       });
       await connectWithPjud();
-      updateDirectPjudRoutingProgress('verify_access', {
-        accessActive: Boolean(state.pjudMisCausasWindow && !state.pjudMisCausasWindow.closed),
-        technicalDetail: 'Subpaso 1.1 completado: acceso PJUD activo.',
-      });
-      setMassiveAuditStep(1, 'success', 'Paso 1 completado: acceso PJUD y fuente/rutas listas para validación');
+      setMassiveAuditStep(1, 'success', 'Sesión PJUD validada');
       setMassiveAuditStep(2, 'success', 'Mis Causas disponible con sesión activa');
       await analyzeBatchImport();
       if (!state.pendingBatchImports.length) {
@@ -12738,19 +12244,8 @@
     }
 
     function openSyncModal(){
-      let current = getCurrentCause();
-      if (!current) {
-        const fallback = getVisibleCases()[0] || getAllCases()[0] || null;
-        if (fallback?.id) {
-          state.selectedId = fallback.id;
-          current = fallback;
-        }
-      }
-      if (!current) {
-        openModal();
-        setMessage('caseMsg', 'No hay causas disponibles para actualizar. Crea una causa para habilitar la actualización de estado.', 'warn');
-        return;
-      }
+      const current = getCurrentCause();
+      if (!current) return;
       $('formSincronizacion').reset();
       $('sync_url').value = current.pjudUrl || current.poderJudicial?.link || '';
       setMessage('syncMsg', '', '');
@@ -13028,24 +12523,19 @@
         window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
       }, { scope: 'acceso-pjud' });
       bindEvent('btnPjudIrMisCausas', 'click', () => {
-        const url = state.pjudAccess.record?.normalized_entry_url || state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
+        const url = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
         const popup = window.open(url, '_blank', 'noopener,noreferrer');
         if (!popup) {
           setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
           return;
         }
-        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL de entrada registrada del acceso PJUD.', 'ok');
+        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL base registrada del acceso PJUD.', 'ok');
       }, { scope: 'acceso-pjud' });
       bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
       bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudValidarUrl', 'click', () => validatePjudEntryUrlAction(), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudUsarUrl', 'click', () => usePjudEntryUrlAction(), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudGuardarAccesoUrl', 'click', () => savePjudEntryUrlAccessAction(), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudProbarDesdeUrl', 'click', () => testPjudEntryUrlAccessAction(), { scope: 'acceso-pjud' });
       bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
-      $('pjudEntryUrlInput')?.addEventListener('input', (event) => {
-        state.pjudAccess.draftUrl = String(event?.target?.value || '').trim();
-      });
+      bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
+      bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
       bindEvent('btnIndiceCrearAccess', 'click', () => {
         state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
         openMassiveDownloadModal();
@@ -13110,6 +12600,9 @@
         if (!actionTrigger) return;
         await handlePjudIndexRowAction({ target: actionTrigger });
       });
+      $('pjudAssistedSourceUrl')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
+      $('pjudAssistedSourceHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
+      $('pjudAssistedTableHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
       $('batch_scope_materias')?.addEventListener('input', (event) => {
         const value = String(event?.target?.value || '');
         state.batchScopeMaterias = parseBatchScopeMateriasInput(value);
@@ -13131,34 +12624,6 @@
         await linkDownloadedFilesToDigitalFolder({ initiatedByFileSelection: true, mode });
       });
       $('batchImportPreview')?.addEventListener('click', async (event) => {
-        const routeAssistButton = event.target.closest('[data-route-assist-action]');
-        if (routeAssistButton) {
-          const action = routeAssistButton.dataset.routeAssistAction;
-          if (action === 'retry') {
-            const assistedUrl = $('pjudRouteAssistUrl')?.value?.trim() || '';
-            const assistedHtml = $('pjudRouteAssistHtml')?.value?.trim() || '';
-            const assistedRowHtml = $('pjudRouteAssistRowHtml')?.value?.trim() || '';
-            const mergedHtml = assistedHtml || assistedRowHtml;
-            const { queue, diagnostics, error } = extractMisCausasRowsFromHtmlSource(mergedHtml, assistedUrl);
-            state.pendingPjudRouteDiagnostics = diagnostics;
-            state.pendingBatchImports = queue;
-            updateDirectPjudRoutingProgress(queue.length ? 'ready' : 'convert_routes', {
-              sourceUrlAvailable: Boolean(assistedUrl),
-              rowsDetected: diagnostics.totalRowsDetected || 0,
-              lupaActionsDetected: diagnostics.rowsWithDetailActions || 0,
-              validRoutesConverted: queue.length,
-              technicalDetail: diagnostics.exactFailureReason || (queue.length ? 'Extracción asistida completada.' : 'Fallo extracción asistida.'),
-            });
-            renderImportProgressPreview({
-              currentStepId: 3,
-              currentStepStatus: queue.length ? 'success' : 'failed',
-              stepDetail: queue.length ? `Extracción asistida exitosa: ${queue.length} rutas.` : 'Extracción asistida sin rutas válidas.',
-              currentSubaction: queue.length ? 'rutas asistidas listas' : 'error de extracción de rutas',
-            });
-            setMessage('importMsg', queue.length ? `Extracción asistida completada: ${queue.length} ruta(s) válida(s).` : (error || 'No fue posible resolver rutas con la entrada asistida.'), queue.length ? 'ok' : 'error');
-          }
-          return;
-        }
         const stepButton = event.target.closest('[data-step-action]');
         if (stepButton) {
           const stepId = Number(stepButton.dataset.stepAction || 0);
@@ -13195,11 +12660,11 @@
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
       bindEvent('btnMonitoreo', 'click', () => { window.location.href = './monitoreo.html'; }, { scope: 'topbar' });
       bindEvent('btnActualizarEstado', 'click', () => openSyncModal(), { scope: 'acciones' });
-      bindEvent('btnQuickInfo', 'click', () => navigateToCausasSection('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
-      bindEvent('btnQuickExpedientes', 'click', () => navigateToCausasSection('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
-      bindEvent('btnTopExpedientes', 'click', () => navigateToCausasSection('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
-      bindEvent('btnQuickProduction', 'click', () => navigateToCausasSection('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
-      bindEvent('btnQuickAlerts', 'click', () => navigateToCausasSection('alertas', 'btnQuickAlerts'), { scope: 'quick-nav' });
+      bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
+      bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
       bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
@@ -13317,9 +12782,11 @@
       $('pillarGrid')?.addEventListener('click', event => {
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
-        const targetTab = tab.dataset.tab;
-        const origin = event.target.closest('[data-open-block]') ? 'pillar-open-button' : 'pillar-card';
-        navigateToCausasSection(targetTab, origin);
+        if (event.target.closest('[data-open-block]')) {
+          openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
+          return;
+        }
+        openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
       });
 
       $('detailActions')?.addEventListener('click', event => {
@@ -13472,22 +12939,6 @@
             setMessage('importMsg', `Reintento preparado para el lote ${batchId}. Vuelve a adjuntar el archivo/fuente y ejecuta la importación.`, 'warn');
             return;
           }
-        }
-
-        const pjudAssistedVisibleStep = event.target.closest('[data-pjud-assisted-visible-step]');
-        if (pjudAssistedVisibleStep) {
-          const stepId = Number(pjudAssistedVisibleStep.dataset.pjudAssistedVisibleStep || 0);
-          if (!stepId) return;
-          state.pjudAssistedVisibleStepStatus[stepId] = 'Pendiente';
-          renderCurrentTab();
-          return;
-        }
-
-        const pjudAssistedVisibleAction = event.target.closest('[data-pjud-assisted-visible-action]');
-        if (pjudAssistedVisibleAction?.dataset.pjudAssistedVisibleAction === 'reset') {
-          state.pjudAssistedVisibleStepStatus = Object.fromEntries(PJUD_ASSISTED_VISIBLE_STEPS.map((step) => [step.id, 'Pendiente']));
-          renderCurrentTab();
-          return;
         }
 
         const pjudCaseAction = event.target.closest('[data-pjud-case-action]');
@@ -13701,7 +13152,6 @@
 
     async function init(){
       console.info('[CAUSAS] Corrección activa: identificador genérico habilitado (Rol > RIT > RUC > ID).');
-      wireCriticalButtonsFallback();
       try {
         await initFatalPhase();
       } catch (error) {
@@ -13710,8 +13160,8 @@
         document.querySelector('.causas-shell').innerHTML = `<section class="screen-card"><div class="empty-state">No fue posible cargar el módulo CAUSAS. ${escapeHtml(detail)}</div></section>`;
         return;
       }
+      disableLandingMode();
       initNonFatalPhase();
-      enableLandingMode();
       try {
         await loadPjudAccessConnection();
       } catch (error) {
