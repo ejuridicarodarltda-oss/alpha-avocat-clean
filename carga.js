@@ -38,6 +38,9 @@ const BRIDGE_SNAPSHOT_STORAGE_KEY = 'alpha.pjud.bridge.snapshot'
 const BRIDGE_CHANNEL_NAME = 'alpha-pjud-bridge'
 const BRIDGE_MESSAGE_TYPE = 'alpha-pjud-live-context'
 const BRIDGE_HEARTBEAT_MAX_AGE_MS = 30000
+const PJUD_WINDOW_NAME = 'alphaPjudWindow'
+const PJUD_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/home/index.php'
+const BRIDGE_POST_MESSAGE_SOURCE = 'alpha-pjud-window-bridge'
 
 const PJUD_SESSION_LABEL = {
   not_authenticated: 'no autenticado',
@@ -141,32 +144,115 @@ function saveBridgeSnapshot(snapshot) {
   return normalized
 }
 
+function isPjudHost(host = '') {
+  return /(^|\.)pjud\.cl$/i.test(String(host || '').trim())
+}
+
+function getBridgeHealth(snapshot = loadBridgeSnapshot()) {
+  if (!snapshot) {
+    return {
+      state: 'missing',
+      isFresh: false,
+      message: 'No hay puente activo con la ventana PJUD',
+      snapshot: null
+    }
+  }
+  const ageMs = Date.now() - Number(snapshot.timestamp || 0)
+  const isFresh = ageMs <= BRIDGE_HEARTBEAT_MAX_AGE_MS
+  if (!isFresh) {
+    return {
+      state: 'stale',
+      isFresh: false,
+      message: 'El puente PJUD existe, pero su heartbeat está vencido',
+      snapshot
+    }
+  }
+  return {
+    state: 'active',
+    isFresh: true,
+    message: 'Puente PJUD activo y recibiendo heartbeat',
+    snapshot
+  }
+}
+
+function installBridgeListeners(onSnapshot) {
+  if (typeof onSnapshot !== 'function') return () => {}
+  const applyPayload = (rawPayload, source = '') => {
+    const normalized = saveBridgeSnapshot({
+      ...(rawPayload || {}),
+      source: String(rawPayload?.source || source || 'bridge')
+    })
+    if (normalized) onSnapshot(normalized)
+  }
+
+  const storageHandler = (event) => {
+    if (event.key !== BRIDGE_SNAPSHOT_STORAGE_KEY || !event.newValue) return
+    try {
+      applyPayload(JSON.parse(event.newValue), 'storage-event')
+    } catch {
+      // ignore malformed payload
+    }
+  }
+
+  const messageHandler = (event) => {
+    const payload = event?.data?.payload
+    if (event?.data?.type !== BRIDGE_MESSAGE_TYPE || !payload) return
+    applyPayload(payload, BRIDGE_POST_MESSAGE_SOURCE)
+  }
+
+  window.addEventListener('storage', storageHandler)
+  window.addEventListener('message', messageHandler)
+
+  let channel = null
+  if (typeof window.BroadcastChannel === 'function') {
+    channel = new window.BroadcastChannel(BRIDGE_CHANNEL_NAME)
+    channel.addEventListener('message', (event) => {
+      if (event?.data?.type !== BRIDGE_MESSAGE_TYPE || !event.data.payload) return
+      applyPayload(event.data.payload, 'broadcast-channel')
+    })
+  }
+
+  return () => {
+    window.removeEventListener('storage', storageHandler)
+    window.removeEventListener('message', messageHandler)
+    if (channel) channel.close()
+  }
+}
+
+function getBridgeInstallerSnippet(targetOrigin = window.location.origin) {
+  return `(function(){var d=window.document,s=d.createElement('script');s.src='${targetOrigin}/pjud-bridge-writer.js?targetOrigin='+encodeURIComponent('${targetOrigin}')+'&t='+Date.now();s.async=true;d.documentElement.appendChild(s);})();`
+}
+
 function inferPjudSessionState() {
-  const snapshot = loadBridgeSnapshot()
-  if (!snapshot) return 'not_authenticated'
-  const isFresh = (Date.now() - snapshot.timestamp) <= BRIDGE_HEARTBEAT_MAX_AGE_MS
-  if (!isFresh) return 'expired'
+  const health = getBridgeHealth()
+  if (!health.snapshot) return 'not_authenticated'
+  if (!health.isFresh) return 'expired'
+  const snapshot = health.snapshot
   if (!snapshot.isAuthenticated) return 'waiting_manual_login'
   return snapshot.hasMisCausas ? 'mis_causas_civiles_ready' : 'active'
 }
 
 function inferLivePjudContext() {
-  const ctx = loadBridgeSnapshot() || {}
-  const isFresh = ctx.timestamp && (Date.now() - ctx.timestamp) <= BRIDGE_HEARTBEAT_MAX_AGE_MS
+  const health = getBridgeHealth()
+  const ctx = health.snapshot || {}
+  const hasRealContext = Boolean(health.snapshot)
   return {
     isAuthenticated: Boolean(ctx.isAuthenticated),
     hasClaveUnicaReturn: Boolean(ctx.hasClaveUnicaReturn),
     hasOJV: Boolean(ctx.hasOJV),
     view: String(ctx.view || ctx.title || ''),
     matter: String(ctx.matter || 'civil'),
-    domAccessible: Boolean(ctx.url) && Boolean(isFresh),
+    domAccessible: hasRealContext && Boolean(ctx.url) && Boolean(health.isFresh),
     url: String(ctx.url || ''),
     host: String(ctx.host || ''),
     title: String(ctx.title || ''),
     source: String(ctx.source || ''),
     causes: Array.isArray(ctx.causes) ? ctx.causes : [],
     openerControls: Array.isArray(ctx.openerControls) ? ctx.openerControls : [],
-    isFresh
+    hasRealContext,
+    bridgeState: health.state,
+    bridgeMessage: health.message,
+    isFresh: health.isFresh
   }
 }
 
@@ -310,39 +396,11 @@ function normalizeCause(rawCause = {}, index = 0) {
 
 function detectVisibleCauses() {
   const live = inferLivePjudContext()
-  const knownSelectors = [
-    '#misCausasTable tbody tr',
-    '.mis-causas-table tbody tr',
-    '.mis-causas-list .cause-row',
-    'table tbody tr',
-    '.causas-list .row'
-  ]
-
-  const selectorEvidence = knownSelectors
-    .map((selector) => ({ selector, rows: Array.from(document.querySelectorAll(selector)).filter((row) => row.offsetParent !== null) }))
-    .find((entry) => entry.rows.length > 0)
-
-  const domRows = selectorEvidence?.rows ?? []
-  const domCauses = domRows.map((row, index) => {
-    const cells = Array.from(row.querySelectorAll('td'))
-    const rol = cells[0]?.textContent?.trim() || row.querySelector('[data-rol]')?.getAttribute('data-rol') || ''
-    const caratula = cells[1]?.textContent?.trim() || row.querySelector('.caratula')?.textContent?.trim() || ''
-    const tribunal = cells[2]?.textContent?.trim() || row.querySelector('.tribunal')?.textContent?.trim() || ''
-    const opener = row.querySelector('button, a, [onclick], [role="button"]')
-    return normalizeCause({
-      rol,
-      caratula,
-      tribunal,
-      openRef: opener?.getAttribute('onclick') || opener?.getAttribute('href') || opener?.className || ''
-    }, index)
-  }).filter((cause) => cause.rol && cause.rol !== 'No disponible')
-
   const contextCauses = Array.isArray(live.causes)
     ? live.causes.map((cause, index) => normalizeCause(cause, index))
     : []
-
-  const causes = domCauses.length > 0 ? domCauses : contextCauses
-  const selectorUsed = domCauses.length > 0 ? selectorEvidence.selector : (contextCauses.length > 0 ? 'puente_pjud.causes' : 'sin selector válido')
+  const causes = contextCauses
+  const selectorUsed = contextCauses.length > 0 ? 'puente_pjud.causes' : 'sin evidencia desde puente'
 
   return {
     live,
@@ -477,6 +535,21 @@ function refreshAssistedUI(root, state) {
 
   const logItems = state.diagnostics.map((line) => `<li>${escapeHtml(line)}</li>`).join('')
   root.querySelector('#assistedDiagnosticLog').innerHTML = logItems || '<li class="muted">Sin diagnóstico todavía.</li>'
+
+  const live = inferLivePjudContext()
+  const bridgeStatus = root.querySelector('#bridgeHealthLabel')
+  const bridgeMeta = root.querySelector('#bridgeLastSnapshotMeta')
+  if (bridgeStatus) {
+    bridgeStatus.textContent = live.bridgeMessage
+  }
+  if (bridgeMeta) {
+    const timestampLabel = live.hasRealContext && live.isFresh
+      ? new Date(loadBridgeSnapshot()?.timestamp || Date.now()).toLocaleTimeString('es-CL')
+      : 'Sin heartbeat fresco'
+    bridgeMeta.textContent = live.hasRealContext
+      ? `URL: ${live.url || '-'} · vista: ${live.view || '-'} · heartbeat: ${timestampLabel}`
+      : 'No hay puente activo con la ventana PJUD.'
+  }
 }
 
 function updateAssistedStepState(state, stepId, status, detail) {
@@ -506,13 +579,18 @@ function verifyAssistedStep(state, stepId) {
   const host = (() => {
     try { return new URL(live.url).hostname } catch { return '' }
   })()
-  const isPjudDomain = /(^|\.)pjud\.cl$/i.test(host)
+  const isPjudDomain = isPjudHost(host || live.host)
   const viewLooksOJV = /oficina|judicial|virtual|ojv/i.test(live.view)
   const hasAuthenticatedSignals = Boolean(live.isAuthenticated) && live.domAccessible && detection.count > 0
   const isLoginView = /login|clave\s*única|autenticación/i.test(live.view)
   const hasMisCausasSignals = /mis\s*causas/i.test(live.view) && detection.count > 0
 
   if (stepId === 1) {
+    if (!live.hasRealContext) {
+      updateAssistedStepState(state, 1, 'error', 'No hay puente activo con la ventana PJUD.')
+      appendAssistedLog(state, 'Paso 1 bloqueado: no se recibió contexto real desde ventana PJUD.')
+      return
+    }
     if (!isPjudDomain) {
       updateAssistedStepState(state, 1, 'error', 'No se detectó dominio pjud.cl válido en la sesión activa.')
       appendAssistedLog(state, 'Paso 1 fallido: dominio fuera de ecosistema PJUD.')
@@ -610,7 +688,17 @@ function buildUI(container) {
 
       <section id="assistedModeContainer" class="panel" style="padding:16px;border-radius:16px;display:grid;gap:16px;">
         <h2 style="margin:0;font-size:1.06rem;">MODO ASISTIDO PJUD PASO A PASO</h2>
-        <p class="muted" style="margin:0;">El usuario ejecuta manualmente acciones en PJUD. Alpha Avocat solo verifica técnicamente, muestra diagnóstico y extrae listado visible.</p>
+        <p class="muted" style="margin:0;">El usuario navega en la ventana PJUD. Alpha Avocat recibe contexto vivo mediante puente (heartbeat + snapshot) y verifica cada paso.</p>
+        <section class="panel" style="padding:12px;border-radius:12px;display:grid;gap:8px;">
+          <strong>Conexión con ventana PJUD</strong>
+          <p style="margin:0;">Estado puente: <span id="bridgeHealthLabel">Sin datos</span></p>
+          <p class="muted" id="bridgeLastSnapshotMeta" style="margin:0;">No hay heartbeat recibido.</p>
+          <div style="display:flex;flex-wrap:wrap;gap:8px;">
+            <button id="openPjudWindowBtn" class="btn btn-3d" type="button">Abrir / Enlazar ventana PJUD</button>
+            <button id="copyBridgeInstallerBtn" class="btn btn-3d" type="button">Copiar instalador del puente</button>
+          </div>
+          <small class="muted">Si el navegador bloquea inyección automática, pegue el instalador en la consola de la ventana PJUD para activar el writer.</small>
+        </section>
         <div class="assisted-grid">
           <article>
             <h3 style="margin:0 0 8px;">Pasos guiados</h3>
@@ -832,14 +920,52 @@ function renderCarga(container, context = {}) {
   buildUI(container)
 
   const assistedState = createInitialAssistedState()
+  const bridgeStop = installBridgeListeners((snapshot) => {
+    appendAssistedLog(
+      assistedState,
+      `Heartbeat PJUD recibido (${snapshot.host || 'sin host'}) con ${Array.isArray(snapshot.causes) ? snapshot.causes.length : 0} causa(s).`
+    )
+    refreshAssistedUI(container, assistedState)
+  })
+
+  const bridgeHealthTimer = window.setInterval(() => refreshAssistedUI(container, assistedState), 2000)
 
   container.addEventListener('click', (event) => {
     const verifyBtn = event.target?.closest?.('[data-assisted-verify]')
-    if (!verifyBtn) return
-    const stepId = Number.parseInt(verifyBtn.getAttribute('data-assisted-verify'), 10)
-    if (!Number.isFinite(stepId)) return
-    verifyAssistedStep(assistedState, stepId)
-    refreshAssistedUI(container, assistedState)
+    if (verifyBtn) {
+      const stepId = Number.parseInt(verifyBtn.getAttribute('data-assisted-verify'), 10)
+      if (!Number.isFinite(stepId)) return
+      verifyAssistedStep(assistedState, stepId)
+      refreshAssistedUI(container, assistedState)
+      return
+    }
+
+    const openPjudButton = event.target?.closest?.('#openPjudWindowBtn')
+    if (openPjudButton) {
+      const win = window.open(PJUD_DEFAULT_URL, PJUD_WINDOW_NAME)
+      if (win) {
+        appendAssistedLog(assistedState, 'Ventana PJUD abierta/enlazada. Continúe navegación manual y active el bridge writer.')
+      } else {
+        appendAssistedLog(assistedState, 'No fue posible abrir ventana PJUD (bloqueo de pop-up del navegador).')
+      }
+      refreshAssistedUI(container, assistedState)
+      return
+    }
+
+    const copyInstallerButton = event.target?.closest?.('#copyBridgeInstallerBtn')
+    if (copyInstallerButton) {
+      const snippet = getBridgeInstallerSnippet()
+      navigator.clipboard?.writeText(snippet)
+        .then(() => {
+          appendAssistedLog(assistedState, 'Instalador del bridge copiado. Péguelo en la consola de la ventana PJUD.')
+          refreshAssistedUI(container, assistedState)
+        })
+        .catch(() => {
+          appendAssistedLog(assistedState, 'No se pudo copiar al portapapeles. Copie manualmente el instalador mostrado en consola.')
+          console.info('[Alpha Avocat][carga] Instalador bridge PJUD:', snippet)
+          refreshAssistedUI(container, assistedState)
+        })
+    }
   })
 
   container.querySelector('#assistedResetBtn')?.addEventListener('click', () => {
@@ -861,6 +987,11 @@ function renderCarga(container, context = {}) {
   })
 
   refreshAssistedUI(container, assistedState)
+
+  window.addEventListener('beforeunload', () => {
+    window.clearInterval(bridgeHealthTimer)
+    bridgeStop()
+  }, { once: true })
 
   if (context?.source) {
     console.info('[Alpha Avocat][carga] Módulo real abierto desde:', context.source)
