@@ -1869,6 +1869,7 @@
         <div>
           <h2 class="screen-title">MÓDULO CAUSAS</h2>
           <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
+          <p class="muted"><strong>Marco operativo:</strong> esta portada no define arquitectura final preliminar. Toda corrección de acceso, botones, navegación y apertura de pantallas debe preservar la lógica interna de los tres pilares ya establecidos.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Información</button>
@@ -2748,6 +2749,12 @@
       ['expedientes', 'Expedientes digitales'],
       ['produccion', 'Producción'],
     ];
+    const PILLAR_ROUTE_MAP = Object.freeze({
+      informacion: './informacion-clientes-asesorias-causas.html',
+      expedientes: './expedientes-digitales.html',
+      produccion: './produccion.html',
+      alertas: './causas-alertas-plazos.html',
+    });
 
     const $ = (id) => document.getElementById(id);
     const money = new Intl.NumberFormat('es-CL', { style: 'currency', currency: 'CLP', maximumFractionDigits: 0 });
@@ -3458,13 +3465,7 @@
     }
 
     function navigateToCausasSection(target, origin = 'unknown'){
-      const routes = {
-        informacion: './informacion-clientes-asesorias-causas.html',
-        expedientes: './expedientes-digitales.html',
-        produccion: './produccion.html',
-        alertas: './causas-alertas-plazos.html',
-      };
-      const href = routes[target];
+      const href = PILLAR_ROUTE_MAP[target];
       if (!href) {
         setDetailStatus('Acceso aún no disponible para esta sección. Usa una opción habilitada del módulo.', 'warn');
         return false;
@@ -6825,7 +6826,7 @@
           <div class="card-action-wrap">
             <button class="btn ${state.activeTab === card.id ? 'btn-primary' : ''}" data-tab="${card.id}" data-open-block="true">${escapeHtml(card.button)}</button>
           </div>
-          <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
+          <div class="linked-note">Abrir este bloque deriva a la pantalla oficial del pilar sin alterar ni fusionar su lógica interna.</div>
         </article>
       `).join('');
     }
@@ -13281,7 +13282,7 @@
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
-          openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
+          navigateToCausasSection(tab.dataset.tab, 'pillar-open-button');
           return;
         }
         openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
