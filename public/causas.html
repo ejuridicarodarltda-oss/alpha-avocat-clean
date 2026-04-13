@@ -9740,8 +9740,8 @@
         .sort((left, right) => left[0].localeCompare(right[0], 'es'))
         .map(([materia, count]) => `<span class="badge badge-warning">${escapeHtml(materia)}: ${escapeHtml(count)}</span>`)
         .join(' ');
-      const sheetMarkup = (summary?.sheetsDetected || [])
-        .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet)}</span>`)
+      const sheetMarkup = (summary?.sheetBreakdown || [])
+        .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet.sheetName)}: ${escapeHtml(sheet.validRows)} válidas / ${escapeHtml(sheet.rowsRead)} leídas</span>`)
         .join(' ');
 
       preview.innerHTML = `
@@ -9757,6 +9757,7 @@
             <strong>Hojas detectadas</strong>
             <div class="case-meta">${sheetMarkup || '<span class="badge badge-warning">Entrada manual</span>'}</div>
             <div class="timeline-meta">Totales por materia: ${countsMarkup || 'Sin distribución por materia disponible.'}</div>
+            <div class="timeline-meta">Total general consolidado: ${escapeHtml(summary?.consolidatedCount ?? items.length)} causa(s) única(s).</div>
             <div class="timeline-meta">Duplicados por materia: ${duplicatesMarkup || 'Sin duplicados detectados por materia.'}</div>
           </div>
           ${items.slice(0, 6).map((item) => `
