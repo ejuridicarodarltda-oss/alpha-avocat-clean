@@ -1808,6 +1808,8 @@
 
       <div class="causas-topbar-actions">
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
+        <button id="btnListadoCausas" class="btn">Listado de causas</button>
+        <button id="btnEstadoDiario" class="btn">Estado diario</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
       </div>
@@ -2380,6 +2382,78 @@
     </div>
   </div>
 
+  <div id="modalListadoCausas" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Listado de causas</div>
+          <p class="panel-subtitle">Importa Excel base (.xlsx/.xls), valida estructura, detecta duplicados y sincroniza el universo de causas sin reemplazar la carga manual.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalListadoCausas" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formListadoCausas" class="form">
+        <div class="field">
+          <label for="listadoCausasFile">Archivo Excel listado de causas</label>
+          <input id="listadoCausasFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+        </div>
+        <div id="listadoCausasFileMeta" class="helper-box">No hay archivo seleccionado.</div>
+        <div id="listadoCausasValidation" class="helper-box">Carga un archivo para generar vista previa y validaciones.</div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th><th>Rol</th><th>Tribunal</th><th>Tipo tribunal</th><th>Carátula</th><th>Partes</th><th>Estado</th><th>Fecha</th>
+              </tr>
+            </thead>
+            <tbody id="listadoCausasPreviewRows"><tr><td colspan="8">Sin vista previa.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="listadoCausasLastUpload" class="helper-box">Última carga: sin registros.</div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalListadoCausas">Cancelar</button>
+          <button id="btnConfirmarListadoCausas" type="submit" class="btn btn-primary">Guardar y procesar listado</button>
+        </div>
+        <div id="listadoCausasMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalEstadoDiario" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Estado diario</div>
+          <p class="panel-subtitle">Importa Excel diario (.xlsx/.xls) de resoluciones, manteniendo flujo separado y trazabilidad propia.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalEstadoDiario" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formEstadoDiario" class="form">
+        <div class="field">
+          <label for="estadoDiarioFile">Archivo Excel estado diario</label>
+          <input id="estadoDiarioFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+        </div>
+        <div id="estadoDiarioFileMeta" class="helper-box">No hay archivo seleccionado.</div>
+        <div id="estadoDiarioValidation" class="helper-box">Carga un archivo para generar vista previa y validaciones.</div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>#</th><th>Rol</th><th>Tribunal</th><th>Carátula</th><th>Estado</th><th>Fecha</th><th>Vinculada</th>
+              </tr>
+            </thead>
+            <tbody id="estadoDiarioPreviewRows"><tr><td colspan="7">Sin vista previa.</td></tr></tbody>
+          </table>
+        </div>
+        <div id="estadoDiarioLastUpload" class="helper-box">Última carga: sin registros.</div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalEstadoDiario">Cancelar</button>
+          <button id="btnConfirmarEstadoDiario" type="submit" class="btn btn-primary">Guardar y procesar estado diario</button>
+        </div>
+        <div id="estadoDiarioMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
   <input id="caseFileInput" class="hidden-input" type="file" multiple />
 
   <div id="modalPjudLinking" class="modal" aria-hidden="true">
@@ -2471,6 +2545,8 @@
     const T_PJUD_LINK_AUDIT = 'pjud_case_link_audit_logs';
     const T_PJUD_ACCESS_CONNECTIONS = 'pjud_access_connections';
     const T_PJUD_CAUSES_INDEX = 'pjud_causes_index';
+    const T_CAUSE_UPLOAD_BATCHES = 'cause_excel_upload_batches';
+    const T_CAUSE_UPLOAD_ROWS = 'cause_excel_upload_rows';
     const PJUD_ACCESS_PENDING_MESSAGE = 'Aún no se ha creado el acceso PJUD';
     const TODAY = new Date('2026-03-20T00:00:00Z');
     const PJUD_IMPORT_CHUNK_SIZE = 100;
@@ -2610,6 +2686,10 @@
           tableHtml: '',
           lastValidatedAt: null,
         },
+      },
+      excelUploads: {
+        listado: { file: null, parsed: null, lastUpload: null },
+        estado_diario: { file: null, parsed: null, lastUpload: null },
       },
     };
 
@@ -8548,6 +8628,268 @@
       return date.toLocaleString('es-CL', { hour12: false, timeZone: 'UTC' });
     }
 
+    function normalizeExcelHeaderKey(value = ''){
+      return String(value || '')
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    }
+
+    function pickRowValue(row = {}, keys = []){
+      for (const key of keys) {
+        const value = row[key];
+        if (value != null && String(value).trim()) return String(value).trim();
+      }
+      return '';
+    }
+
+    function resolveExcelRowCanonical(row = {}){
+      const normalizedMap = {};
+      Object.entries(row || {}).forEach(([key, value]) => {
+        normalizedMap[normalizeExcelHeaderKey(key)] = value;
+      });
+      return {
+        rol: pickRowValue(normalizedMap, ['rol', 'rolrit', 'rit', 'ritrol', 'rolinterno']),
+        tribunal: pickRowValue(normalizedMap, ['tribunal', 'juzgado', 'corte']),
+        tipoTribunal: pickRowValue(normalizedMap, ['tipotribunal', 'tribunaltipo', 'tipodejuzgado']),
+        caratula: pickRowValue(normalizedMap, ['caratula', 'caratulado', 'causa', 'nombrecausa']),
+        partes: pickRowValue(normalizedMap, ['partes', 'demandante', 'demandado', 'intervinientes']),
+        estado: pickRowValue(normalizedMap, ['estado', 'estadocausa', 'estadoprocesal']),
+        fecha: pickRowValue(normalizedMap, ['fecha', 'fechaestado', 'fecharesolucion', 'fechagestion']),
+        materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
+        procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
+      };
+    }
+
+    function renderUploadLastInfo(type){
+      const mapping = type === 'listado'
+        ? { target: 'listadoCausasLastUpload', stateKey: 'listado', label: 'Listado de causas' }
+        : { target: 'estadoDiarioLastUpload', stateKey: 'estado_diario', label: 'Estado diario' };
+      const node = $(mapping.target);
+      if (!node) return;
+      const record = state.excelUploads[mapping.stateKey]?.lastUpload;
+      if (!record) {
+        node.textContent = 'Última carga: sin registros.';
+        return;
+      }
+      node.innerHTML = `<strong>Última carga ${escapeHtml(mapping.label)}:</strong> ${escapeHtml(record.file_name || 'Sin nombre')} · ${escapeHtml(formatDateTimeLabel(record.created_at))} · filas ${Number(record.total_rows || 0)} · vinculadas ${Number(record.linked_rows || 0)}.`;
+    }
+
+    function renderExcelPreview(type){
+      const isListado = type === 'listado';
+      const store = state.excelUploads[isListado ? 'listado' : 'estado_diario'];
+      const fileMetaNode = $(isListado ? 'listadoCausasFileMeta' : 'estadoDiarioFileMeta');
+      const validationNode = $(isListado ? 'listadoCausasValidation' : 'estadoDiarioValidation');
+      const rowsNode = $(isListado ? 'listadoCausasPreviewRows' : 'estadoDiarioPreviewRows');
+      if (!store?.file || !store.parsed) {
+        if (fileMetaNode) fileMetaNode.textContent = 'No hay archivo seleccionado.';
+        if (validationNode) validationNode.textContent = 'Carga un archivo para generar vista previa y validaciones.';
+        if (rowsNode) rowsNode.innerHTML = isListado ? '<tr><td colspan="8">Sin vista previa.</td></tr>' : '<tr><td colspan="7">Sin vista previa.</td></tr>';
+        return;
+      }
+      if (fileMetaNode) fileMetaNode.textContent = `Archivo: ${store.file.name} (${Number(store.file.size || 0)} bytes).`;
+      const warnings = [];
+      if (store.parsed.duplicates > 0) warnings.push(`Duplicados detectados: ${store.parsed.duplicates}`);
+      if (store.parsed.missingCritical?.length) warnings.push(`Columnas críticas ausentes: ${store.parsed.missingCritical.join(', ')}`);
+      const validationSummary = [
+        `Filas leídas: ${store.parsed.totalRows}`,
+        `Filas válidas: ${store.parsed.validRows.length}`,
+        `Filas vacías: ${store.parsed.emptyRows}`,
+        `Errores estructurales: ${store.parsed.invalidRows}`,
+      ];
+      if (validationNode) validationNode.textContent = `${validationSummary.join(' · ')}${warnings.length ? ` · ${warnings.join(' · ')}` : ''}`;
+      if (!rowsNode) return;
+      if (!store.parsed.preview.length) {
+        rowsNode.innerHTML = isListado ? '<tr><td colspan="8">No hay filas válidas para vista previa.</td></tr>' : '<tr><td colspan="7">No hay filas válidas para vista previa.</td></tr>';
+        return;
+      }
+      rowsNode.innerHTML = store.parsed.preview.map((item, index) => {
+        if (isListado) {
+          return `<tr><td>${index + 1}</td><td>${escapeHtml(item.rol || '—')}</td><td>${escapeHtml(item.tribunal || '—')}</td><td>${escapeHtml(item.tipoTribunal || '—')}</td><td>${escapeHtml(item.caratula || '—')}</td><td>${escapeHtml(item.partes || '—')}</td><td>${escapeHtml(item.estado || '—')}</td><td>${escapeHtml(item.fecha || '—')}</td></tr>`;
+        }
+        return `<tr><td>${index + 1}</td><td>${escapeHtml(item.rol || '—')}</td><td>${escapeHtml(item.tribunal || '—')}</td><td>${escapeHtml(item.caratula || '—')}</td><td>${escapeHtml(item.estado || '—')}</td><td>${escapeHtml(item.fecha || '—')}</td><td>${item.linkedCaseId ? 'Sí' : 'No'}</td></tr>`;
+      }).join('');
+    }
+
+    async function parseExcelUploadFile(type, file){
+      if (!file) throw new Error('Debes seleccionar un archivo Excel.');
+      const lowerName = String(file.name || '').toLowerCase();
+      if (!lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')) {
+        throw new Error('Formato inválido. Solo se aceptan archivos Excel (.xlsx/.xls).');
+      }
+      const xlsxModule = await ensureXlsxModule();
+      const buffer = await file.arrayBuffer();
+      const workbook = xlsxModule.read(buffer, { type: 'array', cellDates: true });
+      const firstSheetName = workbook.SheetNames?.[0];
+      if (!firstSheetName) throw new Error('El archivo no contiene hojas disponibles.');
+      const rows = xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', raw: false });
+      if (!rows.length) throw new Error('El archivo Excel está vacío.');
+      const validRows = [];
+      let emptyRows = 0;
+      let invalidRows = 0;
+      const duplicatesRegistry = new Set();
+      let duplicates = 0;
+      const allCases = getAllCases();
+      const indexedByRolTribunal = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)]));
+      const indexedByCaratula = new Map(allCases.map((cause) => [String(cause.caratula || '').trim().toLowerCase(), String(cause.id)]));
+      rows.forEach((rawRow, index) => {
+        const parsed = resolveExcelRowCanonical(rawRow);
+        const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
+        if (!hasContent) {
+          emptyRows += 1;
+          return;
+        }
+        const duplicateKey = `${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}|${parsed.caratula.toLowerCase()}`;
+        if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
+        duplicatesRegistry.add(duplicateKey);
+        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || indexedByCaratula.get(parsed.caratula.toLowerCase()) || null;
+        const minimalIdentityOk = type === 'listado'
+          ? Boolean(parsed.rol && parsed.tribunal && parsed.caratula)
+          : Boolean(parsed.rol || parsed.caratula || parsed.tribunal);
+        if (!minimalIdentityOk) {
+          invalidRows += 1;
+          return;
+        }
+        validRows.push({ ...parsed, linkedCaseId, rowNumber: index + 2, raw: rawRow });
+      });
+      const required = type === 'listado' ? ['rol', 'tribunal', 'caratula'] : ['rol|tribunal|caratula'];
+      const missingCritical = [];
+      if (type === 'listado') {
+        const sample = validRows[0] || {};
+        if (!sample.rol) missingCritical.push('rol');
+        if (!sample.tribunal) missingCritical.push('tribunal');
+        if (!sample.caratula) missingCritical.push('carátula');
+      } else if (!validRows.some((row) => row.rol || row.tribunal || row.caratula)) {
+        missingCritical.push('identificador (rol / tribunal / carátula)');
+      }
+      return {
+        totalRows: rows.length,
+        emptyRows,
+        invalidRows,
+        duplicates,
+        missingCritical,
+        required,
+        validRows,
+        preview: validRows.slice(0, 20),
+      };
+    }
+
+    async function loadLatestExcelUploads(){
+      const { data, error } = await supabase
+        .from(T_CAUSE_UPLOAD_BATCHES)
+        .select('id,upload_type,file_name,created_at,total_rows,linked_rows')
+        .eq('owner_user_id', authenticatedUser.id)
+        .in('upload_type', ['listado', 'estado_diario'])
+        .order('created_at', { ascending: false })
+        .limit(20);
+      if (error) throw error;
+      const latestListado = (data || []).find((item) => item.upload_type === 'listado') || null;
+      const latestEstado = (data || []).find((item) => item.upload_type === 'estado_diario') || null;
+      state.excelUploads.listado.lastUpload = latestListado;
+      state.excelUploads.estado_diario.lastUpload = latestEstado;
+      renderUploadLastInfo('listado');
+      renderUploadLastInfo('estado');
+    }
+
+    function openExcelUploadModal(type){
+      if (type === 'listado') {
+        openManagedModal('modalListadoCausas');
+        renderExcelPreview('listado');
+        renderUploadLastInfo('listado');
+        return;
+      }
+      openManagedModal('modalEstadoDiario');
+      renderExcelPreview('estado');
+      renderUploadLastInfo('estado');
+    }
+
+    async function processExcelUpload(type){
+      const key = type === 'listado' ? 'listado' : 'estado_diario';
+      const store = state.excelUploads[key];
+      if (!store?.file || !store?.parsed) throw new Error('Primero debes cargar y analizar un archivo Excel válido.');
+      if (!store.parsed.validRows.length) throw new Error('No hay filas válidas para procesar.');
+      if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
+      const batchPayload = {
+        owner_user_id: authenticatedUser.id,
+        upload_type: key,
+        file_name: store.file.name || 'archivo.xlsx',
+        total_rows: store.parsed.totalRows,
+        valid_rows: store.parsed.validRows.length,
+        duplicate_rows: store.parsed.duplicates,
+        metadata: {
+          emptyRows: store.parsed.emptyRows,
+          invalidRows: store.parsed.invalidRows,
+          missingCritical: store.parsed.missingCritical,
+        },
+      };
+      const { data: batch, error: batchError } = await supabase.from(T_CAUSE_UPLOAD_BATCHES).insert(batchPayload).select('*').single();
+      if (batchError) throw batchError;
+      const rowsPayload = store.parsed.validRows.map((row) => ({
+        batch_id: batch.id,
+        owner_user_id: authenticatedUser.id,
+        upload_type: key,
+        row_number: row.rowNumber,
+        rol: row.rol || null,
+        tribunal: row.tribunal || null,
+        caratula: row.caratula || null,
+        estado: row.estado || null,
+        fecha_text: row.fecha || null,
+        linked_case_id: row.linkedCaseId || null,
+        payload: row.raw || {},
+      }));
+      const chunkSize = 200;
+      for (let i = 0; i < rowsPayload.length; i += chunkSize) {
+        const chunk = rowsPayload.slice(i, i + chunkSize);
+        const { error: rowsError } = await supabase.from(T_CAUSE_UPLOAD_ROWS).insert(chunk);
+        if (rowsError) throw rowsError;
+      }
+      let linkedRows = rowsPayload.filter((row) => row.linked_case_id).length;
+      if (key === 'listado') {
+        const allCases = getAllCases();
+        const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
+        for (const row of store.parsed.validRows) {
+          const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
+          const existing = byKey.get(lookupKey);
+          if (existing) {
+            const { error: updateError } = await supabase.from(T_CASES).update({
+              matter: row.materia || existing.matter || null,
+              notes: row.estado || existing.notes || null,
+              updated_at: new Date().toISOString(),
+            }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
+            if (updateError) throw updateError;
+            continue;
+          }
+          const { error: insertError } = await supabase.from(T_CASES).insert({
+            owner_user_id: authenticatedUser.id,
+            client_id: null,
+            assigned_lawyer: null,
+            court: row.tribunal || null,
+            rol: row.rol || null,
+            matter: row.materia || null,
+            notes: row.estado || row.partes || null,
+            source: 'excel_listado_causas',
+            source_confidence: 'medium',
+            imported_at: new Date().toISOString(),
+          });
+          if (insertError) throw insertError;
+        }
+      } else {
+        linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
+      }
+      const { data: updatedBatch } = await supabase
+        .from(T_CAUSE_UPLOAD_BATCHES)
+        .update({ linked_rows: linkedRows })
+        .eq('id', batch.id)
+        .select('*')
+        .single();
+      store.lastUpload = updatedBatch || batch;
+      await loadCases();
+      populateFilters();
+      renderAll();
+      renderUploadLastInfo(type);
+    }
+
     function renderMassiveExcelBasePanel(){
       const panel = $('batchExcelBasePanel');
       if (!panel) return;
@@ -12406,6 +12748,8 @@
       }, { required: true, scope: 'topbar' });
 
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
+      bindEvent('btnListadoCausas', 'click', () => openExcelUploadModal('listado'), { required: true, scope: 'topbar' });
+      bindEvent('btnEstadoDiario', 'click', () => openExcelUploadModal('estado'), { required: true, scope: 'topbar' });
       bindEvent('btnPjudCrearAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'create' }), { required: true, scope: 'acceso-pjud' });
       bindEvent('btnPjudAbrir', 'click', () => {
         window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
@@ -12510,6 +12854,62 @@
       bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
       bindEvent('formSincronizacion', 'submit', submitSync, { required: true, scope: 'form-sincronizacion' });
+      bindEvent('listadoCausasFile', 'change', async () => {
+        const file = $('listadoCausasFile')?.files?.[0] || null;
+        state.excelUploads.listado.file = file;
+        state.excelUploads.listado.parsed = null;
+        setMessage('listadoCausasMsg', '', '');
+        if (!file) {
+          renderExcelPreview('listado');
+          return;
+        }
+        try {
+          state.excelUploads.listado.parsed = await parseExcelUploadFile('listado', file);
+          renderExcelPreview('listado');
+          setMessage('listadoCausasMsg', 'Archivo validado. Revisa la vista previa y confirma para guardar.', 'ok');
+        } catch (error) {
+          renderExcelPreview('listado');
+          setMessage('listadoCausasMsg', error?.message || 'No fue posible leer el archivo.', 'error');
+        }
+      }, { scope: 'excel-listado' });
+      bindEvent('estadoDiarioFile', 'change', async () => {
+        const file = $('estadoDiarioFile')?.files?.[0] || null;
+        state.excelUploads.estado_diario.file = file;
+        state.excelUploads.estado_diario.parsed = null;
+        setMessage('estadoDiarioMsg', '', '');
+        if (!file) {
+          renderExcelPreview('estado');
+          return;
+        }
+        try {
+          state.excelUploads.estado_diario.parsed = await parseExcelUploadFile('estado', file);
+          renderExcelPreview('estado');
+          setMessage('estadoDiarioMsg', 'Archivo validado. Revisa la vista previa y confirma para guardar.', 'ok');
+        } catch (error) {
+          renderExcelPreview('estado');
+          setMessage('estadoDiarioMsg', error?.message || 'No fue posible leer el archivo.', 'error');
+        }
+      }, { scope: 'excel-estado' });
+      bindEvent('formListadoCausas', 'submit', async (event) => {
+        event.preventDefault();
+        try {
+          await processExcelUpload('listado');
+          setMessage('listadoCausasMsg', 'Listado de causas guardado y procesado correctamente.', 'ok');
+          renderExcelPreview('listado');
+        } catch (error) {
+          setMessage('listadoCausasMsg', `Error al guardar listado: ${error?.message || 'Error desconocido'}`, 'error');
+        }
+      }, { required: true, scope: 'excel-listado' });
+      bindEvent('formEstadoDiario', 'submit', async (event) => {
+        event.preventDefault();
+        try {
+          await processExcelUpload('estado');
+          setMessage('estadoDiarioMsg', 'Estado diario guardado y procesado correctamente.', 'ok');
+          renderExcelPreview('estado');
+        } catch (error) {
+          setMessage('estadoDiarioMsg', `Error al guardar estado diario: ${error?.message || 'Error desconocido'}`, 'error');
+        }
+      }, { required: true, scope: 'excel-estado' });
       bindEvent('caseFileInput', 'change', handleFileSelection, { required: true, scope: 'documentos' });
       $('detailContent')?.addEventListener('dragover', (event) => {
         event.preventDefault();
@@ -12548,7 +12948,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -12563,7 +12963,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -13015,6 +13415,11 @@
       } catch (error) {
         console.error('[Alpha Avocat][indice-pjud] No fue posible cargar el índice PJUD.', error);
         setMessage('pjudIndexSyncMsg', `No fue posible cargar el índice PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
+      }
+      try {
+        await loadLatestExcelUploads();
+      } catch (error) {
+        console.error('[Alpha Avocat][excel-uploads] No fue posible cargar trazabilidad de Excel.', error);
       }
       renderPjudAccessPanel();
       renderPjudIndexSyncPanel();
