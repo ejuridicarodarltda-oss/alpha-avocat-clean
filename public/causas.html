@@ -1810,7 +1810,6 @@
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnActualizarEstado" class="btn">Actualizar estado</button>
-        <button id="btnTopExpedientes" class="btn">Expedientes Digitales</button>
         <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
       </div>
     </div>
@@ -12500,7 +12499,6 @@
       bindEvent('btnActualizarEstado', 'click', () => openSyncModal(), { scope: 'acciones' });
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
       bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
-      bindEvent('btnTopExpedientes', 'click', () => openBranchScreen('expedientes', 'btnTopExpedientes'), { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
