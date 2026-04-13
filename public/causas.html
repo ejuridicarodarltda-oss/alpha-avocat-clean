@@ -581,126 +581,39 @@
       grid-column:1 / -1;
     }
 
-    .causas-page .pjud-index-priority{
-      background:linear-gradient(180deg,#b7ddd7 0%,#9fcec6 100%);
-      border:1px solid rgba(36,95,89,.24);
-      border-radius:20px;
-      padding:14px;
-      display:grid;
-      gap:10px;
-    }
 
-    .causas-page .pjud-access-priority{
-      background:linear-gradient(180deg,#d2efe9 0%,#b8e0d8 100%);
-      border:1px solid rgba(31,90,83,.35);
-      border-radius:20px;
-      padding:16px;
-      display:grid;
-      gap:12px;
-      box-shadow:0 10px 20px rgba(12,44,40,.12);
-    }
 
-    .causas-page .pjud-access-actions{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-    }
 
-    .causas-page .pjud-access-stats{
-      display:grid;
-      grid-template-columns:repeat(3,minmax(0,1fr));
-      gap:8px;
-    }
 
-    .causas-page .pjud-access-progress{
-      border:1px solid rgba(31,90,83,.25);
-      border-radius:16px;
-      background:rgba(255,255,255,.68);
-      padding:10px 12px;
-      display:grid;
-      gap:8px;
-    }
 
-    .causas-page .pjud-access-progress-head{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      font-weight:700;
-      color:var(--causas-title-dark);
-    }
 
-    .causas-page .pjud-access-progress-bar{
-      position:relative;
-      width:100%;
-      height:12px;
-      border-radius:999px;
-      background:rgba(22,58,95,.15);
-      overflow:hidden;
-    }
 
-    .causas-page .pjud-access-progress-fill{
-      position:absolute;
-      top:0;
-      left:0;
-      height:100%;
-      width:0%;
-      border-radius:999px;
-      background:linear-gradient(90deg,#1f6b62 0%,#2d8a7f 100%);
-      transition:width .35s ease;
-    }
 
-    .causas-page .pjud-access-progress.is-waiting .pjud-access-progress-fill{
-      background:linear-gradient(90deg,#d2a348 0%,#e6b655 100%);
-      animation:pjud-progress-pulse 1.4s ease-in-out infinite;
-    }
 
-    .causas-page .pjud-access-progress.is-error .pjud-access-progress-fill{
-      background:linear-gradient(90deg,#a33b4a 0%,#bf5061 100%);
-    }
 
-    .causas-page .pjud-access-progress.is-completed .pjud-access-progress-fill{
-      background:linear-gradient(90deg,#1a6f55 0%,#2ba977 100%);
-    }
 
-    .causas-page .pjud-access-progress-stage{
-      margin:0;
-      font-size:13px;
-      color:var(--causas-text-secondary);
-      min-height:1.4em;
-    }
 
-    @keyframes pjud-progress-pulse{
-      0%,100%{ opacity:.72; }
-      50%{ opacity:1; }
-    }
 
-    .causas-page .connection-dot{
-      display:inline-flex;
-      width:10px;
-      height:10px;
-      border-radius:999px;
-      background:#7c8d8a;
-      margin-right:6px;
-      box-shadow:0 0 0 2px rgba(255,255,255,.6);
-    }
 
-    .causas-page .connection-dot.active{
-      background:#228b56;
-      box-shadow:0 0 0 2px rgba(255,255,255,.75), 0 0 10px rgba(34,139,86,.65);
-    }
 
-    .causas-page .pjud-index-actions{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-    }
 
-    .causas-page .pjud-index-stats{
-      display:grid;
-      grid-template-columns:repeat(5,minmax(0,1fr));
-      gap:8px;
-    }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
     .metric strong,
     .big-number,
@@ -1712,10 +1625,6 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
-      .pjud-access-actions,
-      .pjud-access-stats,
-      .pjud-index-actions,
-      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1764,10 +1673,6 @@
       .diagnostic-grid,
       .production-grid,
       .summary-metrics,
-      .pjud-access-actions,
-      .pjud-access-stats,
-      .pjud-index-actions,
-      .pjud-index-stats,
       .micro-grid,
       .grid-4,
       .pillar-grid,
@@ -1837,109 +1742,7 @@
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
-    <section class="pjud-access-priority" aria-label="Acceso PJUD">
-      <div>
-        <h3 class="panel-title">ACCESO PJUD</h3>
-        <p class="panel-subtitle">Conexión manual-asistida independiente del importador masivo. No usa Excel, no crea lotes y no almacena credenciales sensibles.</p>
-      </div>
-      <div class="pjud-access-actions">
-        <button id="btnPjudCrearAcceso" class="btn btn-primary" type="button">Crear acceso</button>
-        <button id="btnPjudAbrir" class="btn" type="button" disabled aria-disabled="true">Abrir PJUD</button>
-        <button id="btnPjudIrMisCausas" class="btn" type="button" disabled aria-disabled="true">Ir a Mis Causas</button>
-        <button id="btnPjudActualizarAcceso" class="btn" type="button" disabled aria-disabled="true">Actualizar acceso</button>
-        <button id="btnPjudDesconectar" class="btn btn-danger" type="button" disabled aria-disabled="true">Desconectar</button>
-      </div>
-      <div class="pjud-access-stats" id="pjudAccessStats"></div>
-      <div id="pjudAccessProgress" class="pjud-access-progress" role="status" aria-live="polite">
-        <div class="pjud-access-progress-head">
-          <span>Progreso acceso PJUD</span>
-          <strong id="pjudAccessProgressPercent">0%</strong>
-        </div>
-        <div class="pjud-access-progress-bar" aria-hidden="true">
-          <div id="pjudAccessProgressFill" class="pjud-access-progress-fill"></div>
-        </div>
-        <p id="pjudAccessProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
-      </div>
-      <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
-    </section>
 
-    <section class="pjud-index-sync-priority" aria-label="Índice de Causas PJUD">
-      <div>
-        <h3 class="panel-title">Índice de Causas PJUD</h3>
-        <p class="panel-subtitle">Proceso independiente del acceso PJUD: detecta causas visibles en “Mis Causas” y guarda el índice estructurado para abrir detalle, vincular o actualizar filas.</p>
-      </div>
-      <div class="pjud-index-actions">
-        <button id="btnPjudSyncIndex" class="btn btn-primary" type="button" disabled aria-disabled="true">Sincronizar índice PJUD</button>
-      </div>
-      <div class="pjud-access-stats" id="pjudIndexSyncStats"></div>
-      <div id="pjudIndexSyncProgress" class="pjud-access-progress" role="status" aria-live="polite">
-        <div class="pjud-access-progress-head">
-          <span>Progreso índice PJUD</span>
-          <strong id="pjudIndexSyncProgressPercent">0%</strong>
-        </div>
-        <div class="pjud-access-progress-bar" aria-hidden="true">
-          <div id="pjudIndexSyncProgressFill" class="pjud-access-progress-fill"></div>
-        </div>
-        <p id="pjudIndexSyncProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
-      </div>
-      <div id="pjudIndexSyncMsg" class="msg" aria-live="polite"></div>
-      <div class="helper-box" id="pjudAssistedSourceBox">
-        <strong>Modo asistido de fuente PJUD</strong>
-        <p class="timeline-meta">Si Alpha no puede leer automáticamente la ventana real de Mis Causas, puedes aportar una fuente manual para inspección técnica.</p>
-        <div class="source-grid">
-          <label class="source-item">
-            <span>Pegar URL actual de la pantalla Mis Causas</span>
-            <input id="pjudAssistedSourceUrl" class="input" type="url" placeholder="https://oficinajudicialvirtual.pjud.cl/..." autocomplete="off">
-          </label>
-          <label class="source-item">
-            <span>Capturar HTML fuente</span>
-            <textarea id="pjudAssistedSourceHtml" class="input" rows="4" placeholder="Pega aquí el HTML completo capturado desde PJUD."></textarea>
-          </label>
-          <label class="source-item">
-            <span>Pegar HTML de la tabla/listado</span>
-            <textarea id="pjudAssistedTableHtml" class="input" rows="4" placeholder="Pega aquí el HTML puntual de la tabla de Mis Causas."></textarea>
-          </label>
-        </div>
-        <div class="pjud-index-actions" style="margin-top:8px;">
-          <button id="btnPjudValidateSource" class="btn" type="button">Validar fuente</button>
-          <button id="btnPjudRetryInspection" class="btn" type="button">Reintentar inspección</button>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table class="table" id="pjudIndexSyncTable">
-          <thead>
-            <tr>
-              <th>Rol/RIT</th>
-              <th>Tribunal</th>
-              <th>Carátula</th>
-              <th>Materia</th>
-              <th>Estado</th>
-              <th>Última sincronización</th>
-              <th>Vinculación Alpha</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="pjudIndexSyncRows">
-            <tr><td colspan="8">Sin índice sincronizado.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
-    <section class="pjud-index-priority" aria-label="Índice General PJUD">
-      <div>
-        <h3 class="panel-title">Índice General PJUD</h3>
-        <p class="panel-subtitle">Control de creación del Access en Inicio de Causas. El almacenamiento y las versiones quedan en Expedientes Digitales &gt; Fichero principal &gt; Índice General PJUD.</p>
-      </div>
-      <div class="pjud-index-actions">
-        <button id="btnIndiceCrearAccess" class="btn btn-primary" type="button">Crear Access</button>
-        <button id="btnIndiceActualizarAccess" class="btn" type="button">Actualizar Access</button>
-        <button id="btnIndiceDepurarDuplicados" class="btn" type="button">Depurar duplicados</button>
-        <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
-        <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
-      </div>
-      <div class="pjud-index-stats" id="pjudIndexStats"></div>
-    </section>
 
     <section class="screen-grid">
       <aside class="panel-card">
@@ -8370,8 +8173,6 @@
 
     function renderAll(){
       renderSummaryMetrics();
-      renderPjudAccessPanel();
-      renderPjudGeneralIndexPanel();
       renderList();
       renderPillarCards();
       renderTabs();
@@ -12750,60 +12551,8 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnListadoCausas', 'click', () => openExcelUploadModal('listado'), { required: true, scope: 'topbar' });
       bindEvent('btnEstadoDiario', 'click', () => openExcelUploadModal('estado'), { required: true, scope: 'topbar' });
-      bindEvent('btnPjudCrearAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'create' }), { required: true, scope: 'acceso-pjud' });
-      bindEvent('btnPjudAbrir', 'click', () => {
-        window.open(PJUD_OJV_URL, '_blank', 'noopener,noreferrer');
-      }, { scope: 'acceso-pjud' });
-      bindEvent('btnPjudIrMisCausas', 'click', () => {
-        const url = state.pjudAccess.record?.base_url_mis_causas || PJUD_MIS_CAUSAS_DEFAULT_URL;
-        const popup = window.open(url, '_blank', 'noopener,noreferrer');
-        if (!popup) {
-          setMessage('pjudAccessMsg', 'El navegador bloqueó la apertura de Mis Causas. Habilita pop-ups e inténtalo nuevamente.', 'error');
-          return;
-        }
-        setMessage('pjudAccessMsg', 'Mis Causas abierta usando la URL base registrada del acceso PJUD.', 'ok');
-      }, { scope: 'acceso-pjud' });
-      bindEvent('btnPjudActualizarAcceso', 'click', () => createOrRefreshPjudAccess({ mode: 'refresh' }), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudDesconectar', 'click', () => disconnectPjudAccess(), { scope: 'acceso-pjud' });
-      bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
-      bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
-      bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
-      bindEvent('btnIndiceCrearAccess', 'click', async () => {
-        state.pjudGeneralIndexControl.lastStatus = 'Creación iniciada desde Inicio de Causas';
-        await createOrRefreshPjudAccess({ mode: 'create' });
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
-      bindEvent('btnIndiceActualizarAccess', 'click', async () => {
-        state.pjudGeneralIndexControl.lastStatus = 'Actualización solicitada';
-        await createOrRefreshPjudAccess({ mode: 'refresh' });
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
-      bindEvent('btnIndiceDepurarDuplicados', 'click', () => {
-        const snapshot = buildPjudIndexFromCases();
-        state.pjudGeneralIndexControl.lastStatus = `Depuración ejecutada: ${snapshot.duplicatesRemoved} duplicado(s) eliminado(s) por materia+tribunal+rol`;
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
-      bindEvent('btnIndiceAbrirGeneral', 'click', () => {
-        window.location.href = './expedientes-digitales.html#indice-general-pjud';
-      }, { scope: 'indice-general' });
-      bindEvent('btnIndiceUsarDescargas', 'click', () => {
-        state.pjudGeneralIndexControl.lastStatus = 'Índice general marcado como fuente de descargas';
-        setMessage('importMsg', 'El Índice General PJUD vigente se usará como referencia de descargas en el siguiente proceso.', 'ok');
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
+
       auditAndRepairAutomaticFlowButtons();
-      $('pjudIndexSyncRows')?.addEventListener('click', async (event) => {
-        const actionTrigger = event.target?.closest?.('[data-pjud-index-action]');
-        if (!actionTrigger) return;
-        await handlePjudIndexRowAction({ target: actionTrigger });
-      });
-      $('pjudAssistedSourceUrl')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
-      $('pjudAssistedSourceHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
-      $('pjudAssistedTableHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
-      const validateSourceButton = $('btnPjudValidateSource');
-      if (validateSourceButton && validateSourceButton.dataset.primaryBound_click !== '1') {
-        validateSourceButton.addEventListener('click', () => validatePjudAssistedSource());
-      }
       $('batchImportPreview')?.addEventListener('click', async (event) => {
         const stepButton = event.target.closest('[data-step-action]');
         if (stepButton) {
@@ -13405,24 +13154,10 @@
       disableLandingMode();
       initNonFatalPhase();
       try {
-        await loadPjudAccessConnection();
-      } catch (error) {
-        console.error('[Alpha Avocat][acceso-pjud] No fue posible cargar el acceso PJUD.', error);
-        setMessage('pjudAccessMsg', `No fue posible cargar el acceso PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
-      }
-      try {
-        await loadPjudCausesIndexRows();
-      } catch (error) {
-        console.error('[Alpha Avocat][indice-pjud] No fue posible cargar el índice PJUD.', error);
-        setMessage('pjudIndexSyncMsg', `No fue posible cargar el índice PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
-      }
-      try {
         await loadLatestExcelUploads();
       } catch (error) {
         console.error('[Alpha Avocat][excel-uploads] No fue posible cargar trazabilidad de Excel.', error);
       }
-      renderPjudAccessPanel();
-      renderPjudIndexSyncPanel();
     }
 
     init();
