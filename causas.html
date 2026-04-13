@@ -1821,7 +1821,7 @@
       <div class="screen-header">
         <div>
           <h2 class="screen-title">MÓDULO CAUSAS</h2>
-          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial.</p>
+          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial. La creación de nueva causa, carpeta rol y alojamiento de archivos debe quedar desacoplada del flujo PJUD y del Excel, para que funcione también como sistema manual autónomo desde ya.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Información</button>
@@ -2134,7 +2134,7 @@
         <div class="grid-3">
           <div class="field">
             <label for="k_client">Cliente relacionado</label>
-            <select id="k_client" class="input" required>
+            <select id="k_client" class="input">
               <option value="">Selecciona</option>
             </select>
           </div>
@@ -2156,6 +2156,10 @@
           <div class="field">
             <label for="k_rol">Rol</label>
             <input id="k_rol" class="input" placeholder="C-19-2026" />
+            <label class="small-note" style="display:flex;align-items:center;gap:8px;margin-top:6px;">
+              <input id="k_no_rol_yet" type="checkbox" />
+              Causa sin rol aún (temporal)
+            </label>
           </div>
           <div class="field">
             <label for="k_rit">RIT</label>
@@ -2171,6 +2175,10 @@
           <div class="field">
             <label for="k_court">Tribunal</label>
             <input id="k_court" class="input" placeholder="Tribunal competente" />
+          </div>
+          <div class="field">
+            <label for="k_court_type">Tipo de tribunal</label>
+            <input id="k_court_type" class="input" placeholder="Civil / Familia / Laboral / Penal..." />
           </div>
           <div class="field">
             <label for="k_procedure">Procedimiento</label>
@@ -2201,6 +2209,10 @@
           <div class="field">
             <label for="k_stage">Etapa procesal</label>
             <input id="k_stage" class="input" placeholder="Etapa inicial" />
+          </div>
+          <div class="field">
+            <label for="k_entry_date">Fecha de ingreso</label>
+            <input id="k_entry_date" class="input" type="date" />
           </div>
           <div class="field">
             <label for="k_urgency">Urgencia</label>
@@ -2255,6 +2267,10 @@
 
         <div class="grid-2">
           <div class="field">
+            <label for="k_partes">Partes o intervinientes</label>
+            <textarea id="k_partes" class="textarea" placeholder="Ej: Demandante: Juan Pérez; Demandado: Empresa X"></textarea>
+          </div>
+          <div class="field">
             <label for="k_last_resolution">Última resolución resumida</label>
             <textarea id="k_last_resolution" class="textarea" placeholder="Resumen ejecutivo de la última resolución"></textarea>
           </div>
@@ -2293,11 +2309,13 @@
             <label for="doc_category">Categoría</label>
             <select id="doc_category" class="input">
               <option>Ebook</option>
-              <option>Documentos asociados</option>
+              <option>Documentos</option>
               <option>Escritos</option>
+              <option>Borradores</option>
               <option>Resoluciones</option>
-              <option>Notificaciones</option>
+              <option>Prueba</option>
               <option>Otros antecedentes</option>
+              <option>Sin clasificar</option>
             </select>
           </div>
         </div>
@@ -2306,11 +2324,13 @@
             <label for="doc_container">Contenedor</label>
             <select id="doc_container" class="input">
               <option value="ebook">Ebook</option>
-              <option value="asociados">Documentos asociados</option>
+              <option value="documentos">Documentos</option>
               <option value="escritos">Escritos</option>
+              <option value="borradores">Borradores</option>
               <option value="resoluciones">Resoluciones</option>
-              <option value="notificaciones">Notificaciones</option>
+              <option value="prueba">Prueba</option>
               <option value="antecedentes">Otros antecedentes</option>
+              <option value="sinClasificar">Sin clasificar</option>
               <option value="importadosPjud">Importadas del Poder Judicial</option>
             </select>
           </div>
@@ -2520,7 +2540,7 @@
       importModalLocked: false,
       importTargetCaseId: null,
       currentDocumentId: null,
-      currentDocumentContainer: 'asociados',
+      currentDocumentContainer: 'documentos',
       ebookFallbackUrl: '',
       officialFallbackScope: 'ebook',
       explorer: {
@@ -4134,13 +4154,16 @@
     function getContainerLabel(containerId){
       return ({
         ebook: 'Ebook',
-        asociados: 'Documentos asociados',
+        asociados: 'Documentos',
+        documentos: 'Documentos',
         escritos: 'Escritos',
+        borradores: 'Borradores',
         resoluciones: 'Resoluciones',
-        notificaciones: 'Notificaciones',
+        prueba: 'Prueba',
         antecedentes: 'Otros antecedentes',
+        sinClasificar: 'Sin clasificar',
         importadosPjud: 'Importadas del Poder Judicial',
-      })[containerId] || 'Documentos asociados';
+      })[containerId] || 'Documentos';
     }
 
     function explorerNodeIcon(type){
@@ -4596,6 +4619,19 @@
       const deadlineDate = base.proximoPlazo || '2026-03-27';
       const hearingDate = base.proximaAudiencia || '2026-03-29';
       const alertLevel = base.alerta || (daysBetween(deadlineDate) <= 3 ? 'Urgente' : 'Normal');
+      const manualParties = String(base.partesManualRaw || '')
+        .split(/\n|;/)
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) => {
+          const [role, ...rest] = item.split(':');
+          const name = rest.length ? rest.join(':').trim() : role.trim();
+          return {
+            rol: rest.length ? role.trim() : 'Interviniente',
+            nombre: name || 'Interviniente por definir',
+            detalle: 'Ingreso manual',
+          };
+        });
 
       return ensureCauseStorage({
         caratula,
@@ -4652,7 +4688,7 @@
           { rol:'Procurador', nombre:base.procurador || 'Coordinación procesal interna', detalle:'Control de resoluciones, notificaciones y comparendos.' },
           { rol:'Secretaría / apoyo', nombre:'Secretaría jurídica', detalle:'Carga documental, coordinación con cliente y soporte de agenda.' },
         ],
-        partes: [
+        partes: manualParties.length ? manualParties : [
           { rol:'Demandante / solicitante', nombre: cliente, detalle:'Cliente principal vinculado a la causa.' },
           { rol:'Demandado / contraparte', nombre:'Contraparte por validar', detalle:'Individualización pendiente de corroboración documental.' },
           { rol:'Abogado', nombre: responsable, detalle:'Dirección jurídica principal del estudio.' },
@@ -4705,6 +4741,9 @@
           ],
         },
         expedienteDigital:{
+          caseFolderPath: `${base.tipoTribunal || 'Tribunal'} / ${base.tribunal || 'Tribunal pendiente'} / ${rol || 'SIN_ROL_TEMPORAL'}`,
+          caseFolderLabel: `${rol || 'SIN_ROL_TEMPORAL'} / ${caratula}`,
+          manualFolders: Array.isArray(base.manualFolders) ? base.manualFolders : [],
           cliente:{
             nombre:cliente,
             acciones:['Cargar archivos','Descargar archivos','Visualizar archivos','Renombrar','Crear carpetas','Mover','Ordenar','Vincular con producción','Entregar información a alertas de plazos','Vincularse a reuniones y actas','Vincularse a cliente, asesoría y causa'],
@@ -5147,7 +5186,8 @@
 
     function caseMatches(caseItem){
       const search = state.filters.search.trim().toLowerCase();
-      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.corte, caseItem.materia, caseItem.procedimiento, caseItem.ubicacion, caseItem.institucion].join(' ').toLowerCase();
+      const partiesSearch = (caseItem.partes || []).map((item) => `${item.nombre || ''} ${item.rol || ''}`).join(' ');
+      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.corte, caseItem.materia, caseItem.procedimiento, caseItem.ubicacion, caseItem.institucion, partiesSearch].join(' ').toLowerCase();
       if (search && !haystack.includes(search)) return false;
       if (state.filters.estado && caseItem.estadoProcesal !== state.filters.estado) return false;
       if (state.filters.tribunal && caseItem.tribunal !== state.filters.tribunal) return false;
@@ -6255,14 +6295,14 @@
     }
 
     function runInteractiveAudit(){
-      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-detail-action-trigger], [data-resolution-action]';
+      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
         .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
       const deadNodes = interactiveNodes.filter((node) => {
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
         if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
-        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
+        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
         const href = node.getAttribute('href');
         if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
         return true;
@@ -7030,9 +7070,10 @@
               <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
             </div>
             <div class="toolbar">
-              <button class="btn" data-doc-upload="asociados">Cargar archivo</button>
-              <button class="btn" data-doc-upload="ebook">Cargar ebook</button>
-              <button class="btn" data-doc-create="asociados">Agregar documento</button>
+              <button class="btn" data-doc-upload="documentos">Subir archivo</button>
+              <button class="btn" data-doc-upload="ebook">Subir ebook</button>
+              <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
+              <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
             </div>
           </div>
           ${renderDocumentExplorer(cause)}
@@ -8311,14 +8352,19 @@
 
     function buildWorkspacePayload(id){
       const clientId = $('k_client').value;
+      const noRolYet = $('k_no_rol_yet')?.checked;
+      const rolValue = $('k_rol').value.trim();
+      const fechaIngreso = $('k_entry_date').value || new Date().toISOString().slice(0, 10);
       return {
         id,
         cliente: state.clientMap.get(clientId) || SAFE_CLIENT_LABEL,
         caratula: normalizeCaratula($('k_caratula').value.trim()),
-        rol: $('k_rol').value.trim() || 'Sin rol',
+        rol: rolValue || (noRolYet ? 'SIN_ROL_TEMPORAL' : 'Sin rol'),
+        rolTemporal: Boolean(noRolYet),
         rit: $('k_rit').value.trim(),
         ruc: $('k_ruc').value.trim(),
         tribunal: $('k_court').value.trim() || 'Tribunal pendiente',
+        tipoTribunal: $('k_court_type').value.trim() || 'Tipo de tribunal por definir',
         procedimiento: $('k_procedure').value.trim() || 'Procedimiento por definir',
         materia: $('k_subject').value.trim() || 'Materia por definir',
         submateria: $('k_submatter').value.trim() || 'Submateria pendiente',
@@ -8335,9 +8381,10 @@
         proximaAudiencia: '2026-03-29',
         proximoPlazo: '2026-03-27',
         fee_total: parseCLP($('k_fee').value),
-        fechaInicio: '2026-03-20',
+        fechaInicio: fechaIngreso,
         fechaNotificacion: '2026-03-20',
         tipoCausa: 'Contenciosa',
+        partesManualRaw: $('k_partes').value.trim(),
       };
     }
 
@@ -8345,21 +8392,35 @@
       event.preventDefault();
       msg.className = 'msg';
       const clientId = $('k_client').value;
-      if (!clientId) {
+      const rolRaw = $('k_rol').value.trim();
+      const noRolYet = Boolean($('k_no_rol_yet')?.checked);
+      const tribunal = $('k_court').value.trim();
+      if (!rolRaw && !noRolYet) {
         msg.className = 'msg msg-error';
-        msg.textContent = 'Debes seleccionar un cliente relacionado.';
+        msg.textContent = 'El Rol es obligatorio. Si aún no existe, activa “Causa sin rol aún (temporal)”.';
         return;
       }
 
       const fee = parseCLP($('k_fee').value);
-      const rolComposite = [$('k_rol').value.trim(), $('k_rit').value.trim()].filter(Boolean).join(' / ') || $('k_caratula').value.trim();
+      const rolComposite = rolRaw || (noRolYet ? `SIN_ROL_TEMPORAL-${Date.now()}` : '');
       const normalizedCaratula = normalizeCaratula($('k_caratula').value.trim());
       $('k_caratula').value = normalizedCaratula;
+      if (rolRaw && tribunal) {
+        const duplicatedByRol = getAllCases().find((item) => (
+          String(item.rol || '').trim().toLowerCase() === rolRaw.toLowerCase()
+          && String(item.tribunal || '').trim().toLowerCase() === tribunal.toLowerCase()
+        ));
+        if (duplicatedByRol) {
+          msg.className = 'msg msg-error';
+          msg.textContent = 'Ya existe una causa con el mismo rol dentro del tribunal indicado.';
+          return;
+        }
+      }
       const duplicate = findDuplicateCase(getAllCases(), {
         basic: {
-          rol: $('k_rol').value.trim(),
+          rol: rolRaw,
           rit: $('k_rit').value.trim(),
-          tribunal: $('k_court').value.trim(),
+          tribunal,
           caratula: normalizedCaratula,
           link: '',
         }
@@ -8370,9 +8431,9 @@
         return;
       }
       const payload = {
-        [C.k_client_id]: clientId,
+        [C.k_client_id]: clientId || null,
         [C.k_responsible]: $('k_resp').value.trim() || null,
-        [C.k_court]: $('k_court').value.trim() || null,
+        [C.k_court]: tribunal || null,
         [C.k_rol]: rolComposite || null,
         [C.k_subject]: $('k_subject').value.trim() || null,
         [C.k_fee_total]: fee,
@@ -8401,6 +8462,7 @@
       state.selectedId = String(data[C.k_id]);
       state.activeTab = 'informacion';
       renderAll();
+      openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'create-case' });
       setTimeout(closeModal, 450);
     }
 
@@ -12071,7 +12133,7 @@
       });
     }
 
-    function openDocumentModal(documentId = null, containerId = 'asociados'){
+    function openDocumentModal(documentId = null, containerId = 'documentos'){
       const current = getCurrentCause();
       if (!current) return;
       state.currentDocumentId = documentId;
@@ -12085,13 +12147,24 @@
       openManagedModal('modalDocumento');
     }
 
-    async function handleFileSelection(event){
-      const current = getCurrentCause();
-      const files = event.target.files;
-      if (!current || !files?.length) return;
-      const containerId = state.currentDocumentContainer || 'asociados';
+    async function processFilesForCurrentCause(current, files, containerId){
+      if (!current) {
+        setDetailStatus('Debes crear y abrir una causa antes de subir archivos.', 'warn');
+        return;
+      }
+      if (!files?.length) return;
       const category = getContainerLabel(containerId);
-      const inputs = await filesToDocumentInputs(files, {
+      const existing = new Set((current.documents || []).map((doc) => `${String(doc.name || '').toLowerCase()}::${Number(doc.size || 0)}`));
+      const incoming = Array.from(files || []);
+      const duplicates = incoming.filter((file) => existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
+      if (duplicates.length) {
+        setDetailStatus(`Se detectaron ${duplicates.length} archivo(s) duplicados por nombre y tamaño.`, 'warn');
+      }
+      const filesToLoad = incoming.filter((file) => !existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
+      if (!filesToLoad.length) {
+        return;
+      }
+      const inputs = await filesToDocumentInputs(filesToLoad, {
         category,
         destinationContainer: containerId,
         destinationModule: 'Causas',
@@ -12108,7 +12181,36 @@
       });
       await loadCases();
       renderAll();
+      setDetailStatus(`${filesToLoad.length} archivo(s) guardados en ${getContainerLabel(containerId)}.`, 'ok');
+    }
+
+    async function handleFileSelection(event){
+      const current = getCurrentCause();
+      const files = event.target.files;
+      const containerId = state.currentDocumentContainer || 'documentos';
+      await processFilesForCurrentCause(current, files, containerId);
       event.target.value = '';
+    }
+
+    function createInternalFolder(){
+      const current = getCurrentCause();
+      if (!current) return;
+      const folderName = window.prompt('Nombre de la nueva carpeta interna dentro de esta causa:');
+      if (!folderName || !folderName.trim()) return;
+      const cleanName = folderName.trim();
+      persistCurrentCause((entry) => {
+        const next = structuredClone(entry);
+        if (!next.expedienteDigital || typeof next.expedienteDigital !== 'object') next.expedienteDigital = {};
+        const currentFolders = Array.isArray(next.expedienteDigital.manualFolders) ? next.expedienteDigital.manualFolders : [];
+        if (!currentFolders.map((item) => String(item || '').toLowerCase()).includes(cleanName.toLowerCase())) {
+          next.expedienteDigital.manualFolders = [...currentFolders, cleanName];
+        }
+        return markManualEdit(next);
+      });
+      loadCases().then(() => {
+        renderAll();
+        setDetailStatus(`Carpeta interna "${cleanName}" creada dentro de la causa actual.`, 'ok');
+      });
     }
 
     async function handleDocumentAction(documentId, action){
@@ -12413,6 +12515,17 @@
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
       bindEvent('formSincronizacion', 'submit', submitSync, { required: true, scope: 'form-sincronizacion' });
       bindEvent('caseFileInput', 'change', handleFileSelection, { required: true, scope: 'documentos' });
+      $('detailContent')?.addEventListener('dragover', (event) => {
+        event.preventDefault();
+      });
+      $('detailContent')?.addEventListener('drop', async (event) => {
+        const files = event.dataTransfer?.files;
+        if (!files?.length) return;
+        event.preventDefault();
+        const current = getCurrentCause();
+        const containerId = state.currentDocumentContainer || 'documentos';
+        await processFilesForCurrentCause(current, files, containerId);
+      });
       $('causeRectificationForm')?.addEventListener('submit', saveCauseRectification);
       $('causeRectificationForm')?.addEventListener('input', () => {
         if (state.rectificationValidation) {
@@ -12620,6 +12733,12 @@
         if (upload) {
           state.currentDocumentContainer = upload.dataset.docUpload;
           $('caseFileInput').click();
+          return;
+        }
+
+        const createFolder = event.target.closest('[data-create-folder]');
+        if (createFolder) {
+          createInternalFolder();
           return;
         }
 
