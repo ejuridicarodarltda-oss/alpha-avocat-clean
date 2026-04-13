@@ -1748,15 +1748,20 @@
       <aside class="panel-card">
         <div>
           <h3 class="panel-title">Listado general de causas</h3>
-          <p class="panel-subtitle">Filtra por estado procesal, tribunal, materia, procedimiento, abogado responsable, urgencia, audiencia próxima y plazo próximo.</p>
+          <p class="panel-subtitle">Buscador exclusivo por ROL y TRIBUNAL.</p>
         </div>
 
         <div class="field panel-search">
-          <label for="searchCausas">Buscador general</label>
-          <input id="searchCausas" class="input" type="search" placeholder="Buscar por carátula, rol, RIT, RUC o cliente" />
+          <label for="searchRol">ROL</label>
+          <input id="searchRol" class="input" type="search" placeholder="Ej: C-19-2026 (admite coincidencia parcial o exacta)" />
         </div>
 
-        <div class="filters-block">
+        <div class="field panel-search">
+          <label for="searchTribunal">TRIBUNAL</label>
+          <input id="searchTribunal" class="input" type="search" placeholder="Ej: 2° Juzgado Civil de Santiago (coincidencia exacta)" />
+        </div>
+
+        <div class="filters-block" style="display:none;">
           <div class="filter-grid">
             <div class="field">
               <label for="filterEstado">Estado procesal</label>
@@ -2257,7 +2262,7 @@
     </div>
   </div>
 
-  <input id="caseFileInput" class="hidden-input" type="file" multiple />
+  <input id="caseFileInput" class="hidden-input" type="file" multiple accept=".pdf,application/pdf" />
 
   <div id="modalPjudLinking" class="modal" aria-hidden="true">
     <div class="modal-panel">
@@ -5037,36 +5042,13 @@
     }
 
     function caseMatches(caseItem){
-      const search = state.filters.search.trim().toLowerCase();
-      const partiesSearch = (caseItem.partes || []).map((item) => `${item.nombre || ''} ${item.rol || ''}`).join(' ');
-      const haystack = [caseItem.caratula, caseItem.rol, caseItem.rit, caseItem.ruc, caseItem.cliente, caseItem.tribunal, caseItem.corte, caseItem.materia, caseItem.procedimiento, caseItem.ubicacion, caseItem.institucion, partiesSearch].join(' ').toLowerCase();
-      if (search && !haystack.includes(search)) return false;
-      if (state.filters.estado && caseItem.estadoProcesal !== state.filters.estado) return false;
-      if (state.filters.tribunal && caseItem.tribunal !== state.filters.tribunal) return false;
-      if (state.filters.materia && caseItem.materia !== state.filters.materia) return false;
-      if (state.filters.procedimiento && caseItem.procedimiento !== state.filters.procedimiento) return false;
-      if (state.filters.responsable && caseItem.responsable !== state.filters.responsable) return false;
-      if (state.filters.urgencia && caseItem.alerta !== state.filters.urgencia) return false;
-      if (state.filters.audiencia) {
-        const days = daysBetween(caseItem.proximaAudiencia);
-        if (days == null || days > Number(state.filters.audiencia)) return false;
-      }
-      if (state.filters.plazo) {
-        const days = daysBetween(caseItem.proximoPlazo);
-        if (days == null || days > Number(state.filters.plazo)) return false;
-      }
-      if (state.filters.importBatch) {
-        const batchId = String(caseItem.importBatchId || caseItem.import_batch_id || '');
-        if (batchId !== String(state.filters.importBatch)) return false;
-      }
-      if (state.filters.importStatus) {
-        if (inferCaseImportStatus(caseItem) !== state.filters.importStatus) return false;
-      }
-      if (state.filters.lastImported) {
-        const importedAt = caseImportedAt(caseItem);
-        const days = daysBetween(importedAt);
-        if (days == null || days > Number(state.filters.lastImported)) return false;
-      }
+      const rolQuery = String(state.filters.search || '').trim().toLowerCase();
+      const tribunalQuery = String(state.filters.tribunal || '').trim().toLowerCase();
+      const rolCandidate = [caseItem.rol, caseItem.rit, caseItem.ruc].filter(Boolean).join(' ').toLowerCase();
+      const tribunalCandidate = String(caseItem.tribunal || '').trim().toLowerCase();
+
+      if (rolQuery && !rolCandidate.includes(rolQuery)) return false;
+      if (tribunalQuery && tribunalCandidate !== tribunalQuery) return false;
       return true;
     }
 
@@ -5094,7 +5076,7 @@
 
     function clearAllFilters(){
       state.filters = { search:'', estado:'', tribunal:'', materia:'', procedimiento:'', responsable:'', urgencia:'', audiencia:'', plazo:'', importBatch:'', importStatus:'', lastImported:'', sortBy:'updated' };
-      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => {
+      ['searchRol','searchTribunal','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported'].forEach(id => {
         const input = $(id);
         if (input) input.value = '';
       });
@@ -5602,7 +5584,7 @@
       renderVisibilityDiagnostics(list);
       $('countLabel').textContent = `${list.length} causa(s)`;
       if (!list.length) {
-        $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
+        $('casesList').innerHTML = '<div class="empty-state">No se encontraron causas con ese rol y/o tribunal.</div>';
         $('detailTitle').textContent = 'Sin causas visibles';
         $('detailMeta').textContent = 'Ajusta los filtros o crea una nueva causa para abrir la ficha interna.';
         $('detailActions').innerHTML = '';
@@ -5647,34 +5629,22 @@
               </button>
               <div class="kardex-body">
                 ${items.map((item) => {
-                  const days = daysBetween(item.proximoPlazo);
                   const selected = item.id === state.selectedId ? 'selected' : '';
                   const identity = getCauseIdentifier(item);
-                  const importStatus = inferCaseImportStatus(item);
                   return `
                     <article class="list-card archivador-card ${selected}" data-select="${item.id}">
-                      <div class="archivador-tab">ARCHIVADOR CAUSA</div>
+                      <div class="archivador-tab">📁 CARPETA CAUSA</div>
                       <div class="case-top">
                         <div>
                           <div class="case-kicker">${escapeHtml(identity.display)}${identity.secondary.length ? ` · ${escapeHtml(identity.secondary.join(' · '))}` : ''}</div>
-                          <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
+                          <h4 class="case-name">ROL: ${escapeHtml(item.rol || item.rit || item.ruc || 'Sin rol')}</h4>
                         </div>
-                        <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
+                        <span class="badge badge-info">Abrir carpeta</span>
                       </div>
                       <div class="detail-grid">
                         <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
-                        <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
-                        <div><span class="mini-label">Importación PJUD</span><div class="case-meta">${escapeHtml(importStatus || 'Sin importación PJUD')}</div></div>
-                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
-                        <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
-                      </div>
-                      <div class="case-footer">
-                        <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
-                        <div class="case-actions">
-                          <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
-                          <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
-                          <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
-                        </div>
+                        <div><span class="mini-label">Carátula</span><div class="case-meta">${escapeHtml(item.caratula || 'Sin carátula')}</div></div>
+                        <div><span class="mini-label">Estado</span><div class="case-meta">${escapeHtml(item.estadoProcesal || 'Sin estado')}</div></div>
                       </div>
                     </article>
                   `;
@@ -6281,7 +6251,6 @@
             </div>
             <div class="toolbar">
               <button class="btn" data-doc-upload="documentos">Subir archivo</button>
-              <button class="btn" data-doc-upload="ebook">Subir ebook</button>
               <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
               <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
             </div>
@@ -7521,19 +7490,19 @@
     }
 
     function updateFiltersFromInputs(){
-      state.filters.search = $('searchCausas').value;
-      state.filters.estado = $('filterEstado').value;
-      state.filters.tribunal = $('filterTribunal').value;
-      state.filters.materia = $('filterMateria').value;
-      state.filters.procedimiento = $('filterProcedimiento').value;
-      state.filters.responsable = $('filterResponsable').value;
-      state.filters.urgencia = $('filterUrgencia').value;
-      state.filters.audiencia = $('filterAudiencia').value;
-      state.filters.plazo = $('filterPlazo').value;
-      state.filters.importBatch = $('filterImportBatch').value;
-      state.filters.importStatus = $('filterImportStatus').value;
-      state.filters.lastImported = $('filterLastImported').value;
-      state.filters.sortBy = $('sortBy').value;
+      state.filters.search = $('searchRol')?.value || '';
+      state.filters.tribunal = $('searchTribunal')?.value || '';
+      state.filters.estado = $('filterEstado')?.value || '';
+      state.filters.materia = $('filterMateria')?.value || '';
+      state.filters.procedimiento = $('filterProcedimiento')?.value || '';
+      state.filters.responsable = $('filterResponsable')?.value || '';
+      state.filters.urgencia = $('filterUrgencia')?.value || '';
+      state.filters.audiencia = $('filterAudiencia')?.value || '';
+      state.filters.plazo = $('filterPlazo')?.value || '';
+      state.filters.importBatch = $('filterImportBatch')?.value || '';
+      state.filters.importStatus = $('filterImportStatus')?.value || '';
+      state.filters.lastImported = $('filterLastImported')?.value || '';
+      state.filters.sortBy = $('sortBy')?.value || 'updated';
       renderAll();
     }
 
@@ -11582,10 +11551,23 @@
         setDetailStatus('Debes crear y abrir una causa antes de subir archivos.', 'warn');
         return;
       }
+      if (!current.id) {
+        setDetailStatus('No se puede subir: la causa no tiene identificador interno válido.', 'error');
+        return;
+      }
       if (!files?.length) return;
       const category = getContainerLabel(containerId);
       const existing = new Set((current.documents || []).map((doc) => `${String(doc.name || '').toLowerCase()}::${Number(doc.size || 0)}`));
       const incoming = Array.from(files || []);
+      const nonPdfFiles = incoming.filter((file) => {
+        const fileName = String(file?.name || '').toLowerCase();
+        const mime = String(file?.type || '').toLowerCase();
+        return !(fileName.endsWith('.pdf') || mime === 'application/pdf');
+      });
+      if (nonPdfFiles.length) {
+        setDetailStatus('En Causas solo se aceptan documentos PDF.', 'error');
+        return;
+      }
       const duplicates = incoming.filter((file) => existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
       if (duplicates.length) {
         setDetailStatus(`Se detectaron ${duplicates.length} archivo(s) duplicados por nombre y tamaño.`, 'warn');
@@ -12006,13 +11988,13 @@
         });
       });
 
-      ['searchCausas','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported','sortBy'].forEach(id => {
+      ['searchRol','searchTribunal','filterEstado','filterTribunal','filterMateria','filterProcedimiento','filterResponsable','filterUrgencia','filterAudiencia','filterPlazo','filterImportBatch','filterImportStatus','filterLastImported','sortBy'].forEach(id => {
         const filterField = $(id);
         if (!filterField) {
           console.warn('[CAUSAS][BOTONES][filtros] Campo no encontrado para binding.', { id });
           return;
         }
-        filterField.addEventListener(id === 'searchCausas' ? 'input' : 'change', updateFiltersFromInputs);
+        filterField.addEventListener(id === 'searchRol' || id === 'searchTribunal' ? 'input' : 'change', updateFiltersFromInputs);
       });
 
       $('casesList')?.addEventListener('click', event => {
