@@ -72,6 +72,24 @@
     .tribunal-item:hover,.role-item:hover{border-color:#163A5F}
     .role-item h4{margin:0 0 6px}
     .role-content-title{margin:0;color:#163A5F}
+    .tribunal-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:10px}
+    .tribunal-empty{background:#fff7f7;border:1px solid #e7c6c6;border-radius:12px;padding:10px;color:#6f1728}
+    .role-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .manual-btn{appearance:none;border:1px solid #163A5F;background:#163A5F;color:#fff;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
+    .manual-btn:disabled{opacity:.5;cursor:not-allowed}
+    .manual-shell{display:grid;gap:12px}
+    .manual-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .manual-grid .span-full{grid-column:1 / -1}
+    .manual-grid label{display:grid;gap:4px;font-size:13px;color:#1f3b37}
+    .manual-grid input,.manual-grid textarea,.manual-grid select{width:100%;border:1px solid #b9ddd6;border-radius:10px;padding:8px;background:#fff}
+    .manual-grid textarea{min-height:76px;resize:vertical}
+    .manual-dropzone{border:1px dashed #8ec7be;border-radius:12px;background:#f8fffd;padding:14px;text-align:center;color:#355652}
+    .manual-dropzone.drag{border-color:#163A5F;background:#edf7ff}
+    .manual-docs{display:grid;gap:8px}
+    .manual-doc-item{background:#f8fffd;border:1px solid #b9ddd6;border-radius:10px;padding:8px;display:grid;gap:6px}
+    .manual-status{font-size:13px}
+    .manual-status.ok{color:#0f5f2d}
+    .manual-status.error{color:#8b0000}
     .index-main-grid{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
     .index-version-list{display:grid;gap:8px;margin-top:10px}
     .index-version-item{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px}
@@ -204,6 +222,22 @@
     </div>
   </section>
 
+  <section id="manualPanel" class="fullscreen-panel" hidden>
+    <div class="panel-shell">
+      <div class="panel-head">
+        <h2 class="panel-title" id="manualPanelTitle">Población manual</h2>
+        <div class="panel-actions">
+          <button class="btn" id="manualBackBtn" type="button">Volver a carpeta</button>
+          <button class="btn" id="manualCloseBtn" type="button">Cerrar</button>
+        </div>
+      </div>
+      <article class="panel-card manual-shell">
+        <div id="manualStatus" class="manual-status" aria-live="polite"></div>
+        <form id="manualForm" class="manual-grid"></form>
+      </article>
+    </div>
+  </section>
+
   <script type="module">
     import { supabase, logout } from './app.js';
 
@@ -228,10 +262,16 @@
       'Corte Suprema',
     ];
     let activeSearch = '';
+    let tribunalSearch = '';
     let lastMatterMap = new Map();
     let selectedMatter = '';
     let selectedTribunal = '';
+    let selectedRole = '';
+    let selectedCause = null;
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
+    const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
+    const ALLOWED_UPLOAD_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.zip';
+    const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -244,6 +284,19 @@
 
     function normalize(value='') {
       return String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+    }
+    function normalizeRol(value='') {
+      return normalize(value).replace(/[^a-z0-9]/g, '');
+    }
+    function loadManualRegistry() {
+      try {
+        return JSON.parse(window.localStorage.getItem(MANUAL_STORAGE_KEY) || '{}') || {};
+      } catch {
+        return {};
+      }
+    }
+    function saveManualRegistry(registry = {}) {
+      window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(registry));
     }
 
     function loadPjudGeneralIndexRegistry() {
@@ -328,14 +381,17 @@
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
       for (const k of cases) {
-        const role = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || `ID-${k[C.kId]}`).trim();
+        const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
+        const role = roleRaw || `ID-${k[C.kId]}`;
         const tribunal = String(k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar').trim();
         const caratula = k[C.kCaratula] || 'Carátula pendiente';
         const cliente = clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo';
-        const searchable = normalize(`${role} ${cliente} ${caratula} ${tribunal}`);
+        const parties = Array.isArray(k.partes) ? k.partes : [];
+        const partiesText = parties.map((party) => `${party?.nombre || ''} ${party?.rol || party?.role || party?.calidad || ''} ${party?.detalle || ''} ${party?.rut || ''}`).join(' ');
+        const searchable = normalize(`${role} ${normalizeRol(role)} ${cliente} ${caratula} ${tribunal} ${partiesText}`);
         if (activeSearch && !searchable.includes(activeSearch)) continue;
         const matter = inferMatter(k);
-        const dedupeKey = `${normalize(role)}::${normalize(tribunal)}`;
+        const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunal)}`);
 
         if (!matterMap.has(matter)) matterMap.set(matter, new Map());
         const tribunalMap = matterMap.get(matter);
@@ -344,15 +400,15 @@
 
         if (!roleMap.has(dedupeKey)) {
           roleMap.set(dedupeKey, {
+            id: String(k[C.kId] || ''),
             identificador: role,
+            rolReal: roleRaw,
             caratula,
             cliente,
-            repeated: 1,
+            tribunal,
+            partes: parties,
+            hasRol: Boolean(roleRaw),
           });
-        } else {
-          const prev = roleMap.get(dedupeKey);
-          prev.repeated += 1;
-          if (prev.caratula === 'Carátula pendiente' && k[C.kCaratula]) prev.caratula = k[C.kCaratula];
         }
       }
       return matterMap;
@@ -381,7 +437,9 @@
     function closeAllPanels() {
       selectedMatter = '';
       selectedTribunal = '';
-      ['matterPanel','tribunalPanel','rolePanel'].forEach((id) => {
+      selectedRole = '';
+      selectedCause = null;
+      ['matterPanel','tribunalPanel','rolePanel','manualPanel'].forEach((id) => {
         document.getElementById(id).hidden = true;
       });
     }
@@ -406,26 +464,63 @@
       selectedTribunal = tribunal;
       const tribunalMap = lastMatterMap.get(selectedMatter) || new Map();
       const roles = orderedRoles(tribunalMap.get(tribunal) || new Map());
+      const normalizedQuery = normalize(tribunalSearch);
+      const filteredRoles = roles.filter((cause) => {
+        if (!normalizedQuery) return true;
+        const parties = (cause.partes || []).map((party) => `${party?.nombre || ''} ${party?.rol || party?.role || party?.calidad || ''} ${party?.detalle || ''} ${party?.rut || ''}`).join(' ');
+        const searchable = normalize([cause.identificador, normalizeRol(cause.identificador), cause.caratula, cause.cliente, parties].join(' '));
+        return searchable.includes(normalizedQuery);
+      });
       document.getElementById('tribunalPanelTitle').textContent = `${tribunal} · Carpetas por rol`;
-      document.getElementById('tribunalRolesList').innerHTML = roles.length
-        ? roles.map((cause) => `
-          <button class="role-item" type="button" data-role="${escapeHtml(cause.identificador)}">
-            <h4>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h4>
-            <div class="muted">Cliente: ${escapeHtml(cause.cliente)}${cause.repeated > 1 ? ` · Consolidado desde ${cause.repeated} filas PJUD` : ''}</div>
-          </button>
+      document.getElementById('tribunalRolesList').innerHTML = `
+        <div class="tribunal-search">
+          <label>
+            <div class="muted"><strong>Buscador interno del tribunal</strong> (ROL e intervinientes)</div>
+            <input id="tribunalSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · demandado" value="${escapeHtml(tribunalSearch)}" />
+          </label>
+          <button id="tribunalSearchClear" class="btn" type="button">Limpiar</button>
+        </div>
+        ${filteredRoles.length
+        ? filteredRoles.map((cause) => `
+          <div class="role-item" data-role="${escapeHtml(cause.identificador)}" data-cause-id="${escapeHtml(cause.id)}">
+            <div class="role-head">
+              <h4>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h4>
+              <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
+            </div>
+            <div class="muted">Cliente: ${escapeHtml(cause.cliente)}</div>
+          </div>
         `).join('')
-        : '<div class="folder">No hay carpetas por rol en este tribunal.</div>';
-      document.querySelectorAll('[data-role]').forEach((btn) => {
-        btn.addEventListener('click', () => openRolePanel(btn.dataset.role || '', roles));
+        : '<div class="tribunal-empty">No se encontraron causas en este tribunal</div>'}
+      `;
+      document.getElementById('tribunalSearchInput')?.addEventListener('input', (event) => {
+        tribunalSearch = event.target.value || '';
+        openTribunalPanel(tribunal);
+      });
+      document.getElementById('tribunalSearchClear')?.addEventListener('click', () => {
+        tribunalSearch = '';
+        openTribunalPanel(tribunal);
+      });
+      document.querySelectorAll('[data-role]').forEach((entry) => {
+        entry.addEventListener('click', () => openRolePanel(entry.dataset.role || '', roles));
+      });
+      document.querySelectorAll('[data-manual-id]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const cause = roles.find((item) => item.id === btn.dataset.manualId);
+          if (cause) openManualPanel(cause);
+        });
       });
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = false;
       document.getElementById('rolePanel').hidden = true;
+      document.getElementById('manualPanel').hidden = true;
     }
 
     function openRolePanel(role, roles = []) {
       const cause = roles.find((item) => item.identificador === role);
       if (!cause) return;
+      selectedRole = cause.identificador;
+      selectedCause = cause;
       document.getElementById('rolePanelTitle').textContent = `${cause.identificador} · ${cause.caratula}`;
       document.getElementById('roleContentList').innerHTML = `
         <div class="folder">
@@ -435,11 +530,219 @@
             ${SUBFOLDERS.map((name) => `<div class="folder">📘 ${escapeHtml(name)}</div>`).join('')}
             <div class="folder span-full">📥 Importados de PJUD</div>
           </div>
+          <div style="margin-top:10px;">
+            <button class="manual-btn" id="openManualFromRole" type="button" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Subir / Poblar manualmente' : 'Disponible solo para causas con rol'}</button>
+          </div>
         </div>
       `;
+      document.getElementById('openManualFromRole')?.addEventListener('click', () => openManualPanel(cause));
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = true;
       document.getElementById('rolePanel').hidden = false;
+      document.getElementById('manualPanel').hidden = true;
+    }
+    function decodeBase64File(base64, mimeType = 'application/octet-stream') {
+      const byteCharacters = atob(base64);
+      const bytes = new Uint8Array(byteCharacters.length);
+      for (let index = 0; index < byteCharacters.length; index += 1) bytes[index] = byteCharacters.charCodeAt(index);
+      return new Blob([bytes], { type: mimeType });
+    }
+    function toBase64(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
+        reader.onerror = () => reject(new Error('No fue posible leer el archivo.'));
+        reader.readAsDataURL(file);
+      });
+    }
+    function openManualPanel(cause) {
+      if (!cause?.hasRol) {
+        setManualStatus('error', 'La carga manual solo está disponible para causas con rol.');
+        return;
+      }
+      selectedCause = cause;
+      document.getElementById('manualPanelTitle').textContent = `Poblar manualmente · ${cause.identificador}`;
+      const registry = loadManualRegistry();
+      const current = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [] };
+      const form = document.getElementById('manualForm');
+      const partiesRows = (current.parties || []).length ? current.parties : [{ nombre:'', calidad:'Demandante', rut:'', detalle:'' }];
+      form.innerHTML = `
+        <div class="span-full"><strong>A) Datos base de la causa</strong></div>
+        <label>Rol<input name="rol" value="${escapeHtml(current.base?.rol || cause.rolReal || cause.identificador)}" required /></label>
+        <label>Tribunal<input name="tribunal" value="${escapeHtml(current.base?.tribunal || cause.tribunal || selectedTribunal)}" required /></label>
+        <label class="span-full">Carátula<input name="caratula" value="${escapeHtml(current.base?.caratula || cause.caratula || '')}" /></label>
+        <label>Procedimiento<input name="procedimiento" value="${escapeHtml(current.base?.procedimiento || '')}" /></label>
+        <label>Materia<input name="materia" value="${escapeHtml(current.base?.materia || selectedMatter || '')}" /></label>
+        <label>Estado procesal<input name="estadoProcesal" value="${escapeHtml(current.base?.estadoProcesal || '')}" /></label>
+        <label>Fecha de ingreso<input name="fechaIngreso" type="date" value="${escapeHtml(current.base?.fechaIngreso || '')}" /></label>
+        <label class="span-full">Observaciones<textarea name="observaciones">${escapeHtml(current.base?.observaciones || '')}</textarea></label>
+        <div class="span-full"><strong>B) Partes e intervinientes</strong></div>
+        <label class="span-full">Intervinientes (nombre|calidad|rut|detalle, uno por línea)<textarea name="partiesRaw">${escapeHtml(partiesRows.map((row) => [row.nombre,row.calidad,row.rut,row.detalle].join('|')).join('\n'))}</textarea></label>
+        <div class="span-full"><strong>E) Registro manual complementario</strong></div>
+        <label class="span-full">Notas del abogado<textarea name="notasAbogado">${escapeHtml(current.registro?.notasAbogado || '')}</textarea></label>
+        <label class="span-full">Hitos o actuaciones<textarea name="hitos">${escapeHtml(current.registro?.hitos || '')}</textarea></label>
+        <label>Fechas relevantes<textarea name="fechasRelevantes">${escapeHtml(current.registro?.fechasRelevantes || '')}</textarea></label>
+        <label>Alertas manuales<textarea name="alertas">${escapeHtml(current.registro?.alertas || '')}</textarea></label>
+        <label>Tareas pendientes<textarea name="tareasPendientes">${escapeHtml(current.registro?.tareasPendientes || '')}</textarea></label>
+        <div class="span-full"><strong>C + D) Documentos y clasificación</strong></div>
+        <div class="span-full manual-dropzone" id="manualDropzone">Arrastra y suelta archivos aquí o usa el selector. Formatos: PDF, Word, imágenes y ZIP.</div>
+        <label>Clasificación por defecto
+          <select id="manualCategoryInput">${FILE_CATEGORIES.map((category) => `<option value="${escapeHtml(category)}">${escapeHtml(category)}</option>`).join('')}</select>
+        </label>
+        <label>Seleccionar archivos
+          <input id="manualFilesInput" type="file" accept="${ALLOWED_UPLOAD_TYPES}" multiple />
+        </label>
+        <div class="span-full manual-docs" id="manualDocsList"></div>
+        <div class="span-full">
+          <button type="submit" class="manual-btn">Guardar datos manuales</button>
+        </div>
+      `;
+      renderManualDocuments(current.documentos || []);
+      wireManualUploadEvents(cause, current);
+      form.addEventListener('submit', (event) => {
+        event.preventDefault();
+        persistManualData(cause, new FormData(form), current.documentos || []);
+      });
+      setManualStatus('', '');
+      document.getElementById('matterPanel').hidden = true;
+      document.getElementById('tribunalPanel').hidden = true;
+      document.getElementById('rolePanel').hidden = true;
+      document.getElementById('manualPanel').hidden = false;
+    }
+    function parsePartiesRaw(text = '') {
+      return String(text).split('\n').map((line) => line.trim()).filter(Boolean).map((line) => {
+        const [nombre = '', calidad = '', rut = '', detalle = ''] = line.split('|').map((item) => item.trim());
+        return { nombre, calidad, rut, detalle };
+      }).filter((row) => row.nombre && row.calidad);
+    }
+    function setManualStatus(type, message) {
+      const node = document.getElementById('manualStatus');
+      node.className = `manual-status${type ? ` ${type}` : ''}`;
+      node.textContent = message || '';
+    }
+    function renderManualDocuments(documents = []) {
+      const container = document.getElementById('manualDocsList');
+      if (!container) return;
+      container.innerHTML = documents.length
+        ? documents.map((doc) => `
+          <article class="manual-doc-item">
+            <div><strong>${escapeHtml(doc.name)}</strong> · ${escapeHtml(doc.category || 'Sin clasificar')} · ${(Number(doc.size || 0) / 1024).toFixed(1)} KB</div>
+            <div class="panel-actions">
+              <select data-doc-category="${escapeHtml(doc.id)}">${FILE_CATEGORIES.map((category) => `<option value="${escapeHtml(category)}" ${doc.category === category ? 'selected' : ''}>${escapeHtml(category)}</option>`).join('')}</select>
+              <button class="btn" type="button" data-doc-open="${escapeHtml(doc.id)}">Abrir</button>
+              <button class="btn" type="button" data-doc-remove="${escapeHtml(doc.id)}">Eliminar</button>
+            </div>
+          </article>
+        `).join('')
+        : '<div class="folder">No hay documentos cargados todavía. Se guardarán en esta causa y no se mezclarán con otras.</div>';
+    }
+    function wireManualUploadEvents(cause, current) {
+      const dropzone = document.getElementById('manualDropzone');
+      const input = document.getElementById('manualFilesInput');
+      const categoryInput = document.getElementById('manualCategoryInput');
+      const attachFiles = async (files = []) => {
+        if (!cause?.id || !cause?.hasRol) {
+          setManualStatus('error', 'No se puede cargar archivos sin una causa válida con rol.');
+          return;
+        }
+        const nextDocs = Array.isArray(current.documentos) ? [...current.documentos] : [];
+        for (const file of files) {
+          const duplicate = nextDocs.find((doc) => normalize(doc.name) === normalize(file.name) && Number(doc.size) === Number(file.size));
+          if (duplicate) {
+            setManualStatus('error', `Archivo duplicado detectado: ${file.name}.`);
+            continue;
+          }
+          try {
+            const contentBase64 = await toBase64(file);
+            nextDocs.push({
+              id: crypto.randomUUID(),
+              name: file.name,
+              type: file.type || 'application/octet-stream',
+              size: file.size || 0,
+              uploadedAt: new Date().toISOString(),
+              category: categoryInput?.value || 'Sin clasificar',
+              contentBase64,
+            });
+          } catch (error) {
+            setManualStatus('error', error?.message || 'No se pudo cargar un archivo.');
+          }
+        }
+        current.documentos = nextDocs;
+        persistManualData(cause, new FormData(document.getElementById('manualForm')), nextDocs, { silent: true });
+        renderManualDocuments(nextDocs);
+        bindDocumentActions(cause, current);
+      };
+      input?.addEventListener('change', (event) => attachFiles(Array.from(event.target.files || [])));
+      ['dragenter','dragover'].forEach((type) => dropzone?.addEventListener(type, (event) => { event.preventDefault(); dropzone.classList.add('drag'); }));
+      ['dragleave','drop'].forEach((type) => dropzone?.addEventListener(type, (event) => { event.preventDefault(); dropzone.classList.remove('drag'); }));
+      dropzone?.addEventListener('drop', (event) => attachFiles(Array.from(event.dataTransfer?.files || [])));
+      bindDocumentActions(cause, current);
+    }
+    function bindDocumentActions(cause, current) {
+      document.querySelectorAll('[data-doc-open]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const doc = (current.documentos || []).find((item) => item.id === btn.dataset.docOpen);
+          if (!doc?.contentBase64) return;
+          const blob = decodeBase64File(doc.contentBase64, doc.type);
+          const url = URL.createObjectURL(blob);
+          window.open(url, '_blank', 'noopener');
+          setTimeout(() => URL.revokeObjectURL(url), 60000);
+        });
+      });
+      document.querySelectorAll('[data-doc-remove]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          current.documentos = (current.documentos || []).filter((item) => item.id !== btn.dataset.docRemove);
+          persistManualData(cause, new FormData(document.getElementById('manualForm')), current.documentos, { silent: true });
+          renderManualDocuments(current.documentos);
+          bindDocumentActions(cause, current);
+        });
+      });
+      document.querySelectorAll('[data-doc-category]').forEach((selector) => {
+        selector.addEventListener('change', () => {
+          current.documentos = (current.documentos || []).map((item) => item.id === selector.dataset.docCategory ? { ...item, category: selector.value || 'Sin clasificar' } : item);
+          persistManualData(cause, new FormData(document.getElementById('manualForm')), current.documentos, { silent: true });
+        });
+      });
+    }
+    function persistManualData(cause, formData, documents = [], options = {}) {
+      if (!cause?.id) {
+        setManualStatus('error', 'No fue posible guardar: la causa no tiene identificador interno.');
+        return;
+      }
+      const rol = String(formData.get('rol') || '').trim();
+      if (!rol) {
+        setManualStatus('error', 'No fue posible guardar: falta el rol de la causa.');
+        return;
+      }
+      try {
+        const registry = loadManualRegistry();
+        registry[cause.id] = {
+          base: {
+            rol,
+            tribunal: String(formData.get('tribunal') || '').trim(),
+            caratula: String(formData.get('caratula') || '').trim(),
+            procedimiento: String(formData.get('procedimiento') || '').trim(),
+            materia: String(formData.get('materia') || '').trim(),
+            estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
+            fechaIngreso: String(formData.get('fechaIngreso') || '').trim(),
+            observaciones: String(formData.get('observaciones') || '').trim(),
+          },
+          parties: parsePartiesRaw(formData.get('partiesRaw') || ''),
+          registro: {
+            notasAbogado: String(formData.get('notasAbogado') || '').trim(),
+            hitos: String(formData.get('hitos') || '').trim(),
+            fechasRelevantes: String(formData.get('fechasRelevantes') || '').trim(),
+            tareasPendientes: String(formData.get('tareasPendientes') || '').trim(),
+            alertas: String(formData.get('alertas') || '').trim(),
+          },
+          documentos: documents,
+          updatedAt: new Date().toISOString(),
+        };
+        saveManualRegistry(registry);
+        if (!options.silent) setManualStatus('ok', 'Carga manual guardada correctamente para esta causa.');
+      } catch (error) {
+        setManualStatus('error', `Error al guardar: ${error?.message || 'verifica el almacenamiento local.'}`);
+      }
     }
 
     async function loadData(){
@@ -471,6 +774,11 @@
     document.getElementById('tribunalCloseBtn').addEventListener('click', closeAllPanels);
     document.getElementById('roleBackBtn').addEventListener('click', () => openTribunalPanel(selectedTribunal));
     document.getElementById('roleCloseBtn').addEventListener('click', closeAllPanels);
+    document.getElementById('manualBackBtn').addEventListener('click', () => {
+      if (selectedRole) openRolePanel(selectedRole, orderedRoles((lastMatterMap.get(selectedMatter) || new Map()).get(selectedTribunal) || new Map()));
+      else openTribunalPanel(selectedTribunal);
+    });
+    document.getElementById('manualCloseBtn').addEventListener('click', closeAllPanels);
 
     document.getElementById('btnLogout').addEventListener('click', logout);
     document.getElementById('expedientesSearchInput').addEventListener('input', (event) => {
