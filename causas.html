@@ -1863,69 +1863,6 @@
       <div id="pjudAccessMsg" class="msg" aria-live="polite"></div>
     </section>
 
-    <section class="pjud-index-sync-priority" aria-label="Índice de Causas PJUD">
-      <div>
-        <h3 class="panel-title">Índice de Causas PJUD</h3>
-        <p class="panel-subtitle">Proceso independiente del acceso PJUD: detecta causas visibles en “Mis Causas” y guarda el índice estructurado para abrir detalle, vincular o actualizar filas.</p>
-      </div>
-      <div class="pjud-index-actions">
-        <button id="btnPjudSyncIndex" class="btn btn-primary" type="button" disabled aria-disabled="true">Sincronizar índice PJUD</button>
-      </div>
-      <div class="pjud-access-stats" id="pjudIndexSyncStats"></div>
-      <div id="pjudIndexSyncProgress" class="pjud-access-progress" role="status" aria-live="polite">
-        <div class="pjud-access-progress-head">
-          <span>Progreso índice PJUD</span>
-          <strong id="pjudIndexSyncProgressPercent">0%</strong>
-        </div>
-        <div class="pjud-access-progress-bar" aria-hidden="true">
-          <div id="pjudIndexSyncProgressFill" class="pjud-access-progress-fill"></div>
-        </div>
-        <p id="pjudIndexSyncProgressStage" class="pjud-access-progress-stage">Sin proceso en ejecución.</p>
-      </div>
-      <div id="pjudIndexSyncMsg" class="msg" aria-live="polite"></div>
-      <div class="helper-box" id="pjudAssistedSourceBox">
-        <strong>Modo asistido de fuente PJUD</strong>
-        <p class="timeline-meta">Si Alpha no puede leer automáticamente la ventana real de Mis Causas, puedes aportar una fuente manual para inspección técnica.</p>
-        <div class="source-grid">
-          <label class="source-item">
-            <span>Pegar URL actual de la pantalla Mis Causas</span>
-            <input id="pjudAssistedSourceUrl" class="input" type="url" placeholder="https://oficinajudicialvirtual.pjud.cl/..." autocomplete="off">
-          </label>
-          <label class="source-item">
-            <span>Capturar HTML fuente</span>
-            <textarea id="pjudAssistedSourceHtml" class="input" rows="4" placeholder="Pega aquí el HTML completo capturado desde PJUD."></textarea>
-          </label>
-          <label class="source-item">
-            <span>Pegar HTML de la tabla/listado</span>
-            <textarea id="pjudAssistedTableHtml" class="input" rows="4" placeholder="Pega aquí el HTML puntual de la tabla de Mis Causas."></textarea>
-          </label>
-        </div>
-        <div class="pjud-index-actions" style="margin-top:8px;">
-          <button id="btnPjudValidateSource" class="btn" type="button">Validar fuente</button>
-          <button id="btnPjudRetryInspection" class="btn" type="button">Reintentar inspección</button>
-        </div>
-      </div>
-      <div class="table-wrap">
-        <table class="table" id="pjudIndexSyncTable">
-          <thead>
-            <tr>
-              <th>Rol/RIT</th>
-              <th>Tribunal</th>
-              <th>Carátula</th>
-              <th>Materia</th>
-              <th>Estado</th>
-              <th>Última sincronización</th>
-              <th>Vinculación Alpha</th>
-              <th>Acciones</th>
-            </tr>
-          </thead>
-          <tbody id="pjudIndexSyncRows">
-            <tr><td colspan="8">Sin índice sincronizado.</td></tr>
-          </tbody>
-        </table>
-      </div>
-    </section>
-
     <section class="pjud-index-priority" aria-label="Índice General PJUD">
       <div>
         <h3 class="panel-title">Índice General PJUD</h3>
