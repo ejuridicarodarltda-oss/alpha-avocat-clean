@@ -409,13 +409,25 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   next.pjudLastSyncAt = next.pjudLastSyncAt || next.pjud_last_sync_at || null
   next.documentContainers = next.documentContainers || {
     ebook: { label: 'Ebook', docIds: [] },
-    asociados: { label: 'Documentos asociados', docIds: [] },
+    asociados: { label: 'Documentos', docIds: [] },
+    documentos: { label: 'Documentos', docIds: [] },
     escritos: { label: 'Escritos', docIds: [] },
+    borradores: { label: 'Borradores', docIds: [] },
     resoluciones: { label: 'Resoluciones', docIds: [] },
-    notificaciones: { label: 'Notificaciones', docIds: [] },
+    prueba: { label: 'Prueba', docIds: [] },
     antecedentes: { label: 'Otros antecedentes', docIds: [] },
+    sinClasificar: { label: 'Sin clasificar', docIds: [] },
     importadosPjud: { label: PJUD_IMPORTED_CONTENT_LABEL, docIds: [] },
   }
+  if (!next.documentContainers.documentos && next.documentContainers.asociados) {
+    next.documentContainers.documentos = { ...next.documentContainers.asociados, label: 'Documentos' }
+  }
+  if (!next.documentContainers.asociados && next.documentContainers.documentos) {
+    next.documentContainers.asociados = { ...next.documentContainers.documentos, label: 'Documentos' }
+  }
+  if (!next.documentContainers.borradores) next.documentContainers.borradores = { label: 'Borradores', docIds: [] }
+  if (!next.documentContainers.prueba) next.documentContainers.prueba = { label: 'Prueba', docIds: [] }
+  if (!next.documentContainers.sinClasificar) next.documentContainers.sinClasificar = { label: 'Sin clasificar', docIds: [] }
   if (!next.documentContainers.importadosPjud) {
     next.documentContainers.importadosPjud = { label: PJUD_IMPORTED_CONTENT_LABEL, docIds: [] }
   }
@@ -581,9 +593,11 @@ export function containerIdForCategory(category = '') {
   if (normalized.includes('pjud')) return 'importadosPjud'
   if (normalized.includes('poder judicial')) return 'importadosPjud'
   if (normalized.includes('escrit')) return 'escritos'
+  if (normalized.includes('borrador')) return 'borradores'
+  if (normalized.includes('prueb')) return 'prueba'
   if (normalized.includes('resol')) return 'resoluciones'
-  if (normalized.includes('notif')) return 'notificaciones'
-  if (normalized.includes('asoci')) return 'asociados'
+  if (normalized.includes('asoci') || normalized.includes('document')) return 'documentos'
+  if (normalized.includes('sin clasif')) return 'sinClasificar'
   return 'antecedentes'
 }
 
@@ -767,14 +781,13 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
 
   const legalArchiveFolders = [
     'Ebook',
-    'Acta de entrevista cliente',
-    'Documento',
-    'Absolución de posiciones',
-    'Jurisprudencia',
+    'Documentos',
     'Escritos',
+    'Borradores',
     'Resoluciones',
-    'Pruebas',
-    'Trazabilidad',
+    'Prueba',
+    'Otros antecedentes',
+    'Sin clasificar',
     PJUD_IMPORTED_CONTENT_LABEL,
   ]
 
@@ -853,13 +866,31 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
 
       const containerMappings = [
         ['ebook', ['ebook']],
-        ['asociados', ['documento', 'acta-de-entrevista-cliente']],
+        ['documentos', ['documentos', 'documento']],
+        ['asociados', ['documentos', 'documento']],
         ['escritos', ['escritos']],
-        ['resoluciones', ['resoluciones', 'jurisprudencia']],
-        ['notificaciones', ['trazabilidad']],
-        ['antecedentes', ['pruebas', 'absolucion-de-posiciones']],
+        ['borradores', ['borradores']],
+        ['resoluciones', ['resoluciones']],
+        ['prueba', ['prueba', 'pruebas']],
+        ['antecedentes', ['otros-antecedentes']],
+        ['sinClasificar', ['sin-clasificar']],
         ['importadosPjud', [slugId(PJUD_IMPORTED_CONTENT_LABEL), 'importados-de-pjud', 'importadas-del-poder-judicial']],
       ]
+
+      ;(cause.expedienteDigital?.manualFolders || []).forEach((folderName, subIndex) => {
+        const normalizedName = String(folderName || '').trim()
+        if (!normalizedName) return
+        if (knownFolders.has(slugId(normalizedName))) return
+        const node = createNode({
+          id: `tribunal-subcarpeta-manual-${folderIndex}-${caseIndex}-${subIndex}-${normalizedName}`,
+          name: normalizedName,
+          type: 'folder',
+          parentId: causeFolder.id,
+          isExpandable: true,
+          path: `${causeFolder.path} / ${normalizedName}`,
+        })
+        knownFolders.set(slugId(normalizedName), node)
+      })
 
       containerMappings.forEach(([containerId, aliases]) => {
         const documents = documentsByContainer.get(containerId) || []
