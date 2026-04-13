@@ -420,6 +420,7 @@ const renderers = {
             ${textAreaField('Firmas', 'plantillas.firma', plantillas.firma)}
             ${textAreaField('Estructura principal y otrosí', 'plantillas.principalYOtrosi', plantillas.principalYOtrosi)}
             ${textAreaField('Reglas de cita', 'plantillas.reglasCita', plantillas.reglasCita)}
+            ${textAreaField('Regla general de formatos', 'plantillas.reglaGeneralFormatos', plantillas.reglaGeneralFormatos)}
             ${textAreaField('Textos institucionales frecuentes', 'plantillas.textosFrecuentes', plantillas.textosFrecuentes)}
           </div>
         </article>

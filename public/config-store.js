@@ -158,6 +158,7 @@ export const defaultSettings = {
     firma: 'Firma electrónica y nombre completo del abogado responsable.',
     principalYOtrosi: 'Mantener bloque principal separado del otrosí con numeración interna.',
     reglasCita: 'Usar citas normativas y jurisprudenciales en formato uniforme del estudio.',
+    reglaGeneralFormatos: 'Todo documento alojado, importado, subido, descargado, visualizado o archivado en el sistema debe tratarse en formato PDF. Excepción: documentos creados en Producción, que deben generarse, editarse y conservarse en Word durante su elaboración, sin conversión automática a PDF.',
     textosFrecuentes: 'Se tenga presente, en subsidio, por acompañado, con citación.',
   },
   ia: {
