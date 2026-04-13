@@ -2129,7 +2129,7 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Nueva causa</div>
+          <div class="modal-title" id="caseModalTitle">Nueva causa</div>
           <p class="panel-subtitle">Crea una causa con estructura jurídica base. Los campos mínimos se sincronizan con Supabase; la ficha extendida queda organizada dentro del módulo CAUSAS.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" aria-label="Cerrar">✕</button>
@@ -2174,6 +2174,10 @@
             <input id="k_ruc" class="input" placeholder="1234567890-1" />
           </div>
           <div class="field">
+            <label for="k_court_type">Tipo de tribunal</label>
+            <input id="k_court_type" class="input" placeholder="Civil / Familia / Laboral" />
+          </div>
+          <div class="field">
             <label for="k_court">Tribunal</label>
             <input id="k_court" class="input" placeholder="Tribunal competente" />
           </div>
@@ -2184,6 +2188,21 @@
           <div class="field">
             <label for="k_subject">Materia</label>
             <input id="k_subject" class="input" placeholder="Civil / Laboral / Familia" />
+          </div>
+        </div>
+
+        <div class="grid-3">
+          <div class="field">
+            <label for="k_entry_date">Fecha de ingreso</label>
+            <input id="k_entry_date" type="date" class="input" />
+          </div>
+          <div class="field">
+            <label for="k_categories">Categorías / datos complementarios</label>
+            <input id="k_categories" class="input" placeholder="Etiquetas o datos clave" />
+          </div>
+          <div class="field">
+            <label for="k_stage">Etapa procesal</label>
+            <input id="k_stage" class="input" placeholder="Etapa inicial" />
           </div>
         </div>
 
@@ -2202,10 +2221,6 @@
               <option>En ejecución</option>
               <option>Cerrada</option>
             </select>
-          </div>
-          <div class="field">
-            <label for="k_stage">Etapa procesal</label>
-            <input id="k_stage" class="input" placeholder="Etapa inicial" />
           </div>
           <div class="field">
             <label for="k_urgency">Urgencia</label>
@@ -2260,6 +2275,10 @@
 
         <div class="grid-2">
           <div class="field">
+            <label for="k_parties">Partes e intervinientes</label>
+            <textarea id="k_parties" class="textarea" placeholder="Ej: Demandante: ..., Demandado: ..., Abogado: ..."></textarea>
+          </div>
+          <div class="field">
             <label for="k_last_resolution">Última resolución resumida</label>
             <textarea id="k_last_resolution" class="textarea" placeholder="Resumen ejecutivo de la última resolución"></textarea>
           </div>
@@ -2271,8 +2290,9 @@
 
         <div class="modal-actions">
           <button type="button" class="btn" data-close="1">Cancelar</button>
-          <button type="submit" class="btn btn-primary">Guardar causa</button>
+          <button type="submit" id="btnSubmitCaseForm" class="btn btn-primary">Guardar causa</button>
         </div>
+        <div class="small-note">“La edición, guardado de cambios y eliminación de causas manuales debe funcionar de forma autónoma respecto del flujo PJUD y del Excel, preservando la integridad entre la causa, su carpeta/rol y los archivos alojados.”</div>
 
         <div id="caseMsg" class="msg" aria-live="polite"></div>
       </form>
@@ -2782,6 +2802,8 @@
       massiveAudit: null,
       pjudMisCausasWindow: null,
       pendingPjudRouteDiagnostics: null,
+      caseModalMode: 'create',
+      editingCaseId: null,
       batchScopeMode: 'all',
       batchScopeMaterias: [],
       pjudLinking: {
@@ -3272,7 +3294,15 @@
     }
 
     const detailActions = [
-      { id:'editar', label:'Editar', action:() => openModal() },
+      { id:'editar', label:'Editar', action:() => {
+        const cause = getCurrentCause();
+        if (!cause || !isManualCase(cause)) {
+          setDetailStatus('Solo las causas creadas manualmente se pueden editar desde este flujo.', 'warn');
+          return;
+        }
+        openModal(cause);
+      } },
+      { id:'eliminar', label:'Eliminar', action:() => handleDeleteManualCause() },
       { id:'rectificar', label:'Rectificar información', action:() => openCauseRectification('general') },
       { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
@@ -5182,10 +5212,13 @@
         ruc: baseCase.pjud_ruc || workspaceEntry?.ruc || '',
         tipoCausa: baseCase.pjud_tipo_causa || workspaceEntry?.tipoCausa || '',
         materia: baseCase.pjud_materia || baseCase[C.k_subject] || workspaceEntry?.materia || 'Sin materia',
+        procedimiento: baseCase.manual_procedure || workspaceEntry?.procedimiento || 'Procedimiento por definir',
+        caratula: baseCase.manual_caratula || workspaceEntry?.caratula || baseCase[C.k_rol] || 'Sin carátula',
+        tipoTribunal: baseCase.manual_court_type || workspaceEntry?.tipoTribunal || '',
         submateria: baseCase.pjud_submateria || workspaceEntry?.submateria || '',
         estadoCausa: baseCase.pjud_estado_causa || workspaceEntry?.estadoCausa || '',
         estadoProcesal: baseCase.pjud_estado_procesal || workspaceEntry?.estadoProcesal || '',
-        fechaInicio: baseCase.pjud_fecha_ingreso || workspaceEntry?.fechaInicio || '',
+        fechaInicio: baseCase.manual_entry_date || baseCase.pjud_fecha_ingreso || workspaceEntry?.fechaInicio || '',
         fechaUbicacion: baseCase.pjud_fecha_ubicacion || workspaceEntry?.fechaUbicacion || '',
         ubicacion: baseCase.pjud_ubicacion || workspaceEntry?.ubicacion || '',
         institucion: baseCase.pjud_institucion || workspaceEntry?.institucion || '',
@@ -5211,6 +5244,12 @@
         pjudLastError: baseCase.pjud_last_error || workspaceEntry?.pjudLastError || '',
         pjudFilesDownloadedCount: Number(baseCase.pjud_files_downloaded_count ?? workspaceEntry?.pjudFilesDownloadedCount ?? 0),
         fee_total: baseCase[C.k_fee_total] ?? null,
+        feeType: baseCase[C.k_fee_type] || workspaceEntry?.feeType || 'Fijo',
+        paymentMode: baseCase[C.k_payment] || workspaceEntry?.paymentMode || 'Único pago',
+        ppmPercent: baseCase[C.k_ppm] ?? workspaceEntry?.ppmPercent ?? null,
+        ppmWithheldBy: baseCase[C.k_withheld_by] || workspaceEntry?.ppmWithheldBy || '',
+        partesIntervinientes: baseCase.manual_participants_text || workspaceEntry?.partesIntervinientes || '',
+        categoriasComplementarias: baseCase.manual_complementary_data || workspaceEntry?.categoriasComplementarias || '',
         notes: baseCase[C.k_notes] || workspaceEntry?.observaciones || '',
         updatedAt: isoDate(baseCase.updated_at || baseCase[C.k_created]) || '2026-03-20',
       };
@@ -5220,6 +5259,12 @@
       if (baseCase[C.k_court]) detail.tribunal = baseCase[C.k_court];
       if (baseCase[C.k_rol]) detail.rol = baseCase[C.k_rol];
       if (baseCase[C.k_subject]) detail.materia = baseCase[C.k_subject];
+      if (baseCase.manual_caratula) detail.caratula = baseCase.manual_caratula;
+      if (baseCase.manual_procedure) detail.procedimiento = baseCase.manual_procedure;
+      if (baseCase.manual_court_type) detail.tipoTribunal = baseCase.manual_court_type;
+      if (baseCase.manual_entry_date) detail.fechaInicio = baseCase.manual_entry_date;
+      if (baseCase.manual_participants_text) detail.partesIntervinientes = baseCase.manual_participants_text;
+      if (baseCase.manual_complementary_data) detail.categoriasComplementarias = baseCase.manual_complementary_data;
       if (baseCase[C.k_fee_total] != null && (!detail.cuantia || detail.cuantia === 'No definida')) detail.cuantia = money.format(Number(baseCase[C.k_fee_total]));
 
       const nextDeadline = [...(detail.plazos || [])].sort((a,b) => (a.vencimiento || '').localeCompare(b.vencimiento || ''))[0];
@@ -5251,11 +5296,20 @@
     }
 
     async function loadCases(){
-      const { data, error } = await supabase
+      let query = supabase
         .from(T_CASES)
         .select('*')
         .eq('owner_user_id', authenticatedUser.id)
+        .is('manual_deleted_at', null)
         .order(C.k_created, { ascending:false });
+      let { data, error } = await query;
+      if (error && /manual_deleted_at/i.test(String(error.message || ''))) {
+        ({ data, error } = await supabase
+          .from(T_CASES)
+          .select('*')
+          .eq('owner_user_id', authenticatedUser.id)
+          .order(C.k_created, { ascending:false }));
+      }
       if (error) throw buildLoadError('las causas registradas', error);
       const workspace = loadWorkspace();
       state.supabaseCases = data || [];
@@ -8738,7 +8792,27 @@
     const modal = $('modalCausa');
     const msg = $('caseMsg');
 
-    function openModal(){
+    function isManualCase(cause){
+      if (!cause) return false;
+      const sourceType = String(cause?.poderJudicial?.sourceType || cause?.importMeta?.mode || cause?.pjudSourceMode || '').toLowerCase();
+      const hasPjudIdentity = Boolean(cause.pjudCaseId || cause.pjudCaseKey || cause.importBatchId);
+      return !hasPjudIdentity || sourceType.includes('manual');
+    }
+
+    function setCaseModalMode(mode = 'create', cause = null){
+      const isEdit = mode === 'edit';
+      state.caseModalMode = isEdit ? 'edit' : 'create';
+      state.editingCaseId = isEdit && cause?.id ? String(cause.id) : null;
+      const titleNode = $('caseModalTitle');
+      const submitNode = $('btnSubmitCaseForm');
+      if (titleNode) titleNode.textContent = isEdit ? 'Editar causa' : 'Nueva causa';
+      if (submitNode) submitNode.textContent = isEdit ? 'Guardar cambios' : 'Guardar causa';
+    }
+
+    function openModal(cause = null){
+      setCaseModalMode(cause ? 'edit' : 'create', cause);
+      if (cause) hydrateCaseForm(cause);
+      else $('formCausa').reset();
       openManagedModal('modalCausa');
       msg.className = 'msg';
       msg.textContent = '';
@@ -8747,8 +8821,41 @@
     function closeModal(){
       closeManagedModal('modalCausa');
       $('formCausa').reset();
+      setCaseModalMode('create', null);
       msg.className = 'msg';
       msg.textContent = '';
+    }
+
+    function hydrateCaseForm(cause){
+      if (!cause) return;
+      $('k_client').value = cause.clientId || '';
+      $('k_resp').value = cause.responsable || '';
+      $('k_procurador').value = cause.procurador || '';
+      $('k_caratula').value = cause.caratula || '';
+      $('k_rol').value = cause.rol || '';
+      $('k_rit').value = cause.rit || '';
+      $('k_ruc').value = cause.ruc || '';
+      $('k_court_type').value = cause.tipoTribunal || '';
+      $('k_court').value = cause.tribunal || '';
+      $('k_procedure').value = cause.procedimiento || '';
+      $('k_subject').value = cause.materia || '';
+      $('k_entry_date').value = cause.fechaInicio || '';
+      $('k_categories').value = cause.categoriasComplementarias || '';
+      $('k_submatter').value = cause.submateria || '';
+      $('k_state').value = cause.estadoProcesal || 'En preparación';
+      $('k_stage').value = cause.etapaProcesal || '';
+      $('k_urgency').value = cause.alerta || 'Normal';
+      $('k_fee').value = Number(cause.fee_total || 0) || '';
+      $('k_fee_type').value = cause.feeType || 'Fijo';
+      $('k_pay').value = cause.paymentMode || 'Único pago';
+      $('k_ppm').value = Number(cause.ppmPercent || 0) || '';
+      $('k_withhold').value = cause.ppmWithheldBy || 'Retiene receptor';
+      $('k_expediente').value = cause.expediente || '';
+      $('k_parties').value = Array.isArray(cause.intervinientes)
+        ? cause.intervinientes.map((item) => `${item.rol || 'Interviniente'}: ${item.nombre || ''}`).join('\n')
+        : (cause.partesIntervinientes || '');
+      $('k_last_resolution').value = cause.ultimaResolucion || '';
+      $('k_notes').value = cause.observaciones || cause.notes || '';
     }
 
     function buildWorkspacePayload(id){
@@ -8763,7 +8870,10 @@
         tribunal: $('k_court').value.trim() || 'Tribunal pendiente',
         procedimiento: $('k_procedure').value.trim() || 'Procedimiento por definir',
         materia: $('k_subject').value.trim() || 'Materia por definir',
+        tipoTribunal: $('k_court_type').value.trim() || '',
         submateria: $('k_submatter').value.trim() || 'Submateria pendiente',
+        categoriasComplementarias: $('k_categories').value.trim() || '',
+        partesIntervinientes: $('k_parties').value.trim() || '',
         cuantia: parseCLP($('k_fee').value) != null ? money.format(parseCLP($('k_fee').value)) : 'No definida',
         estadoProcesal: $('k_state').value,
         etapaProcesal: $('k_stage').value.trim() || 'Etapa inicial',
@@ -8777,40 +8887,42 @@
         proximaAudiencia: '2026-03-29',
         proximoPlazo: '2026-03-27',
         fee_total: parseCLP($('k_fee').value),
-        fechaInicio: '2026-03-20',
+        fechaInicio: $('k_entry_date').value || '2026-03-20',
         fechaNotificacion: '2026-03-20',
         tipoCausa: 'Contenciosa',
       };
     }
 
-    async function createCase(event){
-      event.preventDefault();
+    function validateCaseForm({ editingId = null } = {}){
       msg.className = 'msg';
+      msg.textContent = '';
       const clientId = $('k_client').value;
       if (!clientId) {
-        msg.className = 'msg msg-error';
-        msg.textContent = 'Debes seleccionar un cliente relacionado.';
-        return;
+        return 'Debes seleccionar un cliente relacionado.';
       }
+      if (!$('k_caratula').value.trim() && !$('k_rol').value.trim()) {
+        return 'No puedes guardar una causa vacía: ingresa al menos carátula o rol.';
+      }
+      if (!$('k_court').value.trim()) return 'Debes indicar el tribunal.';
+      const normalizedRol = $('k_rol').value.trim().toLowerCase();
+      const normalizedTribunal = $('k_court').value.trim().toLowerCase();
+      if (normalizedRol && normalizedTribunal) {
+        const duplicateByRoleAndCourt = getAllCases().find((item) => (
+          String(item.id || '') !== String(editingId || '')
+          && String(item.rol || '').trim().toLowerCase() === normalizedRol
+          && String(item.tribunal || '').trim().toLowerCase() === normalizedTribunal
+        ));
+        if (duplicateByRoleAndCourt) return 'Ya existe una causa con el mismo rol dentro del mismo tribunal.';
+      }
+      return '';
+    }
 
+    async function createCase(){
+      const clientId = $('k_client').value;
       const fee = parseCLP($('k_fee').value);
       const rolComposite = [$('k_rol').value.trim(), $('k_rit').value.trim()].filter(Boolean).join(' / ') || $('k_caratula').value.trim();
       const normalizedCaratula = normalizeCaratula($('k_caratula').value.trim());
       $('k_caratula').value = normalizedCaratula;
-      const duplicate = findDuplicateCase(getAllCases(), {
-        basic: {
-          rol: $('k_rol').value.trim(),
-          rit: $('k_rit').value.trim(),
-          tribunal: $('k_court').value.trim(),
-          caratula: normalizedCaratula,
-          link: '',
-        }
-      });
-      if (duplicate) {
-        msg.className = 'msg msg-error';
-        msg.textContent = 'Ya existe una causa con coincidencia de Rol/RIT, tribunal o carátula. Usa importación/actualización en vez de duplicarla.';
-        return;
-      }
       const payload = {
         [C.k_client_id]: clientId,
         [C.k_responsible]: $('k_resp').value.trim() || null,
@@ -8823,6 +8935,12 @@
         [C.k_ppm]: parseCLP($('k_ppm').value),
         [C.k_withheld_by]: $('k_withhold').value,
         [C.k_notes]: $('k_notes').value.trim() || null,
+        manual_caratula: normalizedCaratula || null,
+        manual_procedure: $('k_procedure').value.trim() || null,
+        manual_court_type: $('k_court_type').value.trim() || null,
+        manual_entry_date: $('k_entry_date').value || null,
+        manual_participants_text: $('k_parties').value.trim() || null,
+        manual_complementary_data: $('k_categories').value.trim() || null,
       };
 
       const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
@@ -8844,6 +8962,73 @@
       state.activeTab = 'informacion';
       renderAll();
       setTimeout(closeModal, 450);
+    }
+
+    async function updateCase(){
+      const editingId = String(state.editingCaseId || state.selectedId || '').trim();
+      if (!editingId) return;
+      const fee = parseCLP($('k_fee').value);
+      const rolComposite = [$('k_rol').value.trim(), $('k_rit').value.trim()].filter(Boolean).join(' / ') || $('k_caratula').value.trim();
+      const normalizedCaratula = normalizeCaratula($('k_caratula').value.trim());
+      $('k_caratula').value = normalizedCaratula;
+      const payload = {
+        [C.k_client_id]: $('k_client').value || null,
+        [C.k_responsible]: $('k_resp').value.trim() || null,
+        [C.k_court]: $('k_court').value.trim() || null,
+        [C.k_rol]: rolComposite || null,
+        [C.k_subject]: $('k_subject').value.trim() || null,
+        [C.k_fee_total]: fee,
+        [C.k_fee_type]: $('k_fee_type').value,
+        [C.k_payment]: $('k_pay').value,
+        [C.k_ppm]: parseCLP($('k_ppm').value),
+        [C.k_withheld_by]: $('k_withhold').value,
+        [C.k_notes]: $('k_notes').value.trim() || null,
+        manual_caratula: normalizedCaratula || null,
+        manual_procedure: $('k_procedure').value.trim() || null,
+        manual_court_type: $('k_court_type').value.trim() || null,
+        manual_entry_date: $('k_entry_date').value || null,
+        manual_participants_text: $('k_parties').value.trim() || null,
+        manual_complementary_data: $('k_categories').value.trim() || null,
+      };
+      const { error } = await supabase.from(T_CASES)
+        .update(payload)
+        .eq(C.k_id, editingId)
+        .eq('owner_user_id', authenticatedUser.id);
+      if (error) {
+        msg.className = 'msg msg-error';
+        msg.textContent = `No fue posible guardar cambios: ${buildLoadError('la causa', error).message}`;
+        return;
+      }
+
+      updateWorkspaceEntry(editingId, (entry) => markManualEdit({
+        ...entry,
+        ...buildWorkspacePayload(editingId),
+        id: editingId,
+      }));
+      msg.className = 'msg msg-ok';
+      msg.textContent = 'Cambios guardados correctamente.';
+      await loadCases();
+      populateFilters();
+      state.selectedId = editingId;
+      renderAll();
+      setTimeout(closeModal, 500);
+    }
+
+    async function submitCaseForm(event){
+      event.preventDefault();
+      const validationError = validateCaseForm({
+        editingId: state.caseModalMode === 'edit' ? state.editingCaseId : null,
+      });
+      if (validationError) {
+        msg.className = 'msg msg-error';
+        msg.textContent = validationError;
+        return;
+      }
+      if (state.caseModalMode === 'edit') {
+        await updateCase();
+        return;
+      }
+      await createCase();
     }
 
     function renderImportPreview(importData){
@@ -12855,6 +13040,41 @@
       renderAll();
     }
 
+    async function handleDeleteManualCause(){
+      const current = getCurrentCause();
+      if (!current) return;
+      if (!isManualCase(current)) {
+        setDetailStatus('Solo las causas creadas manualmente se pueden eliminar desde este módulo.', 'warn');
+        return;
+      }
+      const identity = getCauseIdentifier(current);
+      const confirmation = window.confirm(`¿Está seguro de eliminar esta causa? Esta acción no debe ejecutarse sin confirmación.\n\nCausa: ${current.caratula}\nRol/RIT: ${identity.display}\nTribunal: ${current.tribunal}`);
+      if (!confirmation) return;
+      const deletedAt = new Date().toISOString();
+      const { error } = await supabase.from(T_CASES)
+        .update({
+          manual_deleted_at: deletedAt,
+          manual_deleted_by: authenticatedUser.id,
+          manual_deleted_note: 'Eliminada manualmente desde módulo Causas',
+        })
+        .eq(C.k_id, current.id)
+        .eq('owner_user_id', authenticatedUser.id);
+      if (error) {
+        setDetailStatus(`No fue posible eliminar la causa: ${error.message}`, 'error');
+        return;
+      }
+      updateWorkspaceEntry(current.id, (entry) => ({
+        ...entry,
+        manualDeletedAt: deletedAt,
+        manualDeletedBy: authenticatedUser.id,
+        isDeleted: true,
+      }));
+      setDetailStatus('Causa eliminada correctamente (eliminación lógica).', 'ok');
+      await loadCases();
+      populateFilters();
+      renderAll();
+    }
+
     function bindEvent(elementId, eventName, handler, { required = false, scope = 'general' } = {}){
       const element = $(elementId);
       if (!element) {
@@ -13043,7 +13263,7 @@
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
       diagnoseBranchButton('btnQuickProduction', 'produccion');
       bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
-      bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
+      bindEvent('formCausa', 'submit', submitCaseForm, { required: true, scope: 'form-causa' });
       bindEvent('formImportacionManual', 'submit', createOrUpdateImportedCase, { required: true, scope: 'form-importacion-manual' });
       bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
