@@ -726,6 +726,34 @@
       padding-right:0;
     }
 
+    .causas-page .tribunal-window-grid{
+      display:grid;
+      gap:10px;
+      grid-template-columns:repeat(2,minmax(0,1fr));
+    }
+    .causas-page .tribunal-window-card{
+      cursor:pointer;
+      display:grid;
+      gap:8px;
+      text-align:left;
+    }
+    .causas-page .tribunal-window-card .folder-icon{ font-size:26px; }
+    .causas-page .tribunal-case-grid{
+      display:grid;
+      gap:10px;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+    }
+    .causas-page .tribunal-case-folder{
+      cursor:pointer;
+      display:grid;
+      gap:8px;
+      text-align:left;
+      border-radius:16px;
+      border:1px solid rgba(123,90,38,.26);
+      background:linear-gradient(180deg,#f6dfb2 0%,#e9cb97 100%);
+    }
+    .causas-page .legacy-filters-hidden{ display:none; }
+
     .causas-page .kardex-card{
       border-radius:20px;
       border:1px solid rgba(31,90,83,.3);
@@ -1944,78 +1972,39 @@
     <section class="screen-grid">
       <aside class="panel-card">
         <div>
-          <h3 class="panel-title">Listado general de causas</h3>
-          <p class="panel-subtitle">Filtra por estado procesal, tribunal, materia, procedimiento, abogado responsable, urgencia, audiencia próxima y plazo próximo.</p>
-        </div>
-
-        <div class="field panel-search">
-          <label for="searchCausas">Buscador general</label>
-          <input id="searchCausas" class="input" type="search" placeholder="Buscar por carátula, rol, RIT, RUC o cliente" />
+          <h3 class="panel-title">Ventanas por tipo de tribunal</h3>
+          <p class="panel-subtitle">Cada materia abre su propia ventana independiente con carpetas-causa estilo Office/Explorador.</p>
         </div>
 
         <div class="filters-block">
-          <div class="filter-grid">
-            <div class="field">
-              <label for="filterEstado">Estado procesal</label>
-              <select id="filterEstado" class="input"></select>
-            </div>
-          <div class="field">
-            <label for="filterTribunal">Tribunal</label>
-            <select id="filterTribunal" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterMateria">Materia</label>
-            <select id="filterMateria" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterProcedimiento">Procedimiento</label>
-            <select id="filterProcedimiento" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterResponsable">Abogado responsable</label>
-            <select id="filterResponsable" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterUrgencia">Urgencia</label>
-            <select id="filterUrgencia" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterAudiencia">Audiencia próxima</label>
-            <select id="filterAudiencia" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterPlazo">Plazo próximo</label>
-            <select id="filterPlazo" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterImportBatch">Lote PJUD</label>
-            <select id="filterImportBatch" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterImportStatus">Estado importación PJUD</label>
-            <select id="filterImportStatus" class="input"></select>
-          </div>
-          <div class="field">
-            <label for="filterLastImported">Últimas importadas</label>
-            <select id="filterLastImported" class="input"></select>
-          </div>
-            <div class="field">
-              <label for="sortBy">Orden</label>
-              <select id="sortBy" class="input">
-                <option value="updated">Última gestión</option>
-                <option value="imported_desc">Fecha importación PJUD (desc)</option>
-                <option value="deadline">Próximo plazo</option>
-                <option value="hearing">Próxima audiencia</option>
-                <option value="alert">Mayor alerta</option>
-                <option value="name">Carátula</option>
-              </select>
-            </div>
-          </div>
-
-	          <div class="filter-actions">
-	          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
-	          <span class="muted" id="countLabel">0 causas</span>
+          <div class="filter-actions">
+            <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
+	          <span class="muted" id="countLabel">0 familias de tribunal</span>
 	        </div>
+          <div class="list-wrap" id="casesList"></div>
+
+          <div class="legacy-filters-hidden" aria-hidden="true">
+            <input id="searchCausas" class="input" type="search" />
+            <select id="filterEstado" class="input"></select>
+            <select id="filterTribunal" class="input"></select>
+            <select id="filterMateria" class="input"></select>
+            <select id="filterProcedimiento" class="input"></select>
+            <select id="filterResponsable" class="input"></select>
+            <select id="filterUrgencia" class="input"></select>
+            <select id="filterAudiencia" class="input"></select>
+            <select id="filterPlazo" class="input"></select>
+            <select id="filterImportBatch" class="input"></select>
+            <select id="filterImportStatus" class="input"></select>
+            <select id="filterLastImported" class="input"></select>
+            <select id="sortBy" class="input">
+              <option value="updated">Última gestión</option>
+              <option value="imported_desc">Fecha importación PJUD (desc)</option>
+              <option value="deadline">Próximo plazo</option>
+              <option value="hearing">Próxima audiencia</option>
+              <option value="alert">Mayor alerta</option>
+              <option value="name">Carátula</option>
+            </select>
+          </div>
 
           <div class="visibility-diagnostics" id="visibilityDiagnostics">
             <div class="timeline-meta" id="diagSupabaseTotal">Total causas cargadas: 0</div>
@@ -2029,8 +2018,6 @@
               <button id="btnVerCausasLote" class="btn btn-primary" type="button" hidden>Ver causas del lote importado</button>
             </div>
           </div>
-
-	        <div class="list-wrap" id="casesList"></div>
 	        </div>
 	      </aside>
 
@@ -2117,6 +2104,22 @@
         <div id="detailContent"></div>
         </section>
       </div>
+    </div>
+  </div>
+  <div id="tribunalWindowModal" class="modal workspace-modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title" id="tribunalWindowTitle">Tribunal</div>
+          <p class="panel-subtitle">Buscador simple por ROL y TRIBUNAL + carpetas-causa clickeables.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close data-modal-id="tribunalWindowModal">✕</button>
+      </div>
+      <div class="grid grid-2">
+        <label class="field">Buscar por ROL<input id="tribunalWindowSearchRol" class="input" type="search" placeholder="ROL"/></label>
+        <label class="field">Buscar por TRIBUNAL<input id="tribunalWindowSearchCourt" class="input" type="search" placeholder="Tribunal"/></label>
+      </div>
+      <div class="list-wrap tribunal-case-grid" id="tribunalWindowCases"></div>
     </div>
   </div>
 
@@ -2644,6 +2647,11 @@
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', importBatch: '', importStatus: '', lastImported: '', sortBy: 'updated'
       },
+      tribunalWindow: {
+        family: '',
+        searchRol: '',
+        searchTribunal: '',
+      },
       openKardexByTribunal: {},
       rectificationOpen: false,
       rectificationScope: 'general',
@@ -3118,6 +3126,21 @@
       'Juzgado de Policía Local',
       'Otros Tribunales'
     ];
+
+    function inferTribunalFamilyName(tribunal = ''){
+      const lower = String(tribunal || '').toLowerCase();
+      if (lower.includes('suprema')) return 'Corte Suprema';
+      if (lower.includes('apelaciones')) return 'Corte de Apelaciones';
+      if (lower.includes('garant')) return 'Juzgado de Garantía';
+      if (lower.includes('oral') && lower.includes('penal')) return 'Tribunal de Juicio Oral en lo Penal';
+      if (lower.includes('polic') && lower.includes('local')) return 'Policía Local';
+      if (lower.includes('familia')) return 'Familia';
+      if (lower.includes('trabajo') || lower.includes('laboral')) return 'Laboral';
+      if (lower.includes('cobranza')) return 'Cobranza';
+      if (lower.includes('penal')) return 'Penal';
+      if (lower.includes('civil')) return 'Civil';
+      return String(tribunal || 'Otros tribunales').trim() || 'Otros tribunales';
+    }
 
     try {
       const persistedExplorer = JSON.parse(sessionStorage.getItem(EXPLORER_EXPANDED_SESSION_KEY) || '[]');
@@ -6380,7 +6403,7 @@
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
         if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
-        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
+        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-open-tribunal-window],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
         const href = node.getAttribute('href');
         if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
         return true;
@@ -6468,89 +6491,65 @@
     function renderList(){
       const list = getVisibleCases();
       renderVisibilityDiagnostics(list);
-      $('countLabel').textContent = `${list.length} causa(s)`;
+      const grouped = new Map();
+      list.forEach((item) => {
+        const family = inferTribunalFamilyName(item.tribunal);
+        if (!grouped.has(family)) grouped.set(family, []);
+        grouped.get(family).push(item);
+      });
+      const families = [...grouped.entries()].sort((a, b) => a[0].localeCompare(b[0], 'es'));
+      $('countLabel').textContent = `${families.length} familia(s) de tribunal`;
       if (!list.length) {
         $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
-        $('detailTitle').textContent = 'Sin causas visibles';
-        $('detailMeta').textContent = 'Ajusta los filtros o crea una nueva causa para abrir la ficha interna.';
-        $('detailActions').innerHTML = '';
-        $('tabBar').innerHTML = '';
-        $('detailContent').innerHTML = '<div class="empty-state">No hay ficha para mostrar.</div>';
+        $('tribunalWindowCases').innerHTML = '<div class="empty-state">Sin causas en esta familia.</div>';
         return;
       }
-      if (!state.selectedId || !list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
-      const inferKardexLabel = (tribunal = '') => {
-        const lower = String(tribunal || '').toLowerCase();
-        if (lower.includes('civil')) return 'Causas Juzgados Civiles';
-        if (lower.includes('familia')) return 'Causas Juzgado de Familia';
-        if (lower.includes('trabajo') || lower.includes('laboral')) return 'Causas Juzgado del Trabajo';
-        if (lower.includes('cobranza')) return 'Causas Juzgado de Cobranza';
-        if (lower.includes('garant')) return 'Causas Juzgado de Garantía';
-        if (lower.includes('oral') && lower.includes('penal')) return 'Tribunal Oral en lo Penal';
-        if (lower.includes('polic') && lower.includes('local')) return 'Juzgado de Policía Local';
-        return 'Otros Tribunales';
-      };
-      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
-      list.forEach((item) => grouped.get(inferKardexLabel(item.tribunal)).push(item));
-      KARDEX_GROUPS.forEach((label) => {
-        if (state.openKardexByTribunal[label] == null) state.openKardexByTribunal[label] = false;
-      });
-      const selectedCase = list.find((item) => item.id === state.selectedId);
-      if (selectedCase) state.openKardexByTribunal[inferKardexLabel(selectedCase.tribunal)] = true;
-      persistKardexExpandedState();
+      $('casesList').innerHTML = `<div class="tribunal-window-grid">${
+        families.map(([family, items]) => `
+          <button class="folder-card tribunal-window-card" data-open-tribunal-window="${escapeHtml(family)}">
+            <div class="folder-icon" aria-hidden="true">📁</div>
+            <div class="case-kicker">VENTANA TRIBUNAL</div>
+            <h4 class="segment-title">${escapeHtml(family)}</h4>
+            <div class="case-meta">${items.length} causa(s)</div>
+          </button>
+        `).join('')
+      }</div>`;
+      if (!state.tribunalWindow.family || !grouped.has(state.tribunalWindow.family)) {
+        state.tribunalWindow.family = families[0][0];
+      }
+      renderTribunalWindowCases(grouped);
+    }
 
-      $('casesList').innerHTML = KARDEX_GROUPS
-        .filter((label) => (grouped.get(label) || []).length)
-        .map((label) => {
-          const items = grouped.get(label) || [];
-          const isOpen = Boolean(state.openKardexByTribunal[label]);
-          return `
-            <section class="kardex-card ${isOpen ? 'open' : ''}">
-              <button class="kardex-header" data-kardex-toggle="${escapeHtml(label)}" aria-expanded="${isOpen ? 'true' : 'false'}">
-                <div>
-                  <div class="case-kicker">KÁRDEX TRIBUNAL</div>
-                  <h4 class="segment-title">${escapeHtml(label)}</h4>
-                </div>
-                <span class="badge badge-info">${items.length} causa(s)</span>
-              </button>
-              <div class="kardex-body">
-                ${items.map((item) => {
-                  const days = daysBetween(item.proximoPlazo);
-                  const selected = item.id === state.selectedId ? 'selected' : '';
-                  const identity = getCauseIdentifier(item);
-                  const importStatus = inferCaseImportStatus(item);
-                  return `
-                    <article class="list-card archivador-card ${selected}" data-select="${item.id}">
-                      <div class="archivador-tab">ARCHIVADOR CAUSA</div>
-                      <div class="case-top">
-                        <div>
-                          <div class="case-kicker">${escapeHtml(identity.display)}${identity.secondary.length ? ` · ${escapeHtml(identity.secondary.join(' · '))}` : ''}</div>
-                          <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
-                        </div>
-                        <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
-                      </div>
-                      <div class="detail-grid">
-                        <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
-                        <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
-                        <div><span class="mini-label">Importación PJUD</span><div class="case-meta">${escapeHtml(importStatus || 'Sin importación PJUD')}</div></div>
-                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
-                        <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
-                      </div>
-                      <div class="case-footer">
-                        <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
-                        <div class="case-actions">
-                          <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
-                          <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
-                          <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
-                        </div>
-                      </div>
-                    </article>
-                  `;
-                }).join('')}
-              </div>
-            </section>
-          `;
-        }).join('');
+    function renderTribunalWindowCases(grouped = null){
+      const family = state.tribunalWindow.family;
+      if (!family) return;
+      const source = grouped || getVisibleCases().reduce((acc, item) => {
+        const key = inferTribunalFamilyName(item.tribunal);
+        if (!acc.has(key)) acc.set(key, []);
+        acc.get(key).push(item);
+        return acc;
+      }, new Map());
+      const baseItems = source.get(family) || [];
+      const rolSearch = normalizeTextForMatch(state.tribunalWindow.searchRol || '');
+      const tribunalSearch = normalizeTextForMatch(state.tribunalWindow.searchTribunal || '');
+      const items = baseItems.filter((item) => {
+        const matchesRol = !rolSearch || normalizeTextForMatch(item.rol || '').includes(rolSearch);
+        const matchesTribunal = !tribunalSearch || normalizeTextForMatch(item.tribunal || '').includes(tribunalSearch);
+        return matchesRol && matchesTribunal;
+      });
+      $('tribunalWindowTitle').textContent = `Ventana ${family}`;
+      $('tribunalWindowCases').innerHTML = items.length ? items.map((item) => {
+        const identity = getCauseIdentifier(item);
+        return `
+          <article class="list-card tribunal-case-folder" data-select="${item.id}" tabindex="0">
+            <div class="folder-icon" aria-hidden="true">📁</div>
+            <div class="case-kicker">${escapeHtml(identity.display)}</div>
+            <h4 class="case-name">${escapeHtml(item.tribunal || 'Tribunal sin nombre')}</h4>
+            <div class="case-meta">Carátula: ${escapeHtml(item.caratula || '—')}</div>
+            <div class="case-meta">Estado: ${escapeHtml(item.estadoProcesal || '—')}</div>
+          </article>
+        `;
+      }).join('') : '<div class="empty-state">No hay causas para esta ventana con los filtros aplicados.</div>';
     }
 
     function renderTabs(){
@@ -12948,7 +12947,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal'), $('tribunalWindowModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -12963,7 +12962,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal','tribunalWindowModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -12978,12 +12977,15 @@
       });
 
       $('casesList')?.addEventListener('click', event => {
-        const kardexToggle = event.target.closest('[data-kardex-toggle]');
-        if (kardexToggle) {
-          const label = kardexToggle.dataset.kardexToggle;
-          state.openKardexByTribunal[label] = !state.openKardexByTribunal[label];
-          persistKardexExpandedState();
-          renderList();
+        const tribunalWindowButton = event.target.closest('[data-open-tribunal-window]');
+        if (tribunalWindowButton) {
+          state.tribunalWindow.family = tribunalWindowButton.dataset.openTribunalWindow || '';
+          state.tribunalWindow.searchRol = '';
+          state.tribunalWindow.searchTribunal = '';
+          $('tribunalWindowSearchRol').value = '';
+          $('tribunalWindowSearchCourt').value = '';
+          renderTribunalWindowCases();
+          openManagedModal('tribunalWindowModal');
           return;
         }
         const jump = event.target.closest('[data-jump]');
@@ -13012,10 +13014,27 @@
       });
       $('casesList')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-select],[data-jump],[data-kardex-toggle]');
+        const actionable = event.target.closest('[data-select],[data-jump],[data-open-tribunal-window]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
+      });
+      $('tribunalWindowSearchRol')?.addEventListener('input', () => {
+        state.tribunalWindow.searchRol = $('tribunalWindowSearchRol').value || '';
+        renderTribunalWindowCases();
+      });
+      $('tribunalWindowSearchCourt')?.addEventListener('input', () => {
+        state.tribunalWindow.searchTribunal = $('tribunalWindowSearchCourt').value || '';
+        renderTribunalWindowCases();
+      });
+      $('tribunalWindowCases')?.addEventListener('click', (event) => {
+        const folder = event.target.closest('[data-select]');
+        if (!folder) return;
+        const resolvedCaseId = resolveCaseId(folder.dataset.select);
+        if (!resolvedCaseId) return;
+        state.selectedId = resolvedCaseId;
+        closeManagedModal('tribunalWindowModal');
+        openWorkspaceModal({ tabId: 'expedientes', caseId: resolvedCaseId, origin: 'tribunal-window-folder' });
       });
 
       $('tabBar')?.addEventListener('click', event => {
