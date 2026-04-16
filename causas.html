@@ -1173,6 +1173,8 @@
       margin-top:auto;
       display:flex;
       justify-content:flex-start;
+      flex-wrap:wrap;
+      gap:8px;
     }
 
     .causas-page .paired-grid{
@@ -2282,6 +2284,33 @@
           <button type="submit" class="btn btn-primary">Guardar cambios</button>
         </div>
         <div id="docMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
+  <div id="modalCargaExpedienteDigital" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Cargar expedientes digitales</div>
+          <p class="panel-subtitle">Carga manual directa por Tribunal + Rol sin entrar expediente por expediente. Los archivos se guardan en el expediente existente o crean uno nuevo cuando falta.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalCargaExpedienteDigital" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formCargaExpedienteDigital" class="form">
+        <div class="selection-grid">
+          <label>Tribunal *<input id="manualUploadTribunal" class="input" type="text" required placeholder="Ej: 1° Juzgado Civil de Santiago" /></label>
+          <label>Rol de la causa *<input id="manualUploadRol" class="input" type="text" required placeholder="Ej: C-1234-2026" /></label>
+          <label class="span-full">Archivos a subir *<input id="manualUploadFiles" class="input" type="file" multiple required /></label>
+          <label class="span-full">Observación / descripción breve (opcional)<textarea id="manualUploadObservation" class="textarea" placeholder="Ej: Oficios y respaldos enviados por cliente"></textarea></label>
+        </div>
+        <div id="manualUploadProgress" class="helper-box" role="status" aria-live="polite">Completa Tribunal, Rol y selecciona archivos para iniciar la carga manual.</div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalCargaExpedienteDigital">Cancelar</button>
+          <button id="btnConfirmarCargaExpedienteDigital" type="submit" class="btn btn-primary">Cargar expedientes digitales</button>
+          <button id="btnAbrirExpedienteManual" type="button" class="btn" hidden>Abrir expediente</button>
+        </div>
+        <div id="manualUploadMsg" class="msg" aria-live="polite"></div>
       </form>
     </div>
   </div>
@@ -4178,6 +4207,7 @@
         antecedentes: 'Otros antecedentes',
         sinClasificar: 'Sin clasificar',
         importadosPjud: 'Importadas del Poder Judicial',
+        cargaManual: 'Documentos cargados manualmente',
       })[containerId] || 'Documentos';
     }
 
@@ -6312,7 +6342,7 @@
     function runInteractiveAudit(){
       const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
-        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
+        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
       const deadNodes = interactiveNodes.filter((node) => {
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
@@ -6350,7 +6380,7 @@
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
         { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir Expedientes Digitales' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload' },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
@@ -6365,6 +6395,7 @@
           </div>
           <div class="card-action-wrap">
             <button class="btn ${state.activeTab === card.id ? 'btn-primary' : ''}" data-tab="${card.id}" data-open-block="true">${escapeHtml(card.button)}</button>
+            ${card.secondaryButton ? `<button class="btn" type="button" data-pillar-action="${escapeHtml(card.secondaryAction || '')}" data-tab="${card.id}">${escapeHtml(card.secondaryButton)}</button>` : ''}
           </div>
           <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
@@ -8401,6 +8432,149 @@
         tipoCausa: 'Contenciosa',
         partesManualRaw: $('k_partes').value.trim(),
       };
+    }
+
+    function normalizeTribunalAndRolKey(tribunal = '', rol = ''){
+      const tribunalKey = normalizeTextForMatch(tribunal).replace(/[^a-z0-9]+/g, ' ').trim();
+      const rolKey = normalizeIdentifierValue(rol).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      return `${tribunalKey}|${rolKey}`;
+    }
+
+    function findCaseByTribunalAndRol(tribunal = '', rol = ''){
+      const expectedKey = normalizeTribunalAndRolKey(tribunal, rol);
+      if (!expectedKey || expectedKey === '|') return null;
+      return getAllCases().find((item) => normalizeTribunalAndRolKey(item?.tribunal || '', item?.rol || '') === expectedKey) || null;
+    }
+
+    function resetManualUploadModal(){
+      $('formCargaExpedienteDigital')?.reset();
+      setMessage('manualUploadMsg', '', '');
+      const progressNode = $('manualUploadProgress');
+      if (progressNode) progressNode.textContent = 'Completa Tribunal, Rol y selecciona archivos para iniciar la carga manual.';
+      const openButton = $('btnAbrirExpedienteManual');
+      if (openButton) {
+        openButton.hidden = true;
+        openButton.dataset.caseId = '';
+      }
+    }
+
+    function openManualUploadModal(){
+      resetManualUploadModal();
+      openManagedModal('modalCargaExpedienteDigital');
+    }
+
+    async function resolveOrCreateManualUploadCase({ tribunal = '', rol = '' } = {}){
+      const existing = findCaseByTribunalAndRol(tribunal, rol);
+      if (existing) return { cause: existing, created: false };
+
+      const payload = {
+        [C.k_client_id]: null,
+        [C.k_responsible]: null,
+        [C.k_court]: tribunal || null,
+        [C.k_rol]: rol || null,
+        [C.k_subject]: 'Materia por definir',
+        [C.k_fee_total]: null,
+        [C.k_fee_type]: 'Mixto',
+        [C.k_payment]: 'Mixto',
+        [C.k_ppm]: null,
+        [C.k_withheld_by]: null,
+        [C.k_notes]: 'Creación automática por carga manual de expedientes digitales.',
+      };
+      const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
+      if (error) throw new Error(`No fue posible crear la causa para carga manual: ${buildLoadError('la causa', error).message}`);
+
+      const newCaseId = String(data?.[C.k_id] || '');
+      if (!newCaseId) throw new Error('Supabase devolvió la causa creada sin identificador.');
+      const workspace = loadWorkspace();
+      workspace[newCaseId] = createSeedDetail(buildWorkspacePayload(newCaseId));
+      saveWorkspace(workspace);
+      await loadCases();
+      const created = getAllCases().find((item) => String(item.id) === newCaseId) || null;
+      if (!created) throw new Error('La causa creada no quedó disponible después de recargar los datos.');
+      return { cause: created, created: true };
+    }
+
+    async function submitManualExpedienteUpload(event){
+      event.preventDefault();
+      const tribunal = $('manualUploadTribunal')?.value?.trim() || '';
+      const rol = $('manualUploadRol')?.value?.trim() || '';
+      const files = Array.from($('manualUploadFiles')?.files || []);
+      const observation = $('manualUploadObservation')?.value?.trim() || '';
+      const progressNode = $('manualUploadProgress');
+
+      if (!tribunal) {
+        setMessage('manualUploadMsg', 'El campo Tribunal es obligatorio.', 'error');
+        return;
+      }
+      if (!rol) {
+        setMessage('manualUploadMsg', 'El campo Rol de la causa es obligatorio.', 'error');
+        return;
+      }
+      if (!files.length) {
+        setMessage('manualUploadMsg', 'Debes seleccionar al menos un archivo para continuar.', 'error');
+        return;
+      }
+
+      try {
+        if (progressNode) progressNode.textContent = 'Buscando expediente digital por Tribunal + Rol…';
+        setMessage('manualUploadMsg', '', '');
+        const { cause, created } = await resolveOrCreateManualUploadCase({ tribunal, rol });
+
+        if (progressNode) progressNode.textContent = created
+          ? 'No existía expediente: se creó automáticamente la estructura mínima. Iniciando subida…'
+          : 'Expediente existente encontrado. Iniciando subida…';
+
+        const inputs = await filesToDocumentInputs(files, {
+          category: 'Documentos',
+          destinationContainer: 'cargaManual',
+          destinationModule: 'Causas',
+          caseId: cause.id,
+          linkedClient: cause.cliente || SAFE_CLIENT_LABEL,
+          origin: 'Carga manual',
+          observation: observation || 'Carga manual desde tarjeta Expedientes digitales',
+        });
+
+        if (progressNode) progressNode.textContent = 'Guardando archivos en “Documentos cargados manualmente”…';
+        const folderLabel = 'Documentos cargados manualmente';
+        updateWorkspaceEntry(String(cause.id), (entry) => {
+          const next = ensureCauseStorage(entry, cause.id);
+          if (!next.expedienteDigital || typeof next.expedienteDigital !== 'object') next.expedienteDigital = {};
+          const manualFolders = Array.isArray(next.expedienteDigital.manualFolders) ? next.expedienteDigital.manualFolders : [];
+          if (!manualFolders.some((name) => normalizeTextForMatch(name) === normalizeTextForMatch(folderLabel))) {
+            next.expedienteDigital.manualFolders = [...manualFolders, folderLabel];
+          }
+          let updated = next;
+          inputs.forEach((input) => {
+            updated = upsertDocument(updated, {
+              ...input,
+              destinationContainer: 'cargaManual',
+              category: 'Documentos',
+              observation: observation || folderLabel,
+              origin: 'Carga manual',
+            });
+          });
+          return markManualEdit(updated);
+        });
+
+        await loadCases();
+        populateFilters();
+        state.selectedId = String(cause.id);
+        state.activeTab = 'expedientes';
+        renderAll();
+
+        const openButton = $('btnAbrirExpedienteManual');
+        if (openButton) {
+          openButton.hidden = false;
+          openButton.dataset.caseId = String(cause.id);
+        }
+
+        if (progressNode) progressNode.textContent = `Carga finalizada. Archivos guardados en ${tribunal} / ${rol}, carpeta “${folderLabel}”.`;
+        setMessage('manualUploadMsg', `Carga exitosa: ${files.length} archivo(s) guardado(s) en el expediente ${tribunal} / ${rol}.`, 'ok');
+      } catch (error) {
+        console.error('[CAUSAS][CARGA-MANUAL] Falló la carga directa al expediente digital.', error);
+        if (progressNode) progressNode.textContent = 'La carga no se completó. Revisa el mensaje de error y vuelve a intentar.';
+        setMessage('manualUploadMsg', error?.message || 'No fue posible completar la carga manual de expedientes digitales.', 'error');
+      }
     }
 
     async function createCase(event){
@@ -12788,6 +12962,13 @@
       diagnoseBranchButton('btnQuickProduction', 'produccion');
       bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
       bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
+      bindEvent('formCargaExpedienteDigital', 'submit', submitManualExpedienteUpload, { required: true, scope: 'form-carga-expediente-digital' });
+      bindEvent('btnAbrirExpedienteManual', 'click', () => {
+        const caseId = $('btnAbrirExpedienteManual')?.dataset?.caseId || '';
+        if (!caseId) return;
+        closeManagedModal('modalCargaExpedienteDigital');
+        openWorkspaceModal({ tabId: 'expedientes', caseId, origin: 'manual-upload-open-case' });
+      }, { scope: 'form-carga-expediente-digital' });
       bindEvent('formImportacionManual', 'submit', createOrUpdateImportedCase, { required: true, scope: 'form-importacion-manual' });
       bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
@@ -12886,7 +13067,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -12901,7 +13082,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -12963,6 +13144,13 @@
       });
 
       $('pillarGrid')?.addEventListener('click', event => {
+        const pillarAction = event.target.closest('[data-pillar-action]');
+        if (pillarAction?.dataset?.pillarAction === 'manual-upload') {
+          event.preventDefault();
+          event.stopPropagation();
+          openManualUploadModal();
+          return;
+        }
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
