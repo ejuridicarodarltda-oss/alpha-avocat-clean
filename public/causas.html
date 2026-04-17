@@ -726,6 +726,90 @@
       padding-right:0;
     }
 
+    .causas-page .tribunal-window{
+      border:1px solid rgba(31,90,83,.26);
+      border-radius:18px;
+      background:linear-gradient(180deg,#eef7f5 0%,#e4f1ee 100%);
+      padding:14px;
+      display:grid;
+      gap:12px;
+    }
+
+    .causas-page .tribunal-window-head{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      align-items:flex-start;
+      flex-wrap:wrap;
+    }
+
+    .causas-page .tribunal-window-search{
+      display:grid;
+      grid-template-columns:repeat(2,minmax(180px,1fr));
+      gap:8px;
+    }
+
+    .causas-page .tribunal-folder-grid{
+      display:grid;
+      grid-template-columns:repeat(auto-fill,minmax(170px,1fr));
+      gap:18px;
+      align-items:start;
+    }
+
+    .causas-page .tribunal-folder{
+      border:none;
+      background:transparent;
+      padding:0;
+      margin:0;
+      display:grid;
+      gap:8px;
+      justify-items:center;
+      align-content:start;
+      cursor:pointer;
+      text-align:center;
+      color:var(--causas-text);
+    }
+
+    .causas-page .tribunal-folder-icon{
+      width:112px;
+      height:84px;
+      border-radius:14px;
+      display:grid;
+      place-items:center;
+      background:linear-gradient(180deg,#f9d77a 0%,#efbd4d 100%);
+      border:1px solid rgba(136,94,25,.34);
+      box-shadow:0 10px 18px rgba(93,66,20,.2);
+      font-size:46px;
+      line-height:1;
+      transition:transform .16s ease, box-shadow .16s ease, filter .16s ease;
+    }
+
+    .causas-page .tribunal-folder:hover .tribunal-folder-icon,
+    .causas-page .tribunal-folder:focus-visible .tribunal-folder-icon{
+      transform:translateY(-2px);
+      box-shadow:0 14px 24px rgba(93,66,20,.24);
+      filter:brightness(1.03);
+    }
+
+    .causas-page .tribunal-folder.selected .tribunal-folder-icon{
+      outline:3px solid rgba(22,58,95,.24);
+      outline-offset:2px;
+    }
+
+    .causas-page .tribunal-folder-label{
+      display:grid;
+      gap:4px;
+      font-size:12px;
+      line-height:1.3;
+      max-width:170px;
+      word-break:break-word;
+    }
+
+    .causas-page .tribunal-folder-role{
+      font-weight:800;
+      font-size:13px;
+    }
+
     .causas-page .kardex-card{
       border-radius:20px;
       border:1px solid rgba(31,90,83,.3);
@@ -1791,6 +1875,7 @@
         padding-top:8px;
         width:100%;
       }
+      .tribunal-window-search{ grid-template-columns:1fr; }
     }
   </style>
 </head>
@@ -2392,7 +2477,7 @@
     </div>
   </div>
 
-  <input id="caseFileInput" class="hidden-input" type="file" multiple />
+  <input id="caseFileInput" class="hidden-input" type="file" multiple accept=".pdf,application/pdf" />
 
   <div id="modalPjudLinking" class="modal" aria-hidden="true">
     <div class="modal-panel">
@@ -2579,6 +2664,7 @@
       filters: {
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', importBatch: '', importStatus: '', lastImported: '', sortBy: 'updated'
       },
+      tribunalWindowFilters: {},
       openKardexByTribunal: {},
       rectificationOpen: false,
       rectificationScope: 'general',
@@ -6077,74 +6163,74 @@
         return;
       }
       if (!state.selectedId || !list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
-      const inferKardexLabel = (tribunal = '') => {
-        const lower = String(tribunal || '').toLowerCase();
-        if (lower.includes('civil')) return 'Causas Juzgados Civiles';
-        if (lower.includes('familia')) return 'Causas Juzgado de Familia';
-        if (lower.includes('trabajo') || lower.includes('laboral')) return 'Causas Juzgado del Trabajo';
-        if (lower.includes('cobranza')) return 'Causas Juzgado de Cobranza';
-        if (lower.includes('garant')) return 'Causas Juzgado de Garantía';
-        if (lower.includes('oral') && lower.includes('penal')) return 'Tribunal Oral en lo Penal';
-        if (lower.includes('polic') && lower.includes('local')) return 'Juzgado de Policía Local';
-        return 'Otros Tribunales';
+      const inferTribunalWindow = (item = {}) => {
+        const normalized = normalizeImportComparisonKey([item.courtType, item.tipoTribunal, item.tribunal, item.materia].filter(Boolean).join(' '));
+        if (normalized.includes('civil')) return 'Civil';
+        if (normalized.includes('penal') || normalized.includes('garantia') || normalized.includes('oral')) return 'Penal';
+        if (normalized.includes('laboral') || normalized.includes('trabajo')) return 'Laboral';
+        if (normalized.includes('familia')) return 'Familia';
+        if (normalized.includes('cobranza')) return 'Cobranza';
+        if (normalized.includes('apelaciones')) return 'Corte de Apelaciones';
+        if (normalized.includes('suprema')) return 'Corte Suprema';
+        return 'Otros tribunales';
       };
-      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
-      list.forEach((item) => grouped.get(inferKardexLabel(item.tribunal)).push(item));
-      KARDEX_GROUPS.forEach((label) => {
+      const tribunalOrder = ['Civil', 'Penal', 'Laboral', 'Familia', 'Cobranza', 'Corte de Apelaciones', 'Corte Suprema', 'Otros tribunales'];
+      const grouped = new Map(tribunalOrder.map((label) => [label, []]));
+      list.forEach((item) => grouped.get(inferTribunalWindow(item)).push(item));
+      tribunalOrder.forEach((label) => {
         if (state.openKardexByTribunal[label] == null) state.openKardexByTribunal[label] = false;
+        if (!state.tribunalWindowFilters[label]) state.tribunalWindowFilters[label] = { rol: '', tribunal: '' };
       });
       const selectedCase = list.find((item) => item.id === state.selectedId);
-      if (selectedCase) state.openKardexByTribunal[inferKardexLabel(selectedCase.tribunal)] = true;
+      if (selectedCase) state.openKardexByTribunal[inferTribunalWindow(selectedCase)] = true;
       persistKardexExpandedState();
 
-      $('casesList').innerHTML = KARDEX_GROUPS
+      $('casesList').innerHTML = tribunalOrder
         .filter((label) => (grouped.get(label) || []).length)
         .map((label) => {
-          const items = grouped.get(label) || [];
+          const allItems = grouped.get(label) || [];
+          const filterState = state.tribunalWindowFilters[label] || { rol: '', tribunal: '' };
+          const rolNeedle = normalizeImportComparisonKey(filterState.rol || '');
+          const tribunalNeedle = normalizeImportComparisonKey(filterState.tribunal || '');
+          const items = allItems.filter((item) => {
+            const roleText = normalizeImportComparisonKey(getCauseIdentifier(item).display || '');
+            const courtText = normalizeImportComparisonKey(item.tribunal || '');
+            if (rolNeedle && !roleText.includes(rolNeedle)) return false;
+            if (tribunalNeedle && !courtText.includes(tribunalNeedle)) return false;
+            return true;
+          });
           const isOpen = Boolean(state.openKardexByTribunal[label]);
           return `
-            <section class="kardex-card ${isOpen ? 'open' : ''}">
+            <section class="tribunal-window ${isOpen ? 'open' : ''}">
               <button class="kardex-header" data-kardex-toggle="${escapeHtml(label)}" aria-expanded="${isOpen ? 'true' : 'false'}">
                 <div>
-                  <div class="case-kicker">KÁRDEX TRIBUNAL</div>
+                  <div class="case-kicker">VENTANA TRIBUNAL</div>
                   <h4 class="segment-title">${escapeHtml(label)}</h4>
                 </div>
                 <span class="badge badge-info">${items.length} causa(s)</span>
               </button>
               <div class="kardex-body">
-                ${items.map((item) => {
-                  const days = daysBetween(item.proximoPlazo);
-                  const selected = item.id === state.selectedId ? 'selected' : '';
-                  const identity = getCauseIdentifier(item);
-                  const importStatus = inferCaseImportStatus(item);
-                  return `
-                    <article class="list-card archivador-card ${selected}" data-select="${item.id}">
-                      <div class="archivador-tab">ARCHIVADOR CAUSA</div>
-                      <div class="case-top">
-                        <div>
-                          <div class="case-kicker">${escapeHtml(identity.display)}${identity.secondary.length ? ` · ${escapeHtml(identity.secondary.join(' · '))}` : ''}</div>
-                          <h4 class="case-name">${escapeHtml(item.caratula)}</h4>
-                        </div>
-                        <span class="badge ${computeBadgeClass('alert', item.alerta)}">${escapeHtml(item.alerta)}</span>
-                      </div>
-                      <div class="detail-grid">
-                        <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
-                        <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
-                        <div><span class="mini-label">Importación PJUD</span><div class="case-meta">${escapeHtml(importStatus || 'Sin importación PJUD')}</div></div>
-                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
-                        <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
-                      </div>
-                      <div class="case-footer">
-                        <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
-                        <div class="case-actions">
-                          <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
-                          <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
-                          <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
-                        </div>
-                      </div>
-                    </article>
-                  `;
-                }).join('')}
+                <div class="tribunal-window-search">
+                  <input class="input" type="search" placeholder="Buscar por ROL" value="${escapeHtml(filterState.rol || '')}" data-tribunal-window-search="rol" data-tribunal-window="${escapeHtml(label)}" />
+                  <input class="input" type="search" placeholder="Buscar por TRIBUNAL" value="${escapeHtml(filterState.tribunal || '')}" data-tribunal-window-search="tribunal" data-tribunal-window="${escapeHtml(label)}" />
+                </div>
+                ${items.length ? `
+                  <div class="tribunal-folder-grid">
+                    ${items.map((item) => {
+                      const identity = getCauseIdentifier(item);
+                      const secondaryLine = item.tribunal || item.caratula || 'Sin detalle';
+                      return `
+                        <button class="tribunal-folder ${item.id === state.selectedId ? 'selected' : ''}" data-select="${item.id}" title="${escapeHtml(item.caratula || identity.display)}">
+                          <span class="tribunal-folder-icon" aria-hidden="true">📁</span>
+                          <span class="tribunal-folder-label">
+                            <span class="tribunal-folder-role">${escapeHtml(identity.display)}</span>
+                            <span>${escapeHtml(secondaryLine)}</span>
+                          </span>
+                        </button>
+                      `;
+                    }).join('')}
+                  </div>
+                ` : '<div class="empty-state">No hay causas que coincidan con ROL/TRIBUNAL en esta ventana.</div>'}
               </div>
             </section>
           `;
@@ -12237,11 +12323,20 @@
       const category = getContainerLabel(containerId);
       const existing = new Set((current.documents || []).map((doc) => `${String(doc.name || '').toLowerCase()}::${Number(doc.size || 0)}`));
       const incoming = Array.from(files || []);
-      const duplicates = incoming.filter((file) => existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
+      const nonPdfFiles = incoming.filter((file) => {
+        const mime = String(file?.type || '').toLowerCase();
+        const name = String(file?.name || '').toLowerCase();
+        return mime !== 'application/pdf' && !name.endsWith('.pdf');
+      });
+      if (nonPdfFiles.length) {
+        setDetailStatus('En Causas solo se permiten documentos PDF. Los archivos no PDF fueron omitidos.', 'warn');
+      }
+      const pdfIncoming = incoming.filter((file) => !nonPdfFiles.includes(file));
+      const duplicates = pdfIncoming.filter((file) => existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
       if (duplicates.length) {
         setDetailStatus(`Se detectaron ${duplicates.length} archivo(s) duplicados por nombre y tamaño.`, 'warn');
       }
-      const filesToLoad = incoming.filter((file) => !existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
+      const filesToLoad = pdfIncoming.filter((file) => !existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
       if (!filesToLoad.length) {
         return;
       }
@@ -12732,6 +12827,15 @@
           setDetailStatus('', '');
           openWorkspaceModal({ tabId: state.activeTab || 'informacion', caseId: resolvedCaseId, origin: 'case-card' });
         }
+      });
+      $('casesList')?.addEventListener('input', (event) => {
+        const searchField = event.target.closest('[data-tribunal-window-search]');
+        if (!searchField) return;
+        const tribunalWindow = searchField.dataset.tribunalWindow || 'Otros tribunales';
+        const key = searchField.dataset.tribunalWindowSearch === 'tribunal' ? 'tribunal' : 'rol';
+        if (!state.tribunalWindowFilters[tribunalWindow]) state.tribunalWindowFilters[tribunalWindow] = { rol: '', tribunal: '' };
+        state.tribunalWindowFilters[tribunalWindow][key] = searchField.value || '';
+        renderList();
       });
       $('casesList')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
