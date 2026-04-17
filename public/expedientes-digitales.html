@@ -73,7 +73,9 @@
     .role-item h4{margin:0 0 6px}
     .role-content-title{margin:0;color:#163A5F}
     .tribunal-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:10px}
+    .tribunal-results-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
     .tribunal-empty{background:#fff7f7;border:1px solid #e7c6c6;border-radius:12px;padding:10px;color:#6f1728}
+    .search-hit{background:#fff3a3;padding:0 2px;border-radius:4px}
     .role-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .manual-btn{appearance:none;border:1px solid #163A5F;background:#163A5F;color:#fff;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
     .manual-btn:disabled{opacity:.5;cursor:not-allowed}
@@ -307,6 +309,9 @@
     let selectedRole = '';
     let selectedCause = null;
     let selectedFolderCategory = '';
+    let tribunalSearchDebounceTimer = null;
+    let currentTribunalRoles = [];
+    let tribunalSearchTestsExecuted = false;
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
     const EXTRACTION_LOGS_STORAGE_KEY = 'alpha-expedientes-extraction-logs-v1';
@@ -698,17 +703,165 @@
       if (!data?.session) window.location.href = './login.html';
     }
 
+    function readManualCauseData(causeId = '') {
+      if (!causeId) return null;
+      const registry = loadManualRegistry();
+      return registry[causeId] || null;
+    }
+    function extractPartiesFromCaratula(caratula = '') {
+      const text = String(caratula || '').trim();
+      if (!text) return [];
+      return text.split(/\bc\/|\bc\.\/|\bcon\b/i).map((item) => item.trim()).filter(Boolean);
+    }
+    function flattenParties(parties = []) {
+      return (Array.isArray(parties) ? parties : []).map((party) => `${party?.nombre || ''} ${party?.rol || party?.role || party?.calidad || ''} ${party?.detalle || ''} ${party?.rut || ''}`.trim()).filter(Boolean);
+    }
+    function resolveClienteVinculado(cause = {}, clientMap = new Map(), manualData = null) {
+      const linkedClient = clientMap.get(cause[C.kClientId]);
+      if (linkedClient) return linkedClient;
+      const candidates = [
+        manualData?.base?.cliente,
+        manualData?.registro?.cliente,
+        manualData?.lastSuggestions?.cliente?.value,
+        cause.cliente,
+        cause.client_name,
+        cause.cliente_nombre,
+        cause.metadata?.cliente,
+      ];
+      const resolved = candidates.find((value) => String(value || '').trim());
+      return resolved ? String(resolved).trim() : 'Cliente sin vínculo';
+    }
+    function highlightText(text = '', query = '') {
+      const raw = String(text || '');
+      const normalizedQuery = String(query || '').trim();
+      if (!raw) return '';
+      if (!normalizedQuery) return escapeHtml(raw);
+      const tokens = [...new Set(normalizedQuery.split(/\s+/).map((token) => token.trim()).filter((token) => token.length >= 2))];
+      if (!tokens.length) return escapeHtml(raw);
+      let highlighted = escapeHtml(raw);
+      tokens.forEach((token) => {
+        const escaped = token.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        highlighted = highlighted.replace(new RegExp(`(${escaped})`, 'ig'), '<mark class="search-hit">$1</mark>');
+      });
+      return highlighted;
+    }
+    function buildTribunalSearchIndex(cause = {}) {
+      const source = cause.searchSource || {};
+      return normalize([
+        source.tribunal,
+        source.rol,
+        normalizeRol(source.rol),
+        source.rit,
+        source.ruc,
+        source.caratula,
+        source.cliente,
+        source.partes,
+        source.materia,
+        source.procedimiento,
+        source.observaciones,
+        source.manualData,
+      ].join(' '));
+    }
+    function filterTribunalRoles(roles = [], query = '') {
+      const normalizedQuery = normalize(query);
+      if (!normalizedQuery) return roles;
+      return roles.filter((cause) => buildTribunalSearchIndex(cause).includes(normalizedQuery));
+    }
+    function renderTribunalRolesList(filteredRoles = [], query = '') {
+      const listNode = document.getElementById('tribunalRolesEntries');
+      const countNode = document.getElementById('tribunalResultsCount');
+      if (countNode) countNode.textContent = `${filteredRoles.length} resultado(s)`;
+      if (!listNode) return;
+      listNode.innerHTML = filteredRoles.length
+        ? filteredRoles.map((cause) => `
+          <div class="role-item" data-role="${escapeHtml(cause.identificador)}" data-cause-id="${escapeHtml(cause.id)}">
+            <div class="role-head">
+              <h4>📁 ${highlightText(cause.identificador, query)} · ${highlightText(cause.caratula, query)}</h4>
+              <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
+            </div>
+            <div class="muted">Cliente: ${highlightText(cause.cliente, query)}</div>
+            <div class="muted">Tribunal: ${highlightText(cause.tribunal, query)}</div>
+            <div class="muted">Intervinientes: ${highlightText(flattenParties(cause.partes).join(' · ') || 'Sin intervinientes', query)}</div>
+          </div>
+        `).join('')
+        : '<div class="tribunal-empty">No se encontraron causas en este tribunal para la búsqueda ingresada</div>';
+      document.querySelectorAll('[data-role]').forEach((entry) => {
+        entry.addEventListener('click', () => openRolePanel(entry.dataset.role || '', currentTribunalRoles));
+      });
+      document.querySelectorAll('[data-manual-id]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const cause = currentTribunalRoles.find((item) => item.id === btn.dataset.manualId);
+          if (cause) openManualPanel(cause);
+        });
+      });
+    }
+    function applyTribunalFilter(tribunal) {
+      const input = document.getElementById('tribunalSearchInput');
+      tribunalSearch = input?.value || tribunalSearch || '';
+      const filteredRoles = filterTribunalRoles(currentTribunalRoles, tribunalSearch);
+      renderTribunalRolesList(filteredRoles, tribunalSearch);
+      const finalInput = document.getElementById('tribunalSearchInput');
+      if (document.activeElement === input && finalInput) finalInput.focus();
+    }
+    function debounceTribunalFilter(tribunal) {
+      if (tribunalSearchDebounceTimer) window.clearTimeout(tribunalSearchDebounceTimer);
+      tribunalSearchDebounceTimer = window.setTimeout(() => applyTribunalFilter(tribunal), 200);
+    }
+    function runTribunalSearchFunctionalTests() {
+      const fixture = [{
+        identificador: 'C-881-2025',
+        searchSource: {
+          rol: 'C-881-2025',
+          tribunal: '1° Civil Ovalle',
+          caratula: 'Pérez con Rojas',
+          cliente: 'Juan Pérez',
+          partes: 'Juan Pérez demandante María Rojas demandada',
+          rit: 'RIT-22-2025',
+          ruc: 'RUC-998877',
+          materia: 'Civil',
+          procedimiento: 'Ordinario',
+          observaciones: 'Urgente',
+          manualData: 'datos manuales',
+        }
+      }];
+      const testCases = [
+        { name: 'rol completo', query: 'C-881-2025' },
+        { name: 'número parcial', query: '881' },
+        { name: 'interviniente', query: 'demandante' },
+        { name: 'tribunal', query: 'Ovalle' },
+        { name: 'cliente', query: 'Juan Pérez' },
+        { name: 'carátula', query: 'Pérez con Rojas' },
+      ];
+      const failures = testCases.filter((test) => filterTribunalRoles(fixture, test.query).length !== 1);
+      if (failures.length) {
+        console.error('Pruebas funcionales del buscador del tribunal con fallas:', failures.map((item) => item.name).join(', '));
+      } else {
+        console.info('Pruebas funcionales del buscador del tribunal: OK');
+      }
+    }
+
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
       for (const k of cases) {
+        const manualData = readManualCauseData(String(k[C.kId] || ''));
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
-        const role = roleRaw || `ID-${k[C.kId]}`;
-        const tribunal = String(k[C.kTrib] || k[C.kCourt] || 'Tribunal sin clasificar').trim();
-        const caratula = k[C.kCaratula] || 'Carátula pendiente';
-        const cliente = clientMap.get(k[C.kClientId]) || 'Cliente sin vínculo';
-        const parties = Array.isArray(k.partes) ? k.partes : [];
-        const partiesText = parties.map((party) => `${party?.nombre || ''} ${party?.rol || party?.role || party?.calidad || ''} ${party?.detalle || ''} ${party?.rut || ''}`).join(' ');
-        const searchable = normalize(`${role} ${normalizeRol(role)} ${cliente} ${caratula} ${tribunal} ${partiesText}`);
+        const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
+        const tribunal = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
+        const caratula = String(k[C.kCaratula] || manualData?.base?.caratula || 'Carátula pendiente').trim();
+        const cliente = resolveClienteVinculado(k, clientMap, manualData);
+        const caseParties = Array.isArray(k.partes) ? k.partes : [];
+        const manualParties = Array.isArray(manualData?.parties) ? manualData.parties : [];
+        const derivedParties = extractPartiesFromCaratula(caratula).map((nombre) => ({ nombre, calidad: 'Interviniente' }));
+        const parties = [...caseParties, ...manualParties, ...derivedParties];
+        const partiesText = flattenParties(parties).join(' ');
+        const rit = String(k[C.kRit] || manualData?.base?.rit || '').trim();
+        const ruc = String(k[C.kRuc] || manualData?.base?.ruc || '').trim();
+        const materia = String(k[C.kMatter] || manualData?.base?.materia || '').trim();
+        const procedimiento = String(k.procedimiento || manualData?.base?.procedimiento || '').trim();
+        const observaciones = String(k.observaciones || manualData?.base?.observaciones || manualData?.registro?.notasAbogado || '').trim();
+        const manualDataText = normalize(JSON.stringify({ base: manualData?.base || {}, registro: manualData?.registro || {}, parties: manualParties || [] }));
+        const searchable = normalize(`${role} ${normalizeRol(role)} ${cliente} ${caratula} ${tribunal} ${rit} ${ruc} ${materia} ${procedimiento} ${observaciones} ${partiesText} ${manualDataText}`);
         if (activeSearch && !searchable.includes(activeSearch)) continue;
         const matter = inferMatter(k);
         const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunal)}`);
@@ -727,6 +880,24 @@
             cliente,
             tribunal,
             partes: parties,
+            rit,
+            ruc,
+            materia,
+            procedimiento,
+            observaciones,
+            searchSource: {
+              tribunal,
+              rol: role,
+              rit,
+              ruc,
+              caratula,
+              cliente,
+              partes: partiesText,
+              materia,
+              procedimiento,
+              observaciones,
+              manualData: manualDataText,
+            },
             hasRol: Boolean(roleRaw),
           });
         }
@@ -784,53 +955,33 @@
     function openTribunalPanel(tribunal) {
       selectedTribunal = tribunal;
       const tribunalMap = lastMatterMap.get(selectedMatter) || new Map();
-      const roles = orderedRoles(tribunalMap.get(tribunal) || new Map());
-      const normalizedQuery = normalize(tribunalSearch);
-      const filteredRoles = roles.filter((cause) => {
-        if (!normalizedQuery) return true;
-        const parties = (cause.partes || []).map((party) => `${party?.nombre || ''} ${party?.rol || party?.role || party?.calidad || ''} ${party?.detalle || ''} ${party?.rut || ''}`).join(' ');
-        const searchable = normalize([cause.identificador, normalizeRol(cause.identificador), cause.caratula, cause.cliente, parties].join(' '));
-        return searchable.includes(normalizedQuery);
-      });
+      currentTribunalRoles = orderedRoles(tribunalMap.get(tribunal) || new Map());
       document.getElementById('tribunalPanelTitle').textContent = `${tribunal} · Carpetas por rol`;
       document.getElementById('tribunalRolesList').innerHTML = `
         <div class="tribunal-search">
           <label>
-            <div class="muted"><strong>Buscador interno del tribunal</strong> (ROL e intervinientes)</div>
+            <div class="muted"><strong>Buscador interno del tribunal</strong> (rol, RIT/RUC, partes, cliente, carátula y metadatos)</div>
             <input id="tribunalSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · demandado" value="${escapeHtml(tribunalSearch)}" />
           </label>
           <button id="tribunalSearchClear" class="btn" type="button">Limpiar</button>
         </div>
-        ${filteredRoles.length
-        ? filteredRoles.map((cause) => `
-          <div class="role-item" data-role="${escapeHtml(cause.identificador)}" data-cause-id="${escapeHtml(cause.id)}">
-            <div class="role-head">
-              <h4>📁 ${escapeHtml(cause.identificador)} · ${escapeHtml(cause.caratula)}</h4>
-              <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
-            </div>
-            <div class="muted">Cliente: ${escapeHtml(cause.cliente)}</div>
-          </div>
-        `).join('')
-        : '<div class="tribunal-empty">No se encontraron causas en este tribunal</div>'}
+        <div class="tribunal-results-meta">
+          <div class="muted" id="tribunalResultsCount"></div>
+        </div>
+        <div id="tribunalRolesEntries"></div>
       `;
       document.getElementById('tribunalSearchInput')?.addEventListener('input', (event) => {
         tribunalSearch = event.target.value || '';
-        openTribunalPanel(tribunal);
+        debounceTribunalFilter(tribunal);
       });
       document.getElementById('tribunalSearchClear')?.addEventListener('click', () => {
         tribunalSearch = '';
-        openTribunalPanel(tribunal);
+        const input = document.getElementById('tribunalSearchInput');
+        if (input) input.value = '';
+        applyTribunalFilter(tribunal);
+        input?.focus();
       });
-      document.querySelectorAll('[data-role]').forEach((entry) => {
-        entry.addEventListener('click', () => openRolePanel(entry.dataset.role || '', roles));
-      });
-      document.querySelectorAll('[data-manual-id]').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const cause = roles.find((item) => item.id === btn.dataset.manualId);
-          if (cause) openManualPanel(cause);
-        });
-      });
+      applyTribunalFilter(tribunal);
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = false;
       document.getElementById('rolePanel').hidden = true;
@@ -1401,6 +1552,10 @@
       if (selectedMatter) {
         if (selectedTribunal) openTribunalPanel(selectedTribunal);
         else openMatterPanel(selectedMatter);
+      }
+      if (!tribunalSearchTestsExecuted) {
+        runTribunalSearchFunctionalTests();
+        tribunalSearchTestsExecuted = true;
       }
     }
 
