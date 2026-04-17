@@ -2264,6 +2264,67 @@
     </div>
   </div>
 
+
+  <div id="modalExpedienteDigitalEditor" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Editar expediente digital</div>
+          <p class="panel-subtitle">Edita el expediente digital existente por expediente_id, sin crear una causa nueva y manteniendo el vínculo con la causa relacionada.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalExpedienteDigitalEditor" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formExpedienteDigitalEditor" class="form">
+        <div class="grid-2">
+          <div class="field">
+            <label for="expedienteEditorId">expediente_id</label>
+            <input id="expedienteEditorId" class="input" type="text" readonly />
+          </div>
+          <div class="field">
+            <label for="expedienteEditorCauseId">cause_id actual</label>
+            <input id="expedienteEditorCauseId" class="input" type="text" readonly />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="expedienteFolderName">Nombre visible del expediente/carpeta</label>
+            <input id="expedienteFolderName" class="input" type="text" required />
+          </div>
+          <div class="field">
+            <label for="expedienteLinkedCauseId">Causa relacionada (vínculo controlado)</label>
+            <select id="expedienteLinkedCauseId" class="input"></select>
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="expedienteRol">Rol asociado (corrección controlada)</label>
+            <input id="expedienteRol" class="input" type="text" />
+          </div>
+          <div class="field">
+            <label for="expedienteCaratula">Carátula asociada (corrección controlada)</label>
+            <input id="expedienteCaratula" class="input" type="text" />
+          </div>
+        </div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="expedienteSubfolders">Subcarpetas / clasificación documental (una por línea)</label>
+            <textarea id="expedienteSubfolders" class="textarea"></textarea>
+          </div>
+          <div class="field">
+            <label for="expedienteMetadata">Metadatos del expediente digital</label>
+            <textarea id="expedienteMetadata" class="textarea" placeholder="Notas, fecha, contexto, clasificación, etc."></textarea>
+          </div>
+        </div>
+        <div class="helper-box">Esta edición modifica el expediente digital existente y no activa creación/alta de causa ni validación de duplicado de causa.</div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalExpedienteDigitalEditor">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Guardar expediente digital</button>
+        </div>
+        <div id="expedienteEditorMsg" class="msg" aria-live="polite"></div>
+      </form>
+    </div>
+  </div>
+
   <div id="modalCargaExpedienteDigital" class="modal" aria-hidden="true">
     <div class="modal-panel">
       <div class="modal-header">
@@ -3062,7 +3123,8 @@
     }
 
     const detailActions = [
-      { id:'editar', label:'Editar', action:() => openModal() },
+      { id:'editar-expediente', label:'Editar expediente digital', action:() => openExpedienteDigitalEditor() },
+      { id:'editar-causa', label:'Editar causa relacionada', action:() => openModal() },
       { id:'rectificar', label:'Rectificar información', action:() => openCauseRectification('general') },
       { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
@@ -6188,7 +6250,7 @@
 
     function renderDetailActions(){
       const visibleActions = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin);
-      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'editar', 'rectificar']);
+      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'editar-expediente', 'editar-causa', 'rectificar']);
       const primary = visibleActions.filter((item) => primaryIds.has(item.id));
       const secondary = visibleActions.filter((item) => !primaryIds.has(item.id));
       const renderButtons = (items) => items.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
@@ -6772,6 +6834,9 @@
               <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
             </div>
             <div class="toolbar">
+              <button class="btn" data-expediente-action="open">Abrir expediente</button>
+              <button class="btn btn-primary" data-expediente-action="edit">Editar expediente digital</button>
+              <button class="btn btn-secondary" data-expediente-action="edit-cause">Ver/editar causa relacionada</button>
               <button class="btn" data-doc-upload="documentos">Subir archivo</button>
               <button class="btn" data-doc-upload="ebook">Subir ebook</button>
               <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
@@ -8049,6 +8114,98 @@
       $('formCausa').reset();
       msg.className = 'msg';
       msg.textContent = '';
+    }
+
+
+    function setExpedienteEditorMessage(message = '', level = ''){
+      const node = $('expedienteEditorMsg');
+      if (!node) return;
+      node.className = 'msg';
+      if (level === 'ok') node.classList.add('msg-ok');
+      if (level === 'error') node.classList.add('msg-error');
+      node.textContent = message;
+    }
+
+    function openExpedienteDigitalEditor(){
+      const current = getCurrentCause();
+      if (!current) {
+        setDetailStatus('Selecciona una causa antes de editar el expediente digital.', 'warn');
+        return;
+      }
+      const expedienteId = String(current?.expedienteDigitalId || current?.expedienteDigital?.id || `expediente-${current.id}`);
+      const metadataNotes = String(current?.expedienteDigital?.metadata?.notes || current?.expedienteDigital?.metadata?.descripcion || current?.observaciones || '').trim();
+      const linkedCauseSelect = $('expedienteLinkedCauseId');
+      if (linkedCauseSelect) {
+        linkedCauseSelect.innerHTML = getAllCases().map((item) => {
+          const label = `${item.id} · ${item.caratula || 'Sin carátula'} · ${item.rol || 'Sin rol'}`;
+          return `<option value="${escapeHtml(item.id)}">${escapeHtml(label)}</option>`;
+        }).join('');
+      }
+      $('expedienteEditorId').value = expedienteId;
+      $('expedienteEditorCauseId').value = String(current.id || '');
+      $('expedienteFolderName').value = current?.expedienteDigital?.caseFolderLabel || current?.expediente || '';
+      $('expedienteRol').value = current?.rol || '';
+      $('expedienteCaratula').value = current?.caratula || '';
+      $('expedienteSubfolders').value = (current?.expedienteDigital?.manualFolders || []).join('\n');
+      $('expedienteMetadata').value = metadataNotes;
+      if (linkedCauseSelect) {
+        const linkedCauseId = String(current?.expedienteDigital?.linkedCauseId || current.id || '');
+        linkedCauseSelect.value = linkedCauseId;
+      }
+      setExpedienteEditorMessage('');
+      openManagedModal('modalExpedienteDigitalEditor');
+    }
+
+    function closeExpedienteDigitalEditor(){
+      $('formExpedienteDigitalEditor')?.reset();
+      setExpedienteEditorMessage('');
+      closeManagedModal('modalExpedienteDigitalEditor');
+    }
+
+    function saveExpedienteDigitalEditor(event){
+      event.preventDefault();
+      const current = getCurrentCause();
+      if (!current) {
+        setExpedienteEditorMessage('No existe una causa seleccionada para editar el expediente digital.', 'error');
+        return;
+      }
+      const folderName = $('expedienteFolderName')?.value?.trim() || current.expediente || '';
+      const rol = $('expedienteRol')?.value?.trim() || current.rol || '';
+      const caratula = normalizeCaratula($('expedienteCaratula')?.value?.trim() || current.caratula || '');
+      const metadataNotes = $('expedienteMetadata')?.value?.trim() || '';
+      const linkedCauseId = String($('expedienteLinkedCauseId')?.value || current.id || '');
+      const subfolders = String($('expedienteSubfolders')?.value || '')
+        .split(/\n|;/)
+        .map((item) => item.trim())
+        .filter(Boolean);
+
+      persistCurrentCause((entry) => {
+        const next = ensureCauseStorage(entry, current.id);
+        next.expediente = folderName || next.expediente;
+        next.rol = rol || next.rol;
+        next.caratula = caratula || next.caratula;
+        if (!next.expedienteDigital || typeof next.expedienteDigital !== 'object') next.expedienteDigital = {};
+        const expedienteId = String(next.expedienteDigital.id || next.expedienteDigitalId || `expediente-${current.id}`);
+        next.expedienteDigital.id = expedienteId;
+        next.expedienteDigitalId = expedienteId;
+        next.expedienteDigital.caseFolderLabel = folderName || next.expedienteDigital.caseFolderLabel || next.expediente || '';
+        next.expedienteDigital.manualFolders = subfolders;
+        next.expedienteDigital.linkedCauseId = linkedCauseId;
+        next.expedienteDigital.linkedCauseLabel = state.caseMap.get(linkedCauseId)?.caratula || next.caratula;
+        if (!next.expedienteDigital.metadata || typeof next.expedienteDigital.metadata !== 'object') next.expedienteDigital.metadata = {};
+        next.expedienteDigital.metadata.notes = metadataNotes;
+        next.documents = (next.documents || []).map((doc) => ({
+          ...doc,
+          cause_id: String(doc?.cause_id || current.id || ''),
+          expedienteDigitalId: String(doc?.expedienteDigitalId || expedienteId),
+          expediente_digital_id: String(doc?.expediente_digital_id || expedienteId),
+        }));
+        return markManualEdit(next);
+      });
+
+      renderAll();
+      setDetailStatus('Expediente digital actualizado correctamente sobre el mismo expediente.', 'ok');
+      closeExpedienteDigitalEditor();
     }
 
     function buildWorkspacePayload(id){
@@ -12602,6 +12759,7 @@
       bindEvent('formImportacionManual', 'submit', createOrUpdateImportedCase, { required: true, scope: 'form-importacion-manual' });
       bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
+      bindEvent('formExpedienteDigitalEditor', 'submit', saveExpedienteDigitalEditor, { required: true, scope: 'form-expediente-editor' });
       bindEvent('formSincronizacion', 'submit', submitSync, { required: true, scope: 'form-sincronizacion' });
       bindEvent('listadoCausasFile', 'change', async () => {
         const file = $('listadoCausasFile')?.files?.[0] || null;
@@ -12697,7 +12855,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalExpedienteDigitalEditor'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
@@ -12712,7 +12870,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalExpedienteDigitalEditor','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -12904,6 +13062,24 @@
         if (docAction) {
           handleDocumentAction(docAction.dataset.docId, docAction.dataset.docAction);
           return;
+        }
+
+        const expedienteAction = event.target.closest('[data-expediente-action]');
+        if (expedienteAction) {
+          const action = expedienteAction.dataset.expedienteAction;
+          if (action === 'open') {
+            setActiveTab('expedientes');
+            setDetailStatus('Expediente digital abierto en vista de explorador documental.', 'ok');
+            return;
+          }
+          if (action === 'edit') {
+            openExpedienteDigitalEditor();
+            return;
+          }
+          if (action === 'edit-cause') {
+            openModal();
+            return;
+          }
         }
 
         const trigger = event.target.closest('[data-detail-action-trigger]');
