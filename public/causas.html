@@ -2005,7 +2005,7 @@
               <label>Procedimiento<input name="procedimiento" required></label>
               <label>Estado procesal<input name="estadoProcesal" required></label>
               <label>Abogado responsable<input name="responsable" required></label>
-              <label>Cliente relacionado<input name="cliente" required></label>
+              <label>Cliente relacionado<select name="clienteId"><option value="">Sin cliente asociado</option></select></label>
             </div>
             <div>
               <div class="mini-label">Partes intervinientes</div>
@@ -3377,6 +3377,7 @@
         procedimiento: cause.procedimiento || '',
         estadoProcesal: cause.estadoProcesal || '',
         responsable: cause.responsable || '',
+        clienteId: cause.clientId || '',
         cliente: cause.cliente || '',
         partes: (cause.partes || []).map((party) => ({
           nombre: party.nombre || '',
@@ -3427,9 +3428,13 @@
         procedimiento: String(formData.get('procedimiento') || '').trim(),
         estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
         responsable: String(formData.get('responsable') || '').trim(),
-        cliente: String(formData.get('cliente') || '').trim(),
+        clienteId: String(formData.get('clienteId') || '').trim(),
+        cliente: SAFE_CLIENT_LABEL,
         partes: nextParties,
       };
+      nextSnapshot.cliente = nextSnapshot.clienteId
+        ? (state.clientMap.get(nextSnapshot.clienteId) || previous.cliente || SAFE_CLIENT_LABEL)
+        : SAFE_CLIENT_LABEL;
       const entries = createRectificationEntries({
         previous,
         next: nextSnapshot,
@@ -3520,6 +3525,12 @@
       $('causeRectificationCopy').textContent = scopeMeta.copy;
       const snapshot = buildCauseRectificationSnapshot(cause);
       const form = $('causeRectificationForm');
+      const clientSelect = form?.elements?.namedItem?.('clienteId');
+      if (clientSelect) {
+        clientSelect.innerHTML = '<option value="">Sin cliente asociado</option>' + state.clients
+          .map((client) => `<option value="${escapeRectificationHtml(client[C.c_id])}">${escapeRectificationHtml(client.display_name || 'Cliente sin nombre')}</option>`)
+          .join('');
+      }
       Object.entries(snapshot).forEach(([key, value]) => {
         if (key === 'partes') return;
         const input = form?.elements.namedItem(key);
@@ -3554,7 +3565,7 @@
     }
 
     function validateCauseRectification(formData){
-      const required = ['caratula','tribunal','rol','materia','procedimiento','estadoProcesal','responsable','cliente'];
+      const required = ['caratula','tribunal','rol','materia','procedimiento','estadoProcesal','responsable'];
       for (const field of required) {
         if (!String(formData.get(field) || '').trim()) return 'Debes completar todos los campos obligatorios antes de rectificar la causa.';
       }
@@ -3613,6 +3624,7 @@
         next.procedimiento = nextSnapshot.procedimiento;
         next.estadoProcesal = nextSnapshot.estadoProcesal;
         next.responsable = nextSnapshot.responsable;
+        next.clientId = nextSnapshot.clienteId || null;
         next.cliente = nextSnapshot.cliente;
         next.partes = nextParties;
         next.rectificationLog = appendRectificationLog({ rectificationLog: next.rectificationLog }, entries).rectificationLog;
@@ -3624,6 +3636,7 @@
         [C.k_rol]: nextSnapshot.rol,
         [C.k_subject]: nextSnapshot.materia,
         [C.k_responsible]: nextSnapshot.responsable,
+        [C.k_client_id]: nextSnapshot.clienteId || null,
         [C.k_notes]: `${current.notes || ''}`.trim() || null,
       };
       const { error } = await supabase.from(T_CASES).update(payload).eq(C.k_id, current.id);
