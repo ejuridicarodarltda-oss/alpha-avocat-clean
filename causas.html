@@ -2033,7 +2033,11 @@
               <label>Procedimiento<input name="procedimiento" required></label>
               <label>Estado procesal<input name="estadoProcesal" required></label>
               <label>Abogado responsable<input name="responsable" required></label>
-              <label>Cliente relacionado<input name="cliente" required></label>
+              <label>Cliente relacionado
+                <select name="clienteId" id="rectificationClientSelect">
+                  <option value="">Sin cliente asociado</option>
+                </select>
+              </label>
             </div>
             <div>
               <div class="mini-label">Partes intervinientes</div>
@@ -3410,6 +3414,7 @@
 
     function buildCauseRectificationSnapshot(cause){
       if (!cause) return null;
+      const clientId = resolveClientIdFromCause(cause);
       return {
         caratula: cause.caratula || '',
         tribunal: cause.tribunal || '',
@@ -3419,6 +3424,7 @@
         estadoProcesal: cause.estadoProcesal || '',
         responsable: cause.responsable || '',
         cliente: cause.cliente || '',
+        clienteId: clientId || '',
         partes: (cause.partes || []).map((party) => ({
           nombre: party.nombre || '',
           rol: party.rol || '',
@@ -3436,6 +3442,7 @@
         procedimiento: 'Procedimiento',
         estadoProcesal: 'Estado procesal',
         responsable: 'Abogado responsable',
+        clienteId: 'Cliente relacionado',
         cliente: 'Cliente relacionado',
       };
       parties.forEach((party, index) => {
@@ -3468,9 +3475,11 @@
         procedimiento: String(formData.get('procedimiento') || '').trim(),
         estadoProcesal: String(formData.get('estadoProcesal') || '').trim(),
         responsable: String(formData.get('responsable') || '').trim(),
-        cliente: String(formData.get('cliente') || '').trim(),
+        clienteId: String(formData.get('clienteId') || '').trim(),
+        cliente: '',
         partes: nextParties,
       };
+      nextSnapshot.cliente = state.clientMap.get(nextSnapshot.clienteId) || '';
       const entries = createRectificationEntries({
         previous,
         next: nextSnapshot,
@@ -3595,10 +3604,12 @@
     }
 
     function validateCauseRectification(formData){
-      const required = ['caratula','tribunal','rol','materia','procedimiento','estadoProcesal','responsable','cliente'];
+      const required = ['caratula','tribunal','rol','materia','procedimiento','estadoProcesal','responsable'];
       for (const field of required) {
         if (!String(formData.get(field) || '').trim()) return 'Debes completar todos los campos obligatorios antes de rectificar la causa.';
       }
+      const selectedClientId = String(formData.get('clienteId') || '').trim();
+      if (selectedClientId && !state.clientMap.has(selectedClientId)) return 'Debes seleccionar un cliente válido de la lista o dejarlo sin cliente asociado.';
       const parties = []
       for (const [key, value] of formData.entries()) {
         const nameMatch = key.match(/^participant_name_(\d+)$/);
@@ -3655,6 +3666,7 @@
         next.estadoProcesal = nextSnapshot.estadoProcesal;
         next.responsable = nextSnapshot.responsable;
         next.cliente = nextSnapshot.cliente;
+        next.clientId = nextSnapshot.clienteId || null;
         next.partes = nextParties;
         next.rectificationLog = appendRectificationLog({ rectificationLog: next.rectificationLog }, entries).rectificationLog;
         return markManualEdit(next);
@@ -3665,6 +3677,7 @@
         [C.k_rol]: nextSnapshot.rol,
         [C.k_subject]: nextSnapshot.materia,
         [C.k_responsible]: nextSnapshot.responsable,
+        [C.k_client_id]: nextSnapshot.clienteId || null,
         [C.k_notes]: `${current.notes || ''}`.trim() || null,
       };
       const { error } = await supabase.from(T_CASES).update(payload).eq(C.k_id, current.id);
@@ -5090,6 +5103,18 @@
       state.clients = (data || []).map(client => ({ ...client, display_name: getClientDisplayName(client) }));
       state.clientMap = new Map(state.clients.map(client => [client[C.c_id], client.display_name]));
       $('k_client').innerHTML = '<option value="">Selecciona</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client.display_name)}</option>`).join('');
+      const rectificationSelect = $('rectificationClientSelect');
+      if (rectificationSelect) {
+        rectificationSelect.innerHTML = '<option value="">Sin cliente asociado</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client.display_name)}</option>`).join('');
+      }
+    }
+
+    function resolveClientIdFromCause(cause){
+      const directId = cause?.clientId ?? cause?.[C.k_client_id] ?? null;
+      if (directId && state.clientMap.has(directId)) return directId;
+      const normalizedClientName = normalizeTextForMatch(cause?.cliente || '');
+      if (!normalizedClientName) return '';
+      return state.clients.find((client) => normalizeTextForMatch(client.display_name || '') === normalizedClientName)?.[C.c_id] || '';
     }
 
     async function loadCases(){
