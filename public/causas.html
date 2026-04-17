@@ -4564,6 +4564,35 @@
       'file_size_bytes',
     ]);
 
+
+    const OPTIONAL_CAUSE_UPLOAD_BATCH_COLUMNS = new Set([
+      'uploaded_by',
+      'source_type',
+      'status',
+      'original_filename',
+      'tribunal_name',
+      'empty_rows',
+      'structural_errors',
+      'processed_count',
+      'created_count',
+      'updated_count',
+      'discarded_count',
+      'error_summary',
+      'metadata_json',
+      'raw_preview',
+      'updated_at',
+    ]);
+
+    const OPTIONAL_CAUSE_UPLOAD_ROW_COLUMNS = new Set([
+      'linked_case_id',
+      'payload',
+      'fecha_text',
+      'estado',
+      'caratula',
+      'tribunal',
+      'rol',
+    ]);
+
     function buildPjudBatchInsertPayload(summary, { status = 'processing', errorSummary = [] } = {}, { discardedColumn = 'discarded_count' } = {}){
       return {
         owner_user_id: authenticatedUser.id,
@@ -8759,6 +8788,56 @@
       renderUploadLastInfo('estado');
     }
 
+
+    async function createCauseExcelUploadBatch(batchPayload = {}){
+      let payload = { ...batchPayload };
+      let attempts = 0;
+      while (attempts < 24) {
+        attempts += 1;
+        const { data: batch, error: batchError } = await supabase.from(T_CAUSE_UPLOAD_BATCHES).insert(payload).select('*').single();
+        if (!batchError) return batch;
+        const missingColumn = extractSchemaCacheMissingColumnName(batchError);
+        if (missingColumn && OPTIONAL_CAUSE_UPLOAD_BATCH_COLUMNS.has(missingColumn)) {
+          delete payload[missingColumn];
+          if (missingColumn === 'metadata_json' && !payload.metadata) payload.metadata = {};
+          continue;
+        }
+        throw buildCauseExcelInfrastructureError(batchError) || batchError;
+      }
+      throw new Error('No fue posible registrar metadata del lote Excel depurado tras múltiples reintentos.');
+    }
+
+    async function appendCauseExcelUploadRows(rowsPayload = []){
+      if (!rowsPayload.length) return { insertedRows: 0, failedRows: 0 };
+      const chunkSize = 200;
+      let insertedRows = 0;
+      let failedRows = 0;
+      for (let i = 0; i < rowsPayload.length; i += chunkSize) {
+        let chunk = rowsPayload.slice(i, i + chunkSize).map((row) => ({ ...row }));
+        let attempts = 0;
+        while (attempts < 24) {
+          attempts += 1;
+          const { error: rowsError } = await supabase.from(T_CAUSE_UPLOAD_ROWS).insert(chunk);
+          if (!rowsError) {
+            insertedRows += chunk.length;
+            break;
+          }
+          const missingColumn = extractSchemaCacheMissingColumnName(rowsError);
+          if (missingColumn && OPTIONAL_CAUSE_UPLOAD_ROW_COLUMNS.has(missingColumn)) {
+            chunk = chunk.map((row) => {
+              const next = { ...row };
+              delete next[missingColumn];
+              return next;
+            });
+            continue;
+          }
+          throw buildCauseExcelInfrastructureError(rowsError) || rowsError;
+        }
+        if (attempts >= 24) failedRows += chunk.length;
+      }
+      return { insertedRows, failedRows };
+    }
+
     async function processExcelUpload(type){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
@@ -8796,8 +8875,10 @@
           missingCritical: store.parsed.missingCritical,
         },
       };
-      const { data: batch, error: batchError } = await supabase.from(T_CAUSE_UPLOAD_BATCHES).insert(batchPayload).select('*').single();
-      if (batchError) {
+      let batch = null;
+      try {
+        batch = await createCauseExcelUploadBatch(batchPayload);
+      } catch (batchError) {
         console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar lote de carga.', { type, batchPayload, error: batchError });
         throw buildCauseExcelInfrastructureError(batchError) || batchError;
       }
@@ -8814,54 +8895,66 @@
         linked_case_id: row.linkedCaseId || null,
         payload: row.raw || {},
       }));
-      const chunkSize = 200;
-      for (let i = 0; i < rowsPayload.length; i += chunkSize) {
-        const chunk = rowsPayload.slice(i, i + chunkSize);
-        const { error: rowsError } = await supabase.from(T_CAUSE_UPLOAD_ROWS).insert(chunk);
-        if (rowsError) {
-          console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar filas del lote.', { type, batchId: batch.id, chunkStart: i, error: rowsError });
-          throw buildCauseExcelInfrastructureError(rowsError) || rowsError;
-        }
+      try {
+        await appendCauseExcelUploadRows(rowsPayload);
+      } catch (rowsError) {
+        console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar filas del lote.', { type, batchId: batch.id, error: rowsError });
+        throw buildCauseExcelInfrastructureError(rowsError) || rowsError;
       }
       let linkedRows = rowsPayload.filter((row) => row.linked_case_id).length;
       let createdCases = 0;
       let updatedCases = 0;
+      let processingErrors = 0;
       if (key === 'listado') {
         const allCases = getAllCases();
         const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
         for (const row of store.parsed.validRows) {
           const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
           const existing = byKey.get(lookupKey);
-          if (existing) {
-            const { error: updateError } = await supabase.from(T_CASES).update({
-              matter: row.materia || existing.matter || null,
-              notes: row.estado || existing.notes || null,
-              updated_at: new Date().toISOString(),
-            }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
-            if (updateError) throw updateError;
-            updatedCases += 1;
-            continue;
+          try {
+            if (existing) {
+              const { error: updateError } = await supabase.from(T_CASES).update({
+                matter: row.materia || existing.matter || null,
+                notes: row.estado || existing.notes || null,
+                updated_at: new Date().toISOString(),
+              }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
+              if (updateError) throw updateError;
+              updatedCases += 1;
+              continue;
+            }
+            const { error: insertError } = await supabase.from(T_CASES).insert({
+              owner_user_id: authenticatedUser.id,
+              client_id: null,
+              assigned_lawyer: null,
+              court: row.tribunal || null,
+              rol: row.rol || null,
+              matter: row.materia || null,
+              notes: row.estado || row.partes || null,
+              source: 'excel_listado_causas',
+              source_confidence: 'medium',
+              imported_at: new Date().toISOString(),
+            });
+            if (insertError) throw insertError;
+            createdCases += 1;
+          } catch (rowPersistenceError) {
+            processingErrors += 1;
+            console.warn('[CAUSAS][EXCEL-DEPURADO] Fila omitida por error de persistencia de causa.', {
+              batchId: batch.id,
+              rowNumber: row?.rowNumber,
+              rol: row?.rol || null,
+              tribunal: row?.tribunal || null,
+              error: rowPersistenceError,
+            });
           }
-          const { error: insertError } = await supabase.from(T_CASES).insert({
-            owner_user_id: authenticatedUser.id,
-            client_id: null,
-            assigned_lawyer: null,
-            court: row.tribunal || null,
-            rol: row.rol || null,
-            matter: row.materia || null,
-            notes: row.estado || row.partes || null,
-            source: 'excel_listado_causas',
-            source_confidence: 'medium',
-            imported_at: new Date().toISOString(),
-          });
-          if (insertError) throw insertError;
-          createdCases += 1;
         }
       } else {
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
       }
       const processedCount = createdCases + updatedCases;
       const discardedCount = Math.max(0, Number(store.parsed.totalRows || 0) - Number(processedCount || 0));
+      const structuralErrors = Number(store.parsed.invalidRows || 0);
+      const emptyRows = Number(store.parsed.emptyRows || 0);
+      const errorCount = processingErrors + structuralErrors;
       const { data: updatedBatch, error: updatedBatchError } = await supabase
         .from(T_CAUSE_UPLOAD_BATCHES)
         .update({
@@ -8870,8 +8963,8 @@
           created_count: createdCases,
           updated_count: updatedCases,
           discarded_count: discardedCount,
-          status: 'processed',
-          error_summary: null,
+          status: errorCount > 0 ? 'processed_with_errors' : 'processed',
+          error_summary: errorCount > 0 ? `Errores detectados: ${errorCount} (estructurales: ${structuralErrors}, persistencia: ${processingErrors}).` : null,
           metadata: {
             ...batchPayload.metadata,
             finishedAt: new Date().toISOString(),
@@ -8880,6 +8973,10 @@
             createdCases,
             updatedCases,
             discardedCount,
+            structuralErrors,
+            emptyRows,
+            processingErrors,
+            errorCount,
           },
         })
         .eq('id', batch.id)
@@ -8901,6 +8998,7 @@
         updatedCases,
         linkedRows,
         discardedCount,
+        errors: errorCount,
       };
     }
 
@@ -12981,7 +13079,7 @@
         event.preventDefault();
         try {
           const summary = await processExcelUpload('listado');
-          setMessage('listadoCausasMsg', `Excel depurado procesado correctamente. Filas válidas: ${summary.validRows}. Carpetas/expedientes creados: ${summary.createdCases}. Actualizados: ${summary.updatedCases}. Descartados: ${summary.discardedCount}.`, 'ok');
+          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedCases}. Descartadas: ${summary.discardedCount}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
