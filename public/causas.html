@@ -2520,6 +2520,7 @@
     const SAFE_CLIENT_LABEL = 'Sin cliente asociado';
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
+    const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -2540,6 +2541,9 @@
       selectedAssociationClientId: null,
       activeTab: 'informacion',
       pendingImport: null,
+      pendingImportOriginal: null,
+      pendingImportOverrides: {},
+      importFieldFeedback: loadImportFieldFeedback(),
       pendingDownloadedPjudDocs: [],
       pendingPjudManualLinkPrompt: false,
       pendingPjudManualLinkMode: 'individual',
@@ -8312,7 +8316,135 @@
       setTimeout(closeModal, 450);
     }
 
+    function normalizeImportFieldValue(value){
+      return String(value == null ? '' : value).trim();
+    }
+
+    function loadImportFieldFeedback(){
+      try {
+        const raw = window.localStorage.getItem(IMPORT_FIELD_FEEDBACK_STORAGE_KEY);
+        if (!raw) return {};
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : {};
+      } catch (error) {
+        console.warn('[CAUSAS][IA] No fue posible leer retroalimentación local de sugerencias IA.', error);
+        return {};
+      }
+    }
+
+    function saveImportFieldFeedback(){
+      try {
+        window.localStorage.setItem(IMPORT_FIELD_FEEDBACK_STORAGE_KEY, JSON.stringify(state.importFieldFeedback || {}));
+      } catch (error) {
+        console.warn('[CAUSAS][IA] No fue posible guardar retroalimentación local de sugerencias IA.', error);
+      }
+    }
+
+    function fieldValueFromImportData(importData = {}, field){
+      const basic = importData?.basic || {};
+      switch (field) {
+        case 'caratula': return importData?.caratulado || basic?.caratula || '';
+        case 'rol': return importData?.rol || basic?.rol || '';
+        case 'tribunal': return importData?.tribunal || basic?.tribunal || '';
+        case 'materia': return importData?.materia || basic?.materia || '';
+        case 'procedimiento': return importData?.tipoCausa || basic?.procedimiento || '';
+        case 'cliente': return importData?.representedClientName || importData?.parties?.[0]?.name || '';
+        default: return '';
+      }
+    }
+
+    function inferImportFieldSource(importData = {}, field){
+      const rawText = normalizeImportFieldValue(importData?.rawText || '');
+      const sourceUrl = normalizeImportFieldValue(importData?.sourceUrl || importData?.basic?.link || '');
+      if (field === 'cliente' && normalizeImportFieldValue(importData?.representedClientName || '')) return 'corrección previa aprendida';
+      if (field === 'caratula' && normalizeImportFieldValue(importData?.basic?.caratula || '')) return 'texto del documento';
+      if (field === 'rol' && normalizeImportFieldValue(importData?.basic?.rol || '')) return 'texto del documento';
+      if (field === 'tribunal' && normalizeImportFieldValue(importData?.basic?.tribunal || '')) return 'texto del documento';
+      if ((field === 'materia' || field === 'procedimiento') && normalizeImportFieldValue(importData?.basic?.[field] || '')) return 'inferencia IA';
+      if (rawText) return 'OCR';
+      if (sourceUrl) return 'nombre de archivo';
+      return 'inferencia IA';
+    }
+
+    function inferImportFieldConfidence(importData = {}, field){
+      const source = inferImportFieldSource(importData, field);
+      const hasValue = Boolean(normalizeImportFieldValue(fieldValueFromImportData(importData, field)));
+      if (!hasValue) return 20;
+      if (source === 'corrección previa aprendida') return 98;
+      if (source === 'texto del documento') return 86;
+      if (source === 'OCR') return 72;
+      if (source === 'nombre de archivo') return 61;
+      return 68;
+    }
+
+    function getFeedbackValue(field, suggested){
+      const normalizedSuggested = normalizeImportFieldValue(suggested).toLowerCase();
+      if (!normalizedSuggested) return '';
+      return normalizeImportFieldValue(state.importFieldFeedback?.[field]?.[normalizedSuggested] || '');
+    }
+
+    function buildImportSuggestionFieldModels(importData = {}){
+      const labels = {
+        caratula: 'Carátula',
+        rol: 'Rol',
+        tribunal: 'Tribunal',
+        materia: 'Materia',
+        procedimiento: 'Procedimiento',
+        cliente: 'Cliente relacionado',
+      };
+      return Object.keys(labels).map((field) => {
+        const suggested = normalizeImportFieldValue(fieldValueFromImportData(importData, field));
+        const learned = getFeedbackValue(field, suggested);
+        const override = state.pendingImportOverrides?.[field] || null;
+        const source = learned ? 'corrección previa aprendida' : inferImportFieldSource(importData, field);
+        const confidence = learned ? 98 : inferImportFieldConfidence(importData, field);
+        const value = normalizeImportFieldValue(override?.value ?? learned ?? suggested);
+        const action = override?.action || (value && value !== suggested ? 'edit' : (suggested ? 'accept' : 'pending'));
+        return { field, label: labels[field], suggested, source, confidence, value, action };
+      });
+    }
+
+    function applyPendingImportOverrides(importData = {}){
+      const merged = { ...importData, basic: { ...(importData?.basic || {}) } };
+      const fields = buildImportSuggestionFieldModels(importData);
+      fields.forEach((item) => {
+        const chosen = normalizeImportFieldValue(item.value);
+        if (item.action === 'discard') {
+          if (item.field === 'cliente') merged.representedClientName = '';
+          else if (item.field === 'procedimiento') { merged.tipoCausa = ''; merged.basic.procedimiento = ''; }
+          else {
+            if (item.field === 'caratula') { merged.caratulado = ''; merged.basic.caratula = ''; }
+            if (item.field === 'rol') { merged.rol = ''; merged.basic.rol = ''; }
+            if (item.field === 'tribunal') { merged.tribunal = ''; merged.basic.tribunal = ''; }
+            if (item.field === 'materia') { merged.materia = ''; merged.basic.materia = ''; }
+          }
+          return;
+        }
+        if (item.action === 'pending') return;
+        if (item.field === 'cliente') { merged.representedClientName = chosen || merged.representedClientName || ''; return; }
+        if (item.field === 'procedimiento') { merged.tipoCausa = chosen; merged.basic.procedimiento = chosen; return; }
+        if (item.field === 'caratula') { merged.caratulado = chosen; merged.basic.caratula = chosen; return; }
+        if (item.field === 'rol') { merged.rol = chosen; merged.basic.rol = chosen; return; }
+        if (item.field === 'tribunal') { merged.tribunal = chosen; merged.basic.tribunal = chosen; return; }
+        if (item.field === 'materia') { merged.materia = chosen; merged.basic.materia = chosen; }
+      });
+      return merged;
+    }
+
+    function persistImportFeedback(finalImportData = {}, originalImportData = {}){
+      const finalFields = buildImportSuggestionFieldModels(finalImportData);
+      finalFields.forEach((item) => {
+        const originalSuggestion = normalizeImportFieldValue(fieldValueFromImportData(originalImportData, item.field));
+        const finalValue = normalizeImportFieldValue(item.value);
+        if (!originalSuggestion || !finalValue || originalSuggestion === finalValue) return;
+        if (!state.importFieldFeedback[item.field]) state.importFieldFeedback[item.field] = {};
+        state.importFieldFeedback[item.field][originalSuggestion.toLowerCase()] = finalValue;
+      });
+      saveImportFieldFeedback();
+    }
+
     function renderImportPreview(importData){
+
       const preview = $('importPreview');
       const select = $('import_cliente_principal');
       if (!importData) {
@@ -8323,6 +8455,13 @@
 
       const parties = importData.parties || [];
       select.innerHTML = '<option value="">Selecciona una parte detectada</option>' + parties.map((party, index) => `<option value="${index}">${escapeHtml(party.name)} · ${escapeHtml(party.proceduralRole)}</option>`).join('');
+      const suggestionFields = buildImportSuggestionFieldModels(importData);
+      const selectionActions = `
+        <option value="accept">Aceptar sugerencia</option>
+        <option value="edit">Editar sugerencia</option>
+        <option value="discard">Descartar sugerencia</option>
+        <option value="pending">Dejar campo pendiente</option>
+      `;
       preview.innerHTML = `
         <div class="selection-grid">
           <div class="selection-card">
@@ -8331,15 +8470,28 @@
             <div class="timeline-meta">Modo ${escapeHtml(importData.mode)} · ${escapeHtml(importData.basic?.link ? 'con referencia judicial' : 'sin link judicial')}</div>
           </div>
           <div class="selection-card">
-            <strong>Datos detectados</strong>
-            <div class="case-meta">Carátula: ${escapeHtml(importData.basic?.caratula || 'Pendiente')}</div>
-            <div class="timeline-meta">Rol: ${escapeHtml(importData.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(importData.basic?.rit || 'Pendiente')} · Tribunal: ${escapeHtml(importData.basic?.tribunal || 'Pendiente')}</div>
-            <div class="timeline-meta">Materia: ${escapeHtml(importData.basic?.materia || 'Pendiente')} · Procedimiento: ${escapeHtml(importData.basic?.procedimiento || 'Pendiente')} · Estado: ${escapeHtml(importData.basic?.estadoProcesal || 'Pendiente')}</div>
+            <strong>Datos detectados automáticamente</strong>
+            <div class="case-meta">La IA solo sugiere. El usuario decide y puede editar antes de guardar.</div>
+            <div class="timeline-meta">Rol: ${escapeHtml(importData.basic?.rol || 'Pendiente')} · RIT: ${escapeHtml(importData.basic?.rit || 'Pendiente')} · Estado: ${escapeHtml(importData.basic?.estadoProcesal || 'Pendiente')}</div>
           </div>
           <div class="selection-card">
             <strong>Extracción semiautomática</strong>
             <div class="timeline-meta">Partes detectadas: ${importData.parties?.length || 0} · Movimientos: ${importData.movements?.length || 0} · Documentos: ${(importData.documents?.length || 0) + (importData.ebook ? 1 : 0)}</div>
             <div class="case-meta">Cliente sugerido: ${escapeHtml(importData.parties?.[0]?.name || 'Seleccionar manualmente')}</div>
+          </div>
+        </div>
+        <div class="selection-card" style="margin-top:12px;">
+          <strong>Validación de sugerencias IA (editable)</strong>
+          <div class="timeline-meta">Cada campo muestra valor sugerido, confianza, origen y edición manual obligatoria.</div>
+          <div class="selection-grid" style="margin-top:8px;">
+            ${suggestionFields.map((item) => `
+              <label class="span-full">
+                <div class="mini-label">${escapeHtml(item.label)}</div>
+                <input class="input" data-import-field-input="${escapeHtml(item.field)}" value="${escapeHtml(item.value)}" placeholder="Sin sugerencia" />
+                <div class="timeline-meta">Sugerido: ${escapeHtml(item.suggested || 'Pendiente')} · Confianza: ${escapeHtml(String(item.confidence))}% · Origen: ${escapeHtml(item.source)}</div>
+                <select class="input" data-import-field-action="${escapeHtml(item.field)}">${selectionActions.replace(`value="${item.action}"`, `value="${item.action}" selected`)}</select>
+              </label>
+            `).join('')}
           </div>
         </div>
       `;
@@ -8359,11 +8511,14 @@
         const hasMinimumIdentity = Boolean(importData.basic?.rol || importData.basic?.rit || importData.basic?.caratula || importData.basic?.tribunal || importData.sourceUrl);
         if (!hasMinimumIdentity) {
           state.pendingImport = null;
+          state.pendingImportOriginal = null;
+          state.pendingImportOverrides = {};
           renderImportPreview(null);
           setMessage('importMsg', 'Debes ingresar al menos URL, Rol/RIT, tribunal o carátula para analizar.', 'warn');
           return null;
         }
 
+        state.pendingImportOriginal = { ...importData, basic: { ...(importData.basic || {}) } };
         state.pendingImport = importData;
         renderImportPreview(importData);
         setMessage('importMsg', `Análisis completado: ${importData.parties?.length || 0} parte(s), ${importData.movements?.length || 0} movimiento(s) y ${(importData.documents?.length || 0) + (importData.ebook ? 1 : 0)} documento(s).`, 'ok');
@@ -11684,6 +11839,8 @@
       $('formImportacionMasiva')?.reset();
       $('formImportacionManual')?.reset();
       state.pendingImport = null;
+      state.pendingImportOriginal = null;
+      state.pendingImportOverrides = {};
       state.pendingBatchImports = [];
       state.pendingPjudWorkbook = null;
       state.pendingMassiveExcelBase = null;
@@ -11764,10 +11921,12 @@
         return;
       }
 
+      importData = applyPendingImportOverrides(importData);
       const partyIndex = Number($('import_cliente_principal').value);
       const selectedParty = Number.isInteger(partyIndex) && partyIndex >= 0 ? importData.parties?.[partyIndex] : null;
-      const primaryClientName = selectedParty?.name || importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
-      const selectedClientParties = selectedParty ? [selectedParty.name] : [];
+      const clientOverride = normalizeImportFieldValue(state.pendingImportOverrides?.cliente?.value || importData?.representedClientName || '');
+      const primaryClientName = clientOverride || selectedParty?.name || importData.parties?.[0]?.name || 'Cliente pendiente por seleccionar';
+      const selectedClientParties = selectedParty ? [selectedParty.name] : (clientOverride ? [clientOverride] : []);
       importData = await collectImportSupportDocuments(importData, { primaryClientName });
       const duplicate = findDuplicateCase(getAllCases(), importData);
 
@@ -11785,6 +11944,7 @@
           createdNewCase: false,
           importBatchId: state.pendingPjudBatchId,
         }));
+        persistImportFeedback(importData, state.pendingImportOriginal || state.pendingImport || {});
         state.selectedId = duplicate.id;
         setMessage('importMsg', 'Causa existente actualizada con los últimos movimientos y datos estructurados del Poder Judicial.', 'ok');
         await refreshCasesAfterPjudImport({
@@ -11804,6 +11964,7 @@
         setMessage('importMsg', `No fue posible crear la causa importada: ${buildLoadError('la causa importada', error).message}`, 'error');
         return null;
       }
+      persistImportFeedback(importData, state.pendingImportOriginal || state.pendingImport || {});
       state.selectedId = String(data[C.k_id]);
       setMessage('importMsg', 'Causa creada desde flujo judicial semiautomático y documentada con trazabilidad.', 'ok');
       await refreshCasesAfterPjudImport({
@@ -12603,6 +12764,32 @@
       }, { scope: 'form-carga-expediente-digital' });
       bindEvent('formImportacionManual', 'submit', createOrUpdateImportedCase, { required: true, scope: 'form-importacion-manual' });
       bindEvent('btnAnalizarImportacion', 'click', () => analyzeImport(), { scope: 'form-importacion' });
+      bindEvent('importPreview', 'input', (event) => {
+        const field = event?.target?.dataset?.importFieldInput;
+        if (!field) return;
+        if (!state.pendingImportOverrides[field]) state.pendingImportOverrides[field] = {};
+        state.pendingImportOverrides[field].value = event.target.value || '';
+        state.pendingImportOverrides[field].action = 'edit';
+        const actionSelect = document.querySelector(`[data-import-field-action="${field}"]`);
+        if (actionSelect) actionSelect.value = 'edit';
+      }, { scope: 'form-importacion' });
+      bindEvent('importPreview', 'change', (event) => {
+        const field = event?.target?.dataset?.importFieldAction;
+        if (!field) return;
+        if (!state.pendingImportOverrides[field]) state.pendingImportOverrides[field] = {};
+        state.pendingImportOverrides[field].action = event.target.value || 'pending';
+        const input = document.querySelector(`[data-import-field-input="${field}"]`);
+        const base = fieldValueFromImportData(state.pendingImport || {}, field);
+        if (event.target.value === 'accept') {
+          state.pendingImportOverrides[field].value = base || '';
+          if (input) input.value = base || '';
+        } else if (event.target.value === 'discard') {
+          state.pendingImportOverrides[field].value = '';
+          if (input) input.value = '';
+        } else if (event.target.value === 'pending') {
+          state.pendingImportOverrides[field].value = input?.value || '';
+        }
+      }, { scope: 'form-importacion' });
       bindEvent('formDocumento', 'submit', saveDocumentMetadata, { required: true, scope: 'form-documento' });
       bindEvent('formSincronizacion', 'submit', submitSync, { required: true, scope: 'form-sincronizacion' });
       bindEvent('listadoCausasFile', 'change', async () => {
