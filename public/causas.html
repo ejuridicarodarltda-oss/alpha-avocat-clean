@@ -9423,9 +9423,22 @@
           sourceUrl: normalizeDownloadUrl(doc.sourceUrl),
           sourcePageUrl: normalizeDownloadUrl(doc.sourcePageUrl || importData?.sourceUrl || ''),
           category: doc.category || 'Importadas del Poder Judicial',
+          documentType: String(doc.category || '').toLowerCase().includes('ebook') ? 'EBOOK' : 'DOCUMENTO',
           observation: doc.observation || '',
           from: 'importData.documents',
         }));
+      const directEbookUrl = normalizeDownloadUrl(importData?.ebook?.sourceUrl || importData?.ebook?.url || importData?.pjudEbookUrl || '');
+      if (directEbookUrl && isOfficialPjudUrl(directEbookUrl)) {
+        docCandidates.unshift({
+          name: importData?.ebook?.name || `ebook-pjud-${Date.now()}.pdf`,
+          sourceUrl: directEbookUrl,
+          sourcePageUrl: normalizeDownloadUrl(importData?.sourceUrl || current?.poderJudicial?.link || ''),
+          category: 'Ebook',
+          documentType: 'EBOOK',
+          observation: 'Referencia de EBOOK detectada desde índice PJUD.',
+          from: 'importData.ebook',
+        });
+      }
       const seedUrls = new Set([
         importData?.sourceUrl,
         current?.poderJudicial?.link,
@@ -9448,6 +9461,7 @@
               sourceUrl: url,
               sourcePageUrl: url,
               category: 'Importadas del Poder Judicial',
+              documentType: 'DOCUMENTO',
               observation: 'Detectado desde navegación web PJUD/OJV.',
               from: 'seed-direct',
             });
@@ -9460,6 +9474,7 @@
             sourceUrl: link,
             sourcePageUrl: url,
             category: 'Importadas del Poder Judicial',
+            documentType: 'DOCUMENTO',
             observation: 'URL detectada automáticamente desde PJUD/OJV.',
             from: 'seed-html',
           }));
@@ -9474,6 +9489,18 @@
         if (!dedup.has(key)) dedup.set(key, { ...item, sourceUrl: key });
       });
       return [...dedup.values()].slice(0, 30);
+    }
+
+    function buildPjudDocumentTraceability(importData, doc, current = null) {
+      return {
+        tribunal: importData?.tribunal || importData?.basic?.tribunal || current?.tribunal || '',
+        rol: importData?.rol || importData?.basic?.rol || current?.rol || '',
+        caratula: importData?.caratulado || importData?.basic?.caratula || current?.caratula || '',
+        fecha_descarga: new Date().toISOString(),
+        origen: 'PJUD',
+        tipo_documental: doc?.documentType || (String(doc?.category || '').toLowerCase().includes('ebook') ? 'EBOOK' : 'DOCUMENTO'),
+        url_origen: normalizeDownloadUrl(doc?.sourceUrl || importData?.pjudEbookUrl || importData?.sourceUrl || ''),
+      };
     }
 
     async function enrichImportDataWithRealPjudDownloads(importData, { maxDocuments = 4 } = {}){
@@ -9499,10 +9526,11 @@
           const blob = await response.blob();
           if (!blob.size) throw new Error('respuesta vacía');
           const content = await blobToDataUrl(blob);
+          const isEbook = String(doc?.documentType || doc?.category || '').toLowerCase().includes('ebook');
           linkedDocs.push({
-            name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            name: doc.name || `${isEbook ? 'ebook' : 'documento'}-pjud-${Date.now()}.pdf`,
+            category: isEbook ? 'Ebook' : (doc.category || 'Importadas del Poder Judicial'),
+            destinationContainer: isEbook ? 'ebook' : 'importadosPjud',
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9513,7 +9541,8 @@
               origin: 'pjud_auto',
               mode: 'massive_auto',
               resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              destination_container: isEbook ? 'documentContainers.ebook' : 'documentContainers.importadosPjud',
+              ...buildPjudDocumentTraceability(normalizedImportData, doc),
             },
             content,
           });
@@ -9522,6 +9551,7 @@
         }
       }
       const mergedDocuments = [...(normalizedImportData.documents || []), ...linkedDocs];
+      const downloadedEbook = linkedDocs.find((doc) => String(doc?.category || '').toLowerCase() === 'ebook') || null;
       const failureReason = linkedDocs.length
         ? ''
         : (failedDocs.some((item) => /401|403/i.test(String(item.message || '')))
@@ -9531,6 +9561,7 @@
         importData: {
           ...normalizedImportData,
           documents: mergedDocuments,
+          ebook: downloadedEbook || normalizedImportData.ebook || null,
         },
         downloadedDocuments: linkedDocs.length,
         failureReason,
@@ -9561,13 +9592,7 @@
 
       const candidates = await discoverPjudCandidatesFromWeb(importData, current, identifiers);
       if (!candidates.length) {
-        state.pendingPjudManualLinkPrompt = true;
-        state.pendingPjudManualLinkMode = 'individual';
-        const input = $('import_support_files');
-        if (input) input.value = '';
-        input?.click();
-        setTimeout(() => { openCauseInPjudFromImport(); }, 0);
-        setMessage('importMsg', 'No fue posible materializar contenido web→web desde PJUD/OJV para esta causa. Se activa respaldo manual: descarga en PJUD y luego vincula desde tu PC.', 'warn');
+        setMessage('importMsg', 'No fue posible resolver URLs oficiales para descarga directa PJUD→Alpha en esta causa. Verifica sesión PJUD activa y vuelve a intentar.', 'warn');
         return;
       }
 
@@ -9584,10 +9609,11 @@
           const blob = await response.blob();
           if (!blob.size) throw new Error('Respuesta vacía');
           const content = await blobToDataUrl(blob);
+          const isEbook = String(doc?.documentType || doc?.category || '').toLowerCase().includes('ebook');
           linkedDocs.push({
-            name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            name: doc.name || `${isEbook ? 'ebook' : 'documento'}-pjud-${Date.now()}.pdf`,
+            category: isEbook ? 'Ebook' : (doc.category || 'Importadas del Poder Judicial'),
+            destinationContainer: isEbook ? 'ebook' : 'importadosPjud',
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9602,8 +9628,9 @@
               origin: 'pjud_auto',
               mode: 'manual_single',
               resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              destination_container: isEbook ? 'documentContainers.ebook' : 'documentContainers.importadosPjud',
               linked_client: current?.cliente || '',
+              ...buildPjudDocumentTraceability(importData, doc, current),
             },
             content,
           });
@@ -9631,17 +9658,11 @@
       }
 
       const msg = current
-        ? `Descarga PJUD web→web finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/sesión.`
-        : `Descarga PJUD finalizada sin causa activa: ${linkedDocs.length} documento(s). Usa vinculación manual solo como respaldo si corresponde.`;
+        ? `Descarga PJUD web→web finalizada: ${linkedDocs.length} documento(s) vinculados directamente al expediente y ${failedDocs.length} con límite técnico/sesión.`
+        : `Descarga PJUD finalizada sin causa activa: ${linkedDocs.length} documento(s).`;
       setMessage('importMsg', msg, linkedDocs.length ? (failedDocs.length ? 'warn' : 'ok') : 'warn');
       if (!linkedDocs.length) {
-        state.pendingPjudManualLinkPrompt = true;
-        state.pendingPjudManualLinkMode = 'individual';
-        const input = $('import_support_files');
-        if (input) input.value = '';
-        input?.click();
-        setTimeout(() => { openCauseInPjudFromImport(); }, 0);
-        setDetailStatus('No fue posible materializar automáticamente desde PJUD/OJV. Se habilita respaldo manual para adjuntar archivos descargados por el usuario.', 'warn');
+        setDetailStatus('No fue posible materializar automáticamente desde PJUD/OJV. Mantén sesión activa en PJUD y reintenta para conservar el flujo directo PJUD→Alpha.', 'warn');
       }
       registerJudicialTrace({
         scope: 'pjud',
@@ -10407,6 +10428,7 @@
       const materia = rowPayload?.pjud_materia || safeFallback.materia || basicFallback.materia || '';
       const estadoProcesal = rowPayload?.pjud_estado_procesal || safeFallback.estadoProcesal || basicFallback.estadoProcesal || '';
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
+      const directEbookUrl = rowPayload?.pjud_ebook_url || safeFallback?.ebook?.sourceUrl || safeFallback?.ebook?.url || '';
       return {
         ...safeFallback,
         source: 'pjud_excel_mis_causas',
@@ -10438,7 +10460,14 @@
         demandados: safeFallback.demandados || [],
         movements: safeFallback.movements || [],
         documents: safeFallback.documents || [],
-        ebook: safeFallback.ebook || null,
+        ebook: safeFallback.ebook || (isHttpUrl(directEbookUrl) ? {
+          name: `ebook-${slugId(rowPayload?.pjud_caratulado || rol || 'causa')}.pdf`,
+          category: 'Ebook',
+          sourceUrl: directEbookUrl,
+          sourcePageUrl: safeFallback.basic?.link || safeFallback.sourceUrl || '',
+          destinationContainer: 'ebook',
+          observation: 'EBOOK referenciado desde índice PJUD.',
+        } : null),
         rawText: safeFallback.rawText || '',
         basic: {
           rol,
