@@ -1045,6 +1045,57 @@ function normalizePjudRol(value = '') {
   return normalized.toUpperCase()
 }
 
+const PJUD_COURT_VARIANTS = [
+  { pattern: /\b(juzg|jgdo)\b/g, replace: 'juzgado' },
+  { pattern: /\bgarant[ií]a\b/g, replace: 'garantia' },
+  { pattern: /\bciv\b/g, replace: 'civil' },
+  { pattern: /\blab\b/g, replace: 'laboral' },
+  { pattern: /\bfam\b/g, replace: 'familia' },
+  { pattern: /\bcob\b/g, replace: 'cobranza' },
+  { pattern: /\bstgo\b/g, replace: 'santiago' },
+  { pattern: /\bapelac(?:ion|iones)?\b/g, replace: 'apelaciones' },
+]
+
+export function normalizePjudTribunal(value = '') {
+  let normalized = normalizeForComparison(value)
+  if (!normalized) return ''
+  PJUD_COURT_VARIANTS.forEach((rule) => {
+    normalized = normalized.replace(rule.pattern, rule.replace)
+  })
+  return normalized
+    .replace(/[–—−]/g, '-')
+    .replace(/[^a-z0-9\s-]/g, ' ')
+    .replace(/\s*-\s*/g, '-')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+export function normalizePjudCaratulaForMatch(value = '') {
+  return normalizeForComparison(value)
+    .replace(/\b(c\/|c\\|contra|con)\b/g, ' con ')
+    .replace(/[^a-z0-9\s]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+function parseRolComponents(rawRol = '') {
+  const normalizedRol = normalizePjudRol(rawRol)
+  const match = normalizedRol.match(/^([A-Z]{1,6})-(\d{1,8})-(\d{4})$/)
+  return {
+    raw: String(rawRol || '').trim(),
+    normalized: normalizedRol,
+    type: match?.[1] || '',
+    number: match?.[2] ? Number(match[2]) : null,
+    year: match?.[3] ? Number(match[3]) : null,
+  }
+}
+
+function buildExpedienteDisplayName({ rol = '', caratula = '' } = {}) {
+  const visibleRol = collapseWhitespace(rol || 'ROL-SIN-DEFINIR')
+  const visibleCaratula = collapseWhitespace(caratula || 'CARÁTULA-SIN-DEFINIR')
+  return `${visibleRol} - ${visibleCaratula}`
+}
+
 function buildPjudCaseDedupeKey(materia = '', row = {}, fallbackCandidates = []) {
   const tribunal = normalizeForComparison(row.tribunal || row.corte || '')
   const normalizedRol = normalizePjudRol(row.rol || row.rit || '')
@@ -1277,6 +1328,15 @@ function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map()) {
   mapped.estado = mapped.estado || mapped.estadoProcesal || mapped.estadoCausa
   mapped.fecha = mapped.fechaIngreso || ''
   mapped.caratulado = normalizeCaratula(mapped.caratulado)
+  mapped.tribunal_original = sanitizeVisibleText(rawRow[resolveHeaderName(headerLookup, PJUD_MIS_CAUSAS_FIELD_ALIASES.tribunal)] || mapped.tribunal || '')
+  mapped.tribunal_normalizado = normalizePjudTribunal(mapped.tribunal || mapped.corte || '')
+  mapped.rol_original = sanitizeVisibleText(rawRow[resolveHeaderName(headerLookup, PJUD_MIS_CAUSAS_FIELD_ALIASES.rol)] || mapped.rol || mapped.rit || '')
+  mapped.rol_normalizado = parseRolComponents(mapped.rol || mapped.rit || '').normalized
+  mapped.caratula_original = sanitizeVisibleText(rawRow[resolveHeaderName(headerLookup, PJUD_MIS_CAUSAS_FIELD_ALIASES.caratulado)] || mapped.caratulado || '')
+  mapped.caratula_normalizada = normalizePjudCaratulaForMatch(mapped.caratulado || '')
+  mapped.tipo_origen = 'excel_pjud'
+  mapped.estado_vinculacion = 'pendiente_vinculacion'
+  mapped.expediente_display_name = buildExpedienteDisplayName({ rol: mapped.rol, caratula: mapped.caratulado })
   return mapped
 }
 
@@ -1386,6 +1446,17 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
         estadoProcesal: primary.estadoProcesal || primary.estadoCausa,
         fechaIngreso: primary.fechaIngreso,
         caratula: primary.caratulado,
+        expedienteDisplayName: primary.expediente_display_name || buildExpedienteDisplayName({ rol: primary.rol, caratula: primary.caratulado }),
+        metadata: {
+          tribunal_original: primary.tribunal_original || primary.tribunal || '',
+          tribunal_normalizado: primary.tribunal_normalizado || normalizePjudTribunal(primary.tribunal || primary.corte || ''),
+          rol_original: primary.rol_original || primary.rol || primary.rit || '',
+          rol_normalizado: primary.rol_normalizado || parseRolComponents(primary.rol || primary.rit || '').normalized,
+          caratula_original: primary.caratula_original || primary.caratulado || '',
+          caratula_normalizada: primary.caratula_normalizada || normalizePjudCaratulaForMatch(primary.caratulado || ''),
+          tipo_origen: primary.tipo_origen || 'excel_pjud',
+          estado_vinculacion: primary.estado_vinculacion || 'pendiente_vinculacion',
+        },
         link: '',
         importedAt: new Date().toISOString(),
       },
@@ -1481,12 +1552,23 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
   const tribunal = importData.basic?.tribunal || importData.tribunal || next.tribunal || 'Tribunal pendiente'
   const materia = importData.basic?.materia || importData.materia || next.materia || 'Materia judicial'
   const rol = importData.basic?.rol || importData.rol || next.rol || 'Rol pendiente'
-  const rit = importData.basic?.rit || importData.rit || next.rit || ''
-  const ruc = importData.ruc || next.ruc || ''
-  const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`
+  const caratula = importData.basic?.caratula || importData.caratulado || next.caratula || 'Carátula pendiente'
+  const folderName = importData.basic?.expedienteDisplayName || buildExpedienteDisplayName({ rol, caratula })
+  const metadata = importData.basic?.metadata || {}
   next.expedienteDigital = next.expedienteDigital || {}
   if (!String(next.expedienteDigital.id || '').trim() && next.id) {
     next.expedienteDigital.id = `expediente-${next.id}`
+  }
+  next.expedienteDigital.nombreVisible = folderName
+  next.expedienteDigital.metadata = {
+    tribunal_original: metadata.tribunal_original || tribunal,
+    tribunal_normalizado: metadata.tribunal_normalizado || normalizePjudTribunal(tribunal),
+    rol_original: metadata.rol_original || rol,
+    rol_normalizado: metadata.rol_normalizado || parseRolComponents(rol).normalized,
+    caratula_original: metadata.caratula_original || caratula,
+    caratula_normalizada: metadata.caratula_normalizada || normalizePjudCaratulaForMatch(caratula),
+    tipo_origen: metadata.tipo_origen || 'excel_pjud',
+    estado_vinculacion: metadata.estado_vinculacion || next.estadoVinculacion || 'pendiente_vinculacion',
   }
   next.expedienteDigital.cliente = next.expedienteDigital.cliente || {}
   next.expedienteDigital.cliente.tribunal = {
@@ -1499,7 +1581,7 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
       materia,
       editable: 'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
       causas: [{
-        nombre: `${folderName} · ${next.caratula || importData.basic?.caratula || 'Causa PJUD'}`,
+        nombre: folderName,
         subcarpetas: [...DEFAULT_PJUD_SUBFOLDERS],
       }],
     }],
@@ -1759,6 +1841,63 @@ export function findDuplicateCase(cases = [], importData = {}) {
     if (normalizedRit && rit && normalizedRit === rit && normalizedTribunal && tribunal === normalizedTribunal) return true
     return Boolean(normalizedCaratula && caratula && normalizedCaratula === caratula && normalizedTribunal && tribunal === normalizedTribunal)
   }) || null
+}
+
+function scoreEbookCaratulaSimilarity(source = '', target = '') {
+  const a = normalizePjudCaratulaForMatch(source)
+  const b = normalizePjudCaratulaForMatch(target)
+  if (!a || !b) return 0
+  if (a === b) return 1
+  const aTokens = new Set(a.split(' ').filter(Boolean))
+  const bTokens = new Set(b.split(' ').filter(Boolean))
+  const intersect = [...aTokens].filter((token) => bTokens.has(token)).length
+  const union = new Set([...aTokens, ...bTokens]).size
+  if (!union) return 0
+  return intersect / union
+}
+
+export function resolveEbookDestination(cases = [], ebookIdentity = {}) {
+  const tribunalKey = normalizePjudTribunal(ebookIdentity.tribunal || '')
+  const rolKey = parseRolComponents(ebookIdentity.rol || ebookIdentity.rit || '').normalized
+  const caratulaKey = normalizePjudCaratulaForMatch(ebookIdentity.caratula || '')
+  const candidates = (cases || []).filter((cause) => {
+    const causeTribunal = normalizePjudTribunal(cause?.tribunal || cause?.expedienteDigital?.metadata?.tribunal_original || '')
+    const causeRol = parseRolComponents(cause?.rol || cause?.rit || cause?.expedienteDigital?.metadata?.rol_original || '').normalized
+    if (!tribunalKey || !rolKey) return false
+    return causeTribunal === tribunalKey && causeRol === rolKey
+  })
+
+  if (!candidates.length) {
+    return {
+      status: 'pending_assignment',
+      confidence: 'none',
+      match: null,
+      suggestions: [],
+      reason: 'No se encontró coincidencia obligatoria por tribunal + rol.',
+    }
+  }
+
+  const ranked = candidates
+    .map((cause) => {
+      const similarity = scoreEbookCaratulaSimilarity(caratulaKey, cause?.caratula || '')
+      return { cause, similarity }
+    })
+    .sort((a, b) => b.similarity - a.similarity)
+  const best = ranked[0]
+  const high = best.similarity >= 0.85
+  const warning = best.similarity > 0 && best.similarity < 0.85
+  return {
+    status: 'matched',
+    confidence: high ? 'high' : (warning ? 'medium' : 'low'),
+    match: best.cause,
+    suggestions: ranked.slice(1, 4).map((item) => item.cause),
+    reason: high
+      ? 'Coincidencia por tribunal + rol con carátula confirmada.'
+      : (warning
+        ? 'Coincidencia por tribunal + rol con variación menor de carátula.'
+        : 'Coincidencia por tribunal + rol sin confirmación fuerte de carátula.'),
+    caratulaWarning: !high,
+  }
 }
 
 export function applyImportToDetail(detail = {}, importData = {}, options = {}) {

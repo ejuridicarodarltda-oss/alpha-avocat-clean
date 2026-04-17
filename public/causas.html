@@ -2446,6 +2446,7 @@
       recordDownload,
       removeDocument,
       repairCauseDocumentLinkage,
+      resolveEbookDestination,
       revertLastImport,
       saveWorkspace as saveWorkspaceState,
       slugId,
@@ -9270,6 +9271,24 @@
         .map((entry) => `${entry.key}: ${entry.value}`);
     }
 
+    function resolvePjudStorageTarget(document = {}){
+      const name = normalizePjudKey(document?.name || document?.fileName || '');
+      const category = normalizePjudKey(document?.category || '');
+      const isEbook = category.includes('ebook') || name.includes('ebook');
+      if (isEbook) {
+        return {
+          category: 'Ebook',
+          destinationContainer: 'ebook',
+          destinationTrace: 'documentContainers.ebook',
+        };
+      }
+      return {
+        category: 'Importadas del Poder Judicial',
+        destinationContainer: 'importadosPjud',
+        destinationTrace: 'documentContainers.importadosPjud',
+      };
+    }
+
     function buildCaseMatchTokensFromDocument(document = {}){
       const fromTraceability = document?.pjudTraceability || {};
       const fromMetadata = document?.metadata || {};
@@ -9296,12 +9315,39 @@
 
     function resolveBatchCaseForDocument(document = {}, cases = getAllCases()){
       const fileName = document?.name || document?.fileName || '';
+      const normalizedCategory = normalizePjudKey(document?.category || '');
       const identifiers = extractPjudIdentifiersFromText([
         fileName,
         document?.sourceUrl || '',
         document?.sourcePageUrl || '',
         document?.observation || '',
       ].join(' | '));
+      const extractedCaratula = String(document?.metadata?.caratula || document?.pjudTraceability?.caratula || document?.caratulaDetectada || '').trim();
+      if (normalizedCategory.includes('ebook') || normalizePjudKey(fileName).includes('ebook')) {
+        const strict = resolveEbookDestination(cases, {
+          tribunal: identifiers.tribunal || document?.metadata?.tribunal || document?.pjudTraceability?.tribunal || '',
+          rol: identifiers.rol || document?.metadata?.rol || document?.pjudTraceability?.rol || '',
+          rit: identifiers.rit || document?.metadata?.rit || document?.pjudTraceability?.rit || '',
+          caratula: extractedCaratula,
+        });
+        if (strict.status === 'matched' && strict.match) {
+          const confidence = strict.confidence === 'high' ? 90 : (strict.confidence === 'medium' ? 72 : 65);
+          return {
+            suggestedCase: strict.match,
+            identifiers,
+            confidence,
+            method: strict.confidence === 'high' ? 'automatico-por-tribunal-rol-caratula' : 'automatico-por-tribunal-rol',
+            requiresConfirmation: strict.caratulaWarning === true,
+          };
+        }
+        return {
+          suggestedCase: null,
+          identifiers,
+          confidence: 0,
+          method: 'pendiente',
+          requiresConfirmation: true,
+        };
+      }
       const baseResolution = resolveBatchCaseForFile(fileName, cases);
       const tokens = buildCaseMatchTokensFromDocument(document);
       let best = baseResolution.suggestedCase;
@@ -9499,10 +9545,11 @@
           const blob = await response.blob();
           if (!blob.size) throw new Error('respuesta vacía');
           const content = await blobToDataUrl(blob);
+          const storageTarget = resolvePjudStorageTarget(doc);
           linkedDocs.push({
             name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            category: storageTarget.category,
+            destinationContainer: storageTarget.destinationContainer,
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9513,7 +9560,7 @@
               origin: 'pjud_auto',
               mode: 'massive_auto',
               resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              destination_container: storageTarget.destinationTrace,
             },
             content,
           });
@@ -9584,10 +9631,11 @@
           const blob = await response.blob();
           if (!blob.size) throw new Error('Respuesta vacía');
           const content = await blobToDataUrl(blob);
+          const storageTarget = resolvePjudStorageTarget(doc);
           linkedDocs.push({
             name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            category: storageTarget.category,
+            destinationContainer: storageTarget.destinationContainer,
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9602,7 +9650,7 @@
               origin: 'pjud_auto',
               mode: 'manual_single',
               resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              destination_container: storageTarget.destinationTrace,
               linked_client: current?.cliente || '',
             },
             content,
@@ -9699,20 +9747,25 @@
           ...buildDocumentLinkagePayload(current),
         }))
         : [];
-      const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => ({
-        ...doc,
-        ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
-        pjudTraceability: {
-          ...(doc.pjudTraceability || {}),
-          batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
-          case_id: current.id,
-          origin: doc.content ? 'pjud_auto' : 'manual_upload',
-          mode: 'manual_single',
-          resolution_method: 'confirmado-manualmente',
-          destination_container: 'documentContainers.importadosPjud',
-          linked_client: current.cliente || '',
-        },
-      }));
+      const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => {
+        const storageTarget = resolvePjudStorageTarget(doc);
+        return {
+          ...doc,
+          category: storageTarget.category,
+          destinationContainer: storageTarget.destinationContainer,
+          ...buildDocumentLinkagePayload(current, { estadoVinculacion: 'vinculado' }),
+          pjudTraceability: {
+            ...(doc.pjudTraceability || {}),
+            batch_id: current.importBatchId || current.import_batch_id || state.pendingPjudBatchId || null,
+            case_id: current.id,
+            origin: doc.content ? 'pjud_auto' : 'manual_upload',
+            mode: 'manual_single',
+            resolution_method: 'confirmado-manualmente',
+            destination_container: storageTarget.destinationTrace,
+            linked_client: current.cliente || '',
+          },
+        };
+      });
       if (!allDocuments.length) return false;
       persistCurrentCause((entry) => {
         let next = entry;
@@ -9773,7 +9826,14 @@
           destinationModule: 'Causas',
         }))
         : [];
-      const allDocuments = [...fileDocuments, ...queuedDocuments];
+      const allDocuments = [...fileDocuments, ...queuedDocuments].map((doc) => {
+        const storageTarget = resolvePjudStorageTarget(doc);
+        return {
+          ...doc,
+          category: storageTarget.category,
+          destinationContainer: storageTarget.destinationContainer,
+        };
+      });
       if (!allDocuments.length) {
         state.pendingPjudBatchValidation = null;
         state.pendingPjudBatchManualAssignments = [];
@@ -9853,8 +9913,11 @@
         if (resolutionMethod === 'confirmado-manualmente') manualAssignments.push(item);
         const caseId = String(selectedCase.id);
         if (!updatesByCase.has(caseId)) updatesByCase.set(caseId, { cause: selectedCase, docs: [] });
+        const storageTarget = resolvePjudStorageTarget(item.document || {});
         updatesByCase.get(caseId).docs.push({
           ...item.document,
+          category: storageTarget.category,
+          destinationContainer: storageTarget.destinationContainer,
           caseId,
           linkedClient: selectedCase.cliente,
           ...buildDocumentLinkagePayload(selectedCase, { estadoVinculacion: 'vinculado' }),
@@ -9865,7 +9928,7 @@
             origin: item.document?.content ? 'pjud_auto' : 'manual_upload',
             mode: 'massive_auto',
             resolution_method: resolutionMethod,
-            destination_container: 'documentContainers.importadosPjud',
+            destination_container: storageTarget.destinationTrace,
             linked_client: selectedCase.cliente || '',
           },
         });
