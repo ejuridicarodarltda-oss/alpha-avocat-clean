@@ -2328,14 +2328,16 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Listado de causas</div>
-          <p class="panel-subtitle">Importa Excel base (.xlsx/.xls), valida estructura, detecta duplicados y sincroniza el universo de causas sin reemplazar la carga manual.</p>
+          <div class="modal-title">Cargar Excel depurado tribunal</div>
+          <p class="panel-subtitle">Suba aquí el Excel depurado correspondiente a un solo tribunal. Con este archivo el sistema creará las carpetas de expedientes con nombre ROL - CARÁTULA.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalListadoCausas" aria-label="Cerrar">✕</button>
       </div>
       <form id="formListadoCausas" class="form">
+        <div class="helper-box">Formato esperado: archivo Excel válido en formato <strong>.xlsx</strong> o <strong>.xls</strong>.</div>
+        <div class="helper-box">Este flujo es exclusivo para un solo tribunal por archivo. Si el Excel mezcla tribunales, depúralo antes de procesar.</div>
         <div class="field">
-          <label for="listadoCausasFile">Archivo Excel listado de causas</label>
+          <label for="listadoCausasFile">Archivo Excel depurado tribunal</label>
           <input id="listadoCausasFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
         </div>
         <div id="listadoCausasFileMeta" class="helper-box">No hay archivo seleccionado.</div>
@@ -2353,7 +2355,7 @@
         <div id="listadoCausasLastUpload" class="helper-box">Última carga: sin registros.</div>
         <div class="modal-actions">
           <button type="button" class="btn" data-close="1" data-modal-id="modalListadoCausas">Cancelar</button>
-          <button id="btnConfirmarListadoCausas" type="submit" class="btn btn-primary">Guardar y procesar listado</button>
+          <button id="btnConfirmarListadoCausas" type="submit" class="btn btn-primary">Procesar Excel depurado</button>
         </div>
         <div id="listadoCausasMsg" class="msg" aria-live="polite"></div>
       </form>
@@ -6042,7 +6044,7 @@
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
         { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload', tertiaryButton:'Cargar Excel depurado tribunal', tertiaryAction:'upload-tribunal-excel' },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
@@ -6058,6 +6060,7 @@
           <div class="card-action-wrap">
             <button class="btn ${state.activeTab === card.id ? 'btn-primary' : ''}" data-tab="${card.id}" data-open-block="true">${escapeHtml(card.button)}</button>
             ${card.secondaryButton ? `<button class="btn" type="button" data-pillar-action="${escapeHtml(card.secondaryAction || '')}" data-tab="${card.id}">${escapeHtml(card.secondaryButton)}</button>` : ''}
+            ${card.tertiaryButton ? `<button class="btn" type="button" data-pillar-action="${escapeHtml(card.tertiaryAction || '')}" data-tab="${card.id}">${escapeHtml(card.tertiaryButton)}</button>` : ''}
           </div>
           <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
@@ -8768,6 +8771,8 @@
         if (rowsError) throw rowsError;
       }
       let linkedRows = rowsPayload.filter((row) => row.linked_case_id).length;
+      let createdCases = 0;
+      let updatedCases = 0;
       if (key === 'listado') {
         const allCases = getAllCases();
         const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
@@ -8781,6 +8786,7 @@
               updated_at: new Date().toISOString(),
             }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
             if (updateError) throw updateError;
+            updatedCases += 1;
             continue;
           }
           const { error: insertError } = await supabase.from(T_CASES).insert({
@@ -8796,6 +8802,7 @@
             imported_at: new Date().toISOString(),
           });
           if (insertError) throw insertError;
+          createdCases += 1;
         }
       } else {
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
@@ -8811,6 +8818,13 @@
       populateFilters();
       renderAll();
       renderUploadLastInfo(type);
+      return {
+        totalRows: store.parsed.totalRows,
+        validRows: store.parsed.validRows.length,
+        createdCases,
+        updatedCases,
+        linkedRows,
+      };
     }
 
     function renderMassiveExcelBasePanel(){
@@ -12889,11 +12903,11 @@
       bindEvent('formListadoCausas', 'submit', async (event) => {
         event.preventDefault();
         try {
-          await processExcelUpload('listado');
-          setMessage('listadoCausasMsg', 'Listado de causas guardado y procesado correctamente.', 'ok');
+          const summary = await processExcelUpload('listado');
+          setMessage('listadoCausasMsg', `Excel depurado procesado correctamente. Filas válidas: ${summary.validRows}. Carpetas/expedientes creados: ${summary.createdCases}. Actualizados: ${summary.updatedCases}.`, 'ok');
           renderExcelPreview('listado');
         } catch (error) {
-          setMessage('listadoCausasMsg', `Error al guardar listado: ${error?.message || 'Error desconocido'}`, 'error');
+          setMessage('listadoCausasMsg', `Error al procesar Excel depurado: ${error?.message || 'Error desconocido'}`, 'error');
         }
       }, { required: true, scope: 'excel-listado' });
       bindEvent('formEstadoDiario', 'submit', async (event) => {
@@ -13026,6 +13040,12 @@
           event.preventDefault();
           event.stopPropagation();
           openManualUploadModal();
+          return;
+        }
+        if (pillarAction?.dataset?.pillarAction === 'upload-tribunal-excel') {
+          event.preventDefault();
+          event.stopPropagation();
+          openExcelUploadModal('listado');
           return;
         }
         const tab = event.target.closest('[data-tab]');
