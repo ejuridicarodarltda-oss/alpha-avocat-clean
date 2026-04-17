@@ -91,6 +91,19 @@
     .manual-status.ok{color:#0f5f2d}
     .manual-status.error{color:#8b0000}
     .manual-status.warn{color:#7a4b00}
+    .folder-nav-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
+    .folder-nav-btn{appearance:none;border:1px solid #b9ddd6;background:#f8fffd;border-radius:12px;padding:12px;text-align:left;cursor:pointer}
+    .folder-nav-btn:hover{border-color:#163A5F;box-shadow:0 6px 12px rgba(11,37,34,.1)}
+    .folder-nav-btn strong{display:block;color:#163A5F}
+    .folder-nav-btn .muted{display:block;margin-top:4px}
+    .folder-file-list{display:grid;gap:8px;margin-top:10px}
+    .folder-file-item{background:#f8fffd;border:1px solid #b9ddd6;border-radius:10px;padding:10px;display:grid;gap:8px}
+    .folder-file-top{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+    .folder-file-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+    .folder-file-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+    .folder-file-meta .muted{font-size:12px}
+    .folder-subheader{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;margin-top:8px}
+    .folder-upload{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
     .detected-grid{display:grid;gap:8px;border:1px solid #d4e8e4;border-radius:12px;background:#f8fffd;padding:10px}
     .detected-item{display:grid;gap:3px;border-bottom:1px dashed #d4e8e4;padding-bottom:6px}
     .detected-item:last-child{border-bottom:none;padding-bottom:0}
@@ -109,6 +122,7 @@
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
     @media (max-width:900px){.matter-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.index-main-grid{grid-template-columns:1fr}}
+    @media (max-width:900px){.folder-nav-grid,.folder-file-meta{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -259,9 +273,21 @@
       kRit:'pjud_rit', kRuc:'pjud_ruc', kTrib:'pjud_tribunal', kMatter:'pjud_materia'
     };
 
-    const SUBFOLDERS = [
-      'Ebook','Documento','Absolución de posiciones','Jurisprudencia','Doctrina','Incidentes','Escritos','Resoluciones','Notificaciones','Trazabilidad'
+    const ROLE_FOLDER_CATEGORIES = [
+      { key: 'ebook', label: 'Ebook', icon: '📘', purpose: 'PDF principal o expediente base de la causa.' },
+      { key: 'documento', label: 'Documento', icon: '📄', purpose: 'Documentos generales no clasificados en otra categoría.' },
+      { key: 'absolucion_posiciones', label: 'Absolución de posiciones', icon: '🧾', purpose: 'Diligencias y antecedentes de absolución de posiciones.' },
+      { key: 'jurisprudencia', label: 'Jurisprudencia', icon: '⚖️', purpose: 'Fallos, sentencias, extractos y PDFs jurisprudenciales.' },
+      { key: 'doctrina', label: 'Doctrina', icon: '📚', purpose: 'Artículos, apuntes y contenido doctrinario.' },
+      { key: 'incidentes', label: 'Incidentes', icon: '📂', purpose: 'Escritos y resoluciones incidentales.' },
+      { key: 'escritos', label: 'Escritos', icon: '✍️', purpose: 'Escritos presentados o en borrador asociados a la causa.' },
+      { key: 'resoluciones', label: 'Resoluciones', icon: '🏛️', purpose: 'Resoluciones judiciales de la causa.' },
+      { key: 'notificaciones', label: 'Notificaciones', icon: '🔔', purpose: 'Cédulas, estados diarios, avisos y constancias.' },
+      { key: 'trazabilidad', label: 'Trazabilidad', icon: '🧭', purpose: 'Bitácora de hitos, cambios y eventos relevantes.' },
+      { key: 'importados_pjud', label: 'Importados de PJUD', icon: '📥', purpose: 'Contenido importado exclusivamente desde Poder Judicial.' },
     ];
+    const CASE_FILES_BUCKET = 'case-files';
+    const CASE_FILES_STORAGE_KEY = 'alpha-expedientes-case-files-v1';
     const ORDERED_MATTERS = [
       'Juzgados de Familia',
       'Juzgados Civiles',
@@ -280,6 +306,7 @@
     let selectedTribunal = '';
     let selectedRole = '';
     let selectedCause = null;
+    let selectedFolderCategory = '';
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
     const EXTRACTION_LOGS_STORAGE_KEY = 'alpha-expedientes-extraction-logs-v1';
@@ -334,6 +361,90 @@
     }
     function saveJsonStorage(key, payload) {
       window.localStorage.setItem(key, JSON.stringify(payload));
+    }
+    function loadCaseFilesRegistry() {
+      return loadJsonStorage(CASE_FILES_STORAGE_KEY, {});
+    }
+    function saveCaseFilesRegistry(registry = {}) {
+      saveJsonStorage(CASE_FILES_STORAGE_KEY, registry);
+    }
+    function formatBytes(bytes = 0) {
+      const size = Number(bytes || 0);
+      if (!Number.isFinite(size) || size <= 0) return '0 B';
+      if (size < 1024) return `${size} B`;
+      if (size < 1024 * 1024) return `${(size / 1024).toFixed(1)} KB`;
+      if (size < 1024 * 1024 * 1024) return `${(size / (1024 * 1024)).toFixed(1)} MB`;
+      return `${(size / (1024 * 1024 * 1024)).toFixed(2)} GB`;
+    }
+    function formatDateTime(value = '') {
+      if (!value) return 'Sin fecha';
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) return 'Sin fecha';
+      return date.toLocaleString('es-CL', { timeZone: 'UTC' });
+    }
+    function slugifyFilename(name = '') {
+      return String(name || '')
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9.\-_]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '')
+        || 'archivo';
+    }
+    function folderDefinitionByKey(category = '') {
+      return ROLE_FOLDER_CATEGORIES.find((entry) => entry.key === category) || null;
+    }
+    function sourceTypeForFolder(category = '') {
+      return category === 'importados_pjud' ? 'pjud' : 'manual';
+    }
+    function inferFolderCategoryFromLegacyCategory(category = '') {
+      const normalized = normalize(category);
+      if (normalized.includes('ebook')) return 'ebook';
+      if (normalized.includes('resolucion')) return 'resoluciones';
+      if (normalized.includes('escrito') || normalized.includes('borrador')) return 'escritos';
+      if (normalized.includes('notificacion')) return 'notificaciones';
+      if (normalized.includes('trazabilidad') || normalized.includes('hito')) return 'trazabilidad';
+      if (normalized.includes('jurisprudencia')) return 'jurisprudencia';
+      if (normalized.includes('doctrina')) return 'doctrina';
+      if (normalized.includes('incidente')) return 'incidentes';
+      if (normalized.includes('absolucion')) return 'absolucion_posiciones';
+      return 'documento';
+    }
+    function buildLegacyCaseFiles(cause = {}) {
+      const registry = loadManualRegistry();
+      const current = registry[cause.id];
+      const docs = Array.isArray(current?.documentos) ? current.documentos : [];
+      return docs.map((doc) => ({
+        id: `legacy-${doc.id || crypto.randomUUID()}`,
+        case_id: cause.id,
+        folder_category: inferFolderCategoryFromLegacyCategory(doc.category || ''),
+        file_name: doc.name || 'Documento sin nombre',
+        mime_type: doc.type || 'application/octet-stream',
+        size_bytes: Number(doc.size || 0),
+        source_type: 'manual',
+        created_at: doc.uploadedAt || current?.updatedAt || new Date().toISOString(),
+        metadata: { legacy_local: true, contentBase64: doc.contentBase64 || '' },
+      }));
+    }
+    function upsertLocalCaseFile(cause = {}, payload = {}) {
+      const registry = loadCaseFilesRegistry();
+      const caseKey = String(cause.id || '');
+      const list = Array.isArray(registry[caseKey]) ? registry[caseKey] : [];
+      const next = payload?.id
+        ? [...list.filter((item) => item.id !== payload.id), payload]
+        : [...list, payload];
+      registry[caseKey] = next.sort((a, b) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+      saveCaseFilesRegistry(registry);
+    }
+    function removeLocalCaseFile(cause = {}, fileId = '') {
+      const registry = loadCaseFilesRegistry();
+      const caseKey = String(cause.id || '');
+      registry[caseKey] = (registry[caseKey] || []).filter((item) => item.id !== fileId);
+      saveCaseFilesRegistry(registry);
+    }
+    function listLocalCaseFiles(cause = {}) {
+      const registry = loadCaseFilesRegistry();
+      return Array.isArray(registry[String(cause.id || '')]) ? registry[String(cause.id || '')] : [];
     }
     function loadExtractionLogs() {
       return loadJsonStorage(EXTRACTION_LOGS_STORAGE_KEY, []);
@@ -648,6 +759,7 @@
       selectedTribunal = '';
       selectedRole = '';
       selectedCause = null;
+      selectedFolderCategory = '';
       ['matterPanel','tribunalPanel','rolePanel','manualPanel'].forEach((id) => {
         document.getElementById(id).hidden = true;
       });
@@ -725,30 +837,259 @@
       document.getElementById('manualPanel').hidden = true;
     }
 
-    function openRolePanel(role, roles = []) {
+    async function listCaseFilesForCause(cause = {}) {
+      const localFiles = listLocalCaseFiles(cause);
+      const legacyFiles = buildLegacyCaseFiles(cause);
+      try {
+        const { data, error } = await supabase
+          .from('case_files')
+          .select('*')
+          .eq('case_id', cause.id)
+          .order('created_at', { ascending: false });
+        if (error) throw error;
+        return [...(Array.isArray(data) ? data : []), ...localFiles, ...legacyFiles];
+      } catch {
+        return [...localFiles, ...legacyFiles];
+      }
+    }
+    async function openRolePanel(role, roles = []) {
       const cause = roles.find((item) => item.identificador === role);
       if (!cause) return;
       selectedRole = cause.identificador;
       selectedCause = cause;
-      document.getElementById('rolePanelTitle').textContent = `${cause.identificador} · ${cause.caratula}`;
-      document.getElementById('roleContentList').innerHTML = `
-        <div class="folder">
-          <h5>📁 Carpeta por rol ${escapeHtml(cause.identificador)}</h5>
-          <div class="muted">Todo el contenido del expediente queda alojado en esta carpeta.</div>
-          <div class="subfolders" style="margin-top:8px;">
-            ${SUBFOLDERS.map((name) => `<div class="folder">📘 ${escapeHtml(name)}</div>`).join('')}
-            <div class="folder span-full">📥 Importados de PJUD</div>
-          </div>
-          <div style="margin-top:10px;">
-            <button class="manual-btn" id="openManualFromRole" type="button" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Subir / Poblar manualmente' : 'Disponible solo para causas con rol'}</button>
-          </div>
-        </div>
-      `;
-      document.getElementById('openManualFromRole')?.addEventListener('click', () => openManualPanel(cause));
+      selectedFolderCategory = '';
+      await renderRoleRoot(cause);
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = true;
       document.getElementById('rolePanel').hidden = false;
       document.getElementById('manualPanel').hidden = true;
+    }
+    async function renderRoleRoot(cause) {
+      document.getElementById('rolePanelTitle').textContent = `${cause.identificador} · ${cause.caratula}`;
+      const files = await listCaseFilesForCause(cause);
+      const countByCategory = files.reduce((acc, item) => {
+        const key = item.folder_category || 'documento';
+        acc[key] = Number(acc[key] || 0) + 1;
+        return acc;
+      }, {});
+      document.getElementById('roleContentList').innerHTML = `
+        <div class="folder">
+          <h5>📁 Carpeta por rol ${escapeHtml(cause.identificador)}</h5>
+          <div class="muted">Expediente vivo de esta causa. Cada subfolder es operativo y no comparte archivos con otras causas.</div>
+          <div class="folder-nav-grid">
+            ${ROLE_FOLDER_CATEGORIES.map((entry) => `
+              <button class="folder-nav-btn" type="button" data-open-folder="${escapeHtml(entry.key)}">
+                <strong>${escapeHtml(entry.icon)} ${escapeHtml(entry.label)}</strong>
+                <span class="muted">${escapeHtml(entry.purpose)}</span>
+                <span class="tag">${escapeHtml(countByCategory[entry.key] || 0)} archivo(s)</span>
+              </button>
+            `).join('')}
+          </div>
+          <div style="margin-top:10px;" class="panel-actions">
+            <button class="manual-btn" id="openManualFromRole" type="button" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Subir / Poblar manualmente' : 'Disponible solo para causas con rol'}</button>
+          </div>
+        </div>
+      `;
+      document.querySelectorAll('[data-open-folder]').forEach((btn) => {
+        btn.addEventListener('click', () => openSubfolderPanel(cause, btn.dataset.openFolder || ''));
+      });
+      document.getElementById('openManualFromRole')?.addEventListener('click', () => openManualPanel(cause));
+    }
+    async function openSubfolderPanel(cause, categoryKey = '') {
+      const folderDef = folderDefinitionByKey(categoryKey);
+      if (!folderDef) return;
+      selectedFolderCategory = folderDef.key;
+      const allFiles = await listCaseFilesForCause(cause);
+      const folderFiles = allFiles.filter((item) => item.case_id === cause.id && item.folder_category === folderDef.key);
+      renderSubfolderContent(cause, folderDef, folderFiles);
+    }
+    function renderSubfolderContent(cause, folderDef, files = []) {
+      document.getElementById('rolePanelTitle').textContent = `${cause.identificador} · ${cause.caratula} · ${folderDef.label}`;
+      document.getElementById('roleContentList').innerHTML = `
+        <div class="folder">
+          <div class="folder-subheader">
+            <div>
+              <h5 style="margin:0;">${escapeHtml(folderDef.icon)} ${escapeHtml(folderDef.label)}</h5>
+              <div class="muted">${escapeHtml(folderDef.purpose)}</div>
+            </div>
+            <button class="btn" type="button" id="backToRoleFolderBtn">Volver a carpeta por rol</button>
+          </div>
+          <div class="folder-upload">
+            <input id="subfolderUploadInput" type="file" multiple />
+            <button class="manual-btn" id="subfolderUploadBtn" type="button">Subir/agregar al subfolder</button>
+          </div>
+          <div id="subfolderStatus" class="manual-status"></div>
+          <div class="folder-file-list">
+            ${files.length ? files.map((file) => `
+              <article class="folder-file-item">
+                <div class="folder-file-top">
+                  <strong>${escapeHtml(file.file_name || 'Archivo sin nombre')}</strong>
+                  <span class="tag">${escapeHtml(file.source_type || 'manual')}</span>
+                </div>
+                <div class="folder-file-meta">
+                  <div class="muted"><strong>Categoría:</strong> ${escapeHtml(folderDef.label)}</div>
+                  <div class="muted"><strong>Tipo:</strong> ${escapeHtml(file.mime_type || 'application/octet-stream')}</div>
+                  <div class="muted"><strong>Tamaño:</strong> ${escapeHtml(formatBytes(file.size_bytes || 0))}</div>
+                  <div class="muted"><strong>Fecha:</strong> ${escapeHtml(formatDateTime(file.created_at || file.updated_at))}</div>
+                  <div class="muted"><strong>Origen:</strong> ${escapeHtml(file.source_type || 'manual')}</div>
+                  <div class="muted"><strong>Acciones:</strong> abrir · descargar · eliminar · reclasificar</div>
+                </div>
+                <div class="folder-file-actions">
+                  <button class="btn" type="button" data-file-open="${escapeHtml(file.id)}">Abrir</button>
+                  <button class="btn" type="button" data-file-download="${escapeHtml(file.id)}">Descargar</button>
+                  <button class="btn" type="button" data-file-delete="${escapeHtml(file.id)}">Eliminar</button>
+                  <select data-file-reclassify="${escapeHtml(file.id)}">
+                    ${ROLE_FOLDER_CATEGORIES.map((entry) => `<option value="${escapeHtml(entry.key)}" ${file.folder_category === entry.key ? 'selected' : ''}>${escapeHtml(entry.label)}</option>`).join('')}
+                  </select>
+                </div>
+              </article>
+            `).join('') : '<div class="folder">No hay contenido cargado en este subfolder para esta causa</div>'}
+          </div>
+        </div>
+      `;
+      document.getElementById('backToRoleFolderBtn')?.addEventListener('click', () => {
+        selectedFolderCategory = '';
+        renderRoleRoot(cause);
+      });
+      document.getElementById('subfolderUploadBtn')?.addEventListener('click', async () => {
+        const input = document.getElementById('subfolderUploadInput');
+        const selectedFiles = Array.from(input?.files || []);
+        if (!selectedFiles.length) {
+          setSubfolderStatus('warn', 'Selecciona al menos un archivo para subir.');
+          return;
+        }
+        await uploadFilesToSubfolder(cause, folderDef.key, selectedFiles);
+        await openSubfolderPanel(cause, folderDef.key);
+      });
+      bindCaseFileActions(cause, files);
+    }
+    function setSubfolderStatus(type, message) {
+      const node = document.getElementById('subfolderStatus');
+      if (!node) return;
+      node.className = `manual-status${type ? ` ${type}` : ''}`;
+      node.textContent = message || '';
+    }
+    async function uploadFilesToSubfolder(cause, categoryKey, files = []) {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const createdBy = sessionData?.session?.user?.id || null;
+      for (const file of files) {
+        const fileId = crypto.randomUUID();
+        const filePath = `${cause.id}/${categoryKey}/${Date.now()}-${slugifyFilename(file.name)}`;
+        let storagePath = '';
+        try {
+          const { error: uploadError } = await supabase.storage.from(CASE_FILES_BUCKET).upload(filePath, file, { upsert: false });
+          if (uploadError) throw uploadError;
+          storagePath = filePath;
+        } catch {
+          // Compatibilidad temporal si storage no está disponible.
+        }
+        const payload = {
+          id: fileId,
+          case_id: cause.id,
+          folder_category: categoryKey,
+          file_name: file.name,
+          mime_type: file.type || 'application/octet-stream',
+          size_bytes: Number(file.size || 0),
+          storage_path: storagePath || null,
+          source_type: sourceTypeForFolder(categoryKey),
+          created_by: createdBy,
+          metadata: { uploaded_from: 'expedientes_digitales_ui' },
+        };
+        let inserted = false;
+        try {
+          const { error } = await supabase.from('case_files').insert(payload);
+          if (error) throw error;
+          inserted = true;
+        } catch {
+          inserted = false;
+        }
+        if (!inserted) upsertLocalCaseFile(cause, { ...payload, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+      }
+      setSubfolderStatus('ok', 'Carga completada para este subfolder.');
+    }
+    async function resolveFileUrl(file = {}) {
+      if (file?.metadata?.legacy_local && file?.metadata?.contentBase64) {
+        const blob = decodeBase64File(file.metadata.contentBase64, file.mime_type || 'application/octet-stream');
+        return URL.createObjectURL(blob);
+      }
+      if (file.file_url) return file.file_url;
+      if (file.storage_path) {
+        const { data, error } = await supabase.storage.from(file.storage_bucket || CASE_FILES_BUCKET).createSignedUrl(file.storage_path, 60 * 5);
+        if (!error && data?.signedUrl) return data.signedUrl;
+      }
+      return '';
+    }
+    async function bindCaseFileActions(cause, files = []) {
+      const filesById = new Map(files.map((file) => [String(file.id), file]));
+      document.querySelectorAll('[data-file-open]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const file = filesById.get(btn.dataset.fileOpen || '');
+          if (!file) return;
+          const url = await resolveFileUrl(file);
+          if (!url) {
+            setSubfolderStatus('error', 'No fue posible abrir el archivo.');
+            return;
+          }
+          window.open(url, '_blank', 'noopener');
+        });
+      });
+      document.querySelectorAll('[data-file-download]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const file = filesById.get(btn.dataset.fileDownload || '');
+          if (!file) return;
+          const url = await resolveFileUrl(file);
+          if (!url) {
+            setSubfolderStatus('error', 'No fue posible descargar el archivo.');
+            return;
+          }
+          const link = document.createElement('a');
+          link.href = url;
+          link.download = file.file_name || 'archivo';
+          link.rel = 'noopener';
+          document.body.appendChild(link);
+          link.click();
+          link.remove();
+        });
+      });
+      document.querySelectorAll('[data-file-delete]').forEach((btn) => {
+        btn.addEventListener('click', async () => {
+          const file = filesById.get(btn.dataset.fileDelete || '');
+          if (!file) return;
+          if (!window.confirm(`¿Eliminar ${file.file_name}?`)) return;
+          try {
+            if (file.storage_path) await supabase.storage.from(file.storage_bucket || CASE_FILES_BUCKET).remove([file.storage_path]);
+          } catch {}
+          let removed = false;
+          try {
+            const { error } = await supabase.from('case_files').delete().eq('id', file.id);
+            if (error) throw error;
+            removed = true;
+          } catch {
+            removed = false;
+          }
+          if (!removed) removeLocalCaseFile(cause, file.id);
+          await openSubfolderPanel(cause, selectedFolderCategory || file.folder_category);
+        });
+      });
+      document.querySelectorAll('[data-file-reclassify]').forEach((selector) => {
+        selector.addEventListener('change', async () => {
+          const file = filesById.get(selector.dataset.fileReclassify || '');
+          const nextCategory = selector.value || '';
+          if (!file || !folderDefinitionByKey(nextCategory)) return;
+          let updated = false;
+          try {
+            const { error } = await supabase.from('case_files').update({ folder_category: nextCategory, updated_at: new Date().toISOString() }).eq('id', file.id);
+            if (error) throw error;
+            updated = true;
+          } catch {
+            updated = false;
+          }
+          if (!updated) {
+            upsertLocalCaseFile(cause, { ...file, folder_category: nextCategory, updated_at: new Date().toISOString() });
+          }
+          await openSubfolderPanel(cause, selectedFolderCategory || file.folder_category);
+        });
+      });
     }
     function decodeBase64File(base64, mimeType = 'application/octet-stream') {
       const byteCharacters = atob(base64);
