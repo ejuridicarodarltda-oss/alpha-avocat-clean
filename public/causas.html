@@ -5060,7 +5060,7 @@
         .order(C.c_name, { ascending:true });
       if (error) throw buildLoadError('los clientes asociados a CAUSAS', error);
       state.clients = (data || []).map(client => ({ ...client, display_name: getClientDisplayName(client) }));
-      state.clientMap = new Map(state.clients.map(client => [client[C.c_id], client.display_name]));
+      state.clientMap = new Map(state.clients.map(client => [String(client[C.c_id]), client.display_name]));
       $('k_client').innerHTML = '<option value="">Selecciona</option>' + state.clients.map(client => `<option value="${client[C.c_id]}">${escapeHtml(client.display_name)}</option>`).join('');
       const rectificationSelect = $('rectificationClientSelect');
       if (rectificationSelect) {
@@ -5069,11 +5069,12 @@
     }
 
     function resolveClientIdFromCause(cause){
-      const directId = cause?.clientId ?? cause?.[C.k_client_id] ?? null;
+      const directId = String(cause?.clientId ?? cause?.[C.k_client_id] ?? '').trim();
       if (directId && state.clientMap.has(directId)) return directId;
       const normalizedClientName = normalizeTextForMatch(cause?.cliente || '');
       if (!normalizedClientName) return '';
-      return state.clients.find((client) => normalizeTextForMatch(client.display_name || '') === normalizedClientName)?.[C.c_id] || '';
+      const matchedClient = state.clients.find((client) => normalizeTextForMatch(client.display_name || '') === normalizedClientName);
+      return matchedClient ? String(matchedClient[C.c_id]) : '';
     }
 
     async function loadCases(){
