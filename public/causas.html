@@ -9231,6 +9231,32 @@
       return score;
     }
 
+    function isEbookBatchDocument(document = {}){
+      const category = normalizePjudKey(document?.category || document?.tipoDocumento || '');
+      const name = normalizePjudKey(document?.name || document?.fileName || '');
+      return category.includes('ebook') || name.includes('ebook');
+    }
+
+    function resolveEbookBatchCaseByRole(document = {}, cases = getAllCases()){
+      const identifiers = extractPjudIdentifiersFromText([
+        document?.name || document?.fileName || '',
+        document?.sourceUrl || '',
+        document?.sourcePageUrl || '',
+        document?.observation || '',
+      ].join(' | '));
+      const normalizedRole = normalizePjudKey(identifiers.rol || '');
+      const suggestedCase = normalizedRole
+        ? cases.find((cause) => normalizePjudKey(cause?.rol) === normalizedRole) || null
+        : null;
+      return {
+        suggestedCase,
+        identifiers,
+        confidence: suggestedCase ? 90 : 0,
+        method: suggestedCase ? 'automatico-por-rol-ebook' : 'pendiente',
+        requiresConfirmation: !suggestedCase,
+      };
+    }
+
     function resolveBatchCaseForFile(fileName = '', cases = getAllCases()){
       const identifiers = extractPjudIdentifiersFromText(fileName);
       const normalizedName = normalizePjudKey(fileName);
@@ -9295,6 +9321,9 @@
     }
 
     function resolveBatchCaseForDocument(document = {}, cases = getAllCases()){
+      if (isEbookBatchDocument(document)) {
+        return resolveEbookBatchCaseByRole(document, cases);
+      }
       const fileName = document?.name || document?.fileName || '';
       const identifiers = extractPjudIdentifiersFromText([
         fileName,
