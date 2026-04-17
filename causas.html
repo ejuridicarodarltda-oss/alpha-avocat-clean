@@ -3103,7 +3103,9 @@
     }
 
     const detailActions = [
-      { id:'editar', label:'Editar', action:() => openModal() },
+      { id:'abrir-expediente', label:'Abrir expediente', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-open-expediente' }) },
+      { id:'editar-expediente', label:'Editar expediente digital', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-edit-expediente' }) },
+      { id:'editar-causa-relacionada', label:'Editar causa relacionada', action:() => openModal() },
       { id:'rectificar', label:'Rectificar información', action:() => openCauseRectification('general') },
       { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
       { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
@@ -6558,7 +6560,7 @@
 
     function renderDetailActions(){
       const visibleActions = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin);
-      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'editar', 'rectificar']);
+      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'abrir-expediente', 'editar-expediente', 'editar-causa-relacionada', 'rectificar']);
       const primary = visibleActions.filter((item) => primaryIds.has(item.id));
       const secondary = visibleActions.filter((item) => !primaryIds.has(item.id));
       const renderButtons = (items) => items.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
