@@ -90,6 +90,18 @@
     .manual-status{font-size:13px}
     .manual-status.ok{color:#0f5f2d}
     .manual-status.error{color:#8b0000}
+    .manual-status.warn{color:#7a4b00}
+    .detected-grid{display:grid;gap:8px;border:1px solid #d4e8e4;border-radius:12px;background:#f8fffd;padding:10px}
+    .detected-item{display:grid;gap:3px;border-bottom:1px dashed #d4e8e4;padding-bottom:6px}
+    .detected-item:last-child{border-bottom:none;padding-bottom:0}
+    .detected-item strong{color:#163A5F}
+    .detected-badges{display:flex;gap:6px;flex-wrap:wrap}
+    .detected-badge{display:inline-flex;align-items:center;border-radius:999px;padding:2px 8px;font-size:11px;font-weight:700}
+    .detected-badge.high{background:#dff6e8;color:#0f5f2d}
+    .detected-badge.medium{background:#fff1d6;color:#7a4b00}
+    .detected-badge.low{background:#ffe3e3;color:#8b0000}
+    .detected-badge.review{background:#ffe9c9;color:#7a4b00}
+    .detected-badge.source{background:#e6f0ff;color:#163A5F}
     .index-main-grid{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
     .index-version-list{display:grid;gap:8px;margin-top:10px}
     .index-version-item{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px}
@@ -270,8 +282,23 @@
     let selectedCause = null;
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
+    const EXTRACTION_LOGS_STORAGE_KEY = 'alpha-expedientes-extraction-logs-v1';
+    const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
+    const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
     const ALLOWED_UPLOAD_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.zip';
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
+    const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
+    const EXTRACTION_FIELD_ORDER = ['rol', 'tribunal', 'rit', 'ruc', 'caratula', 'partes', 'materia', 'procedimiento', 'fechaRelevante', 'cliente', 'estadoDocumento'];
+    const COURT_NORMALIZATION_MAP = {
+      '2 juzgado civil de santiago': '2° Juzgado Civil de Santiago',
+      '2° juzgado civil de santiago': '2° Juzgado Civil de Santiago',
+      'segundo juzgado civil de santiago': '2° Juzgado Civil de Santiago',
+      '1 juzgado de familia de santiago': '1° Juzgado de Familia de Santiago',
+      'juzgado de garantia de santiago': 'Juzgado de Garantía de Santiago',
+      'juzgado del trabajo de santiago': 'Juzgado del Trabajo de Santiago',
+      'corte de apelaciones de santiago': 'Corte de Apelaciones de Santiago',
+    };
+    let allCases = [];
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -297,6 +324,188 @@
     }
     function saveManualRegistry(registry = {}) {
       window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(registry));
+    }
+    function loadJsonStorage(key, fallback) {
+      try {
+        return JSON.parse(window.localStorage.getItem(key) || JSON.stringify(fallback)) || fallback;
+      } catch {
+        return fallback;
+      }
+    }
+    function saveJsonStorage(key, payload) {
+      window.localStorage.setItem(key, JSON.stringify(payload));
+    }
+    function loadExtractionLogs() {
+      return loadJsonStorage(EXTRACTION_LOGS_STORAGE_KEY, []);
+    }
+    function saveExtractionLogs(logs = []) {
+      saveJsonStorage(EXTRACTION_LOGS_STORAGE_KEY, logs.slice(-500));
+    }
+    function loadExtractionFeedback() {
+      return loadJsonStorage(EXTRACTION_FEEDBACK_STORAGE_KEY, []);
+    }
+    function saveExtractionFeedback(feedback = []) {
+      saveJsonStorage(EXTRACTION_FEEDBACK_STORAGE_KEY, feedback.slice(-500));
+    }
+    function loadNormalizationRules() {
+      return loadJsonStorage(NORMALIZATION_RULES_STORAGE_KEY, { tribunalAliases: {} });
+    }
+    function saveNormalizationRules(rules = {}) {
+      saveJsonStorage(NORMALIZATION_RULES_STORAGE_KEY, rules);
+    }
+    function normalizeWhitespace(value = '') {
+      return String(value || '').replace(/\s+/g, ' ').trim();
+    }
+    function normalizeVisibleRol(raw = '') {
+      const cleaned = normalizeWhitespace(String(raw || '').toUpperCase()).replace(/\s*-\s*/g, '-');
+      const match = cleaned.match(/([A-Z]{1,4})-?(\d{1,6})-?(\d{4})/);
+      return match ? `${match[1]}-${match[2]}-${match[3]}` : cleaned;
+    }
+    function normalizeCaratula(raw = '') {
+      const cleaned = normalizeWhitespace(raw).replace(/["'`]/g, '').replace(/\s{2,}/g, ' ');
+      if (!cleaned) return '';
+      return cleaned.split(' CON ').map((part) => normalizeWhitespace(part)).join(' CON ');
+    }
+    function normalizeTribunal(raw = '') {
+      const cleaned = normalizeWhitespace(raw);
+      const normalizedKey = normalize(cleaned);
+      const learnedRules = loadNormalizationRules().tribunalAliases || {};
+      return learnedRules[normalizedKey] || COURT_NORMALIZATION_MAP[normalizedKey] || cleaned;
+    }
+    function getConfidenceLevel(score = 0) {
+      if (score >= 0.86) return 'high';
+      if (score >= 0.62) return 'medium';
+      return 'low';
+    }
+    function addCandidate(candidateMap, key, value, score, source, meta = {}) {
+      const finalValue = normalizeWhitespace(value);
+      if (!finalValue) return;
+      const current = candidateMap.get(key);
+      const next = {
+        value: finalValue,
+        score: Number(score || 0),
+        source: String(source || 'inference_ai'),
+        confidence: getConfidenceLevel(score),
+        meta
+      };
+      if (!current || next.score > current.score) candidateMap.set(key, next);
+    }
+    function inferDocumentClass(text = '') {
+      const source = normalize(text);
+      const catalog = [
+        ['resolución', ['resolucion', 'resuelve', 'visto y teniendo presente']],
+        ['demanda', ['demanda', 'demandante', 'demando']],
+        ['escrito', ['escrito', 'solicito', 's.s.']],
+        ['mandamiento', ['mandamiento', 'embargo']],
+        ['certificado', ['certificado', 'certifica']],
+        ['notificación', ['notificacion', 'notifica', 'cedula']],
+      ];
+      let best = null;
+      for (const [label, keywords] of catalog) {
+        const score = keywords.reduce((acc, term) => (source.includes(term) ? acc + 1 : acc), 0);
+        if (score && (!best || score > best.score)) best = { label, score };
+      }
+      return best ? { value: best.label, score: Math.min(0.6 + best.score * 0.1, 0.9) } : null;
+    }
+    async function extractTextFromDocument(doc = {}) {
+      if (!doc?.contentBase64) return '';
+      try {
+        const binary = atob(doc.contentBase64);
+        const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+        return new TextDecoder('utf-8', { fatal: false }).decode(bytes).slice(0, 150000);
+      } catch {
+        return '';
+      }
+    }
+    function extractSuggestionsFromSource(sourceText = '', sourceLabel = 'texto_documento') {
+      const candidateMap = new Map();
+      const text = normalizeWhitespace(sourceText);
+      const upper = text.toUpperCase();
+      const rolMatch = upper.match(/\b([A-Z]{1,4})\s*-\s*(\d{1,6})\s*-\s*(\d{4})\b/);
+      if (rolMatch) addCandidate(candidateMap, 'rol', `${rolMatch[1]}-${rolMatch[2]}-${rolMatch[3]}`, 0.98, sourceLabel);
+      const ritMatch = upper.match(/\bRIT[:\s]*([A-Z]{1,4}\s*-\s*\d{1,6}\s*-\s*\d{4})\b/);
+      if (ritMatch) addCandidate(candidateMap, 'rit', normalizeVisibleRol(ritMatch[1]), 0.95, sourceLabel);
+      const rucMatch = upper.match(/\bRUC[:\s]*(\d{7,12}-\d)\b/);
+      if (rucMatch) addCandidate(candidateMap, 'ruc', rucMatch[1], 0.96, sourceLabel);
+      const caratulaMatch = upper.match(/\b([A-ZÁÉÍÓÚÑ ]{3,})\s+CON\s+([A-ZÁÉÍÓÚÑ ]{3,})\b/);
+      if (caratulaMatch) addCandidate(candidateMap, 'caratula', normalizeCaratula(`${caratulaMatch[1]} CON ${caratulaMatch[2]}`), 0.88, sourceLabel);
+      const tribunalLine = text.match(/(juzgado|corte)[^\n\r]{8,120}/i);
+      if (tribunalLine) {
+        addCandidate(candidateMap, 'tribunal', normalizeTribunal(tribunalLine[0]), 0.84, sourceLabel);
+        if (/familia/i.test(tribunalLine[0])) addCandidate(candidateMap, 'tipoTribunal', 'Juzgado de Familia', 0.8, sourceLabel);
+        if (/civil|letras/i.test(tribunalLine[0])) addCandidate(candidateMap, 'tipoTribunal', 'Juzgado Civil', 0.8, sourceLabel);
+      }
+      const procedure = text.match(/procedimiento[:\s]+([A-Za-zÁÉÍÓÚáéíóúñÑ ]{4,90})/i);
+      if (procedure) addCandidate(candidateMap, 'procedimiento', procedure[1], 0.72, sourceLabel);
+      const matter = text.match(/materia[:\s]+([A-Za-zÁÉÍÓÚáéíóúñÑ ]{4,90})/i);
+      if (matter) addCandidate(candidateMap, 'materia', matter[1], 0.72, sourceLabel);
+      const dateMatch = text.match(/\b(\d{2}[\/-]\d{2}[\/-]\d{4})\b/);
+      if (dateMatch) addCandidate(candidateMap, 'fechaRelevante', dateMatch[1], 0.64, sourceLabel);
+      const docClass = inferDocumentClass(text);
+      if (docClass) addCandidate(candidateMap, 'estadoDocumento', docClass.value, docClass.score, 'inferencia_ia');
+      return candidateMap;
+    }
+    function mergeCandidates(candidateMaps = []) {
+      const merged = new Map();
+      for (const map of candidateMaps) {
+        for (const [key, value] of map.entries()) addCandidate(merged, key, value.value, value.score, value.source, value.meta);
+      }
+      return merged;
+    }
+    function applyFeedbackLearning(suggestions = new Map()) {
+      const feedback = loadExtractionFeedback();
+      const tribunalAlias = loadNormalizationRules().tribunalAliases || {};
+      for (const item of feedback) {
+        const field = item?.field || item?.field_name;
+        const correctedValue = item?.correctedValue || item?.corrected_value;
+        const detectedValue = item?.detectedValue || item?.detected_value;
+        if (!field || !correctedValue) continue;
+        const existing = suggestions.get(field);
+        if (field === 'tribunal' && detectedValue) tribunalAlias[normalize(detectedValue)] = correctedValue;
+        if (!existing || existing.confidence === 'low') addCandidate(suggestions, field, correctedValue, 0.68, 'correccion_usuario');
+      }
+      saveNormalizationRules({ tribunalAliases: tribunalAlias });
+      return suggestions;
+    }
+    function renderDetectedFields(suggestions = new Map()) {
+      const node = document.getElementById('detectedFields');
+      if (!node) return;
+      if (!suggestions.size) {
+        node.innerHTML = '<div class="folder">Sin datos confiables detectados todavía. Adjunta documentos y ejecuta el análisis.</div>';
+        return;
+      }
+      node.innerHTML = EXTRACTION_FIELD_ORDER.filter((field) => suggestions.has(field)).map((field) => {
+        const entry = suggestions.get(field);
+        const confidence = CONFIDENCE_LABELS[entry.confidence] || 'baja';
+        const needsReview = entry.confidence !== 'high';
+        return `<div class="detected-item">
+          <strong>${escapeHtml(field)}</strong>
+          <div>${escapeHtml(entry.value)}</div>
+          <div class="detected-badges">
+            <span class="detected-badge ${escapeHtml(entry.confidence)}">Confianza ${escapeHtml(confidence)}</span>
+            ${needsReview ? '<span class="detected-badge review">requiere revisión</span>' : ''}
+            <span class="detected-badge source">${escapeHtml(entry.source)}</span>
+          </div>
+        </div>`;
+      }).join('');
+    }
+    function findDuplicateCaseSuggestion(rol = '', tribunal = '') {
+      const normalizedRol = normalizeVisibleRol(rol);
+      const normalizedTribunal = normalize(tribunal);
+      if (!normalizedRol || !normalizedTribunal) return null;
+      return allCases.find((item) => normalizeVisibleRol(item[C.kRol] || item[C.kRit] || '') === normalizedRol && normalize(item[C.kTrib] || item[C.kCourt] || '') === normalizedTribunal) || null;
+    }
+    async function persistExtractionLog(payload = {}) {
+      const logs = loadExtractionLogs();
+      logs.push(payload);
+      saveExtractionLogs(logs);
+      try { await supabase.from('extraction_logs').insert(payload); } catch {}
+    }
+    async function persistExtractionFeedback(payload = {}) {
+      const feedback = loadExtractionFeedback();
+      feedback.push(payload);
+      saveExtractionFeedback(feedback);
+      try { await supabase.from('extraction_feedback').insert(payload); } catch {}
     }
 
     function loadPjudGeneralIndexRegistry() {
@@ -592,13 +801,26 @@
         <label>Seleccionar archivos
           <input id="manualFilesInput" type="file" accept="${ALLOWED_UPLOAD_TYPES}" multiple />
         </label>
+        <div class="span-full panel-actions">
+          <button type="button" class="manual-btn" id="analyzeDocsBtn">Analizar documentos y autocompletar causa</button>
+          <span class="muted">Se prioriza rol, tribunal, RIT/RUC y carátula. Nunca se inventan datos.</span>
+        </div>
+        <div class="span-full detected-grid">
+          <strong>Datos detectados automáticamente</strong>
+          <div id="detectedFields"></div>
+        </div>
         <div class="span-full manual-docs" id="manualDocsList"></div>
         <div class="span-full">
           <button type="submit" class="manual-btn">Guardar datos manuales</button>
         </div>
       `;
+      current.lastSuggestions = current.lastSuggestions || {};
+      renderDetectedFields(new Map(Object.entries(current.lastSuggestions || {})));
       renderManualDocuments(current.documentos || []);
       wireManualUploadEvents(cause, current);
+      document.getElementById('analyzeDocsBtn')?.addEventListener('click', async () => {
+        await analyzeDocumentsAndAutofill(cause, current);
+      });
       form.addEventListener('submit', (event) => {
         event.preventDefault();
         persistManualData(cause, new FormData(form), current.documentos || []);
@@ -636,6 +858,53 @@
         `).join('')
         : '<div class="folder">No hay documentos cargados todavía. Se guardarán en esta causa y no se mezclarán con otras.</div>';
     }
+    async function analyzeDocumentsAndAutofill(cause, current, options = {}) {
+      const docs = Array.isArray(current?.documentos) ? current.documentos : [];
+      if (!docs.length) {
+        setManualStatus('warn', 'Adjunta al menos un documento para ejecutar el autocompletado.');
+        renderDetectedFields(new Map());
+        return;
+      }
+      setManualStatus('', 'Analizando documentos...');
+      const candidateMaps = [];
+      for (const doc of docs) {
+        candidateMaps.push(extractSuggestionsFromSource(doc.name || '', 'nombre_archivo'));
+        const text = await extractTextFromDocument(doc);
+        if (text) candidateMaps.push(extractSuggestionsFromSource(text, 'texto_documento'));
+      }
+      const merged = applyFeedbackLearning(mergeCandidates(candidateMaps));
+      current.lastSuggestions = Object.fromEntries([...merged.entries()]);
+      renderDetectedFields(merged);
+      const form = document.getElementById('manualForm');
+      if (!form) return;
+      const assignmentMap = {
+        rol: 'rol',
+        tribunal: 'tribunal',
+        caratula: 'caratula',
+        materia: 'materia',
+        procedimiento: 'procedimiento',
+        fechaRelevante: 'fechaIngreso',
+      };
+      for (const [field, formField] of Object.entries(assignmentMap)) {
+        const input = form.elements[formField];
+        const suggestion = merged.get(field);
+        if (!input || !suggestion) continue;
+        if (!String(input.value || '').trim() || options.force === true) input.value = suggestion.value;
+      }
+      const duplicate = findDuplicateCaseSuggestion(form.elements.rol?.value, form.elements.tribunal?.value);
+      if (duplicate && duplicate.id !== cause.id) {
+        setManualStatus('warn', `Posible causa existente detectada (${duplicate.rol || duplicate.pjud_rit || duplicate.id}). Revisa antes de guardar para evitar duplicados.`);
+      } else {
+        setManualStatus('ok', 'Análisis completado. Revisa los campos marcados como “requiere revisión” antes de guardar.');
+      }
+      await persistExtractionLog({
+        cause_id: cause.id,
+        context_key: normalize(`${cause.id}:${docs.map((doc) => doc.name).join('|')}`),
+        extraction_payload: Object.fromEntries([...merged.entries()].map(([key, value]) => [key, { value: value.value, confidence: value.confidence, source: value.source }])),
+        confidence_payload: Object.fromEntries([...merged.entries()].map(([key, value]) => [key, value.confidence])),
+        source_payload: Object.fromEntries([...merged.entries()].map(([key, value]) => [key, value.source])),
+      });
+    }
     function wireManualUploadEvents(cause, current) {
       const dropzone = document.getElementById('manualDropzone');
       const input = document.getElementById('manualFilesInput');
@@ -671,6 +940,7 @@
         persistManualData(cause, new FormData(document.getElementById('manualForm')), nextDocs, { silent: true });
         renderManualDocuments(nextDocs);
         bindDocumentActions(cause, current);
+        await analyzeDocumentsAndAutofill(cause, current);
       };
       input?.addEventListener('change', (event) => attachFiles(Array.from(event.target.files || [])));
       ['dragenter','dragover'].forEach((type) => dropzone?.addEventListener(type, (event) => { event.preventDefault(); dropzone.classList.add('drag'); }));
@@ -736,9 +1006,33 @@
             alertas: String(formData.get('alertas') || '').trim(),
           },
           documentos: documents,
+          lastSuggestions: registry[cause.id]?.lastSuggestions || {},
           updatedAt: new Date().toISOString(),
         };
         saveManualRegistry(registry);
+        const suggestions = new Map(Object.entries(registry[cause.id].lastSuggestions || {}));
+        const finalValues = {
+          rol,
+          tribunal: String(formData.get('tribunal') || '').trim(),
+          caratula: String(formData.get('caratula') || '').trim(),
+          materia: String(formData.get('materia') || '').trim(),
+          procedimiento: String(formData.get('procedimiento') || '').trim(),
+          fechaRelevante: String(formData.get('fechaIngreso') || '').trim(),
+        };
+        for (const [field, finalValue] of Object.entries(finalValues)) {
+          const detected = suggestions.get(field);
+          if (!detected || !finalValue) continue;
+          if (normalize(finalValue) !== normalize(detected.value)) {
+            persistExtractionFeedback({
+              cause_id: cause.id,
+              field_name: field,
+              detected_value: detected.value,
+              corrected_value: finalValue,
+              confidence_level: detected.confidence,
+              source_type: detected.source || 'correccion_usuario'
+            });
+          }
+        }
         if (!options.silent) setManualStatus('ok', 'Carga manual guardada correctamente para esta causa.');
       } catch (error) {
         setManualStatus('error', `Error al guardar: ${error?.message || 'verifica el almacenamiento local.'}`);
@@ -750,6 +1044,7 @@
         supabase.from('clients').select('id,name'),
         supabase.from('cases').select('*').order('created_at', { ascending:false }),
       ]);
+      allCases = Array.isArray(cases) ? cases : [];
 
       const clientMap = new Map((clients || []).map(c => [c[C.cId], c[C.cName]]));
       const naturals = [];
