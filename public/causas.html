@@ -2439,6 +2439,7 @@
       loadWorkspace as loadWorkspaceState,
       markManualEdit,
       normalizeCaratula,
+      normalizePjudRol,
       openDocument,
       parseJudicialBatchImportInput,
       parseJudicialImportInput,
@@ -9080,6 +9081,10 @@
       return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z0-9]/g, '');
     }
 
+    function normalizeRolForMatch(value = ''){
+      return normalizePjudKey(normalizePjudRol(value || ''));
+    }
+
     function normalizePjudText(value = ''){
       return String(value || '')
         .toLowerCase()
@@ -9194,6 +9199,71 @@
       return identifiers;
     }
 
+    function extractRolCandidatesFromText(value = ''){
+      const text = String(value || '');
+      if (!text.trim()) return [];
+      const matches = new Set();
+      const explicit = [...text.matchAll(/\b(?:rol|rit)\s*[:\-]?\s*([a-z]?\s*[-/]?\s*\d{1,9}\s*[-/]\s*\d{2,4})\b/gi)];
+      explicit.forEach((match) => {
+        const normalized = normalizePjudRol(match?.[1] || '');
+        if (normalized) matches.add(normalized);
+      });
+      const generic = [...text.matchAll(/\b([a-z]{1,4}\s*[-/]?\s*\d{1,9}\s*[-/]\s*\d{2,4})\b/gi)];
+      generic.forEach((match) => {
+        const normalized = normalizePjudRol(match?.[1] || '');
+        if (normalized) matches.add(normalized);
+      });
+      return [...matches];
+    }
+
+    function extractTextFromDataUrl(dataUrl = ''){
+      const value = String(dataUrl || '');
+      if (!value.startsWith('data:text/')) return '';
+      const commaIndex = value.indexOf(',');
+      if (commaIndex < 0) return '';
+      const header = value.slice(0, commaIndex);
+      const body = value.slice(commaIndex + 1);
+      try {
+        if (/;base64/i.test(header)) return atob(body);
+        return decodeURIComponent(body);
+      } catch {
+        return '';
+      }
+    }
+
+    function resolveRolDetectionFromDocument(document = {}){
+      const textSources = [
+        document?.text,
+        document?.contentText,
+        document?.rawText,
+        document?.metadata?.text,
+        document?.metadata?.extractedText,
+        document?.pjudTraceability?.text_extracted,
+        document?.pjudTraceability?.raw_text,
+        extractTextFromDataUrl(document?.content || ''),
+      ].map((value) => String(value || '').trim()).filter(Boolean);
+      for (const sourceText of textSources) {
+        const candidates = extractRolCandidatesFromText(sourceText);
+        if (candidates.length) return { rolDetectado: candidates[0], extractionMethod: 'texto' };
+      }
+
+      const ocrSources = [
+        document?.ocrText,
+        document?.metadata?.ocrText,
+        document?.metadata?.ocr,
+        document?.pjudTraceability?.ocr_text,
+      ].map((value) => String(value || '').trim()).filter(Boolean);
+      for (const sourceText of ocrSources) {
+        const candidates = extractRolCandidatesFromText(sourceText);
+        if (candidates.length) return { rolDetectado: candidates[0], extractionMethod: 'OCR' };
+      }
+
+      const fileName = document?.name || document?.fileName || '';
+      const byFileName = extractRolCandidatesFromText(fileName);
+      if (byFileName.length) return { rolDetectado: byFileName[0], extractionMethod: 'nombre_archivo' };
+      return { rolDetectado: '', extractionMethod: 'sin_rol' };
+    }
+
     function buildPjudCaseMatcherIndex(cases = []){
       const index = new Map();
       const add = (key, cause) => {
@@ -9202,15 +9272,7 @@
         index.get(key).push(cause);
       };
       cases.forEach((cause) => {
-        const keys = [
-          normalizePjudKey(cause?.rol),
-          normalizePjudKey(cause?.rit),
-          normalizePjudKey(cause?.ruc),
-          normalizePjudKey(cause?.pjudCaseKey || cause?.pjud_case_key),
-          normalizePjudKey(cause?.tribunal),
-          normalizePjudKey(cause?.caratula),
-          normalizePjudKey(cause?.importBatchId || cause?.import_batch_id),
-        ].filter(Boolean);
+        const keys = [normalizeRolForMatch(cause?.rol), normalizeRolForMatch(cause?.rit)].filter(Boolean);
         keys.forEach((key) => add(key, cause));
       });
       return index;
@@ -9219,15 +9281,8 @@
     function scoreCauseCandidate(cause, identifiers = {}, normalizedName = ''){
       let score = 0;
       if (!cause) return score;
-      if (identifiers.pjudCaseKey && normalizePjudKey(cause?.pjudCaseKey || cause?.pjud_case_key) === normalizePjudKey(identifiers.pjudCaseKey)) score += 60;
-      if (identifiers.ruc && normalizePjudKey(cause?.ruc) === normalizePjudKey(identifiers.ruc)) score += 45;
-      if (identifiers.rit && normalizePjudKey(cause?.rit) === normalizePjudKey(identifiers.rit)) score += 35;
-      if (identifiers.rol && normalizePjudKey(cause?.rol) === normalizePjudKey(identifiers.rol)) score += 35;
-      if (identifiers.tribunal && normalizePjudKey(cause?.tribunal).includes(identifiers.tribunal)) score += 15;
-      if (normalizedName) {
-        const caratula = normalizePjudKey(cause?.caratula);
-        if (caratula && normalizedName.includes(caratula)) score += 20;
-      }
+      if (identifiers.rol && normalizeRolForMatch(cause?.rol) === normalizeRolForMatch(identifiers.rol)) score += 100;
+      if (identifiers.rit && normalizeRolForMatch(cause?.rit) === normalizeRolForMatch(identifiers.rit)) score += 100;
       return score;
     }
 
@@ -9253,7 +9308,7 @@
         suggestedCase: best,
         identifiers,
         confidence: bestScore,
-        method: bestScore >= 60 ? 'automatico-por-identificador' : (bestScore > 0 ? 'requiere-confirmacion' : 'pendiente'),
+        method: bestScore >= 60 ? 'automatico-por-rol' : (bestScore > 0 ? 'requiere-confirmacion' : 'pendiente'),
         requiresConfirmation,
       };
     }
@@ -9295,53 +9350,28 @@
     }
 
     function resolveBatchCaseForDocument(document = {}, cases = getAllCases()){
-      const fileName = document?.name || document?.fileName || '';
-      const identifiers = extractPjudIdentifiersFromText([
-        fileName,
-        document?.sourceUrl || '',
-        document?.sourcePageUrl || '',
-        document?.observation || '',
-      ].join(' | '));
-      const baseResolution = resolveBatchCaseForFile(fileName, cases);
-      const tokens = buildCaseMatchTokensFromDocument(document);
-      let best = baseResolution.suggestedCase;
-      let bestScore = Number(baseResolution.confidence || 0);
-
-      cases.forEach((cause) => {
-        const causeTokens = [
-          cause?.id,
-          cause?.rol,
-          cause?.rit,
-          cause?.ruc,
-          cause?.pjudCaseKey || cause?.pjud_case_key,
-          cause?.tribunal,
-          cause?.caratula,
-          cause?.importBatchId || cause?.import_batch_id,
-        ].map((value) => normalizePjudKey(value || '')).filter(Boolean);
-        const tokenMatches = causeTokens.filter((token) => tokens.includes(token)).length;
-        if (!tokenMatches) return;
-        const score = scoreCauseCandidate(cause, identifiers, normalizePjudKey(fileName)) + (tokenMatches * 18);
-        if (score > bestScore) {
-          best = cause;
-          bestScore = score;
-        }
-      });
-
-      const method = bestScore >= 70
-        ? 'automatico-por-identificador'
-        : (bestScore >= 35 ? 'requiere-confirmacion' : 'pendiente');
+      const detection = resolveRolDetectionFromDocument(document);
+      const detectedRolKey = normalizeRolForMatch(detection.rolDetectado || '');
+      const rolMatches = detectedRolKey
+        ? cases.filter((cause) => normalizeRolForMatch(cause?.rol || cause?.rit) === detectedRolKey)
+        : [];
+      const best = rolMatches.length === 1 ? rolMatches[0] : null;
+      const bestScore = best ? 100 : 0;
+      const method = best ? 'automatico-por-rol' : 'pendiente';
       return {
         suggestedCase: best,
-        identifiers,
+        identifiers: { rol: detection.rolDetectado || '' },
         confidence: bestScore,
         method,
-        requiresConfirmation: method !== 'automatico-por-identificador',
+        requiresConfirmation: !best,
+        rolDetectado: detection.rolDetectado || '',
+        metodoExtraccionRol: detection.extractionMethod || 'sin_rol',
       };
     }
 
     function getBatchValidationStateLabel(item){
       const selectedCaseId = String(item?.selectedCaseId || '').trim();
-      if (selectedCaseId && item.method === 'automatico-por-identificador') return 'autoasignada';
+      if (selectedCaseId && item.method === 'automatico-por-rol') return 'autoasignada';
       if (selectedCaseId) return 'requiere confirmación';
       return 'no identificada';
     }
@@ -9422,7 +9452,7 @@
           name: doc.name || '',
           sourceUrl: normalizeDownloadUrl(doc.sourceUrl),
           sourcePageUrl: normalizeDownloadUrl(doc.sourcePageUrl || importData?.sourceUrl || ''),
-          category: doc.category || 'Importadas del Poder Judicial',
+          category: doc.category || 'Ebook',
           observation: doc.observation || '',
           from: 'importData.documents',
         }));
@@ -9447,7 +9477,7 @@
               name: `documento-pjud-${Date.now()}.pdf`,
               sourceUrl: url,
               sourcePageUrl: url,
-              category: 'Importadas del Poder Judicial',
+              category: 'Ebook',
               observation: 'Detectado desde navegación web PJUD/OJV.',
               from: 'seed-direct',
             });
@@ -9459,7 +9489,7 @@
             name: `documento-pjud-${Date.now()}.pdf`,
             sourceUrl: link,
             sourcePageUrl: url,
-            category: 'Importadas del Poder Judicial',
+            category: 'Ebook',
             observation: 'URL detectada automáticamente desde PJUD/OJV.',
             from: 'seed-html',
           }));
@@ -9501,8 +9531,8 @@
           const content = await blobToDataUrl(blob);
           linkedDocs.push({
             name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            category: doc.category || 'Ebook',
+            destinationContainer: 'ebook',
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9512,8 +9542,8 @@
               batch_id: state.pendingPjudBatchId || null,
               origin: 'pjud_auto',
               mode: 'massive_auto',
-              resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              resolution_method: 'automatico-por-rol',
+              destination_container: 'documentContainers.ebook',
             },
             content,
           });
@@ -9586,8 +9616,8 @@
           const content = await blobToDataUrl(blob);
           linkedDocs.push({
             name: doc.name || `documento-pjud-${Date.now()}.pdf`,
-            category: doc.category || 'Importadas del Poder Judicial',
-            destinationContainer: 'importadosPjud',
+            category: doc.category || 'Ebook',
+            destinationContainer: 'ebook',
             observation: doc.observation || 'Documento descargado automáticamente desde PJUD con sesión activa del usuario.',
             origin: 'Poder Judicial (descarga directa)',
             sourceUrl,
@@ -9601,9 +9631,15 @@
               case_id: current?.id || null,
               origin: 'pjud_auto',
               mode: 'manual_single',
-              resolution_method: 'automatico-por-identificador',
-              destination_container: 'documentContainers.importadosPjud',
+              resolution_method: 'automatico-por-rol',
+              destination_container: 'documentContainers.ebook',
               linked_client: current?.cliente || '',
+              rol_detectado: normalizePjudRol(current?.rol || current?.rit || ''),
+              carpeta_destino: `${String(current?.rol || current?.rit || '').trim()} - ${String(current?.caratula || '').trim()} / EBOOK`,
+              nombre_original_archivo: doc.name || `documento-pjud-${Date.now()}.pdf`,
+              fecha_proceso: new Date().toISOString(),
+              extraction_method: 'texto',
+              resultado: 'asignado',
             },
             content,
           });
@@ -9631,7 +9667,7 @@
       }
 
       const msg = current
-        ? `Descarga PJUD web→web finalizada: ${linkedDocs.length} documento(s) vinculados en “Importadas del Poder Judicial” y ${failedDocs.length} con límite técnico/sesión.`
+        ? `Descarga PJUD web→web finalizada: ${linkedDocs.length} EBOOK(s) vinculados en “EBOOK” y ${failedDocs.length} con límite técnico/sesión.`
         : `Descarga PJUD finalizada sin causa activa: ${linkedDocs.length} documento(s). Usa vinculación manual solo como respaldo si corresponde.`;
       setMessage('importMsg', msg, linkedDocs.length ? (failedDocs.length ? 'warn' : 'ok') : 'warn');
       if (!linkedDocs.length) {
@@ -9678,8 +9714,8 @@
       }
       const fileDocuments = files?.length
         ? await filesToDocumentInputs(files, {
-          category: 'Importadas del Poder Judicial',
-          destinationContainer: 'importadosPjud',
+          category: 'Ebook',
+          destinationContainer: 'ebook',
           observation: 'Archivo descargado por el usuario desde PJUD y vinculado a la causa activa.',
           origin: 'Archivo descargado por usuario (PJUD)',
           destinationModule: 'Causas',
@@ -9691,8 +9727,8 @@
       const queuedDocuments = queuedDocs.length
         ? queuedDocs.map((doc) => ({
           ...doc,
-          category: 'Importadas del Poder Judicial',
-          destinationContainer: 'importadosPjud',
+          category: 'Ebook',
+          destinationContainer: 'ebook',
           destinationModule: 'Causas',
           caseId: current.id,
           linkedClient: current.cliente,
@@ -9709,8 +9745,14 @@
           origin: doc.content ? 'pjud_auto' : 'manual_upload',
           mode: 'manual_single',
           resolution_method: 'confirmado-manualmente',
-          destination_container: 'documentContainers.importadosPjud',
+          destination_container: 'documentContainers.ebook',
           linked_client: current.cliente || '',
+          rol_detectado: normalizePjudRol(current.rol || current.rit || ''),
+          carpeta_destino: `${String(current.rol || current.rit || '').trim()} - ${String(current.caratula || '').trim()} / EBOOK`,
+          nombre_original_archivo: doc.name || doc.fileName || '',
+          fecha_proceso: new Date().toISOString(),
+          extraction_method: 'manual',
+          resultado: 'asignado',
         },
       }));
       if (!allDocuments.length) return false;
@@ -9727,7 +9769,7 @@
       state.pendingPjudManualLinkPrompt = false;
       state.pendingPjudManualLinkMode = 'individual';
       if (input) input.value = '';
-      setMessage('importMsg', `Se vincularon ${allDocuments.length} archivos a Importadas del Poder Judicial.`, 'ok');
+      setMessage('importMsg', `Se vincularon ${allDocuments.length} archivo(s) en la carpeta EBOOK de la causa.`, 'ok');
       return true;
     }
 
@@ -9757,8 +9799,8 @@
 
       const fileDocuments = selectedFilesPartition.documentCandidates.length
         ? await filesToDocumentInputs(selectedFilesPartition.documentCandidates, {
-          category: 'Importadas del Poder Judicial',
-          destinationContainer: 'importadosPjud',
+          category: 'Ebook',
+          destinationContainer: 'ebook',
           observation: 'Archivo descargado por el usuario desde PJUD (lote).',
           origin: 'Archivo descargado por usuario (PJUD lote)',
           destinationModule: 'Causas',
@@ -9768,8 +9810,8 @@
       const queuedDocuments = queuedDocsPartition.documentCandidates.length
         ? queuedDocsPartition.documentCandidates.map((doc) => ({
           ...doc,
-          category: 'Importadas del Poder Judicial',
-          destinationContainer: 'importadosPjud',
+          category: 'Ebook',
+          destinationContainer: 'ebook',
           destinationModule: 'Causas',
         }))
         : [];
@@ -9799,11 +9841,14 @@
           identifiers: resolution.identifiers || {},
           method: resolution.method,
           confidence: Number(resolution.confidence || 0),
+          rolDetectado: resolution.rolDetectado || '',
+          metodoExtraccionRol: resolution.metodoExtraccionRol || 'sin_rol',
           selectedCaseId,
-          resolutionMethodFinal: selectedCaseId ? 'automatico-por-identificador' : 'pendiente',
+          resolutionMethodFinal: selectedCaseId ? 'automatico-por-rol' : 'pendiente',
+          resultado: selectedCaseId ? 'asignado' : 'pendiente',
         };
       });
-      const autoAssignments = assignments.filter((item) => item.resolutionMethodFinal === 'automatico-por-identificador');
+      const autoAssignments = assignments.filter((item) => item.resolutionMethodFinal === 'automatico-por-rol');
       const requiresConfirmation = assignments.filter((item) => !item.selectedCaseId && item.suggestedCase);
       const unresolvedAssignments = assignments.filter((item) => !item.selectedCaseId && !item.suggestedCase);
 
@@ -9820,9 +9865,9 @@
       if (input) input.value = '';
       renderPjudBatchValidationPanel();
       if (requiresConfirmation.length || unresolvedAssignments.length) {
-        setMessage('importMsg', 'Algunos archivos no pudieron asociarse automáticamente. Revísalos y asigna la causa correcta.', 'warn');
+        setMessage('importMsg', 'Algunos EBOOK no pudieron asociarse por ROL y quedaron en pendiente de asignación.', 'warn');
       } else {
-        setMessage('importMsg', `Se detectaron ${autoAssignments.length} asignaciones automáticas. Confirma para vincular el lote.`, 'ok');
+        setMessage('importMsg', `Se detectaron ${autoAssignments.length} asignaciones automáticas por ROL. Confirma para vincular el lote.`, 'ok');
       }
       return true;
     }
@@ -9847,9 +9892,9 @@
           });
           return;
         }
-        const wasAuto = item.method === 'automatico-por-identificador' && item.suggestedCase?.id
+        const wasAuto = item.method === 'automatico-por-rol' && item.suggestedCase?.id
           && String(item.suggestedCase.id) === String(selectedCase.id);
-        const resolutionMethod = wasAuto ? 'automatico-por-identificador' : 'confirmado-manualmente';
+        const resolutionMethod = wasAuto ? 'automatico-por-rol' : 'confirmado-manualmente';
         if (resolutionMethod === 'confirmado-manualmente') manualAssignments.push(item);
         const caseId = String(selectedCase.id);
         if (!updatesByCase.has(caseId)) updatesByCase.set(caseId, { cause: selectedCase, docs: [] });
@@ -9865,8 +9910,14 @@
             origin: item.document?.content ? 'pjud_auto' : 'manual_upload',
             mode: 'massive_auto',
             resolution_method: resolutionMethod,
-            destination_container: 'documentContainers.importadosPjud',
+            destination_container: 'documentContainers.ebook',
             linked_client: selectedCase.cliente || '',
+            rol_detectado: item.rolDetectado || normalizePjudRol(selectedCase.rol || selectedCase.rit || ''),
+            carpeta_destino: `${String(selectedCase.rol || selectedCase.rit || '').trim()} - ${String(selectedCase.caratula || '').trim()} / EBOOK`,
+            nombre_original_archivo: item.fileName || item.document?.name || '',
+            fecha_proceso: new Date().toISOString(),
+            extraction_method: item.metodoExtraccionRol || 'sin_rol',
+            resultado: 'asignado',
           },
         });
       });
@@ -9895,10 +9946,10 @@
       state.pendingPjudManualLinkMode = unresolvedAssignments.length ? 'batch' : '';
       renderPjudBatchValidationPanel();
       if (unresolvedAssignments.length) {
-        setMessage('importMsg', 'Algunos archivos no pudieron asociarse automáticamente. Revísalos y asigna la causa correcta.', 'warn');
+        setMessage('importMsg', 'Algunos EBOOK no pudieron asociarse por ROL y quedaron pendientes de asignación.', 'warn');
         setDetailStatus(`Pendientes sin identificar: ${unresolvedAssignments.map((item) => item.fileName).join(', ')}`, 'warn');
       } else {
-        setMessage('importMsg', `Se vincularon ${linkedCount} archivos a Importadas del Poder Judicial.`, 'ok');
+        setMessage('importMsg', `Se vincularon ${linkedCount} archivo(s) en carpetas EBOOK por coincidencia de ROL.`, 'ok');
       }
       return true;
     }
@@ -10340,6 +10391,11 @@
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
+          rol_original: importData.rol_original || importData.basic?.rol_original || importData.rol || null,
+          rol_normalizado: importData.rol_normalizado || importData.basic?.rol_normalizado || normalizePjudRol(importData.rol || importData.basic?.rol || '') || null,
+          caratula_original: importData.caratula_original || importData.basic?.caratula_original || importData.caratulado || importData.basic?.caratula || null,
+          caratula_normalizada: importData.caratula_normalizada || importData.basic?.caratula_normalizada || normalizeCaratula(importData.caratulado || importData.basic?.caratula || '') || null,
+          origen_excel: importData.origen_excel || importData.basic?.origen_excel || 'pjud_excel_mis_causas',
           pjud_case_key: importData.pjudCaseKey || null,
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
@@ -10414,6 +10470,8 @@
         mode: 'mis_causas_excel',
         importBatchId: importBatchId || safeFallback.importBatchId || null,
         pjudCaseKey,
+        rol_original: rowPayload?.rol_original || safeFallback.rol_original || basicFallback.rol_original || rol,
+        rol_normalizado: rowPayload?.rol_normalizado || safeFallback.rol_normalizado || basicFallback.rol_normalizado || normalizePjudRol(rol),
         rol,
         rit,
         ruc,
@@ -10427,6 +10485,9 @@
         estadoProcesal,
         fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
         caratulado: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+        caratula_original: rowPayload?.caratula_original || safeFallback.caratula_original || basicFallback.caratula_original || (rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || ''),
+        caratula_normalizada: rowPayload?.caratula_normalizada || safeFallback.caratula_normalizada || basicFallback.caratula_normalizada || normalizeCaratula(rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || ''),
+        origen_excel: rowPayload?.origen_excel || safeFallback.origen_excel || basicFallback.origen_excel || 'pjud_excel_mis_causas',
         ubicacion: rowPayload?.pjud_ubicacion || safeFallback.ubicacion || '',
         fechaUbicacion: rowPayload?.pjud_fecha_ubicacion || safeFallback.fechaUbicacion || '',
         institucion: rowPayload?.pjud_institucion || safeFallback.institucion || '',
@@ -10442,6 +10503,8 @@
         rawText: safeFallback.rawText || '',
         basic: {
           rol,
+          rol_original: rowPayload?.rol_original || safeFallback.rol_original || basicFallback.rol_original || rol,
+          rol_normalizado: rowPayload?.rol_normalizado || safeFallback.rol_normalizado || basicFallback.rol_normalizado || normalizePjudRol(rol),
           rit,
           tribunal,
           procedimiento: rowPayload?.pjud_tipo_causa || safeFallback.tipoCausa || basicFallback.procedimiento || '',
@@ -10449,6 +10512,9 @@
           estadoProcesal,
           fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
           caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+          caratula_original: rowPayload?.caratula_original || safeFallback.caratula_original || basicFallback.caratula_original || (rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || ''),
+          caratula_normalizada: rowPayload?.caratula_normalizada || safeFallback.caratula_normalizada || basicFallback.caratula_normalizada || normalizeCaratula(rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || ''),
+          origen_excel: rowPayload?.origen_excel || safeFallback.origen_excel || basicFallback.origen_excel || 'pjud_excel_mis_causas',
           link: safeFallback.basic?.link || '',
           importedAt,
           pjudCaseKey,
@@ -10460,10 +10526,9 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const rit = rowPayload?.pjud_rit || importData?.rit || importData?.basic?.rit || '';
-      const ruc = rowPayload?.pjud_ruc || importData?.ruc || '';
-      const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`;
-      const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
+      const caratula = rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || 'Causa sin carátula';
+      const folderName = `${String(rol || '').trim()} - ${String(caratula || '').trim()}`;
+      const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'EBOOK'];
       return {
         tribunal,
         materia,
@@ -10475,7 +10540,7 @@
           workspaceKey: 'alpha-causas-workspace-v4',
           importRowsTable: 'public.pjud_import_rows',
           batchTable: 'public.pjud_import_batches',
-          documentContainer: 'importadosPjud',
+          documentContainer: 'ebook',
           storageBucket: null,
           storagePath: null,
         },

@@ -1019,7 +1019,7 @@ function normalizeForComparison(value = '') {
   return normalizeSearchText(sanitizeVisibleText(value))
 }
 
-function normalizePjudRol(value = '') {
+export function normalizePjudRol(value = '') {
   const raw = sanitizeVisibleText(value)
   if (!raw) return ''
 
@@ -1046,11 +1046,10 @@ function normalizePjudRol(value = '') {
 }
 
 function buildPjudCaseDedupeKey(materia = '', row = {}, fallbackCandidates = []) {
-  const tribunal = normalizeForComparison(row.tribunal || row.corte || '')
   const normalizedRol = normalizePjudRol(row.rol || row.rit || '')
   const normalizedRolForKey = normalizeForComparison(normalizedRol)
-  if (tribunal && normalizedRolForKey) {
-    return [materia, tribunal, normalizedRolForKey].join('|')
+  if (normalizedRolForKey) {
+    return [materia, normalizedRolForKey].join('|')
   }
 
   const fallbackIdentity = fallbackCandidates
@@ -1059,7 +1058,7 @@ function buildPjudCaseDedupeKey(materia = '', row = {}, fallbackCandidates = [])
 
   return [
     materia,
-    tribunal || 'sin-tribunal',
+    'sin-rol',
     fallbackIdentity || 'sin-identificador',
     normalizeForComparison(row.caratulado || ''),
   ].join('|')
@@ -1210,9 +1209,7 @@ function buildComparableRowSignature(row = {}) {
 
 function isStructurallyValidPjudRow(row = {}) {
   const hasRol = Boolean(normalizeForComparison(row.rol || row.rit))
-  const hasTribunal = Boolean(normalizeForComparison(row.tribunal || row.corte))
-  if (hasRol && hasTribunal) return true
-  return false
+  return hasRol
 }
 
 function getStatePriority(row = {}) {
@@ -1271,12 +1268,19 @@ function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map()) {
     mapped[field] = sanitizeVisibleText(rawValue)
   })
 
-  mapped.rol = normalizePjudRol(mapped.rol || mapped.rit || '')
+  const rolOriginal = mapped.rol || mapped.rit || ''
+  const caratulaOriginal = mapped.caratulado || ''
+  mapped.rol_original = sanitizeVisibleText(rolOriginal)
+  mapped.rol_normalizado = normalizePjudRol(rolOriginal)
+  mapped.caratula_original = sanitizeVisibleText(caratulaOriginal)
+  mapped.caratula_normalizada = normalizeCaratula(caratulaOriginal)
+  mapped.origen_excel = 'pjud_excel_mis_causas'
+  mapped.rol = mapped.rol_normalizado
   mapped.tribunal = mapped.tribunal || mapped.corte
   mapped.corte = mapped.corte || mapped.tribunal
   mapped.estado = mapped.estado || mapped.estadoProcesal || mapped.estadoCausa
   mapped.fecha = mapped.fechaIngreso || ''
-  mapped.caratulado = normalizeCaratula(mapped.caratulado)
+  mapped.caratulado = mapped.caratula_normalizada
   return mapped
 }
 
@@ -1378,6 +1382,8 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
       pjudCaseKey: entry.dedupeKey,
       basic: {
         rol: primary.rol,
+        rol_original: primary.rol_original || primary.rol,
+        rol_normalizado: primary.rol_normalizado || primary.rol,
         rit: primary.rit,
         tribunal: primary.tribunal || primary.corte,
         procedimiento: primary.tipoCausa,
@@ -1386,9 +1392,17 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
         estadoProcesal: primary.estadoProcesal || primary.estadoCausa,
         fechaIngreso: primary.fechaIngreso,
         caratula: primary.caratulado,
+        caratula_original: primary.caratula_original || primary.caratulado,
+        caratula_normalizada: primary.caratula_normalizada || primary.caratulado,
+        origen_excel: primary.origen_excel || 'pjud_excel_mis_causas',
         link: '',
         importedAt: new Date().toISOString(),
       },
+      rol_original: primary.rol_original || primary.rol,
+      rol_normalizado: primary.rol_normalizado || primary.rol,
+      caratula_original: primary.caratula_original || primary.caratulado,
+      caratula_normalizada: primary.caratula_normalizada || primary.caratulado,
+      origen_excel: primary.origen_excel || 'pjud_excel_mis_causas',
       representedClientName: 'Cliente por inferir desde PJUD',
       representedClientRole: primary.estadoProcesal ? 'Demandante' : 'Por definir',
       representedByLawyer: true,
@@ -1481,9 +1495,8 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
   const tribunal = importData.basic?.tribunal || importData.tribunal || next.tribunal || 'Tribunal pendiente'
   const materia = importData.basic?.materia || importData.materia || next.materia || 'Materia judicial'
   const rol = importData.basic?.rol || importData.rol || next.rol || 'Rol pendiente'
-  const rit = importData.basic?.rit || importData.rit || next.rit || ''
-  const ruc = importData.ruc || next.ruc || ''
-  const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`
+  const caratula = importData.basic?.caratula || importData.caratulado || next.caratula || 'Causa sin carátula'
+  const folderName = `${sanitizeVisibleText(rol)} - ${sanitizeVisibleText(caratula)}`
   next.expedienteDigital = next.expedienteDigital || {}
   if (!String(next.expedienteDigital.id || '').trim() && next.id) {
     next.expedienteDigital.id = `expediente-${next.id}`
@@ -1493,13 +1506,13 @@ function materializePjudDigitalFolder(detail = {}, importData = {}) {
     editable: true,
     nuevo: true,
     materia,
-    ruta: ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', PJUD_IMPORTED_CONTENT_LABEL],
+    ruta: ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'EBOOK'],
     carpetas: [{
       tribunal,
       materia,
       editable: 'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
       causas: [{
-        nombre: `${folderName} · ${next.caratula || importData.basic?.caratula || 'Causa PJUD'}`,
+        nombre: folderName,
         subcarpetas: [...DEFAULT_PJUD_SUBFOLDERS],
       }],
     }],
