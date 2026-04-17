@@ -3154,12 +3154,36 @@
 
     function openBranchScreen(branch, origin = 'unknown'){
       const tabId = TAB_CONFIG.some(([id]) => id === branch) ? branch : 'informacion';
+      if (tabId === 'expedientes') {
+        openExpedientesDigitalesFlow({ cause: getCurrentCause(), origin });
+        return;
+      }
       console.info('[CAUSAS][NAVEGACIÓN] Se abrirá la sección dentro del contenedor activo del módulo.', {
         origin,
         branch,
         tabId,
       });
       openWorkspaceModal({ tabId, origin });
+    }
+
+    function buildExpedientesDigitalesUrl(cause){
+      const params = new URLSearchParams();
+      if (cause?.rol) params.set('rol', cause.rol);
+      if (cause?.cliente) params.set('cliente', cause.cliente);
+      if (cause?.caratula) params.set('caratula', cause.caratula);
+      if (cause?.tribunal) params.set('tribunal', cause.tribunal);
+      const suffix = params.toString();
+      return `./expedientes-digitales.html${suffix ? `?${suffix}` : ''}`;
+    }
+
+    function openExpedientesDigitalesFlow({ cause = null, origin = 'unknown' } = {}){
+      const targetUrl = buildExpedientesDigitalesUrl(cause || getCurrentCause());
+      console.info('[CAUSAS][NAVEGACIÓN] Redirección al flujo completo de Expedientes Digitales.', {
+        origin,
+        caseId: cause?.id || state.selectedId || null,
+        targetUrl,
+      });
+      window.location.href = targetUrl;
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -6036,7 +6060,7 @@
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
         { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload' },
+        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre el flujo completo en pantalla exclusiva con búsqueda transversal, navegación Materia → Tribunal → Rol y población manual por causa.', badge:'Flujo completo', button:'Abrir flujo completo de expedientes', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload' },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
@@ -6262,71 +6286,6 @@
         const isOddTail = items.length % 2 === 1 && index === items.length - 1;
         return renderer(item, isOddTail);
       }).join('')}</div>`;
-    }
-
-    function getExpedienteTribunalArchivadores(cause){
-      const tribunalNames = [
-        'Causas Juzgados Civiles',
-        'Causas Juzgado de Familia',
-        'Causas Juzgado del Trabajo',
-        'Causas Juzgado de Cobranza',
-        'Causas Juzgado de Garantía',
-        'Tribunal Oral en lo Penal',
-        'Juzgado de Policía Local',
-      ];
-      const identity = getCauseIdentifier(cause);
-      const causeFolderName = `${identity.display}${identity.secondary.length ? ` / ${identity.secondary.join(' / ')}` : ''} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
-      const causeSubfolders = [
-        'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
-        'Documentos',
-        'Grabación y Acta de reunión (viene de Agenda)',
-        'Jurisprudencia',
-        'Doctrina en Biblioteca',
-        'Absolución de posiciones',
-        'Informe de perito',
-        'Declaración de testigos',
-        'Ebook de juicios relacionados',
-        'Informes y estrategias de trabajo',
-        'Escritos sueltos',
-        'Incidentes',
-        'Certificado de envío de documentos al PJUD',
-        'ChatGPT',
-        'Trazabilidad',
-      ];
-      return tribunalNames.map(name => ({
-        name,
-        causeFolderName,
-        causeSubfolders,
-      }));
-    }
-
-    function renderExpedienteArchivadores(cause){
-      const archivadores = getExpedienteTribunalArchivadores(cause);
-      return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Archivadores por tribunal</h4>
-              <p class="section-copy">Cada archivador funciona como contenedor principal por materia o tribunal. Dentro de cada uno se muestra una carpeta individual por causa con sus subcarpetas jurídicas.</p>
-            </div>
-          </div>
-          ${buildPairedCards(archivadores, (archivador, isOddTail) => `
-            <article class="folder-card ${isOddTail ? 'span-full' : ''}">
-              <div class="case-top">
-                <strong>${escapeHtml(archivador.name)}</strong>
-                <span class="badge badge-info">Archivador principal</span>
-              </div>
-              <div class="case-meta">${escapeHtml(archivador.causeFolderName)}</div>
-              ${buildPairedCards(archivador.causeSubfolders, (subfolder, isSubOddTail) => `
-                <div class="info-card ${isSubOddTail ? 'span-full' : ''}">
-                  <div class="mini-label">Carpeta interna</div>
-                  <div class="case-meta">${escapeHtml(subfolder)}</div>
-                </div>
-              `)}
-            </article>
-          `)}
-        </section>
-      `;
     }
 
     function renderClientCauseAssociationBlock(cause){
@@ -6769,21 +6728,17 @@
           <div class="section-head">
             <div>
               <h4 class="section-title">EXPEDIENTES DIGITALES</h4>
-              <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
+              <p class="section-copy">Acceso directo al flujo operativo completo en pantalla dedicada: búsqueda transversal, navegación Materia → Tribunal → Rol y carga/población manual por causa con rol.</p>
             </div>
             <div class="toolbar">
-              <button class="btn" data-doc-upload="documentos">Subir archivo</button>
-              <button class="btn" data-doc-upload="ebook">Subir ebook</button>
-              <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
-              <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
+              <button class="btn btn-primary" type="button" data-expedientes-action="open-full-flow">Abrir flujo completo</button>
+              <button class="btn" type="button" data-pillar-action="manual-upload">Cargar expedientes digitales</button>
+              <button class="btn" type="button" data-expedientes-action="open-general-index">Abrir Índice General PJUD</button>
             </div>
           </div>
-          ${renderDocumentExplorer(cause)}
+          <div class="helper-box">Esta vista ya no mezcla controles internos antiguos del bloque EXPEDIENTES. Para trabajar documentación y estructura jurídica, usa la pantalla exclusiva de Expedientes Digitales.</div>
         </section>
-        ${renderExpedienteArchivadores(cause)}
         ${renderPjudImportHistoryPanel()}
-        ${renderContenedor(cause)}
-        ${renderPrueba(cause)}
         ${renderSyncHistory(cause)}
         <section class="section-card">
           <div class="section-head">
@@ -7427,63 +7382,6 @@
       `;
     }
 
-    function renderContenedor(cause){
-      return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Contenedor</h4>
-              <p class="section-copy">Área documental principal, ordenada en tres segmentos: expediente, antecedentes externos y producción jurídica.</p>
-            </div>
-          </div>
-          <div class="container-layout">
-            <article class="container-segment">
-              <div class="segment-header">
-                <div>
-                  <h5 class="segment-title">1. Expediente, si existe</h5>
-                  <p class="segment-copy">Piezas oficiales de la causa y sus documentos incorporados judicialmente.</p>
-                </div>
-                <span class="badge badge-info">Oficial</span>
-              </div>
-              <ul class="bullet-list">${cause.contenedor.expediente.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-            </article>
-            <article class="container-segment">
-              <div class="segment-header">
-                <div>
-                  <h5 class="segment-title">2. Antecedentes externos al expediente</h5>
-                  <p class="segment-copy">Documentos, actas, fotografías, pruebas, testimonios, instrumentos, informes y antecedentes estratégicos administrados por la oficina.</p>
-                </div>
-                <span class="badge badge-ok">Oficina</span>
-              </div>
-              <ul class="bullet-list">${cause.contenedor.externos.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-            </article>
-            <article class="container-segment">
-              <div class="segment-header">
-                <div>
-                  <h5 class="segment-title">Registro multimedia vinculado</h5>
-                  <p class="segment-copy">Fotografías, audio, video y audio + video asociados a la causa o expediente desde Agenda/Clientes.</p>
-                </div>
-                <span class="badge badge-active">Multimedia</span>
-              </div>
-              <div id="causeMediaAssetsShell" class="media-asset-grid">
-                <div class="media-empty-state">Cargando multimedia asociada a la causa…</div>
-              </div>
-            </article>
-            <article class="container-segment">
-              <div class="segment-header">
-                <div>
-                  <h5 class="segment-title">3. Área de producción</h5>
-                  <p class="segment-copy">Subespacio del contenedor que conecta antecedentes, estrategia y redacción del escrito.</p>
-                </div>
-                <span class="badge badge-active">Producción</span>
-              </div>
-              <ul class="bullet-list">${cause.contenedor.produccion.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
-            </article>
-          </div>
-        </section>
-      `;
-    }
-
     function buildCauseMediaAssetMarkup(asset){
       const type = asset.media_type || 'photo';
       const label = MEDIA_TYPE_LABELS[type] || type;
@@ -7790,37 +7688,6 @@
               <div class="timeline-meta">Acta: ${escapeHtml(item.acta)}</div>
               <div class="timeline-meta">Observaciones: ${escapeHtml(item.observaciones)}</div>
               <div class="timeline-meta">Tareas derivadas: ${escapeHtml(item.tareas)}</div>
-            </article>
-          `).join('')}</div>
-        </section>
-      `;
-    }
-
-    function renderPrueba(cause){
-      const sections = [
-        ['Documentos base', cause.prueba.documentosBase],
-        ['Prueba documental', cause.prueba.documental],
-        ['Prueba testimonial', cause.prueba.testimonial],
-        ['Prueba pericial', cause.prueba.pericial],
-        ['Oficios', cause.prueba.oficios],
-        ['Informes', cause.prueba.informes],
-        ['Actas', cause.prueba.actas],
-        ['Exhortos', cause.prueba.exhortos],
-        ['Antecedentes externos', cause.prueba.externos],
-        ['Documentos relacionados con estrategia', cause.prueba.estrategia],
-      ];
-      return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Prueba / documentos</h4>
-              <p class="section-copy">Separación explícita entre documentos base, prueba, oficios, informes, actas, exhortos, antecedentes externos y material estratégico.</p>
-            </div>
-          </div>
-          <div class="documents-layout">${sections.map(([title, list]) => `
-            <article class="document-bucket">
-              <strong>${escapeHtml(title)}</strong>
-              <ul class="bullet-list">${list.map(item => `<li>${escapeHtml(item)}</li>`).join('')}</ul>
             </article>
           `).join('')}</div>
         </section>
@@ -12744,6 +12611,10 @@
           }
           state.selectedId = resolvedCaseId;
           setDetailStatus('', '');
+          if (jump.dataset.jump === 'expedientes') {
+            openExpedientesDigitalesFlow({ cause: state.caseMap.get(resolvedCaseId), origin: 'case-jump' });
+            return;
+          }
           openWorkspaceModal({ tabId: jump.dataset.jump, caseId: resolvedCaseId, origin: 'case-jump' });
           return;
         }
@@ -12784,7 +12655,15 @@
         const tab = event.target.closest('[data-tab]');
         if (!tab) return;
         if (event.target.closest('[data-open-block]')) {
+          if (tab.dataset.tab === 'expedientes') {
+            openExpedientesDigitalesFlow({ cause: getCurrentCause(), origin: 'pillar-open-button' });
+            return;
+          }
           openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
+          return;
+        }
+        if (tab.dataset.tab === 'expedientes') {
+          openExpedientesDigitalesFlow({ cause: getCurrentCause(), origin: 'pillar-card' });
           return;
         }
         openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
@@ -12798,6 +12677,18 @@
       });
 
       $('detailContent')?.addEventListener('click', async (event) => {
+        const expedientesAction = event.target.closest('[data-expedientes-action]');
+        if (expedientesAction) {
+          if (expedientesAction.dataset.expedientesAction === 'open-full-flow') {
+            openExpedientesDigitalesFlow({ cause: getCurrentCause(), origin: 'expedientes-pillar-full-flow' });
+            return;
+          }
+          if (expedientesAction.dataset.expedientesAction === 'open-general-index') {
+            window.location.href = './expedientes-digitales.html#indice-general-pjud';
+            return;
+          }
+        }
+
         const associationClient = event.target.closest('[data-select-associated-client]');
         if (associationClient) {
           state.selectedAssociationClientId = associationClient.dataset.selectAssociatedClient || null;
