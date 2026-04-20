@@ -2024,10 +2024,6 @@
             <div id="causeRectificationMessage" class="rectification-message" aria-live="polite"></div>
           </form>
         </section>
-        <div id="ebookFallbackActions" class="document-actions" hidden>
-          <button type="button" class="btn" id="btnCopyEbookLink">Copiar enlace</button>
-          <button type="button" class="btn" id="btnOpenEbookOfficial">Abrir en sitio oficial</button>
-        </div>
         <div class="tab-bar" id="tabBar"></div>
         <div id="detailContent"></div>
         </section>
@@ -2560,8 +2556,6 @@
       importTargetCaseId: null,
       currentDocumentId: null,
       currentDocumentContainer: 'documentos',
-      ebookFallbackUrl: '',
-      officialFallbackScope: 'ebook',
       explorer: {
         causeId: null,
         signature: '',
@@ -3806,12 +3800,8 @@
       );
     }
 
-    function toggleEbookFallback(url = '', scope = 'ebook'){
-      state.ebookFallbackUrl = url || '';
-      state.officialFallbackScope = scope;
-      const container = $('ebookFallbackActions');
-      if (!container) return;
-      container.hidden = !state.ebookFallbackUrl;
+    function toggleEbookFallback(){
+      return;
     }
 
     function pushJudicialTraceToCause(entry, payload = {}){
@@ -13315,48 +13305,6 @@
         $('k_caratula').value = normalizeCaratula($('k_caratula').value);
       }, { scope: 'form-causa' });
 
-      $('btnCopyEbookLink')?.addEventListener('click', async () => {
-        if (!state.ebookFallbackUrl) return;
-        const scope = state.officialFallbackScope || 'ebook';
-        try {
-          await copyTextToClipboard(state.ebookFallbackUrl);
-          setDetailStatus('Enlace oficial copiado al portapapeles.', 'ok');
-          logTrace(scope, 'enlace-copiado', { generatedUrl: state.ebookFallbackUrl, fallbackActivated: true });
-        } catch (error) {
-          setDetailStatus('No fue posible copiar el enlace automáticamente. Puede abrirlo manualmente desde el botón disponible.', 'error');
-          logTrace(scope, 'error-copiar-enlace', { generatedUrl: state.ebookFallbackUrl, message: error?.message || 'Error desconocido' });
-        }
-      });
-
-      $('btnOpenEbookOfficial')?.addEventListener('click', () => {
-        if (!state.ebookFallbackUrl) return;
-        const scope = state.officialFallbackScope || 'ebook';
-        const popup = openExternalPopup(scope, 'Estamos abriendo el enlace oficial del Poder Judicial en una nueva pestaña.');
-        if (!popup) {
-          setDetailStatus('Su navegador bloqueó la ventana emergente. Permita pop-ups para alphaavocat.cl y vuelva a intentar.', 'error');
-          return;
-        }
-        try {
-          popup.location.href = state.ebookFallbackUrl;
-          logTrace(scope, 'fallback activado', {
-            generatedUrl: state.ebookFallbackUrl,
-            redirectedToLogin: looksLikeLoginUrl(state.ebookFallbackUrl),
-          });
-          setDetailStatus(
-            scope === 'ebook'
-              ? 'El ebook se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.'
-              : 'La causa se abrirá en el sitio oficial del Poder Judicial. Si no carga correctamente, inicie sesión allí y vuelva a intentarlo.',
-            'warn',
-          );
-        } catch (error) {
-          closePopupSafely(popup);
-          logTrace(scope, 'error-redireccion-fallback', {
-            generatedUrl: state.ebookFallbackUrl,
-            message: error?.message || 'Error desconocido',
-          });
-          setDetailStatus('No fue posible redirigir la pestaña al sitio oficial del Poder Judicial.', 'error');
-        }
-      });
     }
 
     async function initFatalPhase(){
