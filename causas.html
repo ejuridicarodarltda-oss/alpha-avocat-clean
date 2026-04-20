@@ -2555,6 +2555,7 @@
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
     const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
+    const PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY = 'alpha-pjud-general-causes-excel-v1';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -2604,14 +2605,8 @@
         error: '',
         model: null,
       },
-      pjudHistory: {
-        loaded: false,
-        loading: false,
-        error: '',
-        items: [],
-        selectedBatchId: null,
-        rowsByBatchId: {},
-        loadingBatchRows: {},
+      generalPjudExcel: {
+        file: null,
       },
       visibilityDiagnostics: {
         lastBatchId: null,
@@ -5289,7 +5284,7 @@
       renderAll();
       openManagedModal('workspaceModal');
       console.info('[CAUSAS][WORKSPACE] Visor emergente abierto.', { origin, tabId: state.activeTab, caseId: state.selectedId });
-      if (state.activeTab === 'expedientes') loadPjudImportHistory();
+      if (state.activeTab === 'expedientes') loadGeneralPjudExcelRecord();
     }
 
     function clearAllFilters(){
@@ -5601,23 +5596,12 @@
     }
 
     function computeImportLifecycleDiagnostics(){
-      const safeBatches = state.pjudHistory.items || [];
-      return safeBatches.reduce((acc, batch) => {
-        const summary = batch.summary || {};
-        const importedCount = Number(batch.imported_count || summary.imported || 0);
-        const updatedCount = Number(batch.updated_count || summary.updated || 0);
-        const createdCount = Number(summary.created ?? Math.max(0, importedCount - updatedCount));
-        acc.inserted += createdCount;
-        acc.updated += updatedCount;
-        acc.materialized += Number(summary.materialized || 0);
-        acc.materializationFailed += Number(summary.materializationFailed || 0);
-        return acc;
-      }, {
+      return {
         inserted: 0,
         updated: 0,
         materialized: 0,
         materializationFailed: 0,
-      });
+      };
     }
 
     function loadPjudGeneralIndexRegistry(){
@@ -6019,14 +6003,14 @@
     }
 
     function runInteractiveAudit(){
-      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-pjud-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action]';
+      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-general-pjud-excel-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
         .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
       const deadNodes = interactiveNodes.filter((node) => {
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
         if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
-        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-pjud-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
+        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-general-pjud-excel-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
         const href = node.getAttribute('href');
         if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
         return true;
@@ -6470,102 +6454,62 @@
       `;
     }
 
-    async function fetchAllRowsFromTable(tableName, queryBuilderFactory, pageSize = PJUD_HISTORY_PAGE_SIZE){
-      const rows = [];
-      let from = 0;
-      while (true) {
-        const to = from + pageSize - 1;
-        const query = queryBuilderFactory(supabase.from(tableName)).range(from, to);
-        const { data, error } = await query;
-        if (error) throw error;
-        const chunk = data || [];
-        rows.push(...chunk);
-        if (chunk.length < pageSize) break;
-        from += pageSize;
+    function loadGeneralPjudExcelRecord(){
+      try {
+        const raw = window.localStorage.getItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY);
+        state.generalPjudExcel.file = raw ? JSON.parse(raw) : null;
+      } catch (_error) {
+        state.generalPjudExcel.file = null;
       }
-      return rows;
+      renderCurrentTab();
     }
 
-    function mapBatchSummary(batch = {}){
-      const summary = batch.summary || {};
-      const importedCount = Number(batch.imported_count || summary.imported || 0);
-      const updatedCount = Number(batch.updated_count || summary.updated || 0);
-      const createdCount = Number(summary.created ?? Math.max(0, importedCount - updatedCount));
-      return {
-        totalRowsAnalyzed: Number(batch.rows_processed || 0),
-        validDetected: Number(batch.causes_consolidated || summary.imported || 0),
-        created: createdCount,
-        updated: updatedCount,
-        duplicates: Number(summary.duplicates || 0),
-        structuralErrors: Number(batch.rows_invalid || 0),
-        failed: Number(summary.failed || 0),
+    function saveGeneralPjudExcelRecord(fileRecord = null){
+      if (!fileRecord) {
+        state.generalPjudExcel.file = null;
+        window.localStorage.removeItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY);
+        return;
+      }
+      state.generalPjudExcel.file = fileRecord;
+      window.localStorage.setItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY, JSON.stringify(fileRecord));
+    }
+
+    function formatGeneralPjudExcelFile(fileRecord = null){
+      if (!fileRecord) return 'No hay archivo cargado actualmente.';
+      const uploadedAt = fileRecord.uploadedAt ? formatDate(fileRecord.uploadedAt) : 'sin fecha';
+      const sizeLabel = Number.isFinite(Number(fileRecord.size)) ? `${Math.max(1, Math.round(Number(fileRecord.size) / 1024))} KB` : 'tamaño no informado';
+      return `${fileRecord.name || 'Archivo sin nombre'} · ${sizeLabel} · cargado ${uploadedAt}`;
+    }
+
+    function renderGeneralPjudExcelPanel(){
+      return `
+        <section class="section-card" id="generalPjudExcelPanel">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Lista general de causas de PJUD excel</h4>
+              <p class="section-copy">Aquí puede cargar el Excel general de causas de PJUD, depurado de duplicaciones. Si sube uno nuevo, reemplazará al anterior.</p>
+            </div>
+          </div>
+          <div class="document-actions">
+            <button type="button" class="btn" data-general-pjud-excel-action="upload">Subir Excel de listado todos los tribunales</button>
+            <input type="file" id="generalPjudExcelInput" class="hidden-input" accept=".xlsx,.xls,.xlsm,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+          </div>
+          <div class="helper-box" id="generalPjudExcelCurrentFile">${escapeHtml(formatGeneralPjudExcelFile(state.generalPjudExcel.file))}</div>
+        </section>
+      `;
+    }
+
+    async function handleGeneralPjudExcelFileInput(file){
+      if (!file) return;
+      const fileRecord = {
+        name: file.name || 'archivo.xlsx',
+        size: Number(file.size || 0),
+        type: file.type || 'application/vnd.ms-excel',
+        uploadedAt: new Date().toISOString(),
       };
-    }
-
-    async function loadPjudImportHistory(force = false){
-      if (state.pjudHistory.loading) return;
-      if (state.pjudHistory.loaded && !force) return;
-      state.pjudHistory.loading = true;
-      state.pjudHistory.error = '';
+      saveGeneralPjudExcelRecord(fileRecord);
+      setMessage('importMsg', 'Excel general actualizado correctamente. El archivo anterior fue reemplazado.', 'ok');
       renderCurrentTab();
-      try {
-        const batches = await fetchAllRowsFromTable(T_PJUD_IMPORT_BATCHES, (base) => base
-          .select('*')
-          .eq('owner_user_id', authenticatedUser.id)
-          .order('created_at', { ascending: false }));
-        state.pjudHistory.items = batches;
-        state.pjudHistory.loaded = true;
-        if (!state.pjudHistory.selectedBatchId && batches[0]?.id) state.pjudHistory.selectedBatchId = batches[0].id;
-        if (state.pjudHistory.selectedBatchId) {
-          await loadPjudBatchRows(state.pjudHistory.selectedBatchId);
-        }
-      } catch (error) {
-        state.pjudHistory.error = buildLoadError('el historial de importaciones PJUD', error).message;
-      } finally {
-        state.pjudHistory.loading = false;
-        renderCurrentTab();
-      }
-    }
-
-    async function loadPjudBatchRows(batchId){
-      if (!batchId) return;
-      if (state.pjudHistory.loadingBatchRows[batchId]) return;
-      if (state.pjudHistory.rowsByBatchId[batchId]) return;
-      state.pjudHistory.loadingBatchRows = { ...state.pjudHistory.loadingBatchRows, [batchId]: true };
-      renderCurrentTab();
-      try {
-        const rows = await fetchAllRowsFromTable(T_PJUD_IMPORT_ROWS, (base) => base
-          .select('*')
-          .eq('owner_user_id', authenticatedUser.id)
-          .eq('batch_id', batchId)
-          .order('row_number', { ascending: true }));
-        state.pjudHistory.rowsByBatchId = { ...state.pjudHistory.rowsByBatchId, [batchId]: rows };
-      } catch (error) {
-        state.pjudHistory.error = buildLoadError('el detalle de filas del lote PJUD', error).message;
-      } finally {
-        state.pjudHistory.loadingBatchRows = { ...state.pjudHistory.loadingBatchRows, [batchId]: false };
-        renderCurrentTab();
-      }
-    }
-
-    function renderPjudBatchRowStatus(row = {}){
-      const payloadStatus = String(row.payload?.status || '').toLowerCase();
-      if (payloadStatus === 'created') return 'Nueva';
-      if (payloadStatus === 'updated') return 'Actualizada';
-      if (payloadStatus === 'duplicate') return 'Duplicada / ya existente';
-      if (payloadStatus === 'error') return 'Error';
-      if (row.is_valid === false || payloadStatus === 'discarded') return 'Error';
-      return 'Procesada';
-    }
-
-    function boolLabel(value){
-      return value ? 'Sí' : 'No';
-    }
-
-    function renderPjudOriginSummary(payload = {}){
-      const items = Array.isArray(payload.origin_types) ? payload.origin_types.filter(Boolean) : [];
-      if (!items.length) return 'metadata';
-      return items.join(', ');
     }
 
     async function loadPjudLinkingData(){
@@ -6715,83 +6659,6 @@
       });
     }
 
-    function renderPjudImportHistoryPanel(){
-      const selectedBatch = state.pjudHistory.items.find((item) => item.id === state.pjudHistory.selectedBatchId) || null;
-      const selectedRows = selectedBatch ? (state.pjudHistory.rowsByBatchId[selectedBatch.id] || []) : [];
-      const selectedSummary = mapBatchSummary(selectedBatch || {});
-      return `
-        <section class="section-card" id="pjudImportHistoryPanel">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Importado PJUD</h4>
-              <p class="section-copy">Historial auditable por lote con estado de cada causa (Nueva, Actualizada, Duplicada/Error) y métricas completas de importación.</p>
-            </div>
-            <div class="toolbar">
-              <button class="btn" data-pjud-action="refresh-history">Actualizar historial</button>
-              <button class="btn" data-pjud-action="open-linking-panel">Vinculación PJUD / Alpha</button>
-            </div>
-          </div>
-          ${state.pjudHistory.loading ? '<div class="helper-box">Cargando historial de importaciones PJUD…</div>' : ''}
-          ${state.pjudHistory.error ? `<div class="helper-box">${escapeHtml(state.pjudHistory.error)}</div>` : ''}
-          <div class="timeline">
-            ${(state.pjudHistory.items || []).map((batch) => {
-              const summary = mapBatchSummary(batch);
-              return `
-                <article class="timeline-item">
-                  <div class="case-top">
-                    <strong>${escapeHtml(batch.id || 'Batch sin ID')}</strong>
-                    <span class="badge badge-info">${escapeHtml(batch.status || 'sin estado')}</span>
-                  </div>
-                  <div class="timeline-meta">${escapeHtml(formatDate(batch.created_at))} · Fuente: ${escapeHtml(batch.file_name || batch.source || 'PJUD')}</div>
-                  <div class="case-meta">Analizadas: ${summary.totalRowsAnalyzed} · Válidas: ${summary.validDetected} · Nuevas: ${summary.created} · Actualizadas: ${summary.updated} · Duplicadas: ${summary.duplicates} · Estructurales: ${summary.structuralErrors} · Error: ${summary.failed}</div>
-                  <div class="document-actions">
-                    <button class="btn" data-pjud-action="open-batch" data-batch-id="${batch.id}">Abrir detalle</button>
-                  </div>
-                </article>
-              `;
-            }).join('') || '<div class="helper-box">Aún no hay importaciones PJUD registradas.</div>'}
-          </div>
-          ${selectedBatch ? `
-            <section class="section-card">
-              <div class="section-head">
-                <div>
-                  <h5 class="segment-title">Detalle lote ${escapeHtml(selectedBatch.id)}</h5>
-                  <p class="section-copy">Rol/RIT/RUC, tribunal, materia, interviniente y resultado por causa del lote seleccionado.</p>
-                </div>
-                <span class="badge badge-active">${selectedRows.length} fila(s)</span>
-              </div>
-              <div class="helper-box">
-                Se analizaron ${selectedSummary.totalRowsAnalyzed} filas, válidas ${selectedSummary.validDetected}, nuevas ${selectedSummary.created}, actualizadas ${selectedSummary.updated}, duplicadas ${selectedSummary.duplicates}, estructurales ${selectedSummary.structuralErrors}, con error ${selectedSummary.failed}.
-              </div>
-              <div class="explorer-list-wrap">
-                <table class="explorer-list-table">
-                  <thead><tr><th>Rol / RIT / RUC</th><th>Tribunal</th><th>Materia</th><th>Case ID / Batch / Key</th><th>Operación</th><th>Materializada</th><th>Descargada real</th><th>Persistida real</th><th>Origen</th><th>Destino</th><th>Motivo</th></tr></thead>
-                  <tbody>
-                    ${selectedRows.map((row) => {
-                      const payload = row.payload || {};
-                      return `<tr>
-                        <td>${escapeHtml([payload.rol, payload.rit, payload.ruc, payload.pjud_case_key].filter(Boolean).join(' · ') || 'Sin identificador')}</td>
-                        <td>${escapeHtml(row.tribunal || payload.tribunal || 'Sin tribunal')}</td>
-                        <td>${escapeHtml(row.materia || payload.materia || 'Sin materia')}</td>
-                        <td>${escapeHtml([payload.case_id || '—', row.batch_id || '—', payload.pjud_case_key || '—'].join(' / '))}</td>
-                        <td>${escapeHtml(payload.operation || renderPjudBatchRowStatus(row))}</td>
-                        <td>${escapeHtml(boolLabel(Boolean(payload.materialized)))}</td>
-                        <td>${escapeHtml(boolLabel(Boolean(payload.downloaded_real)))}</td>
-                        <td>${escapeHtml(boolLabel(Boolean(payload.persisted_real)))}</td>
-                        <td>${escapeHtml(renderPjudOriginSummary(payload))}</td>
-                        <td>${escapeHtml((Array.isArray(payload.destination_types) ? payload.destination_types.join(', ') : '') || 'Sin destino')}</td>
-                        <td>${escapeHtml(payload.reason || row.traceability?.reason || 'Sin observaciones')}</td>
-                      </tr>`;
-                    }).join('') || '<tr><td colspan="11">No hay filas almacenadas para este lote.</td></tr>'}
-                  </tbody>
-                </table>
-              </div>
-            </section>
-          ` : ''}
-        </section>
-      `;
-    }
-
     function renderExpedientesPillar(cause){
       return `
         <section class="section-card">
@@ -6810,7 +6677,7 @@
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
-        ${renderPjudImportHistoryPanel()}
+        ${renderGeneralPjudExcelPanel()}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
         ${renderSyncHistory(cause)}
@@ -8026,7 +7893,7 @@
       renderTabs();
       renderCurrentTab();
       if (state.activeTab === 'expedientes') {
-        loadPjudImportHistory();
+        loadGeneralPjudExcelRecord();
       }
     }
 
@@ -12334,7 +12201,7 @@
             discardedRows: stats.discardedRows,
             traceability: stats.stageTrace,
           });
-          await loadPjudImportHistory(true);
+          await loadGeneralPjudExcelRecord();
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-batch] No fue posible persistir la importación PJUD.', error);
@@ -13107,6 +12974,11 @@
         }
       }, { required: true, scope: 'excel-estado' });
       bindEvent('caseFileInput', 'change', handleFileSelection, { required: true, scope: 'documentos' });
+      bindEvent('generalPjudExcelInput', 'change', async (event) => {
+        const file = event?.target?.files?.[0] || null;
+        await handleGeneralPjudExcelFileInput(file);
+        event.target.value = '';
+      }, { scope: 'general-pjud-excel-upload' });
       $('detailContent')?.addEventListener('dragover', (event) => {
         event.preventDefault();
       });
@@ -13309,9 +13181,9 @@
                 'importadasdelpoderjudicial',
               ].includes(normalizedNodeId) || isPjudImportedFolderNode(node);
               if (opensPjudImportedPanel) {
-                const panel = document.getElementById('pjudImportHistoryPanel');
+                const panel = document.getElementById('generalPjudExcelPanel');
                 panel?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                loadPjudImportHistory();
+                loadGeneralPjudExcelRecord();
               }
               renderCurrentTab();
             } else if (node.documentId) {
@@ -13372,22 +13244,10 @@
           return;
         }
 
-        const pjudAction = event.target.closest('[data-pjud-action]');
-        if (pjudAction) {
-          const action = pjudAction.dataset.pjudAction;
-          const batchId = pjudAction.dataset.batchId || '';
-          if (action === 'refresh-history') {
-            loadPjudImportHistory(true);
-            return;
-          }
-          if (action === 'open-linking-panel') {
-            await openPjudLinkingPanel();
-            return;
-          }
-          if (action === 'open-batch') {
-            state.pjudHistory.selectedBatchId = batchId;
-            loadPjudBatchRows(batchId);
-            renderCurrentTab();
+        const generalExcelAction = event.target.closest('[data-general-pjud-excel-action]');
+        if (generalExcelAction) {
+          if (generalExcelAction.dataset.generalPjudExcelAction === 'upload') {
+            $('generalPjudExcelInput')?.click();
             return;
           }
         }
@@ -13520,7 +13380,7 @@
       });
       $('detailContent')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-pjud-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
+        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-general-pjud-excel-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
