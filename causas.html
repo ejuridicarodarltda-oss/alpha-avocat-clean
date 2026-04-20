@@ -6219,14 +6219,14 @@
     }
 
     function runInteractiveAudit(){
-      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-general-pjud-excel-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action]';
+      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-general-pjud-excel-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action], [data-tribunal-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
         .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
       const deadNodes = interactiveNodes.filter((node) => {
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
         if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
-        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-general-pjud-excel-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action]')) return false;
+        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-general-pjud-excel-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action],[data-tribunal-action]')) return false;
         const href = node.getAttribute('href');
         if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
         return true;
@@ -6387,9 +6387,12 @@
                       <div class="case-footer">
                         <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
                         <div class="case-actions">
-                          <button class="quick-btn quick-btn-primary" data-jump="informacion" data-case="${item.id}">Información</button>
-                          <button class="quick-btn" data-jump="expedientes" data-case="${item.id}">Expedientes</button>
-                          <button class="quick-btn" data-jump="produccion" data-case="${item.id}">Producción</button>
+                          <button class="quick-btn quick-btn-primary" type="button" data-tribunal-action="open-tribunal" data-case="${item.id}">Abrir tribunal</button>
+                          <button class="quick-btn" type="button" data-tribunal-action="manual-correction" data-case="${item.id}">Corrección manual</button>
+                          <button class="quick-btn" type="button" data-tribunal-action="rename-tribunal" data-case="${item.id}">Renombrar tribunal</button>
+                          <button class="quick-btn" type="button" data-tribunal-action="delete-tribunal" data-case="${item.id}">Eliminar tribunal</button>
+                          <button class="quick-btn" type="button" data-tribunal-action="delete-cause" data-case="${item.id}">Eliminar causa</button>
+                          <button class="quick-btn" type="button" data-tribunal-action="move-or-replace-cause" data-case="${item.id}">Trasladar o reemplazar causa</button>
                         </div>
                       </div>
                     </article>
@@ -6408,6 +6411,168 @@
         return;
       }
       $('tabBar').innerHTML = '';
+    }
+
+    function removeCauseFromWorkspace(causeId){
+      const workspace = loadWorkspace();
+      delete workspace[String(causeId || '')];
+      saveWorkspace(workspace);
+    }
+
+    function getCausesByTribunalName(tribunalName = ''){
+      const normalizedTarget = normalizeTextForMatch(tribunalName);
+      return getAllCases().filter((item) => normalizeTextForMatch(item?.tribunal || '') === normalizedTarget);
+    }
+
+    async function deleteCauseManually(cause){
+      if (!cause?.id) {
+        setDetailStatus('No fue posible eliminar la causa: falta identificador.', 'error');
+        return;
+      }
+      const identity = getCauseIdentifier(cause);
+      const confirmed = window.confirm(`Eliminar causa ${identity.display} (${cause.caratula || 'Sin carátula'}) del tribunal "${cause.tribunal || 'Sin tribunal'}". Esta acción es manual y requiere confirmación. ¿Continuar?`);
+      if (!confirmed) return;
+      const { error } = await supabase.from(T_CASES).delete().eq(C.k_id, cause.id);
+      if (error) throw new Error(`No fue posible eliminar la causa: ${error.message}`);
+      removeCauseFromWorkspace(cause.id);
+      await loadCases();
+      renderAll();
+      setDetailStatus(`Causa eliminada manualmente: ${identity.display}.`, 'ok');
+    }
+
+    async function handleTribunalManualAction(actionName, caseId){
+      const resolvedCaseId = resolveCaseId(caseId);
+      if (!resolvedCaseId) {
+        setDetailStatus('No fue posible ejecutar la acción: ID de causa inválido.', 'warn');
+        return;
+      }
+      const cause = state.caseMap.get(String(resolvedCaseId));
+      if (!cause) {
+        setDetailStatus('No fue posible ejecutar la acción: causa no encontrada.', 'warn');
+        return;
+      }
+      state.selectedId = String(cause.id);
+
+      if (actionName === 'open-tribunal') {
+        openWorkspaceModal({ tabId: 'expedientes', caseId: cause.id, origin: 'manual-open-tribunal' });
+        return;
+      }
+      if (actionName === 'manual-correction') {
+        openWorkspaceModal({ tabId: 'informacion', caseId: cause.id, origin: 'manual-correction' });
+        openCauseRectification('general');
+        setDetailStatus(`Corrección manual abierta para ${cause.tribunal || 'tribunal sin nombre'}.`, 'ok');
+        return;
+      }
+      if (actionName === 'rename-tribunal') {
+        const currentName = String(cause.tribunal || '').trim();
+        const nextName = window.prompt('Renombrar tribunal (manual): ingresa nuevo nombre.', currentName);
+        if (nextName == null) return;
+        const cleanName = String(nextName).trim();
+        if (!cleanName) {
+          setDetailStatus('El nombre del tribunal no puede quedar vacío.', 'warn');
+          return;
+        }
+        updateWorkspaceEntry(cause.id, (current) => ({ ...current, tribunal: cleanName, pjudTribunal: cleanName }));
+        await loadCases();
+        renderAll();
+        setDetailStatus(`Tribunal renombrado manualmente: ${currentName || 'Sin nombre'} → ${cleanName}.`, 'ok');
+        return;
+      }
+      if (actionName === 'delete-tribunal') {
+        const tribunalName = cause.tribunal || 'Tribunal sin nombre';
+        const confirmed = window.confirm(`Eliminar manualmente el tribunal "${tribunalName}" de esta causa. No se borra la causa, solo se limpia el dato de tribunal. ¿Continuar?`);
+        if (!confirmed) return;
+        updateWorkspaceEntry(cause.id, (current) => ({ ...current, tribunal: '', pjudTribunal: '' }));
+        await loadCases();
+        renderAll();
+        setDetailStatus(`Tribunal eliminado manualmente de la causa ${getCauseIdentifier(cause).display}.`, 'ok');
+        return;
+      }
+      if (actionName === 'delete-cause') {
+        const tribunalCauses = getCausesByTribunalName(cause.tribunal);
+        if (!tribunalCauses.length) {
+          setDetailStatus('No hay causas disponibles para eliminar en este tribunal.', 'warn');
+          return;
+        }
+        const options = tribunalCauses.map((item, index) => `${index + 1}. ${item.rol || item.id} · ${item.caratula || 'Sin carátula'}`).join('\n');
+        const picked = window.prompt(`Selecciona la causa a eliminar en "${cause.tribunal || 'Sin tribunal'}" (número):\n${options}`, '1');
+        if (picked == null) return;
+        const index = Number(picked);
+        if (!Number.isFinite(index) || index < 1 || index > tribunalCauses.length) {
+          setDetailStatus('Selección inválida. No se eliminó ninguna causa.', 'warn');
+          return;
+        }
+        await deleteCauseManually(tribunalCauses[index - 1]);
+        return;
+      }
+      if (actionName === 'move-or-replace-cause') {
+        const tribunalCauses = getCausesByTribunalName(cause.tribunal);
+        if (!tribunalCauses.length) {
+          setDetailStatus('No hay causas disponibles para trasladar/reemplazar en este tribunal.', 'warn');
+          return;
+        }
+        const options = tribunalCauses.map((item, index) => `${index + 1}. ${item.rol || item.id} · ${item.caratula || 'Sin carátula'}`).join('\n');
+        const sourcePick = window.prompt(`Selecciona causa origen (número) en "${cause.tribunal || 'Sin tribunal'}":\n${options}`, '1');
+        if (sourcePick == null) return;
+        const sourceIndex = Number(sourcePick);
+        if (!Number.isFinite(sourceIndex) || sourceIndex < 1 || sourceIndex > tribunalCauses.length) {
+          setDetailStatus('Origen inválido. Operación cancelada.', 'warn');
+          return;
+        }
+        const sourceCause = tribunalCauses[sourceIndex - 1];
+        const mode = window.prompt('Escribe "mover" para trasladar la causa o "reemplazar" para reemplazar otra causa con esta.', 'mover');
+        if (mode == null) return;
+        const normalizedMode = normalizeTextForMatch(mode);
+        if (normalizedMode === 'mover') {
+          const destinationTribunal = window.prompt('Tribunal destino (manual):', sourceCause.tribunal || '');
+          if (destinationTribunal == null) return;
+          const destinationName = String(destinationTribunal).trim();
+          if (!destinationName) {
+            setDetailStatus('Debes indicar un tribunal destino válido.', 'warn');
+            return;
+          }
+          updateWorkspaceEntry(sourceCause.id, (current) => ({ ...current, tribunal: destinationName, pjudTribunal: destinationName }));
+          await loadCases();
+          renderAll();
+          setDetailStatus(`Causa trasladada manualmente a "${destinationName}".`, 'ok');
+          return;
+        }
+        if (normalizedMode === 'reemplazar') {
+          const targetPick = window.prompt(`Selecciona causa destino a reemplazar (número):\n${options}`, '1');
+          if (targetPick == null) return;
+          const targetIndex = Number(targetPick);
+          if (!Number.isFinite(targetIndex) || targetIndex < 1 || targetIndex > tribunalCauses.length) {
+            setDetailStatus('Destino inválido. Operación cancelada.', 'warn');
+            return;
+          }
+          const targetCause = tribunalCauses[targetIndex - 1];
+          if (String(targetCause.id) === String(sourceCause.id)) {
+            setDetailStatus('Origen y destino no pueden ser la misma causa.', 'warn');
+            return;
+          }
+          const confirmReplace = window.confirm(`Reemplazar manualmente la causa destino "${targetCause.rol || targetCause.id}" con datos de "${sourceCause.rol || sourceCause.id}". ¿Confirmas?`);
+          if (!confirmReplace) return;
+          updateWorkspaceEntry(targetCause.id, (current) => ({
+            ...current,
+            caratula: sourceCause.caratula || current.caratula,
+            rol: sourceCause.rol || current.rol,
+            rit: sourceCause.rit || current.rit,
+            ruc: sourceCause.ruc || current.ruc,
+            tribunal: sourceCause.tribunal || current.tribunal,
+            pjudTribunal: sourceCause.tribunal || current.pjudTribunal,
+            procedimiento: sourceCause.procedimiento || current.procedimiento,
+            materia: sourceCause.materia || current.materia,
+            notes: [current.notes, `Reemplazo manual desde causa ${sourceCause.id} (${new Date().toISOString()})`].filter(Boolean).join('\n'),
+          }));
+          const deleteSource = window.confirm('¿Eliminar causa origen después del reemplazo?');
+          if (deleteSource) await deleteCauseManually(sourceCause);
+          await loadCases();
+          renderAll();
+          setDetailStatus(`Reemplazo manual completado sobre ${targetCause.rol || targetCause.id}.`, 'ok');
+          return;
+        }
+        setDetailStatus('Modo inválido. Usa "mover" o "reemplazar".', 'warn');
+      }
     }
 
     function renderDetailActions(){
@@ -13537,13 +13702,20 @@
         filterField.addEventListener(id === 'searchCausas' ? 'input' : 'change', updateFiltersFromInputs);
       });
 
-      $('casesList')?.addEventListener('click', event => {
+      $('casesList')?.addEventListener('click', async (event) => {
         const kardexToggle = event.target.closest('[data-kardex-toggle]');
         if (kardexToggle) {
           const label = kardexToggle.dataset.kardexToggle;
           state.openKardexByTribunal[label] = !state.openKardexByTribunal[label];
           persistKardexExpandedState();
           renderList();
+          return;
+        }
+        const tribunalAction = event.target.closest('[data-tribunal-action]');
+        if (tribunalAction) {
+          event.preventDefault();
+          event.stopPropagation();
+          await handleTribunalManualAction(tribunalAction.dataset.tribunalAction, tribunalAction.dataset.case);
           return;
         }
         const jump = event.target.closest('[data-jump]');
@@ -13572,7 +13744,7 @@
       });
       $('casesList')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-select],[data-jump],[data-kardex-toggle]');
+        const actionable = event.target.closest('[data-select],[data-jump],[data-kardex-toggle],[data-tribunal-action]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
