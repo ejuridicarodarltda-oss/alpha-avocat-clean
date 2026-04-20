@@ -1888,7 +1888,6 @@
         <p class="panel-subtitle">Control del índice general de causas. El almacenamiento y las versiones quedan en Expedientes Digitales &gt; Fichero principal &gt; Índice General PJUD.</p>
       </div>
       <div class="pjud-index-actions">
-        <button id="btnIndiceDepurarDuplicados" class="btn" type="button">Depurar duplicados</button>
         <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
         <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
       </div>
@@ -13289,11 +13288,6 @@
       bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
       bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
       bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
-      bindEvent('btnIndiceDepurarDuplicados', 'click', () => {
-        const snapshot = buildPjudIndexFromCases();
-        state.pjudGeneralIndexControl.lastStatus = `Depuración ejecutada: ${snapshot.duplicatesRemoved} duplicado(s) eliminado(s) por materia+tribunal+rol`;
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
       bindEvent('btnIndiceAbrirGeneral', 'click', () => {
         window.location.href = './expedientes-digitales.html#indice-general-pjud';
       }, { scope: 'indice-general' });
