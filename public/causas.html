@@ -1953,7 +1953,7 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Visor de causa y expediente</div>
-          <p class="panel-subtitle">Ficha jurídica completa, expediente digital, carpetas, documentos, ebook, producción y monitoreo en vista emergente.</p>
+          <p class="panel-subtitle">Visor enfocado en expediente digital incorporado, con acceso directo al contenido documental y su gestión.</p>
         </div>
         <button class="icon-btn" type="button" id="btnCloseWorkspaceModal" aria-label="Cerrar visor">✕</button>
       </div>
@@ -3070,23 +3070,6 @@
     const detailActions = [
       { id:'abrir-expediente', label:'Abrir expediente', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-open-expediente' }) },
       { id:'editar-expediente', label:'Editar expediente digital', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-edit-expediente' }) },
-      { id:'editar-causa-relacionada', label:'Editar causa relacionada', action:() => openModal() },
-      { id:'rectificar', label:'Rectificar información', action:() => openCauseRectification('general') },
-      { id:'informacion', label:'Información base', action:() => setActiveTab('informacion') },
-      { id:'expedientes', label:'Expedientes', action:() => setActiveTab('expedientes') },
-      { id:'produccion', label:'Producción', action:() => setActiveTab('produccion') },
-      { id:'actualizar', label:'Actualizar causa', action:() => openSyncModal() },
-      { id:'actualizar-pjud', label:'Actualizar PJUD', action:() => openSyncModal() },
-      { id:'pj', label:'Abrir en Poder Judicial', action:() => openInPoderJudicial() },
-      { id:'ebook', label:'Descargar ebook', action:() => {
-        const cause = getCurrentCause();
-        if (!cause?.ebookDocumentId) {
-          alert('Esta causa aún no tiene ebook cargado. Puedes importarlo o subirlo manualmente en Expedientes digitales.');
-          return;
-        }
-        handleDocumentAction(cause.ebookDocumentId, 'download');
-      } },
-      { id:'revertir', label:'Deshacer incorporación', action:() => handleRevertImport() },
     ];
 
     function escapeHtml(value=''){
@@ -6247,18 +6230,13 @@
         $('tabBar').innerHTML = '';
         return;
       }
-      $('tabBar').innerHTML = TAB_CONFIG.map(([id, label]) => `<button class="tab-btn ${state.activeTab === id ? 'active' : ''}" data-tab="${id}">${escapeHtml(label)}</button>`).join('');
+      $('tabBar').innerHTML = '';
     }
 
     function renderDetailActions(){
-      const visibleActions = detailActions.filter((item) => item.id !== 'rectificar' || isRectificationAdmin);
-      const primaryIds = new Set(['informacion', 'expedientes', 'produccion', 'abrir-expediente', 'editar-expediente', 'editar-causa-relacionada', 'rectificar']);
-      const primary = visibleActions.filter((item) => primaryIds.has(item.id));
-      const secondary = visibleActions.filter((item) => !primaryIds.has(item.id));
-      const renderButtons = (items) => items.map(item => `<button class="btn ${item.id === state.activeTab ? 'btn-primary' : ''}" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
+      const renderButtons = (items) => items.map(item => `<button class="btn" data-detail-action="${item.id}">${escapeHtml(item.label)}</button>`).join('');
       $('detailActions').innerHTML = `
-        <div class="action-group primary">${renderButtons(primary)}</div>
-        <div class="action-group secondary">${renderButtons(secondary)}</div>
+        <div class="action-group primary">${renderButtons(detailActions)}</div>
       `;
     }
 
@@ -7190,8 +7168,6 @@
             </div>
             <div class="toolbar">
               <span class="badge badge-info">Última sincronización: ${escapeHtml(formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt))}</span>
-              <button class="btn" data-detail-action-trigger="actualizar">Actualizar causa</button>
-              <button class="btn" data-detail-action-trigger="revertir">Deshacer incorporación</button>
             </div>
           </div>
           <div class="sync-list">
@@ -7999,26 +7975,16 @@
       if (state.rectificationValidation?.causeId && state.rectificationValidation.causeId !== cause.id) {
         state.rectificationValidation = null;
       }
-      const tabTitles = {
-        informacion: 'INFORMACIÓN DE CLIENTES, ASESORÍAS Y CAUSAS',
-        expedientes: 'EXPEDIENTES DIGITALES',
-        produccion: 'PRODUCCIÓN',
-      };
       const identity = getCauseIdentifier(cause);
-      $('detailTitle').textContent = tabTitles[state.activeTab] || tabTitles.informacion;
+      $('detailTitle').textContent = 'EXPEDIENTES DIGITALES';
       $('detailMeta').textContent = `${cause.caratula} · ${identity.display} · ${cause.tribunal} · ${cause.procedimiento} · ${cause.materia} · Responsable: ${cause.responsable} · Última sincronización: ${formatDate(cause.importMeta?.lastSyncAt || cause.poderJudicial?.lastSyncAt || cause.ultimaGestion)}`;
       renderDetailActions();
 
-      const renderers = {
-        informacion: renderInformationPillar,
-        expedientes: renderExpedientesPillar,
-        produccion: renderProduccionPillar,
-      };
-      const activeRenderer = renderers[state.activeTab] || renderInformationPillar;
+      const activeRenderer = renderExpedientesPillar;
       const detailContent = $('detailContent');
       if (!detailContent) return;
       const panelByTab = ensureDetailTabPanels(detailContent);
-      const activeTab = TAB_CONFIG.some(([id]) => id === state.activeTab) ? state.activeTab : 'informacion';
+      const activeTab = 'expedientes';
       Object.entries(panelByTab).forEach(([tabId, panel]) => {
         const isActive = tabId === activeTab;
         panel.hidden = !isActive;
