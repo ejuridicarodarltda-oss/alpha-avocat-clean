@@ -2201,6 +2201,42 @@
     </div>
   </div>
 
+
+  <div id="modalBuscarCausa" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Buscar causa por ROL</div>
+          <p class="panel-subtitle">Busca solo por ROL y visualiza todas las coincidencias, incluso si pertenecen a distintos tribunales.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalBuscarCausa" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formBuscarCausa" class="form">
+        <div class="grid-2">
+          <div class="field">
+            <label for="buscarCausaRol">ROL</label>
+            <input id="buscarCausaRol" class="input" placeholder="Ej: C-1234-2026" required />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalBuscarCausa">Cancelar</button>
+          <button type="submit" class="btn btn-primary">Buscar</button>
+        </div>
+        <div id="buscarCausaMsg" class="msg" aria-live="polite"></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="buscarCausaResultados"><tr><td colspan="4">Ingresa un ROL y presiona Buscar.</td></tr></tbody>
+          </table>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <div id="modalDocumento" class="modal" aria-hidden="true">
     <div class="modal-panel">
       <div class="modal-header">
@@ -2280,7 +2316,7 @@
         <div class="modal-actions">
           <button type="button" class="btn" data-close="1" data-modal-id="modalCargaExpedienteDigital">Cancelar</button>
           <button id="btnConfirmarCargaExpedienteDigital" type="submit" class="btn btn-primary">Cargar expedientes digitales</button>
-          <button id="btnAbrirExpedienteManual" type="button" class="btn" hidden>Abrir expediente</button>
+          <button id="btnAbrirExpedienteManual" type="button" class="btn" hidden>Abrir causa encontrada</button>
         </div>
         <div id="manualUploadMsg" class="msg" aria-live="polite"></div>
       </form>
@@ -2552,6 +2588,8 @@
       pendingMassiveExcelBase: null,
       pendingPjudBatchId: null,
       manualSelectedCauseId: '',
+      searchedCauseId: null,
+      caseFormMode: 'create',
       importModalLocked: false,
       importTargetCaseId: null,
       currentDocumentId: null,
@@ -3062,8 +3100,8 @@
     }
 
     const detailActions = [
-      { id:'abrir-expediente', label:'Abrir expediente', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-open-expediente' }) },
-      { id:'editar-expediente', label:'Editar expediente digital', action:() => openWorkspaceModal({ tabId: 'expedientes', caseId: state.selectedId, origin: 'detail-action-edit-expediente' }) },
+      { id:'buscar-causa', label:'Buscar causa', action:() => openCauseSearchModal() },
+      { id:'editar-expediente', label:'Editar expediente digital', action:() => openSelectedCauseEditor() },
     ];
 
     function escapeHtml(value=''){
@@ -8004,6 +8042,8 @@
     const msg = $('caseMsg');
 
     function openModal(){
+      resetCaseFormMode();
+      $('formCausa').reset();
       openManagedModal('modalCausa');
       msg.className = 'msg';
       msg.textContent = '';
@@ -8012,6 +8052,142 @@
     function closeModal(){
       closeManagedModal('modalCausa');
       $('formCausa').reset();
+      resetCaseFormMode();
+      msg.className = 'msg';
+      msg.textContent = '';
+    }
+
+
+
+    function resetCaseFormMode(){
+      state.caseFormMode = 'create';
+      delete modal.dataset.editingCaseId;
+      const title = modal?.querySelector('.modal-title');
+      const submitButton = $('formCausa')?.querySelector('button[type="submit"]');
+      if (title) title.textContent = 'Nueva causa';
+      if (submitButton) submitButton.textContent = 'Guardar causa';
+    }
+
+    function setCaseFormModeToEdit(causeId){
+      state.caseFormMode = 'edit';
+      if (modal) modal.dataset.editingCaseId = String(causeId || '');
+      const title = modal?.querySelector('.modal-title');
+      const submitButton = $('formCausa')?.querySelector('button[type="submit"]');
+      if (title) title.textContent = 'Editar expediente digital';
+      if (submitButton) submitButton.textContent = 'Guardar cambios';
+    }
+
+    function fillCaseFormFromCause(cause){
+      if (!cause) return;
+      const noRolYet = String(cause?.rol || '').startsWith('SIN_ROL_TEMPORAL');
+      $('k_client').value = String(cause.clientId || '');
+      $('k_resp').value = cause.responsable || '';
+      $('k_procurador').value = cause.procurador || '';
+      $('k_caratula').value = cause.caratula || '';
+      $('k_rol').value = noRolYet ? '' : (cause.rol || '');
+      $('k_no_rol_yet').checked = noRolYet;
+      $('k_rit').value = cause.rit || '';
+      $('k_ruc').value = cause.ruc || '';
+      $('k_court').value = cause.tribunal || '';
+      $('k_court_type').value = cause.tipoTribunal || '';
+      $('k_procedure').value = cause.procedimiento || '';
+      $('k_subject').value = cause.materia || '';
+      $('k_submatter').value = cause.submateria || '';
+      $('k_state').value = cause.estadoProcesal || 'En preparación';
+      $('k_stage').value = cause.etapaProcesal || '';
+      $('k_entry_date').value = cause.fechaInicio || '';
+      const urgencia = cause.alerta === 'Urgente' ? 'Crítica' : (cause.alerta || 'Normal');
+      $('k_urgency').value = urgencia;
+      $('k_fee').value = parseCLP(cause.fee_total ?? cause.cuantia) ?? '';
+      $('k_fee_type').value = cause.feeType || 'Mixto';
+      $('k_pay').value = cause.paymentMode || 'Mixto';
+      $('k_ppm').value = parseCLP(cause.ppmPercent) ?? '';
+      $('k_withhold').value = cause.withheldBy || 'Retiene receptor';
+      $('k_expediente').value = cause.expediente || '';
+      $('k_partes').value = cause.partesManualRaw || '';
+      $('k_last_resolution').value = cause.ultimaResolucion || '';
+      $('k_notes').value = cause.notes || cause.observaciones || '';
+    }
+
+    function normalizeRolSearchKey(value = ''){
+      return normalizeIdentifierValue(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
+    }
+
+    function renderCauseSearchResults(results = []){
+      const tbody = $('buscarCausaResultados');
+      if (!tbody) return;
+      if (!results.length) {
+        tbody.innerHTML = '<tr><td colspan="4">No se encontraron causas para ese ROL.</td></tr>';
+        return;
+      }
+      tbody.innerHTML = results.map((item) => `
+        <tr data-cause-id="${escapeHtml(item.id)}">
+          <td>${escapeHtml(item.rol || '—')}</td>
+          <td>${escapeHtml(item.tribunal || '—')}</td>
+          <td>${escapeHtml(item.caratula || '—')}</td>
+          <td style="display:flex;gap:8px;flex-wrap:wrap;">
+            <button type="button" class="btn" data-select-cause="${escapeHtml(item.id)}">Seleccionar</button>
+            <button type="button" class="btn" data-open-cause="${escapeHtml(item.id)}">Abrir</button>
+          </td>
+        </tr>
+      `).join('');
+    }
+
+    function openCauseSearchModal(){
+      $('formBuscarCausa')?.reset();
+      setMessage('buscarCausaMsg', '', '');
+      renderCauseSearchResults([]);
+      $('buscarCausaResultados').innerHTML = '<tr><td colspan="4">Ingresa un ROL y presiona Buscar.</td></tr>';
+      openManagedModal('modalBuscarCausa');
+    }
+
+    function selectCauseFromSearch(causeId, { open = false } = {}){
+      const cause = state.caseMap.get(String(causeId));
+      if (!cause) {
+        setMessage('buscarCausaMsg', 'La causa seleccionada ya no está disponible.', 'error');
+        return;
+      }
+      state.selectedId = String(cause.id);
+      state.searchedCauseId = String(cause.id);
+      renderAll();
+      if (open) openWorkspaceModal({ tabId: state.activeTab || 'informacion', caseId: cause.id, origin: 'search-by-rol-open-result' });
+      closeManagedModal('modalBuscarCausa');
+      setDetailStatus(`Causa seleccionada: ${cause.rol || 'Sin rol'} · ${cause.tribunal || 'Tribunal sin registrar'}.`, 'ok');
+    }
+
+    function submitCauseSearchByRol(event){
+      event.preventDefault();
+      const rol = $('buscarCausaRol')?.value?.trim() || '';
+      if (!rol) {
+        setMessage('buscarCausaMsg', 'Debes ingresar un ROL para buscar.', 'error');
+        renderCauseSearchResults([]);
+        return;
+      }
+      const targetKey = normalizeRolSearchKey(rol);
+      const results = getAllCases().filter((item) => normalizeRolSearchKey(item?.rol || '') === targetKey);
+      renderCauseSearchResults(results);
+      if (!results.length) {
+        setMessage('buscarCausaMsg', `No hay coincidencias para el ROL ${rol}.`, 'warn');
+        return;
+      }
+      setMessage('buscarCausaMsg', `Se encontraron ${results.length} coincidencia(s) para el ROL ${rol}.`, 'ok');
+    }
+
+    function getSelectedCauseForEdition(){
+      const preferredId = state.searchedCauseId || state.selectedId;
+      if (!preferredId) return null;
+      return state.caseMap.get(String(preferredId)) || null;
+    }
+
+    function openSelectedCauseEditor(){
+      const cause = getSelectedCauseForEdition();
+      if (!cause) {
+        setDetailStatus('Primero selecciona una causa usando “Buscar causa”.', 'warn');
+        return;
+      }
+      openManagedModal('modalCausa');
+      setCaseFormModeToEdit(cause.id);
+      fillCaseFormFromCause(cause);
       msg.className = 'msg';
       msg.textContent = '';
     }
@@ -8200,6 +8376,8 @@
     async function createCase(event){
       event.preventDefault();
       msg.className = 'msg';
+      const editingCaseId = state.caseFormMode === 'edit' ? String(modal?.dataset?.editingCaseId || '') : '';
+      const isEditing = Boolean(editingCaseId);
       const clientId = $('k_client').value;
       const rolRaw = $('k_rol').value.trim();
       const noRolYet = Boolean($('k_no_rol_yet')?.checked);
@@ -8216,7 +8394,8 @@
       $('k_caratula').value = normalizedCaratula;
       if (rolRaw && tribunal) {
         const duplicatedByRol = getAllCases().find((item) => (
-          String(item.rol || '').trim().toLowerCase() === rolRaw.toLowerCase()
+          (!isEditing || String(item.id) !== editingCaseId)
+          && String(item.rol || '').trim().toLowerCase() === rolRaw.toLowerCase()
           && String(item.tribunal || '').trim().toLowerCase() === tribunal.toLowerCase()
         ));
         if (duplicatedByRol) {
@@ -8234,7 +8413,7 @@
           link: '',
         }
       });
-      if (duplicate) {
+      if (duplicate && (!isEditing || String(duplicate.id) !== editingCaseId)) {
         msg.className = 'msg msg-error';
         msg.textContent = 'Ya existe una causa con coincidencia de Rol/RIT, tribunal o carátula. Usa importación/actualización en vez de duplicarla.';
         return;
@@ -8252,6 +8431,30 @@
         [C.k_withheld_by]: $('k_withhold').value,
         [C.k_notes]: $('k_notes').value.trim() || null,
       };
+
+      if (isEditing) {
+        const { error } = await supabase.from(T_CASES).update(payload).eq(C.k_id, editingCaseId);
+        if (error) {
+          msg.className = 'msg msg-error';
+          msg.textContent = `Error al actualizar la causa: ${buildLoadError('la causa', error).message}`;
+          return;
+        }
+        updateWorkspaceEntry(editingCaseId, (entry) => {
+          const updates = buildWorkspacePayload(editingCaseId);
+          return markManualEdit({ ...entry, ...updates, id: editingCaseId });
+        });
+        msg.className = 'msg msg-ok';
+        msg.textContent = 'Causa actualizada correctamente.';
+        await loadCases();
+        populateFilters();
+        state.selectedId = String(editingCaseId);
+        state.searchedCauseId = String(editingCaseId);
+        state.activeTab = 'informacion';
+        renderAll();
+        openWorkspaceModal({ tabId: 'informacion', caseId: state.selectedId, origin: 'edit-case' });
+        setTimeout(closeModal, 450);
+        return;
+      }
 
       const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
       if (error) {
@@ -12784,6 +12987,19 @@
       bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
       bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
       bindEvent('formCargaExpedienteDigital', 'submit', submitManualExpedienteUpload, { required: true, scope: 'form-carga-expediente-digital' });
+      bindEvent('formBuscarCausa', 'submit', submitCauseSearchByRol, { required: true, scope: 'form-buscar-causa' });
+      $('buscarCausaResultados')?.addEventListener('click', (event) => {
+        const selectButton = event.target.closest('[data-select-cause]');
+        if (selectButton) {
+          selectCauseFromSearch(selectButton.dataset.selectCause, { open: false });
+          return;
+        }
+        const openButton = event.target.closest('[data-open-cause]');
+        if (openButton) {
+          selectCauseFromSearch(openButton.dataset.openCause, { open: true });
+        }
+      });
+
       bindEvent('btnAbrirExpedienteManual', 'click', () => {
         const caseId = $('btnAbrirExpedienteManual')?.dataset?.caseId || '';
         if (!caseId) return;
@@ -12929,7 +13145,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','modalBuscarCausa','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
