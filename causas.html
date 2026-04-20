@@ -2686,6 +2686,8 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         stableTimer: null,
+        causeSyncTimers: {},
+        causeSyncQueue: {},
         sourceAssisted: {
           sourceUrl: '',
           sourceHtml: '',
@@ -3389,10 +3391,12 @@
 
     function updateWorkspaceEntry(causeId, updater){
       const workspace = loadWorkspace();
-      const baseEntry = ensureCauseStorage(workspace[String(causeId)] || state.caseMap.get(String(causeId)) || {}, String(causeId));
-      const nextEntry = ensureCauseStorage(typeof updater === 'function' ? updater(baseEntry) : updater, String(causeId));
-      workspace[String(causeId)] = nextEntry;
+      const normalizedCauseId = String(causeId || '');
+      const baseEntry = ensureCauseStorage(workspace[normalizedCauseId] || state.caseMap.get(normalizedCauseId) || {}, normalizedCauseId);
+      const nextEntry = ensureCauseStorage(typeof updater === 'function' ? updater(baseEntry) : updater, normalizedCauseId);
+      workspace[normalizedCauseId] = nextEntry;
       saveWorkspace(workspace);
+      scheduleCauseConnectedIndexSync(normalizedCauseId, nextEntry, { reason: 'edición desde visor/carpeta de causa' });
       return nextEntry;
     }
 
@@ -4617,6 +4621,35 @@
       'file_size_bytes',
     ]);
 
+
+    const OPTIONAL_CAUSE_UPLOAD_BATCH_COLUMNS = new Set([
+      'uploaded_by',
+      'source_type',
+      'status',
+      'original_filename',
+      'tribunal_name',
+      'empty_rows',
+      'structural_errors',
+      'processed_count',
+      'created_count',
+      'updated_count',
+      'discarded_count',
+      'error_summary',
+      'metadata_json',
+      'raw_preview',
+      'updated_at',
+    ]);
+
+    const OPTIONAL_CAUSE_UPLOAD_ROW_COLUMNS = new Set([
+      'linked_case_id',
+      'payload',
+      'fecha_text',
+      'estado',
+      'caratula',
+      'tribunal',
+      'rol',
+    ]);
+
     function buildPjudBatchInsertPayload(summary, { status = 'processing', errorSummary = [] } = {}, { discardedColumn = 'discarded_count' } = {}){
       return {
         owner_user_id: authenticatedUser.id,
@@ -4669,6 +4702,32 @@
         || isSchemaCacheMissingColumnError(error, 'public.cases', 'import_batch_id')
       ) {
         return new Error('No fue posible cargar la importación PJUD. Falta la columna crítica public.cases.import_batch_id en Supabase (o el schema cache de PostgREST no está actualizado). Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      return null;
+    }
+
+    function buildCauseExcelInfrastructureError(error){
+      if (!error) return null;
+      if (
+        isSchemaCacheMissingTableError(error, `public.${T_CAUSE_UPLOAD_BATCHES}`)
+        || isSchemaCacheMissingTableError(error, T_CAUSE_UPLOAD_BATCHES)
+      ) {
+        return new Error('No fue posible procesar Excel depurado tribunal. Falta la tabla crítica public.cause_excel_upload_batches en Supabase (o no está visible para el rol autenticado). Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      if (
+        isSchemaCacheMissingTableError(error, 'public.cause_excel_upload_batch_rows')
+        || isSchemaCacheMissingTableError(error, 'cause_excel_upload_batch_rows')
+        || isSchemaCacheMissingTableError(error, `public.${T_CAUSE_UPLOAD_ROWS}`)
+        || isSchemaCacheMissingTableError(error, T_CAUSE_UPLOAD_ROWS)
+      ) {
+        return new Error('No fue posible procesar Excel depurado tribunal. Falta la tabla de detalle de filas (public.cause_excel_upload_rows o public.cause_excel_upload_batch_rows) en Supabase. Ejecuta la migración pendiente y refresca el schema cache.');
+      }
+      const missingColumn = extractSchemaCacheMissingColumnName(error);
+      if (missingColumn && (
+        String(error?.message || '').toLowerCase().includes('cause_excel_upload_batches')
+        || String(error?.message || '').toLowerCase().includes('cause_excel_upload_rows')
+      )) {
+        return new Error(`No fue posible procesar Excel depurado tribunal. Falta la columna crítica "${missingColumn}" en la infraestructura de carga Excel. Ejecuta la migración pendiente y refresca el schema cache.`);
       }
       return null;
     }
@@ -5799,6 +5858,116 @@
       if (error) throw buildLoadError('el índice de causas PJUD', error);
       state.pjudCausesIndex.items = Array.isArray(data) ? data : [];
       return state.pjudCausesIndex.items;
+    }
+
+
+    function mergeSyncedCauseIntoPjudIndexState(row){
+      if (!row || !row.id) return;
+      const current = Array.isArray(state.pjudCausesIndex.items) ? state.pjudCausesIndex.items : [];
+      const filtered = current.filter((item) => String(item?.id || '') !== String(row.id));
+      state.pjudCausesIndex.items = [row, ...filtered].sort((a, b) => {
+        const left = Date.parse(a?.synced_at || a?.updated_at || 0) || 0;
+        const right = Date.parse(b?.synced_at || b?.updated_at || 0) || 0;
+        return right - left;
+      });
+    }
+
+    function buildCauseDrivenPjudIndexPayload(cause, { reason = '' } = {}){
+      const nowIso = new Date().toISOString();
+      const routeAudit = cause?.pjudTraceability?.routeAudit || {};
+      const rowPosition = Number(routeAudit.rowIndex || cause?.pjudRouteAudit?.rowIndex || 0) || null;
+      const roleYear = Number(cause?.pjudRolAnio || 0);
+      const rowKeySeed = cause?.pjudCaseKey
+        || cause?.pjudNormalKey
+        || normalizePjudKey([
+          cause?.rol || '',
+          cause?.rit || '',
+          cause?.ruc || '',
+          cause?.tribunal || cause?.pjudTribunal || '',
+          cause?.id || '',
+        ].join('|'))
+        || `alpha-cause-${cause?.id || Date.now()}`;
+      return {
+        user_id: authenticatedUser.id,
+        access_connection_id: null,
+        pjud_row_key: rowKeySeed,
+        row_position: rowPosition,
+        rol: cause?.rol || null,
+        rit: cause?.rit || null,
+        procedure_type: cause?.procedimiento || cause?.tipoCausa || null,
+        year: Number.isFinite(roleYear) && roleYear > 0 ? roleYear : null,
+        court_name: cause?.tribunal || cause?.pjudTribunal || null,
+        court_code: cause?.pjudCourtCode || null,
+        caratula: cause?.caratula || null,
+        materia: cause?.materia || null,
+        estado_causa: cause?.estadoCausa || cause?.estadoProcesal || null,
+        fecha_ingreso: cause?.fechaInicio || null,
+        fecha_ultima_gestion: cause?.fechaUbicacion || null,
+        raw_row_payload: {
+          source: 'alpha_causa_sync',
+          alpha_case_id: cause?.id || null,
+          reason,
+          trace: buildDocumentLinkagePayload(cause, { syncReason: reason || 'sync_from_cause' }),
+        },
+        detail_url: cause?.pjudUrl || cause?.detailUrl || null,
+        has_detail_access: Boolean(cause?.pjudUrl || cause?.detailUrl),
+        alpha_case_id: cause?.id || null,
+        sync_status: 'indexed',
+        last_seen_at: nowIso,
+        synced_at: nowIso,
+        updated_at: nowIso,
+      };
+    }
+
+    async function syncCauseWithConnectedIndexes(cause, { reason = 'cambio manual en causa' } = {}){
+      if (!cause || !cause.id) return;
+      const snapshot = persistPjudGeneralIndexVersion({
+        processStatus: 'Actualización automática',
+        processLog: `Causa ${cause.id} sincronizada automáticamente con Índice General PJUD (${reason}).`,
+      });
+      state.pjudGeneralIndexControl.lastStatus = `Actualización automática · ${snapshot.totalCauses} causa(s)`;
+      renderPjudGeneralIndexPanel();
+
+      if (!authenticatedUser?.id) return;
+      try {
+        const payload = buildCauseDrivenPjudIndexPayload(cause, { reason });
+        const { data, error } = await supabase
+          .from(T_PJUD_CAUSES_INDEX)
+          .upsert(payload, { onConflict: 'user_id,pjud_row_key' })
+          .select('*')
+          .limit(1);
+        if (error) throw buildLoadError('la sincronización automática del índice PJUD', error);
+        const syncedRow = Array.isArray(data) ? data[0] : data;
+        if (syncedRow) mergeSyncedCauseIntoPjudIndexState(syncedRow);
+        renderPjudIndexSyncPanel();
+      } catch (error) {
+        console.warn('[CAUSAS][PJUD-INDEX] Falló la sincronización automática de la causa hacia el índice.', { causeId: cause?.id || null, reason, error });
+        setMessage('pjudIndexSyncMsg', `Advertencia: no se pudo sincronizar automáticamente la causa ${cause?.rol || cause?.id || ''} con el Índice PJUD.`, 'warn');
+      }
+    }
+
+    function scheduleCauseConnectedIndexSync(causeId, causeSnapshot = null, { reason = 'cambio manual en causa' } = {}){
+      const normalizedId = String(causeId || '').trim();
+      if (!normalizedId) return;
+      state.pjudCausesIndex.causeSyncQueue[normalizedId] = {
+        reason,
+        causeSnapshot: causeSnapshot || state.caseMap.get(normalizedId) || null,
+      };
+      if (state.pjudCausesIndex.causeSyncTimers[normalizedId]) {
+        clearTimeout(state.pjudCausesIndex.causeSyncTimers[normalizedId]);
+      }
+      state.pjudCausesIndex.causeSyncTimers[normalizedId] = window.setTimeout(async () => {
+        const queued = state.pjudCausesIndex.causeSyncQueue[normalizedId] || {};
+        delete state.pjudCausesIndex.causeSyncQueue[normalizedId];
+        delete state.pjudCausesIndex.causeSyncTimers[normalizedId];
+        const workspace = loadWorkspace();
+        const latest = queued.causeSnapshot
+          || state.caseMap.get(normalizedId)
+          || workspace[normalizedId]
+          || null;
+        if (!latest) return;
+        await syncCauseWithConnectedIndexes(latest, { reason: queued.reason || reason });
+      }, 260);
     }
 
     async function persistPjudCausesIndexRows(rows = []){
@@ -8901,7 +9070,10 @@
         .in('upload_type', ['listado', 'estado_diario'])
         .order('created_at', { ascending: false })
         .limit(20);
-      if (error) throw error;
+      if (error) {
+        console.error('[CAUSAS][EXCEL-DEPURADO] Error al consultar últimos lotes.', error);
+        throw buildCauseExcelInfrastructureError(error) || error;
+      }
       const latestListado = (data || []).find((item) => item.upload_type === 'listado') || null;
       const latestEstado = (data || []).find((item) => item.upload_type === 'estado_diario') || null;
       state.excelUploads.listado.lastUpload = latestListado;
@@ -8922,6 +9094,56 @@
       renderUploadLastInfo('estado');
     }
 
+
+    async function createCauseExcelUploadBatch(batchPayload = {}){
+      let payload = { ...batchPayload };
+      let attempts = 0;
+      while (attempts < 24) {
+        attempts += 1;
+        const { data: batch, error: batchError } = await supabase.from(T_CAUSE_UPLOAD_BATCHES).insert(payload).select('*').single();
+        if (!batchError) return batch;
+        const missingColumn = extractSchemaCacheMissingColumnName(batchError);
+        if (missingColumn && OPTIONAL_CAUSE_UPLOAD_BATCH_COLUMNS.has(missingColumn)) {
+          delete payload[missingColumn];
+          if (missingColumn === 'metadata_json' && !payload.metadata) payload.metadata = {};
+          continue;
+        }
+        throw buildCauseExcelInfrastructureError(batchError) || batchError;
+      }
+      throw new Error('No fue posible registrar metadata del lote Excel depurado tras múltiples reintentos.');
+    }
+
+    async function appendCauseExcelUploadRows(rowsPayload = []){
+      if (!rowsPayload.length) return { insertedRows: 0, failedRows: 0 };
+      const chunkSize = 200;
+      let insertedRows = 0;
+      let failedRows = 0;
+      for (let i = 0; i < rowsPayload.length; i += chunkSize) {
+        let chunk = rowsPayload.slice(i, i + chunkSize).map((row) => ({ ...row }));
+        let attempts = 0;
+        while (attempts < 24) {
+          attempts += 1;
+          const { error: rowsError } = await supabase.from(T_CAUSE_UPLOAD_ROWS).insert(chunk);
+          if (!rowsError) {
+            insertedRows += chunk.length;
+            break;
+          }
+          const missingColumn = extractSchemaCacheMissingColumnName(rowsError);
+          if (missingColumn && OPTIONAL_CAUSE_UPLOAD_ROW_COLUMNS.has(missingColumn)) {
+            chunk = chunk.map((row) => {
+              const next = { ...row };
+              delete next[missingColumn];
+              return next;
+            });
+            continue;
+          }
+          throw buildCauseExcelInfrastructureError(rowsError) || rowsError;
+        }
+        if (attempts >= 24) failedRows += chunk.length;
+      }
+      return { insertedRows, failedRows };
+    }
+
     async function processExcelUpload(type){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
@@ -8930,19 +9152,42 @@
       if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
       const batchPayload = {
         owner_user_id: authenticatedUser.id,
+        uploaded_by: authenticatedUser.id,
         upload_type: key,
+        source_type: 'excel_depurado_tribunal',
+        status: 'processing',
         file_name: store.file.name || 'archivo.xlsx',
+        original_filename: store.file.name || 'archivo.xlsx',
+        tribunal_name: store.parsed.validRows[0]?.tribunal || null,
         total_rows: store.parsed.totalRows,
         valid_rows: store.parsed.validRows.length,
+        empty_rows: store.parsed.emptyRows || 0,
+        structural_errors: store.parsed.invalidRows || 0,
         duplicate_rows: store.parsed.duplicates,
+        processed_count: 0,
+        created_count: 0,
+        updated_count: 0,
+        discarded_count: (store.parsed.emptyRows || 0) + (store.parsed.invalidRows || 0),
+        raw_preview: store.parsed.preview || [],
+        metadata_json: {
+          emptyRows: store.parsed.emptyRows,
+          invalidRows: store.parsed.invalidRows,
+          missingCritical: store.parsed.missingCritical,
+          previewCount: store.parsed.preview?.length || 0,
+        },
         metadata: {
           emptyRows: store.parsed.emptyRows,
           invalidRows: store.parsed.invalidRows,
           missingCritical: store.parsed.missingCritical,
         },
       };
-      const { data: batch, error: batchError } = await supabase.from(T_CAUSE_UPLOAD_BATCHES).insert(batchPayload).select('*').single();
-      if (batchError) throw batchError;
+      let batch = null;
+      try {
+        batch = await createCauseExcelUploadBatch(batchPayload);
+      } catch (batchError) {
+        console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar lote de carga.', { type, batchPayload, error: batchError });
+        throw buildCauseExcelInfrastructureError(batchError) || batchError;
+      }
       const rowsPayload = store.parsed.validRows.map((row) => ({
         batch_id: batch.id,
         owner_user_id: authenticatedUser.id,
@@ -8956,55 +9201,97 @@
         linked_case_id: row.linkedCaseId || null,
         payload: row.raw || {},
       }));
-      const chunkSize = 200;
-      for (let i = 0; i < rowsPayload.length; i += chunkSize) {
-        const chunk = rowsPayload.slice(i, i + chunkSize);
-        const { error: rowsError } = await supabase.from(T_CAUSE_UPLOAD_ROWS).insert(chunk);
-        if (rowsError) throw rowsError;
+      try {
+        await appendCauseExcelUploadRows(rowsPayload);
+      } catch (rowsError) {
+        console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar filas del lote.', { type, batchId: batch.id, error: rowsError });
+        throw buildCauseExcelInfrastructureError(rowsError) || rowsError;
       }
       let linkedRows = rowsPayload.filter((row) => row.linked_case_id).length;
       let createdCases = 0;
       let updatedCases = 0;
+      let processingErrors = 0;
       if (key === 'listado') {
         const allCases = getAllCases();
         const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
         for (const row of store.parsed.validRows) {
           const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
           const existing = byKey.get(lookupKey);
-          if (existing) {
-            const { error: updateError } = await supabase.from(T_CASES).update({
-              matter: row.materia || existing.matter || null,
-              notes: row.estado || existing.notes || null,
-              updated_at: new Date().toISOString(),
-            }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
-            if (updateError) throw updateError;
-            updatedCases += 1;
-            continue;
+          try {
+            if (existing) {
+              const { error: updateError } = await supabase.from(T_CASES).update({
+                matter: row.materia || existing.matter || null,
+                notes: row.estado || existing.notes || null,
+                updated_at: new Date().toISOString(),
+              }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
+              if (updateError) throw updateError;
+              updatedCases += 1;
+              continue;
+            }
+            const { error: insertError } = await supabase.from(T_CASES).insert({
+              owner_user_id: authenticatedUser.id,
+              client_id: null,
+              assigned_lawyer: null,
+              court: row.tribunal || null,
+              rol: row.rol || null,
+              matter: row.materia || null,
+              notes: row.estado || row.partes || null,
+              source: 'excel_listado_causas',
+              source_confidence: 'medium',
+              imported_at: new Date().toISOString(),
+            });
+            if (insertError) throw insertError;
+            createdCases += 1;
+          } catch (rowPersistenceError) {
+            processingErrors += 1;
+            console.warn('[CAUSAS][EXCEL-DEPURADO] Fila omitida por error de persistencia de causa.', {
+              batchId: batch.id,
+              rowNumber: row?.rowNumber,
+              rol: row?.rol || null,
+              tribunal: row?.tribunal || null,
+              error: rowPersistenceError,
+            });
           }
-          const { error: insertError } = await supabase.from(T_CASES).insert({
-            owner_user_id: authenticatedUser.id,
-            client_id: null,
-            assigned_lawyer: null,
-            court: row.tribunal || null,
-            rol: row.rol || null,
-            matter: row.materia || null,
-            notes: row.estado || row.partes || null,
-            source: 'excel_listado_causas',
-            source_confidence: 'medium',
-            imported_at: new Date().toISOString(),
-          });
-          if (insertError) throw insertError;
-          createdCases += 1;
         }
       } else {
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
       }
-      const { data: updatedBatch } = await supabase
+      const processedCount = createdCases + updatedCases;
+      const discardedCount = Math.max(0, Number(store.parsed.totalRows || 0) - Number(processedCount || 0));
+      const structuralErrors = Number(store.parsed.invalidRows || 0);
+      const emptyRows = Number(store.parsed.emptyRows || 0);
+      const errorCount = processingErrors + structuralErrors;
+      const { data: updatedBatch, error: updatedBatchError } = await supabase
         .from(T_CAUSE_UPLOAD_BATCHES)
-        .update({ linked_rows: linkedRows })
+        .update({
+          linked_rows: linkedRows,
+          processed_count: processedCount,
+          created_count: createdCases,
+          updated_count: updatedCases,
+          discarded_count: discardedCount,
+          status: errorCount > 0 ? 'processed_with_errors' : 'processed',
+          error_summary: errorCount > 0 ? `Errores detectados: ${errorCount} (estructurales: ${structuralErrors}, persistencia: ${processingErrors}).` : null,
+          metadata: {
+            ...batchPayload.metadata,
+            finishedAt: new Date().toISOString(),
+            linkedRows,
+            processedCount,
+            createdCases,
+            updatedCases,
+            discardedCount,
+            structuralErrors,
+            emptyRows,
+            processingErrors,
+            errorCount,
+          },
+        })
         .eq('id', batch.id)
         .select('*')
         .single();
+      if (updatedBatchError) {
+        console.error('[CAUSAS][EXCEL-DEPURADO] Error al actualizar estado final del lote.', { type, batchId: batch.id, error: updatedBatchError });
+        throw buildCauseExcelInfrastructureError(updatedBatchError) || updatedBatchError;
+      }
       store.lastUpload = updatedBatch || batch;
       await loadCases();
       populateFilters();
@@ -9016,6 +9303,8 @@
         createdCases,
         updatedCases,
         linkedRows,
+        discardedCount,
+        errors: errorCount,
       };
     }
 
@@ -13109,10 +13398,12 @@
         event.preventDefault();
         try {
           const summary = await processExcelUpload('listado');
-          setMessage('listadoCausasMsg', `Excel depurado procesado correctamente. Filas válidas: ${summary.validRows}. Carpetas/expedientes creados: ${summary.createdCases}. Actualizados: ${summary.updatedCases}.`, 'ok');
+          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedCases}. Descartadas: ${summary.discardedCount}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
-          setMessage('listadoCausasMsg', `Error al procesar Excel depurado: ${error?.message || 'Error desconocido'}`, 'error');
+          console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
+          const normalized = buildCauseExcelInfrastructureError(error) || error;
+          setMessage('listadoCausasMsg', `Error al procesar Excel depurado: ${normalized?.message || 'Error desconocido'}`, 'error');
         }
       }, { required: true, scope: 'excel-listado' });
       bindEvent('formEstadoDiario', 'submit', async (event) => {
@@ -13122,7 +13413,9 @@
           setMessage('estadoDiarioMsg', 'Estado diario guardado y procesado correctamente.', 'ok');
           renderExcelPreview('estado');
         } catch (error) {
-          setMessage('estadoDiarioMsg', `Error al guardar estado diario: ${error?.message || 'Error desconocido'}`, 'error');
+          console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar estado diario.', error);
+          const normalized = buildCauseExcelInfrastructureError(error) || error;
+          setMessage('estadoDiarioMsg', `Error al guardar estado diario: ${normalized?.message || 'Error desconocido'}`, 'error');
         }
       }, { required: true, scope: 'excel-estado' });
       bindEvent('caseFileInput', 'change', handleFileSelection, { required: true, scope: 'documentos' });

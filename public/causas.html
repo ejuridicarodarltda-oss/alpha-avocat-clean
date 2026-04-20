@@ -2686,6 +2686,8 @@
         progressStage: 'Sin proceso en ejecución.',
         progressStatus: 'idle',
         stableTimer: null,
+        causeSyncTimers: {},
+        causeSyncQueue: {},
         sourceAssisted: {
           sourceUrl: '',
           sourceHtml: '',
@@ -3389,10 +3391,12 @@
 
     function updateWorkspaceEntry(causeId, updater){
       const workspace = loadWorkspace();
-      const baseEntry = ensureCauseStorage(workspace[String(causeId)] || state.caseMap.get(String(causeId)) || {}, String(causeId));
-      const nextEntry = ensureCauseStorage(typeof updater === 'function' ? updater(baseEntry) : updater, String(causeId));
-      workspace[String(causeId)] = nextEntry;
+      const normalizedCauseId = String(causeId || '');
+      const baseEntry = ensureCauseStorage(workspace[normalizedCauseId] || state.caseMap.get(normalizedCauseId) || {}, normalizedCauseId);
+      const nextEntry = ensureCauseStorage(typeof updater === 'function' ? updater(baseEntry) : updater, normalizedCauseId);
+      workspace[normalizedCauseId] = nextEntry;
       saveWorkspace(workspace);
+      scheduleCauseConnectedIndexSync(normalizedCauseId, nextEntry, { reason: 'edición desde visor/carpeta de causa' });
       return nextEntry;
     }
 
@@ -5854,6 +5858,116 @@
       if (error) throw buildLoadError('el índice de causas PJUD', error);
       state.pjudCausesIndex.items = Array.isArray(data) ? data : [];
       return state.pjudCausesIndex.items;
+    }
+
+
+    function mergeSyncedCauseIntoPjudIndexState(row){
+      if (!row || !row.id) return;
+      const current = Array.isArray(state.pjudCausesIndex.items) ? state.pjudCausesIndex.items : [];
+      const filtered = current.filter((item) => String(item?.id || '') !== String(row.id));
+      state.pjudCausesIndex.items = [row, ...filtered].sort((a, b) => {
+        const left = Date.parse(a?.synced_at || a?.updated_at || 0) || 0;
+        const right = Date.parse(b?.synced_at || b?.updated_at || 0) || 0;
+        return right - left;
+      });
+    }
+
+    function buildCauseDrivenPjudIndexPayload(cause, { reason = '' } = {}){
+      const nowIso = new Date().toISOString();
+      const routeAudit = cause?.pjudTraceability?.routeAudit || {};
+      const rowPosition = Number(routeAudit.rowIndex || cause?.pjudRouteAudit?.rowIndex || 0) || null;
+      const roleYear = Number(cause?.pjudRolAnio || 0);
+      const rowKeySeed = cause?.pjudCaseKey
+        || cause?.pjudNormalKey
+        || normalizePjudKey([
+          cause?.rol || '',
+          cause?.rit || '',
+          cause?.ruc || '',
+          cause?.tribunal || cause?.pjudTribunal || '',
+          cause?.id || '',
+        ].join('|'))
+        || `alpha-cause-${cause?.id || Date.now()}`;
+      return {
+        user_id: authenticatedUser.id,
+        access_connection_id: null,
+        pjud_row_key: rowKeySeed,
+        row_position: rowPosition,
+        rol: cause?.rol || null,
+        rit: cause?.rit || null,
+        procedure_type: cause?.procedimiento || cause?.tipoCausa || null,
+        year: Number.isFinite(roleYear) && roleYear > 0 ? roleYear : null,
+        court_name: cause?.tribunal || cause?.pjudTribunal || null,
+        court_code: cause?.pjudCourtCode || null,
+        caratula: cause?.caratula || null,
+        materia: cause?.materia || null,
+        estado_causa: cause?.estadoCausa || cause?.estadoProcesal || null,
+        fecha_ingreso: cause?.fechaInicio || null,
+        fecha_ultima_gestion: cause?.fechaUbicacion || null,
+        raw_row_payload: {
+          source: 'alpha_causa_sync',
+          alpha_case_id: cause?.id || null,
+          reason,
+          trace: buildDocumentLinkagePayload(cause, { syncReason: reason || 'sync_from_cause' }),
+        },
+        detail_url: cause?.pjudUrl || cause?.detailUrl || null,
+        has_detail_access: Boolean(cause?.pjudUrl || cause?.detailUrl),
+        alpha_case_id: cause?.id || null,
+        sync_status: 'indexed',
+        last_seen_at: nowIso,
+        synced_at: nowIso,
+        updated_at: nowIso,
+      };
+    }
+
+    async function syncCauseWithConnectedIndexes(cause, { reason = 'cambio manual en causa' } = {}){
+      if (!cause || !cause.id) return;
+      const snapshot = persistPjudGeneralIndexVersion({
+        processStatus: 'Actualización automática',
+        processLog: `Causa ${cause.id} sincronizada automáticamente con Índice General PJUD (${reason}).`,
+      });
+      state.pjudGeneralIndexControl.lastStatus = `Actualización automática · ${snapshot.totalCauses} causa(s)`;
+      renderPjudGeneralIndexPanel();
+
+      if (!authenticatedUser?.id) return;
+      try {
+        const payload = buildCauseDrivenPjudIndexPayload(cause, { reason });
+        const { data, error } = await supabase
+          .from(T_PJUD_CAUSES_INDEX)
+          .upsert(payload, { onConflict: 'user_id,pjud_row_key' })
+          .select('*')
+          .limit(1);
+        if (error) throw buildLoadError('la sincronización automática del índice PJUD', error);
+        const syncedRow = Array.isArray(data) ? data[0] : data;
+        if (syncedRow) mergeSyncedCauseIntoPjudIndexState(syncedRow);
+        renderPjudIndexSyncPanel();
+      } catch (error) {
+        console.warn('[CAUSAS][PJUD-INDEX] Falló la sincronización automática de la causa hacia el índice.', { causeId: cause?.id || null, reason, error });
+        setMessage('pjudIndexSyncMsg', `Advertencia: no se pudo sincronizar automáticamente la causa ${cause?.rol || cause?.id || ''} con el Índice PJUD.`, 'warn');
+      }
+    }
+
+    function scheduleCauseConnectedIndexSync(causeId, causeSnapshot = null, { reason = 'cambio manual en causa' } = {}){
+      const normalizedId = String(causeId || '').trim();
+      if (!normalizedId) return;
+      state.pjudCausesIndex.causeSyncQueue[normalizedId] = {
+        reason,
+        causeSnapshot: causeSnapshot || state.caseMap.get(normalizedId) || null,
+      };
+      if (state.pjudCausesIndex.causeSyncTimers[normalizedId]) {
+        clearTimeout(state.pjudCausesIndex.causeSyncTimers[normalizedId]);
+      }
+      state.pjudCausesIndex.causeSyncTimers[normalizedId] = window.setTimeout(async () => {
+        const queued = state.pjudCausesIndex.causeSyncQueue[normalizedId] || {};
+        delete state.pjudCausesIndex.causeSyncQueue[normalizedId];
+        delete state.pjudCausesIndex.causeSyncTimers[normalizedId];
+        const workspace = loadWorkspace();
+        const latest = queued.causeSnapshot
+          || state.caseMap.get(normalizedId)
+          || workspace[normalizedId]
+          || null;
+        if (!latest) return;
+        await syncCauseWithConnectedIndexes(latest, { reason: queued.reason || reason });
+      }, 260);
     }
 
     async function persistPjudCausesIndexRows(rows = []){
