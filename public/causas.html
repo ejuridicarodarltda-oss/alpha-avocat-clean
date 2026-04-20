@@ -2651,6 +2651,9 @@
       },
       generalPjudExcel: {
         file: null,
+        workbookSummary: null,
+        workbookError: '',
+        loading: false,
       },
       visibilityDiagnostics: {
         lastBatchId: null,
@@ -5747,7 +5750,7 @@
       };
     }
 
-    function persistPjudGeneralIndexVersion({ processStatus = '', processLog = '' } = {}){
+    function persistPjudGeneralIndexVersion({ processStatus = '', processLog = '', createHistoricalVersion = true } = {}){
       const snapshot = buildPjudIndexFromCases();
       const registry = loadPjudGeneralIndexRegistry();
       const previous = registry.current || null;
@@ -5761,8 +5764,8 @@
         processStatus: processStatus || state.pjudGeneralIndexControl.lastStatus || 'Completado',
         processLog: processLog || '',
       };
-      const versions = [nextCurrent, ...(Array.isArray(registry.versions) ? registry.versions : [])];
-      if (previous) versions.push(previous);
+      const versions = Array.isArray(registry.versions) ? [...registry.versions] : [];
+      if (createHistoricalVersion && previous) versions.unshift(previous);
       persistPjudGeneralIndexRegistry({
         current: nextCurrent,
         versions: versions.slice(0, 12),
@@ -5922,10 +5925,11 @@
     async function syncCauseWithConnectedIndexes(cause, { reason = 'cambio manual en causa' } = {}){
       if (!cause || !cause.id) return;
       const snapshot = persistPjudGeneralIndexVersion({
-        processStatus: 'Actualización automática',
-        processLog: `Causa ${cause.id} sincronizada automáticamente con Índice General PJUD (${reason}).`,
+        processStatus: 'Sincronización puntual de causa',
+        processLog: `Causa ${cause.id} sincronizada con el Índice General PJUD (${reason}).`,
+        createHistoricalVersion: false,
       });
-      state.pjudGeneralIndexControl.lastStatus = `Actualización automática · ${snapshot.totalCauses} causa(s)`;
+      state.pjudGeneralIndexControl.lastStatus = `Sincronización puntual · ${snapshot.totalCauses} causa(s)`;
       renderPjudGeneralIndexPanel();
 
       if (!authenticatedUser?.id) return;
@@ -6668,6 +6672,9 @@
     }
 
     async function loadGeneralPjudExcelRecord(){
+      state.generalPjudExcel.loading = true;
+      state.generalPjudExcel.workbookSummary = null;
+      state.generalPjudExcel.workbookError = '';
       try {
         const { data, error } = await supabase
           .from(T_CAUSE_UPLOAD_BATCHES)
@@ -6676,26 +6683,64 @@
           .eq('source_type', GENERAL_PJUD_EXCEL_SOURCE_TYPE)
           .in('status', ['completed', 'completed_with_warnings'])
           .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
+          .limit(20);
         if (error) throw buildCauseExcelInfrastructureError(error) || error;
-        const metadata = data?.metadata || data?.metadata_json || {};
-        state.generalPjudExcel.file = data ? {
-          id: data.id,
-          name: data.file_name || metadata.file_name || 'archivo.xlsx',
+        const rows = Array.isArray(data) ? data : [];
+        const selectedRow = rows.find((item) => {
+          const meta = item?.metadata || item?.metadata_json || {};
+          return Boolean(meta?.is_current_file);
+        }) || rows[0] || null;
+        const metadata = selectedRow?.metadata || selectedRow?.metadata_json || {};
+        state.generalPjudExcel.file = selectedRow ? {
+          id: selectedRow.id,
+          name: selectedRow.file_name || metadata.file_name || 'archivo.xlsx',
           size: Number(metadata.file_size_bytes || 0),
           type: metadata.mime_type || 'application/vnd.ms-excel',
-          uploadedAt: data.created_at || null,
+          uploadedAt: selectedRow.created_at || null,
           storageBucket: metadata.storage_bucket || GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
           storagePath: metadata.storage_path || null,
-          sourceType: data.source_type || GENERAL_PJUD_EXCEL_SOURCE_TYPE,
+          sourceType: selectedRow.source_type || GENERAL_PJUD_EXCEL_SOURCE_TYPE,
         } : null;
+        await loadGeneralPjudExcelWorkbookSummary();
       } catch (error) {
         console.error('[CAUSAS][PJUD-EXCEL-GENERAL] No fue posible leer el archivo vigente desde Supabase.', error);
         state.generalPjudExcel.file = null;
+        state.generalPjudExcel.workbookSummary = null;
+        state.generalPjudExcel.workbookError = '';
         setMessage('importMsg', `No fue posible consultar el archivo vigente del panel PJUD: ${error?.message || 'error desconocido'}`, 'warn');
+      } finally {
+        state.generalPjudExcel.loading = false;
       }
       renderCurrentTab();
+    }
+
+    async function loadGeneralPjudExcelWorkbookSummary(){
+      const record = state.generalPjudExcel.file;
+      if (!record?.storageBucket || !record?.storagePath) {
+        state.generalPjudExcel.workbookSummary = null;
+        state.generalPjudExcel.workbookError = record?.name ? 'El archivo vigente no tiene ruta persistida en storage.' : '';
+        return;
+      }
+      try {
+        const { data, error } = await supabase.storage.from(record.storageBucket).download(record.storagePath);
+        if (error || !data) throw new Error(error?.message || 'No fue posible descargar el archivo vigente.');
+        const xlsxModule = await ensureXlsxModule();
+        const buffer = await data.arrayBuffer();
+        const workbook = xlsxModule.read(buffer, { type: 'array', cellDates: true });
+        const firstSheet = workbook.SheetNames?.[0] || null;
+        const firstSheetRows = firstSheet
+          ? xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '', raw: false }).length
+          : 0;
+        state.generalPjudExcel.workbookSummary = {
+          sheetCount: Array.isArray(workbook.SheetNames) ? workbook.SheetNames.length : 0,
+          firstSheetName: firstSheet,
+          firstSheetRows,
+        };
+        state.generalPjudExcel.workbookError = '';
+      } catch (error) {
+        state.generalPjudExcel.workbookSummary = null;
+        state.generalPjudExcel.workbookError = `No se pudo leer el Excel vigente: ${error?.message || 'error desconocido'}`;
+      }
     }
 
     function saveGeneralPjudExcelRecord(fileRecord = null){
@@ -6740,6 +6785,8 @@
 
     function renderGeneralPjudExcelPanel(){
       const statusMeta = getGeneralPjudExcelStatusMeta(state.generalPjudExcel.file);
+      const workbookSummary = state.generalPjudExcel.workbookSummary;
+      const workbookError = state.generalPjudExcel.workbookError;
       return `
         <section class="section-card" id="generalPjudExcelPanel">
           <div class="section-head">
@@ -6757,6 +6804,12 @@
                 <div><strong>Estado:</strong> ${statusMeta.stateLabel}</div>
                 <div><strong>Archivo actual:</strong> ${escapeHtml(statusMeta.fileName)}</div>
                 <div class="general-pjud-excel-status-meta">Carga: ${escapeHtml(statusMeta.uploadedAtLabel)} · Tamaño: ${escapeHtml(statusMeta.sizeLabel)}</div>
+                <div class="general-pjud-excel-status-meta">
+                  <strong>Lectura real visor:</strong>
+                  ${workbookSummary
+                    ? `hojas ${escapeHtml(workbookSummary.sheetCount)} · primera hoja "${escapeHtml(workbookSummary.firstSheetName || 'Sin nombre')}" · filas ${escapeHtml(workbookSummary.firstSheetRows)}`
+                    : (statusMeta.hasFile ? escapeHtml(workbookError || 'Pendiente de validar lectura del Excel vigente.') : 'Sin Excel vigente para leer')}
+                </div>
               </div>
             </div>
           </div>
@@ -6813,19 +6866,10 @@
           metadata,
         });
 
-        const fileRecord = {
-          id: batch?.id || null,
-          name: file.name || 'archivo.xlsx',
-          size: Number(file.size || 0),
-          type: file.type || 'application/vnd.ms-excel',
-          uploadedAt: batch?.created_at || startedAt,
-          storageBucket: GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
-          storagePath,
-          sourceType: GENERAL_PJUD_EXCEL_SOURCE_TYPE,
-        };
-        saveGeneralPjudExcelRecord(fileRecord);
-        renderCurrentTab();
-        setMessage('importMsg', `Archivo cargado correctamente. Archivo vigente actualizado: ${fileRecord.name}. Fecha/hora de carga: ${formatDate(fileRecord.uploadedAt)}.`, 'ok');
+        await loadGeneralPjudExcelRecord();
+        const persistedName = state.generalPjudExcel.file?.name || file.name || 'archivo.xlsx';
+        const persistedAt = state.generalPjudExcel.file?.uploadedAt || batch?.created_at || startedAt;
+        setMessage('importMsg', `Archivo cargado y persistido correctamente. Archivo vigente: ${persistedName}. Fecha/hora de carga: ${formatDate(persistedAt)}.`, 'ok');
       } catch (error) {
         console.error('[CAUSAS][PJUD-EXCEL-GENERAL] Falló la carga real del archivo.', error);
         setMessage('importMsg', `No se pudo cargar el archivo Excel vigente. ${error?.message || 'Error desconocido'}`, 'error');
