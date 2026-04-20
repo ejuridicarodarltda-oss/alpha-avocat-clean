@@ -1681,6 +1681,49 @@
       margin-top:12px;
     }
 
+    .causas-page .general-pjud-excel-status{
+      display:flex;
+      align-items:flex-start;
+      gap:10px;
+      padding:10px 12px;
+      border-radius:14px;
+      border:1px solid rgba(95,159,151,.45);
+      background:#f4fbf9;
+      color:var(--causas-text-secondary);
+      min-width:min(100%, 360px);
+      max-width:100%;
+    }
+
+    .causas-page .general-pjud-excel-status.is-loaded{
+      border-color:rgba(49,143,109,.65);
+      background:#ecfbf3;
+      color:#1f5442;
+    }
+
+    .causas-page .general-pjud-excel-status-dot{
+      width:10px;
+      height:10px;
+      border-radius:999px;
+      margin-top:5px;
+      flex:0 0 10px;
+      background:#8a9692;
+    }
+
+    .causas-page .general-pjud-excel-status.is-loaded .general-pjud-excel-status-dot{
+      background:#2a9f63;
+    }
+
+    .causas-page .general-pjud-excel-status-content{
+      display:grid;
+      gap:2px;
+      font-size:.85rem;
+      line-height:1.35;
+    }
+
+    .causas-page .general-pjud-excel-status-meta{
+      opacity:.85;
+    }
+
     .causas-page .helper-box{
       background:rgba(255,255,255,.88);
       border:1px dashed rgba(95,159,151,.6);
@@ -6536,7 +6579,21 @@
       return `${fileRecord.name || 'Archivo sin nombre'} · ${sizeLabel} · cargado ${uploadedAt}`;
     }
 
+    function getGeneralPjudExcelStatusMeta(fileRecord = null){
+      const hasFile = Boolean(fileRecord?.name);
+      return {
+        hasFile,
+        stateLabel: hasFile ? 'archivo cargado' : 'sin archivo cargado',
+        fileName: hasFile ? fileRecord.name : 'ninguno',
+        uploadedAtLabel: hasFile && fileRecord?.uploadedAt ? formatDate(fileRecord.uploadedAt) : 'sin registro',
+        sizeLabel: hasFile && Number.isFinite(Number(fileRecord?.size))
+          ? `${Math.max(1, Math.round(Number(fileRecord.size) / 1024))} KB`
+          : 'sin registro',
+      };
+    }
+
     function renderGeneralPjudExcelPanel(){
+      const statusMeta = getGeneralPjudExcelStatusMeta(state.generalPjudExcel.file);
       return `
         <section class="section-card" id="generalPjudExcelPanel">
           <div class="section-head">
@@ -6548,8 +6605,15 @@
           <div class="document-actions">
             <button type="button" class="btn" data-general-pjud-excel-action="upload">Subir Excel de listado todos los tribunales</button>
             <input type="file" id="generalPjudExcelInput" class="hidden-input" accept=".xlsx,.xls,.xlsm,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
+            <div class="general-pjud-excel-status ${statusMeta.hasFile ? 'is-loaded' : 'is-empty'}" role="status" aria-live="polite">
+              <span class="general-pjud-excel-status-dot" aria-hidden="true"></span>
+              <div class="general-pjud-excel-status-content">
+                <div><strong>Estado:</strong> ${statusMeta.stateLabel}</div>
+                <div><strong>Archivo actual:</strong> ${escapeHtml(statusMeta.fileName)}</div>
+                <div class="general-pjud-excel-status-meta">Carga: ${escapeHtml(statusMeta.uploadedAtLabel)} · Tamaño: ${escapeHtml(statusMeta.sizeLabel)}</div>
+              </div>
+            </div>
           </div>
-          <div class="helper-box" id="generalPjudExcelCurrentFile">${escapeHtml(formatGeneralPjudExcelFile(state.generalPjudExcel.file))}</div>
         </section>
       `;
     }
