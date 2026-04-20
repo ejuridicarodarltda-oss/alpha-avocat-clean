@@ -101,6 +101,7 @@
     }
     .tribunal-calendar-cell:hover{border-color:#163A5F;box-shadow:0 6px 12px rgba(11,37,34,.1)}
     .tribunal-calendar-name{font-weight:700;color:#163A5F;line-height:1.3}
+    .tribunal-calendar-actions{display:flex;flex-wrap:wrap;gap:8px}
     .tribunal-open-btn{justify-self:start}
     .role-item{background:#f8fffd;border:1px solid #b9ddd6;border-radius:12px;padding:12px;cursor:pointer}
     .role-item:hover{border-color:#163A5F}
@@ -944,6 +945,35 @@
       return [...roleMap.values()].sort((a, b) => yearFromRole(a.identificador) - yearFromRole(b.identificador) || a.identificador.localeCompare(b.identificador, 'es'));
     }
 
+    function extractTribunalOrdinal(value = '') {
+      const normalized = normalize(String(value || ''));
+      const match = normalized.match(/\b(\d{1,3})\s*(?:°|º|o)?\b/);
+      if (!match) return Number.POSITIVE_INFINITY;
+      const parsed = Number(match[1]);
+      return Number.isFinite(parsed) ? parsed : Number.POSITIVE_INFINITY;
+    }
+
+    function orderedTribunals(tribunalNames = []) {
+      return [...tribunalNames].sort((a, b) => {
+        const ordinalDelta = extractTribunalOrdinal(a) - extractTribunalOrdinal(b);
+        if (ordinalDelta !== 0) return ordinalDelta;
+        return String(a || '').localeCompare(String(b || ''), 'es');
+      });
+    }
+
+    function notifyTribunalManualAction(action = '', tribunal = '') {
+      const label = String(tribunal || 'Tribunal').trim() || 'Tribunal';
+      if (action === 'rename') {
+        setManualStatus('ok', `Acción manual habilitada en “${label}”: renombre el tribunal solo cuando usted lo confirme.`);
+        return;
+      }
+      if (action === 'review') {
+        setManualStatus('ok', `Acción manual habilitada en “${label}”: abra la carpeta y revise/mueva causas manualmente.`);
+        return;
+      }
+      setManualStatus('warn', `Acción manual disponible para “${label}”. No se aplican cambios automáticos.`);
+    }
+
     function renderMatterFolders() {
       const html = ORDERED_MATTERS.map((matter) => {
         const count = lastMatterMap.get(matter)?.size || 0;
@@ -974,7 +1004,7 @@
     function openMatterPanel(matter) {
       selectedMatter = matter;
       const tribunalMap = lastMatterMap.get(matter) || new Map();
-      const tribunals = [...tribunalMap.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+      const tribunals = orderedTribunals([...tribunalMap.keys()]);
       const tribunalLookup = tribunals.slice();
       document.getElementById('matterPanelTitle').textContent = `${matter} · Tribunales específicos`;
       document.getElementById('matterTribunalsList').innerHTML = tribunals.length
@@ -988,7 +1018,11 @@
               ${tribunals.map((tribunal, index) => `
                 <article class="tribunal-calendar-cell">
                   <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunal)}</div>
-                  <button class="btn tribunal-open-btn" type="button" data-tribunal-open-index="${index}">Abrir tribunal</button>
+                  <div class="tribunal-calendar-actions">
+                    <button class="btn tribunal-open-btn" type="button" data-tribunal-open-index="${index}">Abrir tribunal</button>
+                    <button class="btn" type="button" data-tribunal-manual-action="review" data-tribunal-manual-index="${index}">Corrección manual</button>
+                    <button class="btn" type="button" data-tribunal-manual-action="rename" data-tribunal-manual-index="${index}">Renombrar manual</button>
+                  </div>
                 </article>
               `).join('')}
             </div>
@@ -999,6 +1033,15 @@
         btn.addEventListener('click', () => {
           const tribunalIndex = Number(btn.dataset.tribunalOpenIndex || -1);
           openTribunalPanel(tribunalLookup[tribunalIndex] || '');
+        });
+      });
+
+      document.querySelectorAll('[data-tribunal-manual-action]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const tribunalIndex = Number(btn.dataset.tribunalManualIndex || -1);
+          const tribunalName = tribunalLookup[tribunalIndex] || '';
+          notifyTribunalManualAction(btn.dataset.tribunalManualAction || '', tribunalName);
         });
       });
       document.getElementById('matterPanel').hidden = false;
