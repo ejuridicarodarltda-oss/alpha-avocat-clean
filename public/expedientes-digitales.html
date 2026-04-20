@@ -81,6 +81,14 @@
       grid-template-columns:repeat(auto-fill,minmax(260px,1fr));
       gap:10px;
     }
+    .tribunal-calendar-toolbar{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-bottom:10px;
+    }
     .tribunal-calendar-cell{
       background:#fff;
       border:1px solid #b9ddd6;
@@ -967,23 +975,31 @@
       selectedMatter = matter;
       const tribunalMap = lastMatterMap.get(matter) || new Map();
       const tribunals = [...tribunalMap.keys()].sort((a, b) => a.localeCompare(b, 'es'));
+      const tribunalLookup = tribunals.slice();
       document.getElementById('matterPanelTitle').textContent = `${matter} · Tribunales específicos`;
       document.getElementById('matterTribunalsList').innerHTML = tribunals.length
         ? `
           <div class="tribunal-calendar-frame">
+            <div class="tribunal-calendar-toolbar">
+              <strong>${escapeHtml(tribunals.length)} tribunal(es) disponible(s)</strong>
+              <span class="muted">Seleccione un tribunal para abrir su carpeta</span>
+            </div>
             <div class="tribunal-calendar-grid">
-              ${tribunals.map((tribunal) => `
+              ${tribunals.map((tribunal, index) => `
                 <article class="tribunal-calendar-cell">
                   <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunal)}</div>
-                  <button class="btn tribunal-open-btn" type="button" data-tribunal-open="${escapeHtml(tribunal)}">Abrir tribunal</button>
+                  <button class="btn tribunal-open-btn" type="button" data-tribunal-open-index="${index}">Abrir tribunal</button>
                 </article>
               `).join('')}
             </div>
           </div>
         `
         : '<div class="folder">No hay causas en esta materia judicial.</div>';
-      document.querySelectorAll('[data-tribunal-open]').forEach((btn) => {
-        btn.addEventListener('click', () => openTribunalPanel(btn.dataset.tribunalOpen || ''));
+      document.querySelectorAll('[data-tribunal-open-index]').forEach((btn) => {
+        btn.addEventListener('click', () => {
+          const tribunalIndex = Number(btn.dataset.tribunalOpenIndex || -1);
+          openTribunalPanel(tribunalLookup[tribunalIndex] || '');
+        });
       });
       document.getElementById('matterPanel').hidden = false;
       document.getElementById('tribunalPanel').hidden = true;
