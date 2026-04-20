@@ -2598,7 +2598,8 @@
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
     const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
-    const PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY = 'alpha-pjud-general-causes-excel-v1';
+    const GENERAL_PJUD_EXCEL_SOURCE_TYPE = 'pjud_general_excel_panel';
+    const GENERAL_PJUD_EXCEL_STORAGE_BUCKET = 'case-files';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -6497,24 +6498,55 @@
       `;
     }
 
-    function loadGeneralPjudExcelRecord(){
+    async function loadGeneralPjudExcelRecord(){
       try {
-        const raw = window.localStorage.getItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY);
-        state.generalPjudExcel.file = raw ? JSON.parse(raw) : null;
-      } catch (_error) {
+        const { data, error } = await supabase
+          .from(T_CAUSE_UPLOAD_BATCHES)
+          .select('id,file_name,created_at,metadata,metadata_json,status,source_type')
+          .eq('owner_user_id', authenticatedUser.id)
+          .eq('source_type', GENERAL_PJUD_EXCEL_SOURCE_TYPE)
+          .in('status', ['completed', 'completed_with_warnings'])
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+        if (error) throw buildCauseExcelInfrastructureError(error) || error;
+        const metadata = data?.metadata || data?.metadata_json || {};
+        state.generalPjudExcel.file = data ? {
+          id: data.id,
+          name: data.file_name || metadata.file_name || 'archivo.xlsx',
+          size: Number(metadata.file_size_bytes || 0),
+          type: metadata.mime_type || 'application/vnd.ms-excel',
+          uploadedAt: data.created_at || null,
+          storageBucket: metadata.storage_bucket || GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
+          storagePath: metadata.storage_path || null,
+          sourceType: data.source_type || GENERAL_PJUD_EXCEL_SOURCE_TYPE,
+        } : null;
+      } catch (error) {
+        console.error('[CAUSAS][PJUD-EXCEL-GENERAL] No fue posible leer el archivo vigente desde Supabase.', error);
         state.generalPjudExcel.file = null;
+        setMessage('importMsg', `No fue posible consultar el archivo vigente del panel PJUD: ${error?.message || 'error desconocido'}`, 'warn');
       }
       renderCurrentTab();
     }
 
     function saveGeneralPjudExcelRecord(fileRecord = null){
-      if (!fileRecord) {
-        state.generalPjudExcel.file = null;
-        window.localStorage.removeItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY);
-        return;
-      }
-      state.generalPjudExcel.file = fileRecord;
-      window.localStorage.setItem(PJUD_GENERAL_CAUSES_EXCEL_STORAGE_KEY, JSON.stringify(fileRecord));
+      state.generalPjudExcel.file = fileRecord || null;
+    }
+
+    function sanitizeGeneralPjudExcelFileName(fileName = '') {
+      const base = String(fileName || 'archivo.xlsx').trim() || 'archivo.xlsx';
+      return base
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/[^a-zA-Z0-9._-]+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/(^-|-$)/g, '')
+        .slice(0, 140) || 'archivo.xlsx';
+    }
+
+    function buildGeneralPjudExcelStoragePath(file){
+      const safeName = sanitizeGeneralPjudExcelFileName(file?.name || 'archivo.xlsx');
+      return ['pjud-general-excel', authenticatedUser.id, `${Date.now()}-${safeName}`].join('/');
     }
 
     function formatGeneralPjudExcelFile(fileRecord = null){
@@ -6565,15 +6597,71 @@
 
     async function handleGeneralPjudExcelFileInput(file){
       if (!file) return;
-      const fileRecord = {
-        name: file.name || 'archivo.xlsx',
-        size: Number(file.size || 0),
-        type: file.type || 'application/vnd.ms-excel',
-        uploadedAt: new Date().toISOString(),
-      };
-      saveGeneralPjudExcelRecord(fileRecord);
-      setMessage('importMsg', 'Excel general actualizado correctamente. El archivo anterior fue reemplazado.', 'ok');
-      renderCurrentTab();
+      const startedAt = new Date().toISOString();
+      const storagePath = buildGeneralPjudExcelStoragePath(file);
+      setMessage('importMsg', 'Subiendo archivo Excel al almacenamiento real y actualizando archivo vigente...', 'ok');
+      try {
+        const { error: uploadError } = await supabase.storage
+          .from(GENERAL_PJUD_EXCEL_STORAGE_BUCKET)
+          .upload(storagePath, file, {
+            cacheControl: '3600',
+            upsert: false,
+            contentType: file.type || 'application/vnd.ms-excel',
+          });
+        if (uploadError) throw new Error(`No fue posible subir el archivo al storage: ${uploadError.message || 'error desconocido'}`);
+
+        const metadata = {
+          panel: 'general_pjud_excel',
+          is_current_file: true,
+          uploaded_from: 'causas_expedientes_panel',
+          storage_bucket: GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
+          storage_path: storagePath,
+          file_size_bytes: Number(file.size || 0),
+          mime_type: file.type || 'application/vnd.ms-excel',
+          file_name: file.name || 'archivo.xlsx',
+          uploaded_at: startedAt,
+        };
+        const batch = await createCauseExcelUploadBatch({
+          owner_user_id: authenticatedUser.id,
+          uploaded_by: authenticatedUser.id,
+          upload_type: 'listado',
+          source_type: GENERAL_PJUD_EXCEL_SOURCE_TYPE,
+          status: 'completed',
+          file_name: file.name || 'archivo.xlsx',
+          original_filename: file.name || 'archivo.xlsx',
+          total_rows: 0,
+          valid_rows: 0,
+          empty_rows: 0,
+          structural_errors: 0,
+          duplicate_rows: 0,
+          processed_count: 0,
+          created_count: 0,
+          updated_count: 0,
+          linked_rows: 0,
+          discarded_count: 0,
+          raw_preview: [],
+          metadata_json: metadata,
+          metadata,
+        });
+
+        const fileRecord = {
+          id: batch?.id || null,
+          name: file.name || 'archivo.xlsx',
+          size: Number(file.size || 0),
+          type: file.type || 'application/vnd.ms-excel',
+          uploadedAt: batch?.created_at || startedAt,
+          storageBucket: GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
+          storagePath,
+          sourceType: GENERAL_PJUD_EXCEL_SOURCE_TYPE,
+        };
+        saveGeneralPjudExcelRecord(fileRecord);
+        renderCurrentTab();
+        setMessage('importMsg', `Archivo cargado correctamente. Archivo vigente actualizado: ${fileRecord.name}. Fecha/hora de carga: ${formatDate(fileRecord.uploadedAt)}.`, 'ok');
+      } catch (error) {
+        console.error('[CAUSAS][PJUD-EXCEL-GENERAL] Falló la carga real del archivo.', error);
+        setMessage('importMsg', `No se pudo cargar el archivo Excel vigente. ${error?.message || 'Error desconocido'}`, 'error');
+        await loadGeneralPjudExcelRecord();
+      }
     }
 
     async function loadPjudLinkingData(){
