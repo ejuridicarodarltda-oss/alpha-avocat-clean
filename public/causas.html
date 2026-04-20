@@ -4433,9 +4433,12 @@
       }
       if (explorer.status === 'empty' || !explorer.model) {
         const reasonList = (trace.emptyReasons || []).map((reason) => `<li>${escapeHtml(reason)}</li>`).join('');
+        const emptyHeadline = trace.linkageStatus === 'sin_expediente_vinculado'
+          ? 'Esta causa fue creada, pero aún no tiene un expediente digital vinculado.'
+          : 'Esta causa ya tiene expediente vinculado, pero aún no registra documentos disponibles.';
         return `
           <div class="explorer-state">
-            Esta causa fue creada, pero su contenido aún no ha sido vinculado.
+            ${emptyHeadline}
             <div class="timeline-meta">cause_id: ${escapeHtml(trace.causeId || 'No informado')} · expediente_digital_id: ${escapeHtml(trace.expedienteDigitalId || 'No informado')} · actualización real: ${escapeHtml(trace.lastRealUpdate ? formatDate(trace.lastRealUpdate) : 'No informada')}</div>
             <div class="timeline-meta">archivos vinculados: ${escapeHtml(trace.linkedDocuments || 0)} · archivos huérfanos detectados: ${escapeHtml(trace.orphanDocuments || 0)} · último intento de vinculación: ${escapeHtml(trace.lastLinkageAttempt ? formatDate(trace.lastLinkageAttempt) : 'No informado')}</div>
             ${trace.linkageReason ? `<div class="timeline-meta">motivo exacto: ${escapeHtml(trace.linkageReason)}</div>` : ''}
@@ -5587,9 +5590,10 @@
       const orphanDocuments = documents.filter((doc) => !String(doc?.cause_id || doc?.caseId || '').trim() || !String(doc?.expediente_digital_id || doc?.expedienteDigitalId || '').trim());
       const lastLinkageAttempt = documents.map((doc) => doc?.linkingAttemptedAt || doc?.updatedAt || doc?.createdAt).filter(Boolean).sort().at(-1) || '';
       const lastLinkageReason = orphanDocuments.map((doc) => doc?.linkingErrorReason).filter(Boolean).at(-1) || '';
+      const hasLinkedExpediente = Boolean(expedienteDigitalId);
       const status = realDocuments.length && linkedDocuments.length
         ? 'vinculado'
-        : (folderCount > 0 || cause?.expedienteDigital ? 'estructura_creada_contenido_pendiente' : 'sin_expediente_vinculado');
+        : (hasLinkedExpediente || folderCount > 0 || cause?.expedienteDigital ? 'estructura_creada_contenido_pendiente' : 'sin_expediente_vinculado');
       const reasons = [];
       if (!realDocuments.length) {
         if (!documents.length) reasons.push('causa sin archivos');
@@ -6334,16 +6338,26 @@
       }).join('')}</div>`;
     }
 
+    function resolveMainTribunalArchivador(cause){
+      const source = normalizeTextForMatch([
+        cause?.tribunal,
+        cause?.tipoTribunal,
+        cause?.court,
+        cause?.corte,
+        cause?.materia,
+      ].filter(Boolean).join(' '));
+      if (source.includes('oral') && source.includes('penal')) return 'Tribunal Oral en lo Penal';
+      if (source.includes('policia local')) return 'Juzgado de Policía Local';
+      if (source.includes('garantia') || source.includes('penal')) return 'Causas Juzgado de Garantía';
+      if (source.includes('cobranza')) return 'Causas Juzgado de Cobranza';
+      if (source.includes('familia')) return 'Causas Juzgado de Familia';
+      if (source.includes('trabajo') || source.includes('laboral')) return 'Causas Juzgado del Trabajo';
+      if (source.includes('civil') || source.includes('letras')) return 'Causas Juzgados Civiles';
+      return 'Causas Juzgados Civiles';
+    }
+
     function getExpedienteTribunalArchivadores(cause){
-      const tribunalNames = [
-        'Causas Juzgados Civiles',
-        'Causas Juzgado de Familia',
-        'Causas Juzgado del Trabajo',
-        'Causas Juzgado de Cobranza',
-        'Causas Juzgado de Garantía',
-        'Tribunal Oral en lo Penal',
-        'Juzgado de Policía Local',
-      ];
+      const tribunalName = resolveMainTribunalArchivador(cause);
       const identity = getCauseIdentifier(cause);
       const causeFolderName = `${identity.display}${identity.secondary.length ? ` / ${identity.secondary.join(' / ')}` : ''} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
       const causeSubfolders = [
@@ -6363,11 +6377,11 @@
         'ChatGPT',
         'Trazabilidad',
       ];
-      return tribunalNames.map(name => ({
-        name,
+      return [{
+        name: tribunalName,
         causeFolderName,
         causeSubfolders,
-      }));
+      }];
     }
 
     function renderExpedienteArchivadores(cause){
