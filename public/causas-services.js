@@ -392,6 +392,61 @@ export function quickHash(value = '') {
   return `h${Math.abs(hash)}`
 }
 
+function inferTribunalMainBucket(cause = {}) {
+  const source = normalizeForComparison([
+    cause?.tribunal,
+    cause?.court,
+    cause?.corte,
+    cause?.tipoTribunal,
+    cause?.tipo_tribunal,
+    cause?.materia,
+  ].filter(Boolean).join(' '))
+  if (!source) return { key: 'civil', label: 'Causas Juzgados Civiles' }
+  if (source.includes('oral') && source.includes('penal')) return { key: 'top', label: 'Tribunal Oral en lo Penal' }
+  if (source.includes('policia local')) return { key: 'policia_local', label: 'Juzgado de Policía Local' }
+  if (source.includes('garantia') || source.includes('penal')) return { key: 'garantia', label: 'Causas Juzgado de Garantía' }
+  if (source.includes('cobranza')) return { key: 'cobranza', label: 'Causas Juzgado de Cobranza' }
+  if (source.includes('familia')) return { key: 'familia', label: 'Causas Juzgado de Familia' }
+  if (source.includes('trabajo') || source.includes('laboral')) return { key: 'trabajo', label: 'Causas Juzgado del Trabajo' }
+  if (source.includes('civil') || source.includes('letras')) return { key: 'civil', label: 'Causas Juzgados Civiles' }
+  return { key: 'civil', label: 'Causas Juzgados Civiles' }
+}
+
+function sanitizeTribunalCarpetasForCause(cause = {}) {
+  const tribunalNode = cause?.expedienteDigital?.cliente?.tribunal
+  if (!tribunalNode || !Array.isArray(tribunalNode.carpetas) || tribunalNode.carpetas.length <= 1) return
+  const normalizedCauseTribunal = normalizeForComparison(cause?.tribunal || cause?.court || cause?.corte || '')
+  const expectedBucket = inferTribunalMainBucket(cause)
+  const folders = tribunalNode.carpetas.filter(Boolean)
+  if (!folders.length) return
+
+  const pickScore = (folder = {}) => {
+    const folderTribunal = normalizeForComparison(folder?.tribunal || '')
+    let score = 0
+    if (normalizedCauseTribunal && folderTribunal === normalizedCauseTribunal) score += 100
+    if (normalizedCauseTribunal && folderTribunal && normalizedCauseTribunal.includes(folderTribunal)) score += 60
+    if (folderTribunal.includes(normalizeForComparison(expectedBucket.label))) score += 40
+    if (folderTribunal && normalizedCauseTribunal && inferTribunalMainBucket({ tribunal: folderTribunal }).key === expectedBucket.key) score += 30
+    return score
+  }
+
+  const preferredFolder = [...folders].sort((a, b) => pickScore(b) - pickScore(a))[0] || folders[0]
+  const mergedCaseMap = new Map()
+  folders.forEach((folder) => {
+    ;(folder?.causas || []).forEach((entry) => {
+      const key = normalizeForComparison(entry?.nombre || '')
+      if (!key || !mergedCaseMap.has(key)) mergedCaseMap.set(key || `causa-${mergedCaseMap.size + 1}`, entry)
+    })
+  })
+  const mergedCases = [...mergedCaseMap.values()]
+  tribunalNode.carpetas = [{
+    ...preferredFolder,
+    tribunal: cause?.tribunal || preferredFolder?.tribunal || expectedBucket.label,
+    materia: cause?.materia || preferredFolder?.materia || 'Materia judicial',
+    causas: mergedCases,
+  }]
+}
+
 export function ensureCauseStorage(detail = {}, causeId = '') {
   const next = structuredClone(detail || {})
   next.id = String(next.id || causeId || '')
@@ -437,6 +492,7 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   if (!String(next.expedienteDigital.id || '').trim() && safeCauseId) {
     next.expedienteDigital.id = `expediente-${safeCauseId}`
   }
+  sanitizeTribunalCarpetasForCause(next)
   return next
 }
 
