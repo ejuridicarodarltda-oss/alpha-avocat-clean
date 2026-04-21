@@ -348,6 +348,7 @@
     let tribunalSearchDebounceTimer = null;
     let currentTribunalRoles = [];
     let tribunalSearchTestsExecuted = false;
+    const manualDocumentsInMemory = new Map();
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
     const EXTRACTION_LOGS_STORAGE_KEY = 'alpha-expedientes-extraction-logs-v1';
@@ -390,8 +391,25 @@
         return {};
       }
     }
-    function saveManualRegistry(registry = {}) {
-      window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(registry));
+    function isQuotaExceededError(error) {
+      return (
+        error?.name === 'QuotaExceededError'
+        || error?.code === 22
+        || /quota/i.test(String(error?.message || ''))
+      );
+    }
+    function saveManualRegistry(registry = {}, options = {}) {
+      try {
+        window.localStorage.setItem(MANUAL_STORAGE_KEY, JSON.stringify(registry));
+        return { ok: true };
+      } catch (error) {
+        if (isQuotaExceededError(error)) {
+          const warning = options.message || 'Se alcanzó el límite de almacenamiento local. Tus archivos adjuntos se mantienen en memoria y puedes continuar con el guardado.';
+          setManualStatus('warn', warning);
+          return { ok: false, quotaExceeded: true, error };
+        }
+        throw error;
+      }
     }
     function loadJsonStorage(key, fallback) {
       try {
@@ -560,11 +578,17 @@
       return best ? { value: best.label, score: Math.min(0.6 + best.score * 0.1, 0.9) } : null;
     }
     async function extractTextFromDocument(doc = {}) {
-      if (!doc?.contentBase64) return '';
       try {
-        const binary = atob(doc.contentBase64);
-        const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
-        return new TextDecoder('utf-8', { fatal: false }).decode(bytes).slice(0, 150000);
+        if (doc?.contentBase64) {
+          const binary = atob(doc.contentBase64);
+          const bytes = Uint8Array.from(binary, (ch) => ch.charCodeAt(0));
+          return new TextDecoder('utf-8', { fatal: false }).decode(bytes).slice(0, 150000);
+        }
+        if (doc?.fileRef instanceof File) {
+          const text = await doc.fileRef.text();
+          return String(text || '').slice(0, 150000);
+        }
+        return '';
       } catch {
         return '';
       }
@@ -1345,14 +1369,6 @@
       for (let index = 0; index < byteCharacters.length; index += 1) bytes[index] = byteCharacters.charCodeAt(index);
       return new Blob([bytes], { type: mimeType });
     }
-    function toBase64(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result || '').split(',')[1] || '');
-        reader.onerror = () => reject(new Error('No fue posible leer el archivo.'));
-        reader.readAsDataURL(file);
-      });
-    }
     function openManualPanel(cause) {
       if (!cause?.hasRol) {
         setManualStatus('error', 'La carga manual solo está disponible para causas con rol.');
@@ -1361,7 +1377,12 @@
       selectedCause = cause;
       document.getElementById('manualPanelTitle').textContent = `Poblar manualmente · ${cause.identificador}`;
       const registry = loadManualRegistry();
-      const current = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [] };
+      const persisted = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [] };
+      const memoryDocs = manualDocumentsInMemory.get(String(cause.id));
+      const current = {
+        ...persisted,
+        documentos: Array.isArray(memoryDocs) ? [...memoryDocs] : [],
+      };
       const form = document.getElementById('manualForm');
       const partiesRows = (current.parties || []).length ? current.parties : [{ nombre:'', calidad:'Demandante', rut:'', detalle:'' }];
       form.innerHTML = `
@@ -1410,9 +1431,17 @@
       document.getElementById('analyzeDocsBtn')?.addEventListener('click', async () => {
         await analyzeDocumentsAndAutofill(cause, current);
       });
-      form.addEventListener('submit', (event) => {
+      form.addEventListener('submit', async (event) => {
         event.preventDefault();
         persistManualData(cause, new FormData(form), current.documentos || []);
+        const uploadedGroups = await uploadManualDocuments(cause, current.documentos || []);
+        if (uploadedGroups > 0) {
+          manualDocumentsInMemory.set(String(cause.id), []);
+          current.documentos = [];
+          renderManualDocuments(current.documentos);
+          bindDocumentActions(cause, current);
+          setManualStatus('ok', 'Datos guardados y adjuntos enviados a persistencia real. No se almacenaron archivos en localStorage.');
+        }
       });
       setManualStatus('', '');
       document.getElementById('matterPanel').hidden = true;
@@ -1511,7 +1540,6 @@
             continue;
           }
           try {
-            const contentBase64 = await toBase64(file);
             nextDocs.push({
               id: crypto.randomUUID(),
               name: file.name,
@@ -1519,13 +1547,14 @@
               size: file.size || 0,
               uploadedAt: new Date().toISOString(),
               category: categoryInput?.value || 'Sin clasificar',
-              contentBase64,
+              fileRef: file,
             });
           } catch (error) {
             setManualStatus('error', error?.message || 'No se pudo cargar un archivo.');
           }
         }
         current.documentos = nextDocs;
+        manualDocumentsInMemory.set(String(cause.id), nextDocs);
         persistManualData(cause, new FormData(document.getElementById('manualForm')), nextDocs, { silent: true });
         renderManualDocuments(nextDocs);
         bindDocumentActions(cause, current);
@@ -1541,9 +1570,15 @@
       document.querySelectorAll('[data-doc-open]').forEach((btn) => {
         btn.addEventListener('click', () => {
           const doc = (current.documentos || []).find((item) => item.id === btn.dataset.docOpen);
-          if (!doc?.contentBase64) return;
-          const blob = decodeBase64File(doc.contentBase64, doc.type);
-          const url = URL.createObjectURL(blob);
+          let url = '';
+          if (doc?.fileRef instanceof File) {
+            url = URL.createObjectURL(doc.fileRef);
+          } else if (doc?.contentBase64) {
+            const blob = decodeBase64File(doc.contentBase64, doc.type);
+            url = URL.createObjectURL(blob);
+          } else {
+            return;
+          }
           window.open(url, '_blank', 'noopener');
           setTimeout(() => URL.revokeObjectURL(url), 60000);
         });
@@ -1551,6 +1586,7 @@
       document.querySelectorAll('[data-doc-remove]').forEach((btn) => {
         btn.addEventListener('click', () => {
           current.documentos = (current.documentos || []).filter((item) => item.id !== btn.dataset.docRemove);
+          manualDocumentsInMemory.set(String(cause.id), current.documentos);
           persistManualData(cause, new FormData(document.getElementById('manualForm')), current.documentos, { silent: true });
           renderManualDocuments(current.documentos);
           bindDocumentActions(cause, current);
@@ -1559,9 +1595,32 @@
       document.querySelectorAll('[data-doc-category]').forEach((selector) => {
         selector.addEventListener('change', () => {
           current.documentos = (current.documentos || []).map((item) => item.id === selector.dataset.docCategory ? { ...item, category: selector.value || 'Sin clasificar' } : item);
+          manualDocumentsInMemory.set(String(cause.id), current.documentos);
           persistManualData(cause, new FormData(document.getElementById('manualForm')), current.documentos, { silent: true });
         });
       });
+    }
+    function mapManualCategoryToFolderKey(category = '') {
+      const normalized = normalize(category);
+      if (normalized.includes('ebook')) return 'ebook';
+      if (normalized.includes('resolucion')) return 'resoluciones';
+      if (normalized.includes('escrito') || normalized.includes('borrador')) return 'escritos';
+      if (normalized.includes('notificacion')) return 'notificaciones';
+      if (normalized.includes('traza')) return 'trazabilidad';
+      return 'documento';
+    }
+    async function uploadManualDocuments(cause, documents = []) {
+      const grouped = new Map();
+      for (const doc of documents) {
+        if (!(doc?.fileRef instanceof File)) continue;
+        const key = mapManualCategoryToFolderKey(doc.category || '');
+        if (!grouped.has(key)) grouped.set(key, []);
+        grouped.get(key).push(doc.fileRef);
+      }
+      for (const [categoryKey, files] of grouped.entries()) {
+        await uploadFilesToSubfolder(cause, categoryKey, files);
+      }
+      return grouped.size;
     }
     function persistManualData(cause, formData, documents = [], options = {}) {
       if (!cause?.id) {
@@ -1594,11 +1653,22 @@
             tareasPendientes: String(formData.get('tareasPendientes') || '').trim(),
             alertas: String(formData.get('alertas') || '').trim(),
           },
-          documentos: documents,
+          documentos: [],
+          documentosResumen: (Array.isArray(documents) ? documents : []).slice(0, 50).map((doc) => ({
+            id: doc?.id || crypto.randomUUID(),
+            name: String(doc?.name || '').slice(0, 180),
+            type: String(doc?.type || '').slice(0, 120),
+            size: Number(doc?.size || 0),
+            category: String(doc?.category || 'Sin clasificar').slice(0, 80),
+            uploadedAt: doc?.uploadedAt || new Date().toISOString(),
+          })),
           lastSuggestions: registry[cause.id]?.lastSuggestions || {},
           updatedAt: new Date().toISOString(),
         };
-        saveManualRegistry(registry);
+        const saveResult = saveManualRegistry(registry);
+        if (!saveResult.ok && !saveResult.quotaExceeded) {
+          throw saveResult.error || new Error('No fue posible guardar el borrador local.');
+        }
         const suggestions = new Map(Object.entries(registry[cause.id].lastSuggestions || {}));
         const finalValues = {
           rol,
