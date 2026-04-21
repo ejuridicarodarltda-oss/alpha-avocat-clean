@@ -6163,6 +6163,16 @@
               <button class="btn btn-ghost" type="button" data-pjud-index-action="open" data-pjud-index-id="${escapeHtml(item.id)}">Abrir detalle</button>
               <button class="btn btn-ghost" type="button" data-pjud-index-action="link" data-pjud-index-id="${escapeHtml(item.id)}">Vincular</button>
               <button class="btn btn-ghost" type="button" data-pjud-index-action="refresh" data-pjud-index-id="${escapeHtml(item.id)}">Actualizar fila</button>
+              <button class="btn btn-ghost" type="button" data-tribunal-action="open-tribunal" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Abrir tribunal</button>
+              <button class="btn btn-ghost" type="button" data-tribunal-action="manual-correction" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Corrección manual</button>
+              <details class="tribunal-context-menu" data-pjud-index-id="${escapeHtml(item.id)}">
+                <summary class="btn btn-ghost" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
+                <div class="tribunal-context-menu-panel">
+                  <button class="btn btn-ghost" type="button" data-tribunal-action="delete-tribunal" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Eliminar tribunal</button>
+                </div>
+              </details>
+              <button class="btn btn-ghost" type="button" data-tribunal-action="delete-cause" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Eliminar causa</button>
+              <button class="btn btn-ghost" type="button" data-tribunal-action="move-or-replace-cause" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Trasladar o reemplazar causa</button>
             </div>
           </td>
         </tr>
@@ -6493,18 +6503,6 @@
                       </div>
                       <div class="case-footer">
                         <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
-                        <div class="case-actions">
-                          <button class="quick-btn quick-btn-primary" type="button" data-tribunal-action="open-tribunal" data-case="${item.id}">Abrir tribunal</button>
-                          <button class="quick-btn" type="button" data-tribunal-action="manual-correction" data-case="${item.id}">Corrección manual</button>
-                          <details class="tribunal-context-menu" data-case="${item.id}">
-                            <summary class="quick-btn" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
-                            <div class="tribunal-context-menu-panel">
-                              <button class="quick-btn" type="button" data-tribunal-action="delete-tribunal" data-case="${item.id}">Eliminar tribunal</button>
-                            </div>
-                          </details>
-                          <button class="quick-btn" type="button" data-tribunal-action="delete-cause" data-case="${item.id}">Eliminar causa</button>
-                          <button class="quick-btn" type="button" data-tribunal-action="move-or-replace-cause" data-case="${item.id}">Trasladar o reemplazar causa</button>
-                        </div>
                       </div>
                     </article>
                   `;
@@ -6551,15 +6549,23 @@
       setDetailStatus(`Causa eliminada manualmente: ${identity.display}.`, 'ok');
     }
 
-    async function handleTribunalManualAction(actionName, caseId){
+    async function handleTribunalManualAction(actionName, caseId, context = {}){
+      const tribunalNameFromContext = String(context?.tribunalName || '').trim();
       const resolvedCaseId = resolveCaseId(caseId);
-      if (!resolvedCaseId) {
-        setDetailStatus('No fue posible ejecutar la acción: ID de causa inválido.', 'warn');
+      let cause = resolvedCaseId ? state.caseMap.get(String(resolvedCaseId)) : null;
+      if (!cause && tribunalNameFromContext) {
+        cause = getCausesByTribunalName(tribunalNameFromContext)[0] || null;
+      }
+      if (!cause && actionName === 'open-tribunal' && tribunalNameFromContext) {
+        state.filters.tribunal = tribunalNameFromContext;
+        const tribunalFilterNode = $('filterTribunal');
+        if (tribunalFilterNode) tribunalFilterNode.value = tribunalNameFromContext;
+        renderAll();
+        setDetailStatus(`Tribunal abierto desde Tribunales específicos: ${tribunalNameFromContext}.`, 'ok');
         return;
       }
-      const cause = state.caseMap.get(String(resolvedCaseId));
       if (!cause) {
-        setDetailStatus('No fue posible ejecutar la acción: causa no encontrada.', 'warn');
+        setDetailStatus('No fue posible ejecutar la acción: causa no encontrada para este tribunal.', 'warn');
         return;
       }
       state.selectedId = String(cause.id);
@@ -7308,7 +7314,6 @@
               <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
             </div>
           </div>
-          ${renderDepositoDocumentos(cause)}
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
@@ -8001,6 +8006,7 @@
               <p class="section-copy">Área documental principal, ordenada en tres segmentos: expediente, antecedentes externos y producción jurídica.</p>
             </div>
           </div>
+          ${renderDepositoDocumentos(cause)}
           <div class="container-layout">
             <article class="container-segment">
               <div class="segment-header">
@@ -13868,6 +13874,17 @@
       }, { scope: 'indice-general' });
       auditAndRepairAutomaticFlowButtons();
       $('pjudIndexSyncRows')?.addEventListener('click', async (event) => {
+        const tribunalAction = event.target?.closest?.('[data-tribunal-action]');
+        if (tribunalAction) {
+          event.preventDefault();
+          event.stopPropagation();
+          await handleTribunalManualAction(
+            tribunalAction.dataset.tribunalAction,
+            tribunalAction.dataset.case,
+            { tribunalName: tribunalAction.dataset.tribunalName, pjudIndexId: tribunalAction.dataset.pjudIndexId }
+          );
+          return;
+        }
         const actionTrigger = event.target?.closest?.('[data-pjud-index-action]');
         if (!actionTrigger) return;
         await handlePjudIndexRowAction({ target: actionTrigger });
