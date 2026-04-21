@@ -2379,6 +2379,7 @@
             <label for="doc_container">Contenedor</label>
             <select id="doc_container" class="input">
               <option value="ebook">Ebook</option>
+              <option value="depositoDocumentos">Depósito de documentos</option>
               <option value="documentos">Documentos</option>
               <option value="escritos">Escritos</option>
               <option value="borradores">Borradores</option>
@@ -2665,6 +2666,7 @@
     const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
     const GENERAL_PJUD_EXCEL_SOURCE_TYPE = 'pjud_general_excel_panel';
     const GENERAL_PJUD_EXCEL_STORAGE_BUCKET = 'case-files';
+    const CASE_DOCUMENT_STORAGE_BUCKET = 'case-files';
 
     const TAB_CONFIG = [
       ['informacion', 'Información de clientes, asesorías y causas'],
@@ -4305,6 +4307,7 @@
     function getContainerLabel(containerId){
       return ({
         ebook: 'Ebook',
+        depositoDocumentos: 'Depósito de documentos',
         asociados: 'Documentos',
         documentos: 'Documentos',
         escritos: 'Escritos',
@@ -5654,6 +5657,7 @@
         String(documentRecord?.content || '').trim()
         || String(documentRecord?.sourceUrl || '').trim()
         || String(documentRecord?.sourcePageUrl || '').trim()
+        || (String(documentRecord?.storageBucket || '').trim() && String(documentRecord?.storagePath || '').trim())
       );
     }
 
@@ -7276,12 +7280,14 @@
               <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
             </div>
             <div class="toolbar">
+              <button class="btn btn-primary" data-doc-upload="depositoDocumentos">Agregar archivos</button>
               <button class="btn" data-doc-upload="documentos">Subir archivo</button>
               <button class="btn" data-doc-upload="ebook">Subir ebook</button>
               <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
               <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
             </div>
           </div>
+          ${renderDepositoDocumentos(cause)}
           ${renderDocumentExplorer(cause)}
         </section>
         ${renderExpedienteArchivadores(cause)}
@@ -7333,6 +7339,41 @@
               </div>
             </div>
           `).join('') : '<div class="helper-box">Todavía no hay archivos en este contenedor. Puedes cargarlos manualmente o incorporarlos desde una importación judicial semiautomática.</div>'}
+        </article>
+      `;
+    }
+
+    function renderDepositoDocumentos(cause){
+      const documents = getDocumentsByContainer(cause, 'depositoDocumentos');
+      const causeLabel = cause.caratula || cause.rol || cause.id || 'Causa actual';
+      return `
+        <article class="section-card">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Depósito de documentos</h4>
+              <p class="section-copy">Bandeja simple por causa para incorporar archivos descargados manualmente desde Google (Drive, Gmail, Docs u otros).</p>
+            </div>
+            <div class="toolbar">
+              <button class="btn btn-primary" data-doc-upload="depositoDocumentos">Agregar archivos</button>
+            </div>
+          </div>
+          <div class="helper-box" data-deposito-dropzone="depositoDocumentos">
+            Arrastra y suelta archivos aquí para incorporarlos al depósito de esta causa.
+          </div>
+          <div class="timeline">
+            ${documents.length ? documents.map((doc) => `
+              <article class="timeline-item">
+                <strong>${escapeHtml(doc.name || 'Archivo sin nombre')}</strong>
+                <div class="timeline-meta">Fecha de incorporación: ${escapeHtml(formatDate(doc.createdAt || doc.updatedAt))}</div>
+                <div class="timeline-meta">Tamaño: ${escapeHtml(doc.size ? `${Math.ceil(doc.size / 1024)} KB` : 'No informado')} · Causa asociada: ${escapeHtml(causeLabel)}</div>
+                <div class="document-actions">
+                  <button class="btn" data-doc-action="open" data-doc-id="${doc.id}" ${hasDocumentSource(doc) ? '' : 'disabled aria-disabled="true" title="Sin fuente de apertura"'}>Abrir</button>
+                  <button class="btn" data-doc-action="download" data-doc-id="${doc.id}" ${hasDocumentSource(doc) ? '' : 'disabled aria-disabled="true" title="Sin fuente de descarga"'}>Descargar</button>
+                  <button class="btn" data-doc-action="delete" data-doc-id="${doc.id}">Eliminar</button>
+                </div>
+              </article>
+            `).join('') : '<div class="helper-box">Este depósito todavía no tiene archivos. Usa “Agregar archivos” o arrastra y suelta desde tu PC.</div>'}
+          </div>
         </article>
       `;
     }
@@ -8987,15 +9028,7 @@
           ? 'No existía expediente: se creó automáticamente la estructura mínima. Iniciando subida…'
           : 'Expediente existente encontrado. Iniciando subida…';
 
-        const inputs = await filesToDocumentInputs(files, {
-          category: 'Documentos',
-          destinationContainer: 'cargaManual',
-          destinationModule: 'Causas',
-          caseId: cause.id,
-          linkedClient: cause.cliente || SAFE_CLIENT_LABEL,
-          origin: 'Carga manual',
-          observation: observation || 'Carga manual desde tarjeta Expedientes digitales',
-        });
+        const inputs = await buildStorageBackedDocumentInputs(cause, files, 'cargaManual');
 
         if (progressNode) progressNode.textContent = 'Guardando archivos en “Documentos cargados manualmente”…';
         const folderLabel = 'Documentos cargados manualmente';
@@ -13435,13 +13468,77 @@
       openManagedModal('modalDocumento');
     }
 
+    function buildCaseDocumentStoragePath(cause = {}, file = {}, containerId = 'documentos'){
+      const safeCaseId = slugId(String(cause?.id || 'sin-causa'));
+      const safeContainer = slugId(String(containerId || 'documentos'));
+      const safeName = slugId(String(file?.name || 'archivo')).slice(0, 80) || 'archivo';
+      const extension = String(file?.name || '').split('.').pop()?.toLowerCase() || 'bin';
+      const stamp = Date.now();
+      const random = Math.random().toString(36).slice(2, 10);
+      return `users/${authenticatedUser.id}/causas/${safeCaseId}/${safeContainer}/${stamp}-${random}-${safeName}.${extension}`;
+    }
+
+    async function uploadCauseDocumentToStorage({ cause, file, containerId = 'documentos' } = {}){
+      if (!cause?.id) throw new Error('No existe una causa seleccionada para guardar el archivo.');
+      if (!file) throw new Error('No se recibió archivo para subir al depósito documental.');
+      const storagePath = buildCaseDocumentStoragePath(cause, file, containerId);
+      const { error: uploadError } = await supabase.storage
+        .from(CASE_DOCUMENT_STORAGE_BUCKET)
+        .upload(storagePath, file, {
+          cacheControl: '3600',
+          upsert: false,
+          contentType: file.type || 'application/octet-stream',
+        });
+      if (uploadError) throw new Error(`No fue posible subir "${file.name}" al almacenamiento documental: ${uploadError.message || 'error desconocido'}`);
+      return { storageBucket: CASE_DOCUMENT_STORAGE_BUCKET, storagePath };
+    }
+
+    async function ensureDocumentAccessUrl(documentRecord = {}){
+      if (documentRecord?.sourceUrl) return documentRecord.sourceUrl;
+      const bucket = String(documentRecord?.storageBucket || '').trim();
+      const path = String(documentRecord?.storagePath || '').trim();
+      if (!bucket || !path) return '';
+      const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 30);
+      if (error || !data?.signedUrl) throw new Error(error?.message || 'No fue posible generar URL firmada del documento.');
+      return data.signedUrl;
+    }
+
+    async function buildStorageBackedDocumentInputs(current, files, containerId){
+      const category = getContainerLabel(containerId);
+      const inputs = [];
+      for (const file of Array.from(files || [])) {
+        const uploadResult = await uploadCauseDocumentToStorage({ cause: current, file, containerId });
+        inputs.push({
+          name: file.name,
+          size: file.size,
+          type: file.type || '',
+          category,
+          observation: containerId === 'depositoDocumentos'
+            ? 'Archivo incorporado manualmente al Depósito de documentos de la causa.'
+            : '',
+          origin: containerId === 'depositoDocumentos' ? 'Depósito manual desde Google' : 'Carga manual',
+          destinationModule: 'Causas',
+          destinationContainer: containerId,
+          caseId: current.id,
+          linkedClient: current.cliente,
+          content: '',
+          sourceUrl: '',
+          storageBucket: uploadResult.storageBucket,
+          storagePath: uploadResult.storagePath,
+          lastTransferStatus: 'stored',
+          estadoVinculacion: 'vinculado',
+          tipoDocumento: category,
+        });
+      }
+      return inputs;
+    }
+
     async function processFilesForCurrentCause(current, files, containerId){
       if (!current) {
         setDetailStatus('Debes crear y abrir una causa antes de subir archivos.', 'warn');
         return;
       }
       if (!files?.length) return;
-      const category = getContainerLabel(containerId);
       const existing = new Set((current.documents || []).map((doc) => `${String(doc.name || '').toLowerCase()}::${Number(doc.size || 0)}`));
       const incoming = Array.from(files || []);
       const duplicates = incoming.filter((file) => existing.has(`${String(file.name || '').toLowerCase()}::${Number(file.size || 0)}`));
@@ -13452,14 +13549,7 @@
       if (!filesToLoad.length) {
         return;
       }
-      const inputs = await filesToDocumentInputs(filesToLoad, {
-        category,
-        destinationContainer: containerId,
-        destinationModule: 'Causas',
-        caseId: current.id,
-        linkedClient: current.cliente,
-        origin: 'Carga manual',
-      });
+      const inputs = await buildStorageBackedDocumentInputs(current, filesToLoad, containerId);
       persistCurrentCause((entry) => {
         let next = entry;
         inputs.forEach((input) => {
@@ -13513,6 +13603,17 @@
       }
 
       if (action === 'open') {
+        const resolvedUrl = await ensureDocumentAccessUrl(documentRecord);
+        if (resolvedUrl && resolvedUrl !== documentRecord.sourceUrl) {
+          persistCurrentCause((entry) => {
+            const next = ensureCauseStorage(entry, entry.id);
+            next.documents = (next.documents || []).map((item) => item.id === documentRecord.id
+              ? { ...item, sourceUrl: resolvedUrl }
+              : item);
+            return markManualEdit(next);
+          });
+          await loadCases();
+        }
         if (documentRecord.category === 'Ebook') {
           if (shouldOpenStoredEbook(documentRecord)) {
             toggleEbookFallback('');
@@ -13524,15 +13625,16 @@
           return;
         }
         toggleEbookFallback('');
-        openDocument(documentRecord);
+        openDocument({ ...documentRecord, sourceUrl: resolvedUrl || documentRecord.sourceUrl });
         return;
       }
 
       if (action === 'download') {
+        const resolvedUrl = await ensureDocumentAccessUrl(documentRecord);
         if (documentRecord.category === 'Ebook') {
           if (shouldOpenStoredEbook(documentRecord)) {
             toggleEbookFallback('');
-            if (downloadDocument(documentRecord)) {
+            if (downloadDocument({ ...documentRecord, sourceUrl: resolvedUrl || documentRecord.sourceUrl })) {
               persistCurrentCause((entry) => recordDownload(entry, documentId));
               setDetailStatus('Ebook descargado desde el expediente digital de Alpha Avocat.', 'ok');
               await loadCases();
@@ -13546,7 +13648,7 @@
           return;
         }
         toggleEbookFallback('');
-        if (downloadDocument(documentRecord)) {
+        if (downloadDocument({ ...documentRecord, sourceUrl: resolvedUrl || documentRecord.sourceUrl })) {
           persistCurrentCause((entry) => recordDownload(entry, documentId));
           setDetailStatus('Archivo descargado desde el expediente digital.', 'ok');
           await loadCases();
@@ -13892,14 +13994,18 @@
         event.target.value = '';
       }, { scope: 'general-pjud-excel-upload' });
       $('detailContent')?.addEventListener('dragover', (event) => {
-        event.preventDefault();
+        if (event.target.closest('[data-deposito-dropzone]')) {
+          event.preventDefault();
+          event.dataTransfer.dropEffect = 'copy';
+        }
       });
       $('detailContent')?.addEventListener('drop', async (event) => {
         const files = event.dataTransfer?.files;
         if (!files?.length) return;
+        if (!event.target.closest('[data-deposito-dropzone]')) return;
         event.preventDefault();
         const current = getCurrentCause();
-        const containerId = state.currentDocumentContainer || 'documentos';
+        const containerId = event.target.closest('[data-deposito-dropzone]')?.dataset?.depositoDropzone || 'depositoDocumentos';
         await processFilesForCurrentCause(current, files, containerId);
       });
       $('causeRectificationForm')?.addEventListener('submit', saveCauseRectification);
