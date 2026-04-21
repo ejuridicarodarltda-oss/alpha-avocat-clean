@@ -8790,7 +8790,18 @@
     }
 
     function normalizeTribunalKey(value = ''){
-      return normalizeTextForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
+      const normalized = normalizeTextForMatch(value)
+        .replace(/\b(primero|primer|1o|1º|1°)\b/g, '1')
+        .replace(/\b(segundo|2o|2º|2°)\b/g, '2')
+        .replace(/\b(tercero|3o|3º|3°)\b/g, '3')
+        .replace(/\bciv\b/g, 'civil')
+        .replace(/\bjdo\b/g, 'juzgado')
+        .replace(/\bjl\b/g, 'juzgado letras')
+        .replace(/\bjlc\b/g, 'juzgado civil')
+        .replace(/\b[0-9]+\s*(?:°|º)\b/g, (raw) => raw.replace(/[^0-9]/g, ''))
+        .replace(/[^a-z0-9]+/g, ' ')
+        .trim();
+      return normalized;
     }
 
     function buildTribunalMatchTokens(value = ''){
@@ -8800,19 +8811,15 @@
         .filter(Boolean);
       const ignored = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y']);
       const aliasMap = {
-        jlc: ['juzgado', 'civil'],
-        jl: ['juzgado', 'letras'],
-        jg: ['juzgado', 'garantia'],
-        jf: ['juzgado', 'familia'],
-        ca: ['corte', 'apelaciones'],
-        cs: ['corte', 'suprema'],
+        juzgado: ['jgdo'],
+        letras: ['letra'],
+        civil: ['civ'],
       };
       const expanded = [];
       rawTokens.forEach((token) => {
         if (ignored.has(token)) return;
         expanded.push(token);
-        const aliases = aliasMap[token] || [];
-        aliases.forEach((alias) => expanded.push(alias));
+        (aliasMap[token] || []).forEach((alias) => expanded.push(alias));
       });
       return [...new Set(expanded)];
     }
@@ -8825,7 +8832,12 @@
       const inputTokens = buildTribunalMatchTokens(inputTribunal);
       const caseTokens = new Set(buildTribunalMatchTokens(caseTribunal));
       if (!inputTokens.length || !caseTokens.size) return false;
-      return inputTokens.every((token) => caseTokens.has(token));
+      const overlap = inputTokens.filter((token) => caseTokens.has(token));
+      const requiredTokens = inputTokens.filter((token) => !['juzgado', 'jgdo', 'letras', 'letra', 'civil', 'civ'].includes(token));
+      if (requiredTokens.length) {
+        return requiredTokens.every((token) => caseTokens.has(token));
+      }
+      return overlap.length >= Math.min(2, inputTokens.length);
     }
 
     function renderProduccionDraftMatches(results = []){
@@ -8877,20 +8889,22 @@
         return;
       }
       const rolKey = normalizeRolSearchKey(rol);
-      const matches = getAllCases().filter((item) => (
-        isCaseAvailableInExpedientes(item)
-        && normalizeRolSearchKey(item?.rol || '') === rolKey
-        && tribunalesAreEquivalent(tribunal, item?.tribunal || '')
-      ));
+      const expedientesCases = getAllCases().filter((item) => isCaseAvailableInExpedientes(item));
+      const rolMatches = expedientesCases.filter((item) => normalizeRolSearchKey(item?.rol || '') === rolKey);
+      let matches = rolMatches;
+      if (rolMatches.length > 1) {
+        const tribunalMatches = rolMatches.filter((item) => tribunalesAreEquivalent(tribunal, item?.tribunal || ''));
+        if (tribunalMatches.length) matches = tribunalMatches;
+      }
       state.produccionDraft.matches = matches;
       state.produccionDraft.selectedCaseId = matches.length === 1 ? String(matches[0].id) : '';
       renderProduccionDraftMatches(matches);
       if (!matches.length) {
-        setMessage('producirEscritoMsg', 'No existe una causa coincidente en Expedientes Digitales. Verifica Rol y Tribunal.', 'warn');
+        setMessage('producirEscritoMsg', 'No se detectó coincidencia razonable en Expedientes Digitales. Verifica Rol y Tribunal.', 'warn');
         return;
       }
       if (matches.length > 1) {
-        setMessage('producirEscritoMsg', `Se encontraron ${matches.length} coincidencias. Selecciona la causa correcta para continuar.`, 'warn');
+        setMessage('producirEscritoMsg', `Se encontraron ${matches.length} coincidencias por Rol en Expedientes Digitales. Selecciona la causa correcta para continuar.`, 'warn');
         return;
       }
       setMessage('producirEscritoMsg', 'Causa encontrada en Expedientes Digitales. Lista para importación temporal.', 'ok');
@@ -13996,6 +14010,9 @@
       bindEvent('formBuscarCausa', 'submit', submitCauseSearchByRol, { required: true, scope: 'form-buscar-causa' });
       bindEvent('formProducirEscritos', 'submit', submitProducirEscritos, { required: true, scope: 'form-produccion-escritos' });
       bindEvent('btnBuscarCausaProduccion', 'click', () => runProduccionDraftSearch(), { scope: 'form-produccion-escritos' });
+      document.querySelectorAll('#modalProducirEscritos [data-close]')?.forEach((button) => {
+        button.addEventListener('click', () => closeManagedModal('modalProducirEscritos'));
+      });
       $('buscarCausaResultados')?.addEventListener('click', (event) => {
         const selectButton = event.target.closest('[data-select-cause]');
         if (selectButton) {
