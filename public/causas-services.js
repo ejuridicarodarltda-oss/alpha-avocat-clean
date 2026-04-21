@@ -466,6 +466,7 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
     ebook: { label: 'Ebook', docIds: [] },
     asociados: { label: 'Documentos', docIds: [] },
     documentos: { label: 'Documentos', docIds: [] },
+    depositoDocumentos: { label: 'Depósito de documentos', docIds: [] },
     escritos: { label: 'Escritos', docIds: [] },
     borradores: { label: 'Borradores', docIds: [] },
     resoluciones: { label: 'Resoluciones', docIds: [] },
@@ -480,6 +481,7 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   if (!next.documentContainers.asociados && next.documentContainers.documentos) {
     next.documentContainers.asociados = { ...next.documentContainers.documentos, label: 'Documentos' }
   }
+  if (!next.documentContainers.depositoDocumentos) next.documentContainers.depositoDocumentos = { label: 'Depósito de documentos', docIds: [] }
   if (!next.documentContainers.borradores) next.documentContainers.borradores = { label: 'Borradores', docIds: [] }
   if (!next.documentContainers.prueba) next.documentContainers.prueba = { label: 'Prueba', docIds: [] }
   if (!next.documentContainers.sinClasificar) next.documentContainers.sinClasificar = { label: 'Sin clasificar', docIds: [] }
@@ -652,6 +654,7 @@ export function containerIdForCategory(category = '') {
   if (normalized.includes('borrador')) return 'borradores'
   if (normalized.includes('prueb')) return 'prueba'
   if (normalized.includes('resol')) return 'resoluciones'
+  if (normalized.includes('depósito') || normalized.includes('deposito')) return 'depositoDocumentos'
   if (normalized.includes('asoci') || normalized.includes('document')) return 'documentos'
   if (normalized.includes('sin clasif')) return 'sinClasificar'
   return 'antecedentes'
@@ -922,6 +925,7 @@ export function buildDocumentExplorer(detail = {}, options = {}) {
 
       const containerMappings = [
         ['ebook', ['ebook']],
+        ['depositoDocumentos', ['deposito-de-documentos', 'deposito-documental', 'deposito']],
         ['documentos', ['documentos', 'documento']],
         ['asociados', ['documentos', 'documento']],
         ['escritos', ['escritos']],
