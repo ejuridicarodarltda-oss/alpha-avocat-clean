@@ -6163,16 +6163,6 @@
               <button class="btn btn-ghost" type="button" data-pjud-index-action="open" data-pjud-index-id="${escapeHtml(item.id)}">Abrir detalle</button>
               <button class="btn btn-ghost" type="button" data-pjud-index-action="link" data-pjud-index-id="${escapeHtml(item.id)}">Vincular</button>
               <button class="btn btn-ghost" type="button" data-pjud-index-action="refresh" data-pjud-index-id="${escapeHtml(item.id)}">Actualizar fila</button>
-              <button class="btn btn-ghost" type="button" data-tribunal-action="open-tribunal" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Abrir tribunal</button>
-              <button class="btn btn-ghost" type="button" data-tribunal-action="manual-correction" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Corrección manual</button>
-              <details class="tribunal-context-menu" data-pjud-index-id="${escapeHtml(item.id)}">
-                <summary class="btn btn-ghost" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
-                <div class="tribunal-context-menu-panel">
-                  <button class="btn btn-ghost" type="button" data-tribunal-action="delete-tribunal" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Eliminar tribunal</button>
-                </div>
-              </details>
-              <button class="btn btn-ghost" type="button" data-tribunal-action="delete-cause" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Eliminar causa</button>
-              <button class="btn btn-ghost" type="button" data-tribunal-action="move-or-replace-cause" data-tribunal-name="${escapeHtml(item.court_name || '')}" data-pjud-index-id="${escapeHtml(item.id)}">Trasladar o reemplazar causa</button>
             </div>
           </td>
         </tr>
@@ -6798,6 +6788,65 @@
 
 
 
+
+    function getCivilTribunalSpecificList(){
+      const fromIndex = (state.pjudCausesIndex.items || [])
+        .map((item) => String(item?.court_name || '').trim())
+        .filter(Boolean);
+      const fromCases = getAllCases()
+        .map((item) => String(item?.tribunal || '').trim())
+        .filter(Boolean);
+      const onlyCivil = [...fromIndex, ...fromCases].filter((name) => {
+        const normalized = normalizeTextForMatch(name);
+        return normalized.includes('civil') || normalized.includes('letras');
+      });
+      return [...new Set(onlyCivil)]
+        .sort((a, b) => {
+          const source = `${a} ${b}`.toLowerCase();
+          const label = source.includes('civil') || source.includes('letras') ? 'Causas Juzgados Civiles' : source;
+          return getTribunalRank(label, a) - getTribunalRank(label, b) || a.localeCompare(b, 'es');
+        });
+    }
+
+    function renderTribunalesEspecificosPanel(){
+      const tribunals = getCivilTribunalSpecificList();
+      return `
+        <section class="section-card" id="tribunalesEspecificosPanel">
+          <div class="section-head">
+            <div>
+              <h4 class="section-title">Juzgados Civiles · Tribunales específicos</h4>
+              <p class="section-copy">Listado puntual de tribunales civiles para abrir su carpeta y ejecutar acciones manuales por tribunal.</p>
+            </div>
+          </div>
+          <div class="tribunal-calendar-frame">
+            <div class="tribunal-calendar-toolbar">
+              <strong>${escapeHtml(String(tribunals.length))} tribunal(es) disponible(s)</strong>
+              <span class="muted">Seleccione un tribunal para abrir su carpeta</span>
+            </div>
+            <div class="tribunal-calendar-grid">
+              ${tribunals.length ? tribunals.map((tribunalName) => `
+                <article class="tribunal-calendar-cell">
+                  <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunalName)}</div>
+                  <div class="tribunal-calendar-actions">
+                    <button class="btn tribunal-open-btn" type="button" data-tribunal-action="open-tribunal" data-tribunal-name="${escapeHtml(tribunalName)}">Abrir tribunal</button>
+                    <button class="btn" type="button" data-tribunal-action="manual-correction" data-tribunal-name="${escapeHtml(tribunalName)}">Corrección manual</button>
+                    <details class="tribunal-context-menu">
+                      <summary class="btn" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
+                      <div class="tribunal-context-menu-panel">
+                        <button class="btn btn-ghost" type="button" data-tribunal-action="delete-tribunal" data-tribunal-name="${escapeHtml(tribunalName)}">Eliminar tribunal</button>
+                        <button class="btn btn-ghost" type="button" data-tribunal-action="delete-cause" data-tribunal-name="${escapeHtml(tribunalName)}">Eliminar causa</button>
+                        <button class="btn btn-ghost" type="button" data-tribunal-action="move-or-replace-cause" data-tribunal-name="${escapeHtml(tribunalName)}">Trasladar o reemplazar causa</button>
+                      </div>
+                    </details>
+                  </div>
+                </article>
+              `).join('') : '<div class="helper-box">No hay tribunales civiles disponibles en este momento.</div>'}
+            </div>
+          </div>
+        </section>
+      `;
+    }
+
     function renderExpedienteArchivadores(cause){
       const archivadores = getExpedienteTribunalArchivadores(cause);
       return `
@@ -7316,6 +7365,7 @@
           </div>
           ${renderDocumentExplorer(cause)}
         </section>
+        ${renderTribunalesEspecificosPanel()}
         ${renderExpedienteArchivadores(cause)}
         <div class="helper-box"><strong>Fichero principal · Índice General PJUD</strong>: contenedor autónomo del módulo (Access vigente + versiones históricas). No pertenece a una causa individual y no se mezcla con la ficha puntual.</div>
         ${renderGeneralPjudExcelPanel()}
