@@ -229,6 +229,38 @@
       color:var(--causas-text);
     }
 
+
+    .causas-page .tribunal-context-menu{
+      position:relative;
+    }
+
+    .causas-page .tribunal-context-menu > summary{
+      list-style:none;
+    }
+
+    .causas-page .tribunal-context-menu > summary::-webkit-details-marker{
+      display:none;
+    }
+
+    .causas-page .tribunal-context-menu-panel{
+      position:absolute;
+      right:0;
+      top:calc(100% + 6px);
+      z-index:12;
+      display:grid;
+      gap:6px;
+      min-width:180px;
+      padding:8px;
+      border:1px solid var(--causas-border-soft);
+      border-radius:12px;
+      background:var(--causas-card);
+      box-shadow:0 10px 24px rgba(12,44,40,.16);
+    }
+
+    .causas-page .tribunal-context-menu:not([open]) .tribunal-context-menu-panel{
+      display:none;
+    }
+
     .causas-shell{
       padding:14px 20px 20px;
       display:grid;
@@ -6460,8 +6492,12 @@
                         <div class="case-actions">
                           <button class="quick-btn quick-btn-primary" type="button" data-tribunal-action="open-tribunal" data-case="${item.id}">Abrir tribunal</button>
                           <button class="quick-btn" type="button" data-tribunal-action="manual-correction" data-case="${item.id}">Corrección manual</button>
-                          <button class="quick-btn" type="button" data-tribunal-action="rename-tribunal" data-case="${item.id}">Renombrar manual</button>
-                          <button class="quick-btn" type="button" data-tribunal-action="delete-tribunal" data-case="${item.id}">Eliminar tribunal</button>
+                          <details class="tribunal-context-menu" data-case="${item.id}">
+                            <summary class="quick-btn" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
+                            <div class="tribunal-context-menu-panel">
+                              <button class="quick-btn" type="button" data-tribunal-action="delete-tribunal" data-case="${item.id}">Eliminar tribunal</button>
+                            </div>
+                          </details>
                           <button class="quick-btn" type="button" data-tribunal-action="delete-cause" data-case="${item.id}">Eliminar causa</button>
                           <button class="quick-btn" type="button" data-tribunal-action="move-or-replace-cause" data-case="${item.id}">Trasladar o reemplazar causa</button>
                         </div>
@@ -6532,21 +6568,6 @@
         openWorkspaceModal({ tabId: 'informacion', caseId: cause.id, origin: 'manual-correction' });
         openCauseRectification('general');
         setDetailStatus(`Corrección manual abierta para ${cause.tribunal || 'tribunal sin nombre'}.`, 'ok');
-        return;
-      }
-      if (actionName === 'rename-tribunal') {
-        const currentName = String(cause.tribunal || '').trim();
-        const nextName = window.prompt('Renombrar tribunal (manual): ingresa nuevo nombre.', currentName);
-        if (nextName == null) return;
-        const cleanName = String(nextName).trim();
-        if (!cleanName) {
-          setDetailStatus('El nombre del tribunal no puede quedar vacío.', 'warn');
-          return;
-        }
-        updateWorkspaceEntry(cause.id, (current) => ({ ...current, tribunal: cleanName, pjudTribunal: cleanName }));
-        await loadCases();
-        renderAll();
-        setDetailStatus(`Tribunal renombrado manualmente: ${currentName || 'Sin nombre'} → ${cleanName}.`, 'ok');
         return;
       }
       if (actionName === 'delete-tribunal') {
