@@ -8675,6 +8675,41 @@
       return normalizeTextForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
     }
 
+    function buildTribunalMatchTokens(value = ''){
+      const rawTokens = normalizeTribunalKey(value)
+        .split(' ')
+        .map((token) => token.trim())
+        .filter(Boolean);
+      const ignored = new Set(['de', 'del', 'la', 'las', 'el', 'los', 'y']);
+      const aliasMap = {
+        jlc: ['juzgado', 'civil'],
+        jl: ['juzgado', 'letras'],
+        jg: ['juzgado', 'garantia'],
+        jf: ['juzgado', 'familia'],
+        ca: ['corte', 'apelaciones'],
+        cs: ['corte', 'suprema'],
+      };
+      const expanded = [];
+      rawTokens.forEach((token) => {
+        if (ignored.has(token)) return;
+        expanded.push(token);
+        const aliases = aliasMap[token] || [];
+        aliases.forEach((alias) => expanded.push(alias));
+      });
+      return [...new Set(expanded)];
+    }
+
+    function tribunalesAreEquivalent(inputTribunal = '', caseTribunal = ''){
+      const inputKey = normalizeTribunalKey(inputTribunal);
+      const caseKey = normalizeTribunalKey(caseTribunal);
+      if (!inputKey || !caseKey) return false;
+      if (caseKey.includes(inputKey) || inputKey.includes(caseKey)) return true;
+      const inputTokens = buildTribunalMatchTokens(inputTribunal);
+      const caseTokens = new Set(buildTribunalMatchTokens(caseTribunal));
+      if (!inputTokens.length || !caseTokens.size) return false;
+      return inputTokens.every((token) => caseTokens.has(token));
+    }
+
     function renderProduccionDraftMatches(results = []){
       const tbody = $('producirEscritoResultados');
       if (!tbody) return;
@@ -8724,11 +8759,10 @@
         return;
       }
       const rolKey = normalizeRolSearchKey(rol);
-      const tribunalKey = normalizeTribunalKey(tribunal);
       const matches = getAllCases().filter((item) => (
         isCaseAvailableInExpedientes(item)
         && normalizeRolSearchKey(item?.rol || '') === rolKey
-        && normalizeTribunalKey(item?.tribunal || '').includes(tribunalKey)
+        && tribunalesAreEquivalent(tribunal, item?.tribunal || '')
       ));
       state.produccionDraft.matches = matches;
       state.produccionDraft.selectedCaseId = matches.length === 1 ? String(matches[0].id) : '';
@@ -13928,7 +13962,7 @@
       $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
       $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
 
-      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('workspaceModal')].forEach((modalNode) => {
+      [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('modalBuscarCausa'), $('modalProducirEscritos'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
           const closeTarget = event.target.closest('[data-close]');
           if (closeTarget || event.target === modalNode) {
