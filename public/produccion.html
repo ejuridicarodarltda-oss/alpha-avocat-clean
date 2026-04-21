@@ -60,6 +60,8 @@
     .hidden{display:none!important}
     .search-shell{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end}
     .search-shell .field{margin:0}
+    .citation-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+    .citation-strip .label{margin:0}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
@@ -96,6 +98,13 @@
           <input id="productionSearchInput" type="search" placeholder="Ej.: C-123-2025 · Pérez · 2° Juzgado Civil" />
         </label>
         <button id="productionSearchClear" type="button" class="btn">Limpiar</button>
+      </div>
+    </section>
+    <section class="card">
+      <div class="citation-strip">
+        <span class="label">Norma de citas</span>
+        <span class="pill" id="activeCitationNorm">Revista Chilena de Derecho 2025</span>
+        <span class="muted">Activa para superíndices, notas al pie abreviadas y referencias finales separadas.</span>
       </div>
     </section>
     <section class="card">
@@ -172,6 +181,12 @@
             <option value="asesoria">Vincular a asesoría</option>
           </select>
         </div>
+        <div class="field">
+          <label class="label" for="citationNorm">Citas jurídicas *</label>
+          <select id="citationNorm" name="citationNorm" required>
+            <option value="rchd-2025" selected>Revista Chilena de Derecho 2025</option>
+          </select>
+        </div>
         <div class="field span-2">
           <label class="label" for="lawyerStyle">Estilo del abogado</label>
           <textarea id="lawyerStyle" name="lawyerStyle"></textarea>
@@ -206,9 +221,17 @@
     const btnModeWithCause = document.getElementById('btnModeWithCause');
     const productionSearchInput = document.getElementById('productionSearchInput');
     const productionSearchClear = document.getElementById('productionSearchClear');
+    const activeCitationNorm = document.getElementById('activeCitationNorm');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
     const normalize = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
+    const CITATION_NORMS = {
+      'rchd-2025': {
+        id: 'rchd-2025',
+        label: 'Revista Chilena de Derecho 2025',
+        short: 'RChD 2025'
+      }
+    };
     let selectedMode = 'no-cause';
     let casesCache = [];
     let clientsCache = [];
@@ -302,6 +325,80 @@
       setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
+    function downloadWordDocument(filename, htmlContent){
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = filename;
+      anchor.click();
+      setTimeout(() => URL.revokeObjectURL(url), 1200);
+    }
+
+    function buildWordHtmlDocument(request){
+      const citationNorm = CITATION_NORMS[request.citationNorm] || CITATION_NORMS['rchd-2025'];
+      const modeLine = request.mode === 'with-cause'
+        ? `Vinculado a causa preexistente: ${escapeHtml(request.caseTitle || request.caseRol || 'Sin individualización completa')}.`
+        : 'Redactado sin causa previa asociada.';
+      const doctrinaFootnote = request.doctrinaAbrev || 'AUTOR/ES (AÑO) p. [pendiente].';
+      const normaFootnote = request.normaAbrev || 'CHILE, [norma pendiente de individualizar].';
+      const jurisprudenciaFootnote = request.jurisAbrev || 'Tribunal [pendiente], [fecha o caso pendiente].';
+      return `<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<title>${escapeHtml(request.title)}</title>
+<style>
+@page { size: 8.5in 13in; margin: 2.5cm 2cm 2.5cm 2.5cm; }
+body { font-family: "DengXian", "Deng Xian", sans-serif; font-size: 14pt; line-height: 1.5; text-align: justify; color:#111; }
+h1,h2,h3 { margin: 0 0 12pt 0; }
+.meta { margin-bottom: 12pt; }
+.section-title { font-weight: 700; margin-top: 14pt; }
+sup { vertical-align: super; font-size: 10pt; }
+.footnotes { margin-top: 18pt; border-top: 1px solid #888; padding-top: 10pt; }
+.footnotes ol { margin: 0; padding-left: 18pt; }
+ul { margin: 6pt 0 0 0; padding-left: 18pt; }
+li { margin-bottom: 6pt; }
+</style>
+</head>
+<body>
+  <h1>${escapeHtml(request.type)}</h1>
+  <p class="meta"><strong>Cliente:</strong> ${escapeHtml(request.clientName)}<br>
+  <strong>Norma de citas activa:</strong> ${escapeHtml(citationNorm.label)}<br>
+  <strong>Destino:</strong> ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}</p>
+  <p>${modeLine}</p>
+
+  <p>En atención a los antecedentes disponibles se formula la estrategia jurídica de este borrador<sup>1</sup>, integrando normativa aplicable<sup>2</sup>, y soporte jurisprudencial pertinente<sup>3</sup>.</p>
+  <p><strong>Instrucciones del abogado:</strong> ${escapeHtml(request.instructions || 'Sin instrucciones adicionales registradas')}</p>
+  <p><strong>Estilo del abogado:</strong> ${escapeHtml(request.lawyerStyle || 'Sin observaciones de estilo registradas')}</p>
+
+  <p class="section-title">Notas al pie (referencia abreviada)</p>
+  <div class="footnotes">
+    <ol>
+      <li>${escapeHtml(doctrinaFootnote)}</li>
+      <li>${escapeHtml(normaFootnote)}</li>
+      <li>${escapeHtml(jurisprudenciaFootnote)}</li>
+    </ol>
+  </div>
+
+  <h3 class="section-title">Bibliografía citada</h3>
+  <ul>
+    <li>${escapeHtml(request.doctrinaCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
+  </ul>
+
+  <h3 class="section-title">Normas e instrumentos citados</h3>
+  <ul>
+    <li>${escapeHtml(request.normaCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
+  </ul>
+
+  <h3 class="section-title">Jurisprudencia citada</h3>
+  <ul>
+    <li>${escapeHtml(request.jurisCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
+  </ul>
+</body>
+</html>`;
+    }
+
     async function persistRequestInCase(request){
       if (!request.caseId) return;
       const cause = casesCache.find((item) => String(item.id) === String(request.caseId));
@@ -344,6 +441,7 @@
           <div class="muted">Tipo: ${escapeHtml(request.type)} · Cliente: ${escapeHtml(request.clientName)}</div>
           <div class="muted">Modo: ${escapeHtml(request.modeLabel)}${request.caseTitle ? ` · Causa: ${escapeHtml(request.caseTitle)}` : ''}</div>
           <div class="muted">Destino: ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}</div>
+          <div class="muted">Citas jurídicas: ${escapeHtml((CITATION_NORMS[request.citationNorm] || CITATION_NORMS['rchd-2025']).label)}</div>
           <div class="muted">Insumos: ${request.selectedCauseInputs.length} automáticos + ${request.manualFiles.length} manuales.</div>
           <div class="muted small">Estado: <span class="pill">${escapeHtml(request.status)}</span> · ${new Date(request.createdAt).toLocaleString('es-CL')}</div>
           <div class="draft-actions">
@@ -402,6 +500,7 @@
 
     function openModal(){
       applyMode('no-cause');
+      draftRequestForm.citationNorm.value = 'rchd-2025';
       modalBackdrop.classList.add('open');
       modalBackdrop.setAttribute('aria-hidden', 'false');
       hydrateFormDefaults();
@@ -413,6 +512,7 @@
       draftRequestForm.reset();
       fileAttachmentCache = [];
       manualFilesSummary.textContent = 'Sin archivos cargados manualmente.';
+      draftRequestForm.citationNorm.value = 'rchd-2025';
       applyMode('no-cause');
     }
 
@@ -536,9 +636,11 @@
         expediente: 'Depositar en expediente de causa',
         asesoria: 'Vincular a asesoría'
       };
+      const citationNorm = draftRequestForm.citationNorm.value || 'rchd-2025';
       const requestId = `draft-${Date.now()}`;
-      const docBody = [
+      const plainBody = [
         `Solicitud de redacción jurídica`,
+        `Norma de citas activa: ${(CITATION_NORMS[citationNorm] || CITATION_NORMS['rchd-2025']).label}`,
         `Tipo de escrito: ${draftRequestForm.draftType.value.trim()}`,
         `Cliente: ${selectedClient?.full_name || selectedClient?.name || 'No definido'}`,
         `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
@@ -562,6 +664,7 @@
         modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
         destination,
         destinationLabel: destinationLabelMap[destination] || destinationLabelMap.produccion,
+        citationNorm,
         caseId: selectedCase?.id || null,
         caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
         caseRol: selectedCase?.rol || '',
@@ -573,15 +676,17 @@
         status: 'Borrador Word generado',
         wordFilename: `${requestId}.doc`,
         pdfFilename: null,
-        body: docBody,
+        body: plainBody,
         createdAt: new Date().toISOString(),
       };
+      const wordHtml = buildWordHtmlDocument(newRequest);
+      newRequest.wordHtml = wordHtml;
       const requests = readRequests();
       requests.push(newRequest);
       writeRequests(requests);
       await persistRequestInCase(newRequest);
       renderRequests();
-      downloadBlob(newRequest.wordFilename, docBody, 'application/msword');
+      downloadWordDocument(newRequest.wordFilename, wordHtml);
       closeModal();
       window.alert('Borrador Word generado y solicitud registrada en Producción.');
     });
@@ -595,7 +700,7 @@
       const target = requests.find((item) => item.id === requestId);
       if (!target) return;
       if (action === 'word') {
-        downloadBlob(target.wordFilename, target.body, 'application/msword');
+        downloadWordDocument(target.wordFilename, target.wordHtml || buildWordHtmlDocument(target));
       }
       if (action === 'edit') {
         openModal();
@@ -604,6 +709,7 @@
         applyMode(target.mode || 'no-cause');
         draftCause.value = target.caseId || '';
         draftRequestForm.draftDestination.value = target.destination || 'produccion';
+        draftRequestForm.citationNorm.value = target.citationNorm || 'rchd-2025';
         renderCauseSourceOptions();
         document.getElementById('extraInstructions').value = target.instructions || '';
         document.getElementById('lawyerStyle').value = target.lawyerStyle || '';
@@ -630,6 +736,7 @@
     document.getElementById('btnLogout').addEventListener('click', logout);
 
     const incoming = parseDeepLinkParams();
+    activeCitationNorm.textContent = CITATION_NORMS['rchd-2025'].label;
     const prefillParts = [incoming.rol, incoming.cliente, incoming.caratula, incoming.tribunal].filter(Boolean);
     if (prefillParts.length) {
       productionSearchInput.value = prefillParts.join(' ');
