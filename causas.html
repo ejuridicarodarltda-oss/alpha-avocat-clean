@@ -2279,6 +2279,72 @@
     </div>
   </div>
 
+  <div id="modalProducirEscritos" class="modal" aria-hidden="true">
+    <div class="modal-panel">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Producir escritos</div>
+          <p class="panel-subtitle">Flujo exclusivo del pilar Producción. La causa se consulta solo desde Expedientes Digitales y se importa temporalmente para redactar sin duplicar ni trasladar.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalProducirEscritos" aria-label="Cerrar">✕</button>
+      </div>
+      <form id="formProducirEscritos" class="form">
+        <div class="helper-box">Paso 1 · Identificar causa en Expedientes Digitales (Rol y Tribunal obligatorios).</div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="producirEscritoRol">Rol de la causa *</label>
+            <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+          </div>
+          <div class="field">
+            <label for="producirEscritoTribunal">Tribunal *</label>
+            <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="btnBuscarCausaProduccion" type="button" class="btn">Buscar en Expedientes Digitales</button>
+        </div>
+        <div id="producirEscritoMsg" class="msg" aria-live="polite"></div>
+        <div class="table-wrap">
+          <table class="table">
+            <thead>
+              <tr>
+                <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th>
+              </tr>
+            </thead>
+            <tbody id="producirEscritoResultados"><tr><td colspan="4">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
+          </table>
+        </div>
+        <div class="helper-box">Paso 2 · Elegir tipo de escrito a redactar.</div>
+        <div class="grid-2">
+          <div class="field">
+            <label for="producirEscritoTipo">Tipo de escrito *</label>
+            <select id="producirEscritoTipo" class="input" required>
+              <option value="">Selecciona tipo</option>
+              <option value="demanda">Demanda</option>
+              <option value="contestación">Contestación</option>
+              <option value="recurso">Recurso</option>
+              <option value="escrito de trámite">Escrito de trámite</option>
+              <option value="incidente">Incidente</option>
+              <option value="téngase presente">Téngase presente</option>
+              <option value="cúmplase">Cúmplase</option>
+              <option value="minuta">Minuta</option>
+              <option value="otro">Otro</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="producirEscritoTipoLibre">Detalle del escrito (obligatorio si eliges “Otro”)</label>
+            <input id="producirEscritoTipoLibre" class="input" placeholder="Ej: incidente de nulidad de notificación" />
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cancelar</button>
+          <button id="btnGenerarWordProduccion" type="submit" class="btn btn-primary">Generar borrador Word</button>
+        </div>
+        <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. El sistema no permitirá cerrar como resultado final sin generar el Word.</div>
+      </form>
+    </div>
+  </div>
+
   <div id="modalDocumento" class="modal" aria-hidden="true">
     <div class="modal-panel">
       <div class="modal-header">
@@ -2700,6 +2766,11 @@
       excelUploads: {
         listado: { file: null, parsed: null, lastUpload: null },
         estado_diario: { file: null, parsed: null, lastUpload: null },
+      },
+      produccionDraft: {
+        matches: [],
+        selectedCaseId: '',
+        wordGenerated: false,
       },
     };
 
@@ -6221,7 +6292,7 @@
     function runInteractiveAudit(){
       const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-general-pjud-excel-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action], [data-tribunal-action]';
       const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
-        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"]'));
+        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"], #modalProducirEscritos[aria-hidden="true"]'));
       const deadNodes = interactiveNodes.filter((node) => {
         if (node.closest('[disabled],[aria-disabled="true"]')) return false;
         if (node.matches('[data-close],[data-modal-id]')) return false;
@@ -6260,7 +6331,7 @@
       const cards = [
         { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
         { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload', tertiaryButton:'Cargar Excel depurado tribunal', tertiaryAction:'upload-tribunal-excel' },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true, secondaryButton:'Producir escritos', secondaryAction:'producir-escritos' },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -8590,6 +8661,183 @@
         return;
       }
       setMessage('buscarCausaMsg', `Se encontraron ${results.length} coincidencia(s) para el ROL ${rol}.`, 'ok');
+    }
+
+    function isCaseAvailableInExpedientes(cause){
+      if (!cause) return false;
+      const docs = Array.isArray(cause.documentos) ? cause.documentos.length : 0;
+      const importados = Array.isArray(cause.importadosPjud) ? cause.importadosPjud.length : 0;
+      const carpetaDigital = String(cause.ubicacion || '').toLowerCase().includes('exped');
+      return docs > 0 || importados > 0 || carpetaDigital || Boolean(cause.id);
+    }
+
+    function normalizeTribunalKey(value = ''){
+      return normalizeTextForMatch(value).replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+
+    function renderProduccionDraftMatches(results = []){
+      const tbody = $('producirEscritoResultados');
+      if (!tbody) return;
+      if (!results.length) {
+        tbody.innerHTML = '<tr><td colspan="4">No se encontraron causas en Expedientes Digitales con ese Rol y Tribunal.</td></tr>';
+        return;
+      }
+      const selectedCaseId = state.produccionDraft.selectedCaseId || '';
+      tbody.innerHTML = results.map((item) => `
+        <tr>
+          <td><input type="radio" name="producirEscritoSeleccion" value="${escapeHtml(item.id)}" ${selectedCaseId === item.id ? 'checked' : ''} aria-label="Seleccionar causa ${escapeHtml(item.rol || item.id)}" /></td>
+          <td>${escapeHtml(item.rol || '—')}</td>
+          <td>${escapeHtml(item.tribunal || '—')}</td>
+          <td>${escapeHtml(item.caratula || '—')}</td>
+        </tr>
+      `).join('');
+    }
+
+    function resetProducirEscritosModal(){
+      $('formProducirEscritos')?.reset();
+      state.produccionDraft.matches = [];
+      state.produccionDraft.selectedCaseId = '';
+      state.produccionDraft.wordGenerated = false;
+      setMessage('producirEscritoMsg', '', '');
+      const resultNode = $('producirEscritoResultado');
+      if (resultNode) resultNode.textContent = 'Resultado pendiente. El sistema no permitirá cerrar como resultado final sin generar el Word.';
+      const tbody = $('producirEscritoResultados');
+      if (tbody) tbody.innerHTML = '<tr><td colspan="4">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr>';
+    }
+
+    function openProducirEscritosModal(){
+      resetProducirEscritosModal();
+      openManagedModal('modalProducirEscritos');
+    }
+
+    function runProduccionDraftSearch(){
+      const rol = String($('producirEscritoRol')?.value || '').trim();
+      const tribunal = String($('producirEscritoTribunal')?.value || '').trim();
+      if (!rol) {
+        setMessage('producirEscritoMsg', 'Rol obligatorio para buscar en Expedientes Digitales.', 'error');
+        renderProduccionDraftMatches([]);
+        return;
+      }
+      if (!tribunal) {
+        setMessage('producirEscritoMsg', 'Tribunal obligatorio para buscar en Expedientes Digitales.', 'error');
+        renderProduccionDraftMatches([]);
+        return;
+      }
+      const rolKey = normalizeRolSearchKey(rol);
+      const tribunalKey = normalizeTribunalKey(tribunal);
+      const matches = getAllCases().filter((item) => (
+        isCaseAvailableInExpedientes(item)
+        && normalizeRolSearchKey(item?.rol || '') === rolKey
+        && normalizeTribunalKey(item?.tribunal || '').includes(tribunalKey)
+      ));
+      state.produccionDraft.matches = matches;
+      state.produccionDraft.selectedCaseId = matches.length === 1 ? String(matches[0].id) : '';
+      renderProduccionDraftMatches(matches);
+      if (!matches.length) {
+        setMessage('producirEscritoMsg', 'No existe una causa coincidente en Expedientes Digitales. Verifica Rol y Tribunal.', 'warn');
+        return;
+      }
+      if (matches.length > 1) {
+        setMessage('producirEscritoMsg', `Se encontraron ${matches.length} coincidencias. Selecciona la causa correcta para continuar.`, 'warn');
+        return;
+      }
+      setMessage('producirEscritoMsg', 'Causa encontrada en Expedientes Digitales. Lista para importación temporal.', 'ok');
+    }
+
+    function resolveTipoEscritoSeleccionado(){
+      const tipo = String($('producirEscritoTipo')?.value || '').trim();
+      const detalle = String($('producirEscritoTipoLibre')?.value || '').trim();
+      if (!tipo) return '';
+      if (tipo !== 'otro') return tipo;
+      return detalle;
+    }
+
+    function buildProduccionDraftWordHtml({ cause, tipoEscrito }){
+      const fecha = new Date().toISOString().slice(0, 10);
+      const partes = Array.isArray(cause.partes) ? cause.partes.map((item) => `${item?.rol || 'Parte'}: ${item?.nombre || 'Sin identificar'}`).join('; ') : '';
+      const antecedentes = [
+        `Rol: ${cause.rol || 'Sin rol'}`,
+        `Tribunal: ${cause.tribunal || 'Sin tribunal'}`,
+        `Carátula: ${cause.caratula || 'Sin carátula'}`,
+        `Materia: ${cause.materia || 'Sin materia definida'}`,
+        `Procedimiento: ${cause.procedimiento || 'Sin procedimiento definido'}`,
+        partes ? `Partes: ${partes}` : '',
+      ].filter(Boolean);
+      return `<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
+  <style>
+    @page { size: 8.5in 13in; margin: 2.5cm; }
+    body { font-family: "DengXian", "Deng Xian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; }
+    p { margin: 0 0 14pt; text-align: justify; }
+    h1 { font-size: 16pt; margin: 0 0 16pt; text-align: center; }
+    h2 { font-size: 14pt; margin: 18pt 0 10pt; }
+    .meta { margin-bottom: 14pt; }
+    .footnote { font-size: 11pt; vertical-align: super; }
+    .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
+  </style>
+</head>
+<body>
+  <h1>Borrador de ${escapeHtml(tipoEscrito)}</h1>
+  <p class="meta"><strong>Fecha de borrador:</strong> ${escapeHtml(fecha)}</p>
+  <p class="meta"><strong>Fuente temporal:</strong> Expedientes Digitales (sin traslado permanente de la causa).</p>
+  <h2>I. Identificación de la causa</h2>
+  ${antecedentes.map((line) => `<p>${escapeHtml(line)}</p>`).join('')}
+  <h2>II. Redacción base</h2>
+  <p>En lo principal, vengo en presentar ${escapeHtml(tipoEscrito)} dentro de la causa ya individualizada, fundado en los antecedentes existentes en Expedientes Digitales y en la estrategia procesal vigente.<span class="footnote">[1]</span></p>
+  <p>Esta propuesta se genera como borrador editable para revisión jurídica posterior, manteniendo trazabilidad documental y respetando la estructura original de la causa en su expediente digital de origen.</p>
+  <h2>III. Peticiones</h2>
+  <p>Por tanto, a SS. solicito tener por presentado este escrito, proveerlo conforme a derecho y tener presentes los antecedentes acompañados para su debida resolución.</p>
+  <div class="footnote-body">[1] Borrador generado por módulo Producción con importación temporal de antecedentes.</div>
+</body>
+</html>`;
+    }
+
+    function downloadWordDraftFile(fileName, htmlContent){
+      const blob = new Blob(['\ufeff', htmlContent], { type: 'application/msword' });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement('a');
+      anchor.href = url;
+      anchor.download = fileName;
+      document.body.appendChild(anchor);
+      anchor.click();
+      anchor.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function submitProducirEscritos(event){
+      event.preventDefault();
+      const selectedCaseId = state.produccionDraft.selectedCaseId || '';
+      if (!selectedCaseId) {
+        setMessage('producirEscritoMsg', 'Debes identificar y seleccionar una causa de Expedientes Digitales antes de producir.', 'error');
+        return;
+      }
+      const selectedCause = state.caseMap.get(selectedCaseId);
+      if (!selectedCause) {
+        setMessage('producirEscritoMsg', 'La causa seleccionada ya no está disponible.', 'error');
+        return;
+      }
+      const tipoEscrito = resolveTipoEscritoSeleccionado();
+      const tipoEscogido = String($('producirEscritoTipo')?.value || '').trim();
+      if (!tipoEscogido) {
+        setMessage('producirEscritoMsg', 'Debes indicar qué escrito redactar.', 'error');
+        return;
+      }
+      if (tipoEscogido === 'otro' && !tipoEscrito) {
+        setMessage('producirEscritoMsg', 'Debes especificar el tipo de escrito cuando eliges “Otro”.', 'error');
+        return;
+      }
+      const htmlWord = buildProduccionDraftWordHtml({ cause: selectedCause, tipoEscrito });
+      const fileName = `Borrador_${slugId(tipoEscrito || 'escrito')}_${slugId(selectedCause.rol || selectedCause.id)}.doc`;
+      downloadWordDraftFile(fileName, htmlWord);
+      state.produccionDraft.wordGenerated = true;
+      setMessage('producirEscritoMsg', 'Borrador generado en formato Word editable. Revisa y continúa la edición en Word.', 'ok');
+      const resultNode = $('producirEscritoResultado');
+      if (resultNode) {
+        resultNode.textContent = `Word generado correctamente (${fileName}). La causa fue usada solo de forma temporal desde Expedientes Digitales, sin duplicarla ni trasladarla.`;
+      }
     }
 
     function getSelectedCauseForEdition(){
@@ -13522,6 +13770,8 @@
       bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
       bindEvent('formCargaExpedienteDigital', 'submit', submitManualExpedienteUpload, { required: true, scope: 'form-carga-expediente-digital' });
       bindEvent('formBuscarCausa', 'submit', submitCauseSearchByRol, { required: true, scope: 'form-buscar-causa' });
+      bindEvent('formProducirEscritos', 'submit', submitProducirEscritos, { required: true, scope: 'form-produccion-escritos' });
+      bindEvent('btnBuscarCausaProduccion', 'click', () => runProduccionDraftSearch(), { scope: 'form-produccion-escritos' });
       $('buscarCausaResultados')?.addEventListener('click', (event) => {
         const selectButton = event.target.closest('[data-select-cause]');
         if (selectButton) {
@@ -13532,6 +13782,11 @@
         if (openButton) {
           selectCauseFromSearch(openButton.dataset.openCause, { open: true });
         }
+      });
+      $('producirEscritoResultados')?.addEventListener('change', (event) => {
+        const option = event.target.closest('input[name="producirEscritoSeleccion"]');
+        if (!option) return;
+        state.produccionDraft.selectedCaseId = option.value || '';
       });
 
       bindEvent('btnAbrirExpedienteManual', 'click', () => {
@@ -13688,7 +13943,7 @@
 
       document.addEventListener('keydown', (event) => {
         if (event.key !== 'Escape') return;
-        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','modalBuscarCausa','workspaceModal'].forEach((id) => {
+        ['modalCausa','modalImportacion','modalDescargaMasivaPjud','modalDescargaManualPjud','modalDocumento','modalCargaExpedienteDigital','modalSincronizacion','modalPjudLinking','modalListadoCausas','modalEstadoDiario','modalBuscarCausa','modalProducirEscritos','workspaceModal'].forEach((id) => {
           if ($(id)?.classList.contains('open')) closeManagedModal(id);
         });
       });
@@ -13768,6 +14023,12 @@
           event.preventDefault();
           event.stopPropagation();
           openExcelUploadModal('listado');
+          return;
+        }
+        if (pillarAction?.dataset?.pillarAction === 'producir-escritos') {
+          event.preventDefault();
+          event.stopPropagation();
+          openProducirEscritosModal();
           return;
         }
         const tab = event.target.closest('[data-tab]');
