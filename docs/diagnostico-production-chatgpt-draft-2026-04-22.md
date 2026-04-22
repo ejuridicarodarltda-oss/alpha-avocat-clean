@@ -63,3 +63,24 @@ El flujo correcto es backend-only (Edge Function), y el frontend solo debe invoc
 **NOT_FOUND**.
 
 No corresponde a `auth`, `CORS`, `relay`, `timeout` ni `clave faltante/inválida` en el estado actual, porque la función ni siquiera es encontrada por el gateway.
+
+## 8) Intento de deploy solicitado y bloqueo operativo
+
+Se ejecutó el comando exacto pedido para desplegar en el proyecto correcto:
+
+- `supabase functions deploy production-chatgpt-draft --project-ref ryekhruwglpzncktypnx` (vía `npx -y supabase ...` en este entorno).
+
+Resultado:
+
+- Error de CLI: `Access token not provided. Supply an access token by running supabase login or setting the SUPABASE_ACCESS_TOKEN environment variable.`
+
+Con el mismo bloqueo, también falla:
+
+- `supabase secrets list --project-ref ryekhruwglpzncktypnx`
+
+Implicación:
+
+- Sin token de acceso de Supabase en este entorno no es posible completar:
+  - Deploy de la Edge Function.
+  - Verificación de existencia de `OPENAI_API_KEY` en secrets.
+  - Confirmación en Dashboard de que la función quedó visible.
