@@ -12058,9 +12058,8 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const rit = rowPayload?.pjud_rit || importData?.rit || importData?.basic?.rit || '';
-      const ruc = rowPayload?.pjud_ruc || importData?.ruc || '';
-      const folderName = `${rol}${rit ? ` / ${rit}` : ''}${ruc ? ` / ${ruc}` : ''}`;
+      const caratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '') || 'Carátula pendiente';
+      const folderName = `${rol} - ${caratula}`;
       const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
       return {
         tribunal,
