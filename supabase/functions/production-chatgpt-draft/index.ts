@@ -3,6 +3,19 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-4.1-mini'
 const OPENAI_TIMEOUT_MS = Number(Deno.env.get('OPENAI_TIMEOUT_MS') || 90000)
+const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS')
+  || 'https://alphaavocat.cl,https://www.alphaavocat.cl,http://localhost:3000,http://localhost:5173')
+  .split(',')
+  .map((item) => item.trim())
+  .filter(Boolean)
+
+function resolveCorsOrigin(origin: string | null) {
+  if (!origin) return ALLOWED_ORIGINS[0] || '*'
+  if (ALLOWED_ORIGINS.includes('*')) return '*'
+  if (ALLOWED_ORIGINS.includes(origin)) return origin
+  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return origin
+  return ALLOWED_ORIGINS[0] || 'https://alphaavocat.cl'
+}
 
 type ChatEntry = { role: 'user' | 'assistant'; content: string }
 
@@ -21,11 +34,17 @@ type PromptInput = {
   antecedentes?: Array<Record<string, unknown>>
   documentosSeleccionados?: Array<Record<string, unknown>>
   documentos_seleccionados?: Array<Record<string, unknown>>
+  history?: Array<ChatEntry>
+  sessionId?: string
 }
 
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+function buildCorsHeaders(origin: string | null) {
+  return {
+    'Access-Control-Allow-Origin': resolveCorsOrigin(origin),
+    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Vary': 'Origin',
+  }
 }
 
 function buildPrompt(input: PromptInput) {
@@ -80,8 +99,9 @@ function resolveDraftFromResponse(result: Record<string, unknown>) {
 }
 
 serve(async (req) => {
+  const corsHeaders = buildCorsHeaders(req.headers.get('origin'))
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response(null, { status: 204, headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
@@ -89,7 +109,7 @@ serve(async (req) => {
   }
 
   if (!OPENAI_API_KEY) {
-    return new Response(JSON.stringify({ error: 'OPENAI_API_KEY no configurada en backend.' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
+    return new Response(JSON.stringify({ error: 'Falta OPENAI_API_KEY en Supabase secrets' }), { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } })
   }
 
   try {
@@ -133,9 +153,15 @@ serve(async (req) => {
       clearTimeout(timeoutId)
     }
 
-    const result = await openAiResponse.json()
+    const result = await openAiResponse.json().catch(() => ({}))
     if (!openAiResponse.ok) {
-      return new Response(JSON.stringify({ error: result?.error?.message || 'Error en OpenAI Responses API' }), {
+      const providerMessage = String(result?.error?.message || result?.message || 'Error en OpenAI Responses API')
+      return new Response(JSON.stringify({
+        error: providerMessage,
+        provider: 'openai',
+        provider_status: openAiResponse.status,
+        provider_error: result?.error || null,
+      }), {
         status: openAiResponse.status,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -170,6 +196,7 @@ serve(async (req) => {
       error: isTimeout
         ? `OpenAI no respondió dentro del tiempo límite (${OPENAI_TIMEOUT_MS}ms).`
         : `No fue posible generar borrador con ChatGPT: ${errorMessage}`,
+      details: isTimeout ? 'timeout' : errorMessage,
     }), {
       status: isTimeout ? 504 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
