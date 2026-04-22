@@ -9134,9 +9134,14 @@
       const payload = {
         mode,
         sessionId: state.produccionDraft.sessionId || null,
+        cause_id: selectedCause.id,
+        rol: selectedCause.rol,
+        tribunal: selectedCause.tribunal,
+        caratula: selectedCause.caratula,
         tipoEscrito,
         instrucciones,
         ajuste,
+        documentosSeleccionados: antecedentes,
         stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
         cause: {
           id: selectedCause.id,
@@ -9153,7 +9158,19 @@
 
       const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', { body: payload });
       if (error || !data?.draft) {
-        setMessage('producirEscritoMsg', error?.message || data?.error || 'Falló la respuesta de ChatGPT. Reintenta.', 'error');
+        const normalizedError = [
+          error?.context?.error,
+          error?.context?.message,
+          error?.message,
+          data?.error,
+          data?.details,
+          'Falló la respuesta de ChatGPT. Reintenta.',
+        ].find((item) => String(item || '').trim());
+        const historyNode = $('produccionDraftHistory');
+        if (historyNode) {
+          historyNode.innerHTML = `<div style="color:#7f1d1d;"><strong>Error real:</strong> ${escapeHtml(String(normalizedError || 'Error desconocido'))}</div>`;
+        }
+        setMessage('producirEscritoMsg', String(normalizedError || 'Falló la respuesta de ChatGPT. Reintenta.'), 'error');
         return;
       }
 
