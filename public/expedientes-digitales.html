@@ -358,7 +358,12 @@
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
     const EXTRACTION_FIELD_ORDER = ['rol', 'tribunal', 'rit', 'ruc', 'caratula', 'partes', 'materia', 'procedimiento', 'fechaRelevante', 'cliente', 'estadoDocumento'];
-    const TRIBUNAL_EXACT_REMOVAL_NAME = '1° Civil Ovalle';
+    const TRIBUNAL_REMOVAL_EQUIVALENTS = new Set([
+      normalize('1° Civil Ovalle'),
+      normalize('1° Juzgado Civil de Ovalle'),
+      normalize('1° Juzgado de Letras Civil de Ovalle'),
+      normalize('Primer Juzgado de Letras Civil de Ovalle'),
+    ]);
     const COURT_NORMALIZATION_MAP = {
       '2 juzgado civil de santiago': '2° Juzgado Civil de Santiago',
       '2° juzgado civil de santiago': '2° Juzgado Civil de Santiago',
@@ -385,23 +390,21 @@
     function normalizeRol(value='') {
       return normalize(value).replace(/[^a-z0-9]/g, '');
     }
-    function isExactTribunalRemovalMatch(value = '') {
-      return String(value || '').trim() === TRIBUNAL_EXACT_REMOVAL_NAME;
+    function normalizeTribunalForRemoval(value = '') {
+      return normalize(value).replace(/\bde letras\b/g, '').replace(/\s+/g, ' ').trim();
     }
-    function isOvalleCivilCourtVariant(value = '') {
-      const normalized = normalize(value);
-      return Boolean(normalized) && normalized.includes('civil') && normalized.includes('ovalle') && !isExactTribunalRemovalMatch(value);
+    function isRemovedOvalleCivilCourt(value = '') {
+      const normalized = normalizeTribunalForRemoval(value);
+      if (!normalized) return false;
+      if (TRIBUNAL_REMOVAL_EQUIVALENTS.has(normalized)) return true;
+      const isOvalleCivil = normalized.includes('civil') && normalized.includes('ovalle');
+      const isFirstCourt = /\b1\b/.test(normalized) || normalized.includes('primer');
+      return isOvalleCivil && isFirstCourt;
     }
-    function reportTribunalRemovalDecisions(report = { exactRemoved: new Set(), conflictingVariants: new Set() }) {
-      const removed = [...(report.exactRemoved || new Set())];
-      const variants = [...(report.conflictingVariants || new Set())];
-      if (!removed.length && !variants.length) return;
-      if (removed.length) {
-        console.info(`Tribunal removido manualmente (coincidencia exacta): ${removed.join(' · ')}`);
-      }
-      if (variants.length) {
-        console.info(`Variantes detectadas (se mantienen por no coincidir exactamente): ${variants.join(' · ')}`);
-      }
+    function reportTribunalRemovalDecisions(report = { removed: new Set() }) {
+      const removed = [...(report.removed || new Set())];
+      if (!removed.length) return;
+      console.info(`Tribunal removido del índice por regla de bloqueo: ${removed.join(' · ')}`);
     }
     function loadManualRegistry() {
       try {
@@ -892,7 +895,7 @@
         identificador: 'C-881-2025',
         searchSource: {
           rol: 'C-881-2025',
-          tribunal: '1° Civil Ovalle',
+          tribunal: '2° Juzgado Civil de Santiago',
           caratula: 'Pérez con Rojas',
           cliente: 'Juan Pérez',
           partes: 'Juan Pérez demandante María Rojas demandada',
@@ -922,18 +925,15 @@
 
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
-      const tribunalRemovalReport = { exactRemoved: new Set(), conflictingVariants: new Set() };
+      const tribunalRemovalReport = { removed: new Set() };
       for (const k of cases) {
         const manualData = readManualCauseData(String(k[C.kId] || ''));
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
         const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
         const tribunal = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
-        if (isExactTribunalRemovalMatch(tribunal)) {
-          tribunalRemovalReport.exactRemoved.add(tribunal);
+        if (isRemovedOvalleCivilCourt(tribunal)) {
+          tribunalRemovalReport.removed.add(tribunal);
           continue;
-        }
-        if (isOvalleCivilCourtVariant(tribunal)) {
-          tribunalRemovalReport.conflictingVariants.add(tribunal);
         }
         const caratula = String(k[C.kCaratula] || manualData?.base?.caratula || 'Carátula pendiente').trim();
         const cliente = resolveClienteVinculado(k, clientMap, manualData);
