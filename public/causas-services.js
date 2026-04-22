@@ -447,6 +447,49 @@ function sanitizeTribunalCarpetasForCause(cause = {}) {
   }]
 }
 
+function resolveMeaningfulCaratula(cause = {}) {
+  const candidates = [
+    cause?.caratula,
+    cause?.pjud_caratulado,
+    cause?.pjudCaratulado,
+    cause?.importMeta?.caratula,
+    cause?.poderJudicial?.caratula,
+  ]
+  const raw = candidates
+    .map((value) => String(value || '').trim())
+    .find(Boolean) || ''
+  if (!raw) return ''
+  const normalized = normalizeCaratula(raw)
+  return normalizeForComparison(normalized) === 'sin caratula' ? '' : normalized
+}
+
+function buildCauseVisibleFolderName(cause = {}) {
+  const rol = normalizeParticipantLabel(cause?.rol || '') || 'ROL_PENDIENTE'
+  const caratula = resolveMeaningfulCaratula(cause)
+  return `${rol} - ${caratula || 'Carátula pendiente'}`
+}
+
+function syncExpedienteMetadataWithCause(cause = {}) {
+  if (!cause || typeof cause !== 'object') return
+  if (!cause.expedienteDigital || typeof cause.expedienteDigital !== 'object') cause.expedienteDigital = {}
+
+  const bucket = inferTribunalMainBucket(cause)
+  const tribunal = normalizeParticipantLabel(cause?.tribunal || '') || 'Tribunal pendiente'
+  const visibleFolderName = buildCauseVisibleFolderName(cause)
+  cause.expedienteDigital.caseFolderLabel = visibleFolderName
+  cause.expedienteDigital.caseFolderPath = `${bucket.label} / ${tribunal} / ${visibleFolderName}`
+
+  const tribunalNode = cause?.expedienteDigital?.cliente?.tribunal
+  if (!tribunalNode || !Array.isArray(tribunalNode.carpetas)) return
+  tribunalNode.carpetas.forEach((folder) => {
+    if (!folder || !Array.isArray(folder.causas)) return
+    folder.causas = folder.causas.map((entry = {}) => ({
+      ...entry,
+      nombre: visibleFolderName,
+    }))
+  })
+}
+
 export function ensureCauseStorage(detail = {}, causeId = '') {
   const next = structuredClone(detail || {})
   next.id = String(next.id || causeId || '')
@@ -490,10 +533,14 @@ export function ensureCauseStorage(detail = {}, causeId = '') {
   }
   next.selectedClientParties = Array.isArray(next.selectedClientParties) ? next.selectedClientParties : []
   const safeCauseId = String(next.id || causeId || '').trim()
+  const resolvedCaratula = resolveMeaningfulCaratula(next)
+  next.caratula = resolvedCaratula || ''
+  next.caratulaPendiente = !resolvedCaratula
   if (!next.expedienteDigital || typeof next.expedienteDigital !== 'object') next.expedienteDigital = {}
   if (!String(next.expedienteDigital.id || '').trim() && safeCauseId) {
     next.expedienteDigital.id = `expediente-${safeCauseId}`
   }
+  syncExpedienteMetadataWithCause(next)
   sanitizeTribunalCarpetasForCause(next)
   return next
 }

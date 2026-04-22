@@ -3506,6 +3506,26 @@
       return typeof value === 'string' ? value.trim() : (value == null ? '' : String(value).trim());
     }
 
+    function resolveCauseCaratula(cause){
+      const candidates = [
+        cause?.caratula,
+        cause?.pjud_caratulado,
+        cause?.pjudCaratulado,
+        cause?.importMeta?.caratula,
+        cause?.poderJudicial?.caratula,
+      ];
+      const raw = candidates.map((value) => String(value || '').trim()).find(Boolean) || '';
+      if (!raw) return '';
+      const normalized = normalizeCaratula(raw);
+      return normalizeTextForMatch(normalized) === 'sin caratula' ? '' : normalized;
+    }
+
+    function buildCauseVisibleFolderName(cause){
+      const rol = normalizeIdentifierValue(cause?.rol) || 'ROL_PENDIENTE';
+      const caratula = resolveCauseCaratula(cause);
+      return `${rol} - ${caratula || 'Carátula pendiente'}`;
+    }
+
     function getCauseIdentifier(cause){
       const rol = normalizeIdentifierValue(cause?.rol);
       const rit = normalizeIdentifierValue(cause?.rit);
@@ -5261,6 +5281,7 @@
         tribunal: baseCase.pjud_tribunal || baseCase[C.k_court] || workspaceEntry?.tribunal || 'Sin tribunal',
         corte: baseCase.pjud_corte || workspaceEntry?.corte || '',
         rol: baseCase[C.k_rol] || workspaceEntry?.rol || 'Sin rol',
+        caratula: normalizeCaratula(baseCase.pjud_caratulado || workspaceEntry?.caratula || ''),
         era: baseCase.pjud_era || workspaceEntry?.era || '',
         rit: baseCase.pjud_rit || workspaceEntry?.rit || '',
         ruc: baseCase.pjud_ruc || workspaceEntry?.ruc || '',
@@ -6802,8 +6823,7 @@
 
     function getExpedienteTribunalArchivadores(cause){
       const tribunalName = resolveMainTribunalArchivador(cause);
-      const identity = getCauseIdentifier(cause);
-      const causeFolderName = `${identity.display}${identity.secondary.length ? ` / ${identity.secondary.join(' / ')}` : ''} · ${cause.caratula || 'Causa sin carátula'} · ${cause.tribunal || 'Tribunal pendiente'} · ${cause.estadoProcesal || 'Estado pendiente'}`;
+      const causeFolderName = buildCauseVisibleFolderName(cause);
       const causeSubfolders = [
         'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
         'Documentos',
@@ -12075,8 +12095,9 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const caratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '') || 'Carátula pendiente';
-      const folderName = `${rol} - ${caratula}`;
+      const resolvedCaratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '');
+      const hasCaratula = Boolean(resolvedCaratula) && normalizeTextForMatch(resolvedCaratula) !== 'sin caratula';
+      const folderName = `${rol} - ${hasCaratula ? resolvedCaratula : 'Carátula pendiente'}`;
       const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
       return {
         tribunal,
