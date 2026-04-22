@@ -6627,12 +6627,6 @@
         openWorkspaceModal({ tabId: 'expedientes', caseId: cause.id, origin: 'manual-open-tribunal' });
         return;
       }
-      if (actionName === 'manual-correction') {
-        openWorkspaceModal({ tabId: 'informacion', caseId: cause.id, origin: 'manual-correction' });
-        openCauseRectification('general');
-        setDetailStatus(`Corrección manual abierta para ${cause.tribunal || 'tribunal sin nombre'}.`, 'ok');
-        return;
-      }
       if (actionName === 'delete-tribunal') {
         const tribunalName = cause.tribunal || 'Tribunal sin nombre';
         const confirmed = window.confirm(`Eliminar manualmente el tribunal "${tribunalName}" de esta causa. No se borra la causa, solo se limpia el dato de tribunal. ¿Continuar?`);
@@ -6862,11 +6856,20 @@
         const normalized = normalizeTextForMatch(name);
         return normalized.includes('civil') || normalized.includes('letras');
       });
+      const territoryPriority = ['ovalle', 'la serena', 'coquimbo', 'combarbala'];
       return [...new Set(onlyCivil)]
         .sort((a, b) => {
-          const source = `${a} ${b}`.toLowerCase();
-          const label = source.includes('civil') || source.includes('letras') ? 'Causas Juzgados Civiles' : source;
-          return getTribunalRank(label, a) - getTribunalRank(label, b) || a.localeCompare(b, 'es');
+          const normalizedA = normalizeTextForMatch(a).toLowerCase();
+          const normalizedB = normalizeTextForMatch(b).toLowerCase();
+          const ordinalA = Number((normalizedA.match(/(\d+)\s*(?:o|º|°)?\s*juzgado/i) || [])[1] || Number.MAX_SAFE_INTEGER);
+          const ordinalB = Number((normalizedB.match(/(\d+)\s*(?:o|º|°)?\s*juzgado/i) || [])[1] || Number.MAX_SAFE_INTEGER);
+          if (ordinalA !== ordinalB) return ordinalA - ordinalB;
+          const territoryA = territoryPriority.findIndex((name) => normalizedA.includes(name));
+          const territoryB = territoryPriority.findIndex((name) => normalizedB.includes(name));
+          const territoryRankA = territoryA === -1 ? Number.MAX_SAFE_INTEGER : territoryA;
+          const territoryRankB = territoryB === -1 ? Number.MAX_SAFE_INTEGER : territoryB;
+          if (territoryRankA !== territoryRankB) return territoryRankA - territoryRankB;
+          return a.localeCompare(b, 'es');
         });
     }
 
@@ -6891,15 +6894,6 @@
                   <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunalName)}</div>
                   <div class="tribunal-calendar-actions">
                     <button class="btn tribunal-open-btn" type="button" data-tribunal-action="open-tribunal" data-tribunal-name="${escapeHtml(tribunalName)}">Abrir tribunal</button>
-                    <button class="btn" type="button" data-tribunal-action="manual-correction" data-tribunal-name="${escapeHtml(tribunalName)}">Corrección manual</button>
-                    <details class="tribunal-context-menu">
-                      <summary class="btn" role="button" aria-label="Abrir menú del tribunal">Acciones tribunal ▾</summary>
-                      <div class="tribunal-context-menu-panel">
-                        <button class="btn btn-ghost" type="button" data-tribunal-action="delete-tribunal" data-tribunal-name="${escapeHtml(tribunalName)}">Eliminar tribunal</button>
-                        <button class="btn btn-ghost" type="button" data-tribunal-action="delete-cause" data-tribunal-name="${escapeHtml(tribunalName)}">Eliminar causa</button>
-                        <button class="btn btn-ghost" type="button" data-tribunal-action="move-or-replace-cause" data-tribunal-name="${escapeHtml(tribunalName)}">Trasladar o reemplazar causa</button>
-                      </div>
-                    </details>
                   </div>
                 </article>
               `).join('') : '<div class="helper-box">No hay tribunales civiles disponibles en este momento.</div>'}
