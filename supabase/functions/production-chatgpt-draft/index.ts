@@ -3,18 +3,9 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-4.1-mini'
 const OPENAI_TIMEOUT_MS = Number(Deno.env.get('OPENAI_TIMEOUT_MS') || 90000)
-const ALLOWED_ORIGINS = (Deno.env.get('ALLOWED_ORIGINS')
-  || 'https://alphaavocat.cl,https://www.alphaavocat.cl,http://localhost:3000,http://localhost:5173')
-  .split(',')
-  .map((item) => item.trim())
-  .filter(Boolean)
-
-function resolveCorsOrigin(origin: string | null) {
-  if (!origin) return ALLOWED_ORIGINS[0] || '*'
-  if (ALLOWED_ORIGINS.includes('*')) return '*'
-  if (ALLOWED_ORIGINS.includes(origin)) return origin
-  if (/^https:\/\/[a-z0-9-]+\.vercel\.app$/i.test(origin)) return origin
-  return ALLOWED_ORIGINS[0] || 'https://alphaavocat.cl'
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
 type ChatEntry = { role: 'user' | 'assistant'; content: string }
@@ -36,15 +27,6 @@ type PromptInput = {
   documentos_seleccionados?: Array<Record<string, unknown>>
   history?: Array<ChatEntry>
   sessionId?: string
-}
-
-function buildCorsHeaders(origin: string | null) {
-  return {
-    'Access-Control-Allow-Origin': resolveCorsOrigin(origin),
-    'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
-    'Vary': 'Origin',
-  }
 }
 
 function buildPrompt(input: PromptInput) {
@@ -99,9 +81,10 @@ function resolveDraftFromResponse(result: Record<string, unknown>) {
 }
 
 serve(async (req) => {
-  const corsHeaders = buildCorsHeaders(req.headers.get('origin'))
+  console.log('FUNCTION HIT')
+
   if (req.method === 'OPTIONS') {
-    return new Response(null, { status: 204, headers: corsHeaders })
+    return new Response('ok', { headers: corsHeaders })
   }
 
   if (req.method !== 'POST') {
