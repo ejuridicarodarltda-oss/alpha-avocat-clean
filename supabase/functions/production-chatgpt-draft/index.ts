@@ -7,13 +7,20 @@ const OPENAI_TIMEOUT_MS = Number(Deno.env.get('OPENAI_TIMEOUT_MS') || 90000)
 type ChatEntry = { role: 'user' | 'assistant'; content: string }
 
 type PromptInput = {
+  cause_id?: string
+  rol?: string
+  tribunal?: string
+  caratula?: string
   tipoEscrito?: string
+  tipo_escrito?: string
   instrucciones?: string
+  instrucciones_usuario?: string
   ajuste?: string
   stylePrompt?: string
   cause?: Record<string, unknown>
   antecedentes?: Array<Record<string, unknown>>
   documentosSeleccionados?: Array<Record<string, unknown>>
+  documentos_seleccionados?: Array<Record<string, unknown>>
 }
 
 const corsHeaders = {
@@ -22,21 +29,33 @@ const corsHeaders = {
 }
 
 function buildPrompt(input: PromptInput) {
+  const tipoEscrito = String(input?.tipoEscrito || input?.tipo_escrito || '').trim()
+  const instrucciones = String(input?.instrucciones || input?.instrucciones_usuario || '').trim()
   const antecedentesRaw = Array.isArray(input?.antecedentes) && input.antecedentes.length
     ? input.antecedentes
-    : (Array.isArray(input?.documentosSeleccionados) ? input.documentosSeleccionados : [])
+    : (Array.isArray(input?.documentosSeleccionados) && input.documentosSeleccionados.length
+      ? input.documentosSeleccionados
+      : (Array.isArray(input?.documentos_seleccionados) ? input.documentos_seleccionados : []))
 
   const antecedentesText = antecedentesRaw.map((item: Record<string, unknown>, i: number) => {
     const snippet = String(item?.content || '').slice(0, 1800)
     return `${i + 1}. ${item?.name || 'Antecedente'} (${item?.category || 'Sin categoría'})\n${snippet}`
   }).join('\n\n')
 
+  const causeInfo = {
+    id: input?.cause_id || input?.cause?.id || null,
+    rol: input?.rol || input?.cause?.rol || null,
+    tribunal: input?.tribunal || input?.cause?.tribunal || null,
+    caratula: input?.caratula || input?.cause?.caratula || null,
+    ...(input?.cause || {}),
+  }
+
   return [
-    `Tipo de escrito: ${input?.tipoEscrito || 'No indicado'}`,
-    `Instrucciones del usuario: ${input?.instrucciones || 'Sin instrucciones adicionales'}`,
+    `Tipo de escrito: ${tipoEscrito || 'No indicado'}`,
+    `Instrucciones del usuario: ${instrucciones || 'Sin instrucciones adicionales'}`,
     `Ajuste de iteración: ${input?.ajuste || 'Sin ajuste'}`,
     `Estilo requerido: ${input?.stylePrompt || 'Jurídico chileno, tono forense técnico.'}`,
-    `Contexto de causa: ${JSON.stringify(input?.cause || {}, null, 2)}`,
+    `Contexto de causa: ${JSON.stringify(causeInfo, null, 2)}`,
     `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
     'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
   ].join('\n\n')
@@ -74,7 +93,14 @@ serve(async (req) => {
   }
 
   try {
-    const payload = await req.json()
+    const payload: PromptInput = await req.json()
+    const causeId = String(payload?.cause_id || payload?.cause?.id || '').trim()
+    if (!causeId) {
+      return new Response(JSON.stringify({ error: 'Falta cause_id para identificar la causa seleccionada.' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
     const history: ChatEntry[] = Array.isArray(payload?.history) ? payload.history : []
     const messages = [
       {
@@ -125,7 +151,7 @@ serve(async (req) => {
 
     const responseHistory = [
       ...history,
-      { role: 'user', content: String(payload?.ajuste || payload?.instrucciones || payload?.tipoEscrito || 'Solicitud de borrador') },
+      { role: 'user', content: String(payload?.ajuste || payload?.instrucciones || payload?.instrucciones_usuario || payload?.tipoEscrito || payload?.tipo_escrito || 'Solicitud de borrador') },
       { role: 'assistant', content: draft },
     ]
 

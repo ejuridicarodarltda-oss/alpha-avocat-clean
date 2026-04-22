@@ -9159,9 +9159,12 @@
         tribunal: selectedCause.tribunal,
         caratula: selectedCause.caratula,
         tipoEscrito,
+        tipo_escrito: tipoEscrito,
         instrucciones,
+        instrucciones_usuario: instrucciones,
         ajuste,
         documentosSeleccionados: antecedentes,
+        documentos_seleccionados: antecedentes,
         stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
         cause: {
           id: selectedCause.id,
@@ -9176,7 +9179,7 @@
         history: state.produccionDraft.chatHistory.slice(-10),
       };
 
-      const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', { body: payload });
+      const { data, error } = await invokeProduccionDraftEdgeFunction(payload);
       if (error || !data?.draft) {
         const normalizedError = [
           error?.context?.error,
@@ -9210,6 +9213,52 @@
         status: 'en_revision',
         draftText: state.produccionDraft.draftText,
       });
+    }
+
+    async function invokeProduccionDraftEdgeFunction(payload){
+      const functionName = 'production-chatgpt-draft';
+      const primary = await supabase.functions.invoke(functionName, { body: payload });
+      if (!primary?.error || primary?.data?.draft) return primary;
+
+      const primaryErrorText = String(primary.error?.message || '').trim();
+      const shouldTryDirectFetch = /Failed to send a request to the Edge Function/i.test(primaryErrorText)
+        || /fetch failed/i.test(primaryErrorText)
+        || /NetworkError/i.test(primaryErrorText);
+      if (!shouldTryDirectFetch) return primary;
+
+      try {
+        const { data: authData } = await supabase.auth.getSession();
+        const accessToken = authData?.session?.access_token || '';
+        const directUrl = `${String(supabase.supabaseUrl || '').replace(/\/$/, '')}/functions/v1/${functionName}`;
+        const response = await fetch(directUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            apikey: String(supabase.supabaseKey || ''),
+            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+          },
+          body: JSON.stringify(payload),
+        });
+        const responseBody = await response.json().catch(() => ({}));
+        if (response.ok && responseBody?.draft) {
+          return { data: responseBody, error: null };
+        }
+        return {
+          data: null,
+          error: {
+            message: `Edge Function ${functionName} respondió ${response.status}: ${responseBody?.error || responseBody?.message || 'sin detalle'}`,
+            context: responseBody,
+          }
+        };
+      } catch (fallbackError) {
+        return {
+          data: null,
+          error: {
+            message: `No fue posible conectar con la Edge Function ${functionName}: ${String(fallbackError?.message || fallbackError || 'error desconocido')}`,
+            context: { originalError: primary?.error },
+          }
+        };
+      }
     }
 
     async function persistProduccionDraftVersion({ selectedCause, tipoEscrito, status = 'en_revision', draftText = '' }){
