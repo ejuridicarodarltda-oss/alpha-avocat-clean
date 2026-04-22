@@ -3506,8 +3506,41 @@
       return typeof value === 'string' ? value.trim() : (value == null ? '' : String(value).trim());
     }
 
+    function normalizeCauseReferenceToken(value){
+      return normalizeTextForMatch(String(value || '').trim());
+    }
+
+    function buildRolTribunalReferenceKey(source = {}){
+      const rol = normalizeCauseReferenceToken(source?.rol);
+      const tribunal = normalizeCauseReferenceToken(source?.tribunal || source?.pjudTribunal || source?.court_name || source?.court);
+      if (!rol || !tribunal) return '';
+      return `${rol}::${tribunal}`;
+    }
+
+    function resolveAuthoritativeCause(source = {}){
+      const directId = resolveCaseId(source?.id || source?.caseId || source?.alpha_case_id);
+      if (directId && state.caseMap.has(String(directId))) {
+        return state.caseMap.get(String(directId)) || null;
+      }
+      const sourceKey = normalizeCauseReferenceToken(source?.pjudNormalKey || source?.normalized_key || source?.pjud_case_key);
+      const rolTribunalKey = buildRolTribunalReferenceKey(source);
+      if (!sourceKey && !rolTribunalKey) return null;
+      return getAllCases().find((item) => {
+        const itemKey = normalizeCauseReferenceToken(item?.pjudNormalKey || item?.pjud_normalized_key || item?.pjudCaseKey || item?.pjud_case_key);
+        if (sourceKey && itemKey && sourceKey === itemKey) return true;
+        if (!rolTribunalKey) return false;
+        return buildRolTribunalReferenceKey(item) === rolTribunalKey;
+      }) || null;
+    }
+
     function resolveCauseCaratula(cause){
+      const authoritative = resolveAuthoritativeCause(cause) || cause;
       const candidates = [
+        authoritative?.caratula,
+        authoritative?.pjud_caratulado,
+        authoritative?.pjudCaratulado,
+        authoritative?.importMeta?.caratula,
+        authoritative?.poderJudicial?.caratula,
         cause?.caratula,
         cause?.pjud_caratulado,
         cause?.pjudCaratulado,
@@ -3521,8 +3554,9 @@
     }
 
     function buildCauseVisibleFolderName(cause){
-      const rol = normalizeIdentifierValue(cause?.rol) || 'ROL_PENDIENTE';
-      const caratula = resolveCauseCaratula(cause);
+      const authoritative = resolveAuthoritativeCause(cause) || cause;
+      const rol = normalizeIdentifierValue(authoritative?.rol || cause?.rol) || 'ROL_PENDIENTE';
+      const caratula = resolveCauseCaratula(authoritative || cause);
       return `${rol} - ${caratula || 'Carátula pendiente'}`;
     }
 
@@ -5049,7 +5083,7 @@
         },
         expedienteDigital:{
           caseFolderPath: `${base.tipoTribunal || 'Tribunal'} / ${base.tribunal || 'Tribunal pendiente'} / ${rol || 'SIN_ROL_TEMPORAL'}`,
-          caseFolderLabel: `${rol || 'SIN_ROL_TEMPORAL'} / ${caratula}`,
+          caseFolderLabel: `${rol || 'SIN_ROL_TEMPORAL'}`,
           manualFolders: Array.isArray(base.manualFolders) ? base.manualFolders : [],
           cliente:{
             nombre:cliente,
@@ -5070,7 +5104,7 @@
                 editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
                 causas:[
                   {
-                    nombre:`${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'} · ${caratula}`,
+                    nombre:`${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'}`,
                     subcarpetas:[
                       'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
                       'Documentos',
@@ -5281,7 +5315,7 @@
         tribunal: baseCase.pjud_tribunal || baseCase[C.k_court] || workspaceEntry?.tribunal || 'Sin tribunal',
         corte: baseCase.pjud_corte || workspaceEntry?.corte || '',
         rol: baseCase[C.k_rol] || workspaceEntry?.rol || 'Sin rol',
-        caratula: normalizeCaratula(baseCase.pjud_caratulado || workspaceEntry?.caratula || ''),
+        caratula: normalizeCaratula(baseCase.pjud_caratulado || baseCase.caratula || workspaceEntry?.caratula || ''),
         era: baseCase.pjud_era || workspaceEntry?.era || '',
         rit: baseCase.pjud_rit || workspaceEntry?.rit || '',
         ruc: baseCase.pjud_ruc || workspaceEntry?.ruc || '',
