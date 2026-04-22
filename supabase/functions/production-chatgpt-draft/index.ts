@@ -2,17 +2,31 @@ import { serve } from 'https://deno.land/std@0.224.0/http/server.ts'
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY')
 const OPENAI_MODEL = Deno.env.get('OPENAI_MODEL') || 'gpt-4.1-mini'
+const OPENAI_TIMEOUT_MS = Number(Deno.env.get('OPENAI_TIMEOUT_MS') || 90000)
 
 type ChatEntry = { role: 'user' | 'assistant'; content: string }
+
+type PromptInput = {
+  tipoEscrito?: string
+  instrucciones?: string
+  ajuste?: string
+  stylePrompt?: string
+  cause?: Record<string, unknown>
+  antecedentes?: Array<Record<string, unknown>>
+  documentosSeleccionados?: Array<Record<string, unknown>>
+}
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-function buildPrompt(input: any) {
-  const antecedentes = Array.isArray(input?.antecedentes) ? input.antecedentes : []
-  const antecedentesText = antecedentes.map((item: any, i: number) => {
+function buildPrompt(input: PromptInput) {
+  const antecedentesRaw = Array.isArray(input?.antecedentes) && input.antecedentes.length
+    ? input.antecedentes
+    : (Array.isArray(input?.documentosSeleccionados) ? input.documentosSeleccionados : [])
+
+  const antecedentesText = antecedentesRaw.map((item: Record<string, unknown>, i: number) => {
     const snippet = String(item?.content || '').slice(0, 1800)
     return `${i + 1}. ${item?.name || 'Antecedente'} (${item?.category || 'Sin categoría'})\n${snippet}`
   }).join('\n\n')
@@ -26,6 +40,24 @@ function buildPrompt(input: any) {
     `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
     'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
   ].join('\n\n')
+}
+
+function resolveDraftFromResponse(result: Record<string, unknown>) {
+  const outputText = String(result?.output_text || '').trim()
+  if (outputText) return outputText
+
+  const output = Array.isArray(result?.output) ? result.output : []
+  const chunks: string[] = []
+  output.forEach((item: any) => {
+    const content = Array.isArray(item?.content) ? item.content : []
+    content.forEach((part: any) => {
+      if (part?.type === 'output_text' && typeof part?.text === 'string') {
+        chunks.push(part.text)
+      }
+    })
+  })
+
+  return chunks.join('\n').trim()
 }
 
 serve(async (req) => {
@@ -53,18 +85,27 @@ serve(async (req) => {
       { role: 'user', content: buildPrompt(payload) },
     ]
 
-    const openAiResponse = await fetch('https://api.openai.com/v1/responses', {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: messages,
-        temperature: 0.2,
-      }),
-    })
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort('timeout'), OPENAI_TIMEOUT_MS)
+
+    let openAiResponse: Response
+    try {
+      openAiResponse = await fetch('https://api.openai.com/v1/responses', {
+        method: 'POST',
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          input: messages,
+          temperature: 0.2,
+        }),
+        signal: controller.signal,
+      })
+    } finally {
+      clearTimeout(timeoutId)
+    }
 
     const result = await openAiResponse.json()
     if (!openAiResponse.ok) {
@@ -74,7 +115,14 @@ serve(async (req) => {
       })
     }
 
-    const draft = String(result?.output_text || '').trim()
+    const draft = resolveDraftFromResponse(result)
+    if (!draft) {
+      return new Response(JSON.stringify({ error: 'OpenAI respondió sin contenido de borrador utilizable.' }), {
+        status: 502,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     const responseHistory = [
       ...history,
       { role: 'user', content: String(payload?.ajuste || payload?.instrucciones || payload?.tipoEscrito || 'Solicitud de borrador') },
@@ -90,8 +138,14 @@ serve(async (req) => {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: `No fue posible generar borrador con ChatGPT: ${error?.message || 'Error desconocido'}` }), {
-      status: 500,
+    const errorMessage = String(error?.message || error || 'Error desconocido')
+    const isTimeout = errorMessage.toLowerCase().includes('timeout') || errorMessage.toLowerCase().includes('abort')
+    return new Response(JSON.stringify({
+      error: isTimeout
+        ? `OpenAI no respondió dentro del tiempo límite (${OPENAI_TIMEOUT_MS}ms).`
+        : `No fue posible generar borrador con ChatGPT: ${errorMessage}`,
+    }), {
+      status: isTimeout ? 504 : 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   }
