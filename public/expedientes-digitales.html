@@ -358,6 +358,8 @@
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
     const EXTRACTION_FIELD_ORDER = ['rol', 'tribunal', 'rit', 'ruc', 'caratula', 'partes', 'materia', 'procedimiento', 'fechaRelevante', 'cliente', 'estadoDocumento'];
+    const TRIBUNAL_EXACT_REMOVAL_NAME = '1° Juzgado de Letras Civil de Ovalle';
+    const TRIBUNAL_REMOVAL_VARIANT_BASENAME = 'juzgado de letras civil de ovalle';
     const COURT_NORMALIZATION_MAP = {
       '2 juzgado civil de santiago': '2° Juzgado Civil de Santiago',
       '2° juzgado civil de santiago': '2° Juzgado Civil de Santiago',
@@ -383,6 +385,23 @@
     }
     function normalizeRol(value='') {
       return normalize(value).replace(/[^a-z0-9]/g, '');
+    }
+    function isExactTribunalRemovalMatch(value = '') {
+      return String(value || '').trim() === TRIBUNAL_EXACT_REMOVAL_NAME;
+    }
+    function isOvalleCivilCourtVariant(value = '') {
+      return normalize(value).includes(TRIBUNAL_REMOVAL_VARIANT_BASENAME);
+    }
+    function reportTribunalRemovalDecisions(report = { exactRemoved: new Set(), conflictingVariants: new Set() }) {
+      const removed = [...(report.exactRemoved || new Set())];
+      const variants = [...(report.conflictingVariants || new Set())];
+      if (!removed.length && !variants.length) return;
+      if (removed.length) {
+        console.info(`Tribunal removido manualmente (coincidencia exacta): ${removed.join(' · ')}`);
+      }
+      if (variants.length) {
+        console.info(`Variantes detectadas (se mantienen por no coincidir exactamente): ${variants.join(' · ')}`);
+      }
     }
     function loadManualRegistry() {
       try {
@@ -903,11 +922,19 @@
 
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
+      const tribunalRemovalReport = { exactRemoved: new Set(), conflictingVariants: new Set() };
       for (const k of cases) {
         const manualData = readManualCauseData(String(k[C.kId] || ''));
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
         const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
         const tribunal = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
+        if (isExactTribunalRemovalMatch(tribunal)) {
+          tribunalRemovalReport.exactRemoved.add(tribunal);
+          continue;
+        }
+        if (isOvalleCivilCourtVariant(tribunal)) {
+          tribunalRemovalReport.conflictingVariants.add(tribunal);
+        }
         const caratula = String(k[C.kCaratula] || manualData?.base?.caratula || 'Carátula pendiente').trim();
         const cliente = resolveClienteVinculado(k, clientMap, manualData);
         const caseParties = Array.isArray(k.partes) ? k.partes : [];
@@ -962,6 +989,7 @@
           });
         }
       }
+      reportTribunalRemovalDecisions(tribunalRemovalReport);
       return matterMap;
     }
 
