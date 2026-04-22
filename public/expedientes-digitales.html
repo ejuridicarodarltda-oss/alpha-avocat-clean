@@ -358,8 +358,7 @@
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
     const EXTRACTION_FIELD_ORDER = ['rol', 'tribunal', 'rit', 'ruc', 'caratula', 'partes', 'materia', 'procedimiento', 'fechaRelevante', 'cliente', 'estadoDocumento'];
-    const TRIBUNAL_EXACT_REMOVAL_NAME = '1° Juzgado de Letras Civil de Ovalle';
-    const TRIBUNAL_REMOVAL_VARIANT_BASENAME = 'juzgado de letras civil de ovalle';
+    const TRIBUNAL_EXACT_REMOVAL_NAME = '1° Civil Ovalle';
     const COURT_NORMALIZATION_MAP = {
       '2 juzgado civil de santiago': '2° Juzgado Civil de Santiago',
       '2° juzgado civil de santiago': '2° Juzgado Civil de Santiago',
@@ -390,7 +389,8 @@
       return String(value || '').trim() === TRIBUNAL_EXACT_REMOVAL_NAME;
     }
     function isOvalleCivilCourtVariant(value = '') {
-      return normalize(value).includes(TRIBUNAL_REMOVAL_VARIANT_BASENAME);
+      const normalized = normalize(value);
+      return Boolean(normalized) && normalized.includes('civil') && normalized.includes('ovalle') && !isExactTribunalRemovalMatch(value);
     }
     function reportTribunalRemovalDecisions(report = { exactRemoved: new Set(), conflictingVariants: new Set() }) {
       const removed = [...(report.exactRemoved || new Set())];
