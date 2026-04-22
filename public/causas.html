@@ -9215,83 +9215,8 @@
       });
     }
 
-    async function invokeProduccionDraftEdgeFunction(payload){
-      const functionName = 'production-chatgpt-draft';
-      const baseUrl = String(supabase.supabaseUrl || '').replace(/\/$/, '');
-      const directUrl = `${baseUrl}/functions/v1/${functionName}`;
-      console.info('[production-chatgpt-draft] invoke', {
-        functionName,
-        directUrl,
-        payload,
-      });
-
-      const primary = await supabase.functions.invoke(functionName, { body: payload });
-      if (!primary?.error || primary?.data?.draft) {
-        console.info('[production-chatgpt-draft] supabase.functions.invoke ok', {
-          hasDraft: Boolean(primary?.data?.draft),
-        });
-        return primary;
-      }
-
-      console.error('[production-chatgpt-draft] supabase.functions.invoke error', {
-        message: primary?.error?.message,
-        context: primary?.error?.context,
-      });
-
-      const primaryErrorText = String(primary.error?.message || '').trim();
-      const shouldTryDirectFetch = /Failed to send a request to the Edge Function/i.test(primaryErrorText)
-        || /fetch failed/i.test(primaryErrorText)
-        || /NetworkError/i.test(primaryErrorText);
-      if (!shouldTryDirectFetch) return primary;
-
-      try {
-        const { data: authData } = await supabase.auth.getSession();
-        const accessToken = authData?.session?.access_token || '';
-        const response = await fetch(directUrl, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            apikey: String(supabase.supabaseKey || ''),
-            ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
-          },
-          body: JSON.stringify(payload),
-        });
-        const responseBody = await response.json().catch(() => ({}));
-
-        console.info('[production-chatgpt-draft] direct fetch response', {
-          url: directUrl,
-          status: response.status,
-          ok: response.ok,
-          body: responseBody,
-        });
-
-        if (response.ok && responseBody?.draft) {
-          return { data: responseBody, error: null };
-        }
-        return {
-          data: null,
-          error: {
-            message: `Edge Function ${functionName} respondió ${response.status}: ${responseBody?.error || responseBody?.message || 'sin detalle'}`,
-            context: {
-              url: directUrl,
-              status: response.status,
-              body: responseBody,
-            },
-          }
-        };
-      } catch (fallbackError) {
-        console.error('[production-chatgpt-draft] direct fetch exception', {
-          url: directUrl,
-          error: String(fallbackError?.message || fallbackError || 'error desconocido'),
-        });
-        return {
-          data: null,
-          error: {
-            message: `No fue posible conectar con la Edge Function ${functionName}: ${String(fallbackError?.message || fallbackError || 'error desconocido')}`,
-            context: { url: directUrl, originalError: primary?.error },
-          }
-        };
-      }
+    async function invokeProduccionDraftEdgeFunction(body){
+      return supabase.functions.invoke('production-chatgpt-draft', { body });
     }
 
     async function persistProduccionDraftVersion({ selectedCause, tipoEscrito, status = 'en_revision', draftText = '' }){
