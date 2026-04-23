@@ -2027,7 +2027,7 @@
       <div class="modal-header">
         <div>
           <div class="modal-title">Visor de causa y expediente</div>
-          <p class="panel-subtitle">Visor enfocado en expediente digital incorporado, con acceso directo al contenido documental y su gestión.</p>
+          <p class="panel-subtitle">Visor vinocular de la causa y expediente real: solo observa y opera sobre la estructura subyacente, sin crear una capa paralela.</p>
         </div>
         <button class="icon-btn" type="button" id="btnCloseWorkspaceModal" aria-label="Cerrar visor">✕</button>
       </div>
@@ -2037,7 +2037,7 @@
           <div>
             <p class="eyebrow">Ficha interna de la causa</p>
             <h3 class="detail-title" id="detailTitle">Selecciona una causa</h3>
-            <div class="detail-meta" id="detailMeta">La ficha mostrará el resumen, contenedor, producción y control procesal completo.</div>
+            <div class="detail-meta" id="detailMeta">La ficha muestra únicamente información real ya existente en la causa y expediente subyacentes.</div>
           </div>
         </div>
 
@@ -7449,16 +7449,11 @@
               <button class="btn btn-primary" data-doc-upload="depositoDocumentos">Agregar archivos</button>
               <button class="btn" data-doc-upload="documentos">Subir archivo</button>
               <button class="btn" data-doc-upload="ebook">Subir ebook</button>
-              <button class="btn" data-doc-create="sinClasificar">Agregar registro</button>
-              <button class="btn" data-create-folder="1">Nueva carpeta interna</button>
             </div>
           </div>
           ${renderDocumentExplorer(cause)}
         </section>
-        ${renderTribunalesEspecificosPanel()}
         ${renderExpedienteArchivadores(cause)}
-        <div class="helper-box"><strong>Fichero principal · Índice General PJUD</strong>: contenedor autónomo del módulo (Access vigente + versiones históricas). No pertenece a una causa individual y no se mezcla con la ficha puntual.</div>
-        ${renderGeneralPjudExcelPanel()}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
         ${renderSyncHistory(cause)}
