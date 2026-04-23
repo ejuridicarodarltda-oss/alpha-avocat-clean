@@ -1013,19 +1013,6 @@
       });
     }
 
-    function notifyTribunalManualAction(action = '', tribunal = '') {
-      const label = String(tribunal || 'Tribunal').trim() || 'Tribunal';
-      if (action === 'rename') {
-        setManualStatus('ok', `Acción manual habilitada en “${label}”: renombre el tribunal solo cuando usted lo confirme.`);
-        return;
-      }
-      if (action === 'review') {
-        setManualStatus('ok', `Acción manual habilitada en “${label}”: abra la carpeta y revise/mueva causas manualmente.`);
-        return;
-      }
-      setManualStatus('warn', `Acción manual disponible para “${label}”. No se aplican cambios automáticos.`);
-    }
-
     function renderMatterFolders() {
       const html = ORDERED_MATTERS.map((matter) => {
         const count = lastMatterMap.get(matter)?.size || 0;
@@ -1072,8 +1059,6 @@
                   <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunal)}</div>
                   <div class="tribunal-calendar-actions">
                     <button class="btn tribunal-open-btn" type="button" data-tribunal-open-index="${index}">Abrir tribunal</button>
-                    <button class="btn" type="button" data-tribunal-manual-action="review" data-tribunal-manual-index="${index}">Corrección manual</button>
-                    <button class="btn" type="button" data-tribunal-manual-action="rename" data-tribunal-manual-index="${index}">Renombrar manual</button>
                   </div>
                 </article>
               `).join('')}
@@ -1088,14 +1073,6 @@
         });
       });
 
-      document.querySelectorAll('[data-tribunal-manual-action]').forEach((btn) => {
-        btn.addEventListener('click', (event) => {
-          event.stopPropagation();
-          const tribunalIndex = Number(btn.dataset.tribunalManualIndex || -1);
-          const tribunalName = tribunalLookup[tribunalIndex] || '';
-          notifyTribunalManualAction(btn.dataset.tribunalManualAction || '', tribunalName);
-        });
-      });
       document.getElementById('matterPanel').hidden = false;
       document.getElementById('tribunalPanel').hidden = true;
       document.getElementById('rolePanel').hidden = true;
