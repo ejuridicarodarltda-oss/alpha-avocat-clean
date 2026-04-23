@@ -8951,6 +8951,7 @@
     }
 
     function renderProduccionWorkspace(){
+      console.log('PANEL_D_RENDER');
       const wrap = $('produccionChatWorkspace');
       if (!wrap) return;
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
@@ -9151,6 +9152,7 @@
     }
 
     async function callProduccionChatGpt({ mode = 'generate' } = {}){
+      console.log('ENTER_HANDLE_GENERATE_DRAFT');
       const selectedCaseId = state.produccionDraft.selectedCaseId || '';
       if (!selectedCaseId) {
         setMessage('producirEscritoMsg', 'Debes identificar y seleccionar una causa de Expedientes Digitales antes de generar.', 'error');
@@ -9256,9 +9258,11 @@
       if (!supabase) {
         throw new Error('Supabase no inicializado: instancia null/undefined');
       }
+      console.log('BEFORE_EDGE_INVOKE');
       const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', {
         body: payload,
       });
+      console.log('AFTER_EDGE_INVOKE');
       if (error) {
         const normalizedError = new Error(String(error.message || 'No fue posible invocar production-chatgpt-draft.'));
         (normalizedError).context = {
@@ -9306,6 +9310,7 @@
 
     async function submitProducirEscritos(event){
       event.preventDefault();
+      console.log('CLICK_GENERAR_BORRADOR');
       await callProduccionChatGpt({ mode: 'generate' });
     }
 
