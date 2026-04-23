@@ -6256,11 +6256,12 @@
           <td>${escapeHtml(item.materia || 'Sin materia')}</td>
           <td>${escapeHtml(item.estado_causa || item.sync_status || 'Sin estado')}</td>
           <td>${escapeHtml(item.synced_at ? formatDate(item.synced_at) : 'Sin fecha')}</td>
-          <td>${item.alpha_case_id ? 'Vinculada' : 'Pendiente'}</td>
+          <td>${item.alpha_case_id ? 'Operable' : 'Pendiente de materializar'}</td>
           <td>
             <div class="inline-actions">
-              <button class="btn btn-ghost" type="button" data-pjud-index-action="open" data-pjud-index-id="${escapeHtml(item.id)}">Abrir detalle</button>
-              <button class="btn btn-ghost" type="button" data-pjud-index-action="link" data-pjud-index-id="${escapeHtml(item.id)}">Vincular</button>
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="open-alpha" data-pjud-index-id="${escapeHtml(item.id)}">Abrir</button>
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="open" data-pjud-index-id="${escapeHtml(item.id)}">Abrir detalle PJUD</button>
+              <button class="btn btn-ghost" type="button" data-pjud-index-action="link" data-pjud-index-id="${escapeHtml(item.id)}">Vincular con seleccionada</button>
               <button class="btn btn-ghost" type="button" data-pjud-index-action="refresh" data-pjud-index-id="${escapeHtml(item.id)}">Actualizar fila</button>
             </div>
           </td>
@@ -6320,6 +6321,7 @@
         setPjudIndexSyncProgress({ percent: 85, stage: 'Conservando rutas de lupa', status: 'in_progress' });
         await persistPjudCausesIndexRows(visibleRows);
         await loadPjudCausesIndexRows();
+        await ensureRealCasesForPjudIndexRows(state.pjudCausesIndex.items, { reason: 'pjud-index-sync' });
         setPjudIndexSyncProgress({ percent: 100, stage: 'Índice PJUD sincronizado', status: 'completed', keepUntilStable: true });
         setMessage('pjudIndexSyncMsg', 'Índice PJUD sincronizado correctamente.', 'ok');
         renderPjudIndexSyncPanel();
@@ -6383,6 +6385,22 @@
       if (!action || !rowId) return;
       const item = state.pjudCausesIndex.items.find((entry) => String(entry.id) === String(rowId));
       if (!item) return;
+      if (action === 'open-alpha') {
+        const ensured = await ensureRealCaseForPjudIndexItem(item, { reason: 'pjud-index-open-alpha' });
+        await loadCases();
+        await loadPjudCausesIndexRows();
+        populateFilters();
+        const resolvedCaseId = resolveCaseId(ensured?.id || item.alpha_case_id);
+        if (!resolvedCaseId) {
+          setMessage('pjudIndexSyncMsg', 'No fue posible preparar un expediente real para abrir esta causa del índice.', 'error');
+          return;
+        }
+        state.selectedId = resolvedCaseId;
+        renderAll();
+        openWorkspaceModal({ tabId: 'informacion', caseId: resolvedCaseId, origin: 'pjud-index-open-alpha' });
+        setMessage('pjudIndexSyncMsg', 'Causa operable abierta correctamente desde el Índice PJUD.', 'ok');
+        return;
+      }
       if (action === 'open') {
         const targetUrl = item.detail_url || PJUD_MIS_CAUSAS_DEFAULT_URL;
         const popup = window.open(targetUrl, '_blank', 'noopener,noreferrer');
@@ -6587,11 +6605,12 @@
                         <div><span class="mini-label">Tribunal</span><div class="case-meta">${escapeHtml(item.tribunal)}</div></div>
                         <div><span class="mini-label">Estado breve</span><div class="case-meta">${escapeHtml(item.estadoProcesal)}</div></div>
                         <div><span class="mini-label">Importación PJUD</span><div class="case-meta">${escapeHtml(importStatus || 'Sin importación PJUD')}</div></div>
-                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)}</div></div>
+                        <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)} · ${escapeHtml(item.estadoOperativoExpediente || 'expediente operativo')} · ${escapeHtml(item.estadoPoblacionExpediente || 'listo')}</div></div>
                         <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
                       </div>
                       <div class="case-footer">
                         <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
+                        <button class="btn btn-primary" type="button" data-jump="informacion" data-case="${escapeHtml(item.id)}">Abrir</button>
                       </div>
                     </article>
                   `;
@@ -9423,6 +9442,119 @@
       const expectedKey = normalizeTribunalAndRolKey(tribunal, rol);
       if (!expectedKey || expectedKey === '|') return null;
       return getAllCases().find((item) => normalizeTribunalAndRolKey(item?.tribunal || '', item?.rol || '') === expectedKey) || null;
+    }
+
+    function buildAutoCreatedExpedienteFolderName({ rol = '', caratula = '' } = {}){
+      const safeRol = String(rol || '').trim() || 'Rol pendiente';
+      const safeCaratula = normalizeCaratula(String(caratula || '').trim()) || 'Carátula pendiente';
+      return `${safeRol} - ${safeCaratula}`;
+    }
+
+    async function ensureRealCaseForPjudIndexItem(indexItem = {}, { reason = 'index-render' } = {}){
+      if (!indexItem || typeof indexItem !== 'object') return null;
+      const linkedCaseId = resolveCaseId(indexItem.alpha_case_id);
+      if (linkedCaseId) return state.caseMap.get(linkedCaseId) || null;
+
+      const tribunal = String(indexItem.court_name || '').trim();
+      const rol = String(indexItem.rol || indexItem.rit || '').trim();
+      const caratula = normalizeCaratula(indexItem.caratula || '');
+      const materia = String(indexItem.materia || '').trim() || 'Materia por definir';
+      const folderName = buildAutoCreatedExpedienteFolderName({ rol, caratula });
+
+      const byTribunalAndRol = findCaseByTribunalAndRol(tribunal, rol);
+      if (byTribunalAndRol?.id) {
+        updateWorkspaceEntry(byTribunalAndRol.id, (entry) => markManualEdit({
+          ...entry,
+          expediente: folderName,
+          estadoOperativoExpediente: 'expediente creado automáticamente',
+          estadoPoblacionExpediente: 'pendiente de poblar',
+          pjudIndexLink: {
+            source: 'pjud_causes_index',
+            rowId: indexItem.id || null,
+            rowKey: indexItem.pjud_row_key || null,
+            linkedAt: new Date().toISOString(),
+            reason,
+          },
+        }));
+        return byTribunalAndRol;
+      }
+
+      const payload = {
+        [C.k_client_id]: null,
+        [C.k_responsible]: null,
+        [C.k_court]: tribunal || null,
+        [C.k_rol]: rol || null,
+        [C.k_subject]: materia,
+        [C.k_fee_total]: null,
+        [C.k_fee_type]: 'Mixto',
+        [C.k_payment]: 'Mixto',
+        [C.k_ppm]: null,
+        [C.k_withheld_by]: null,
+        [C.k_notes]: `Expediente creado automáticamente desde Índice PJUD (${reason}). Estado: pendiente de poblar.`,
+      };
+      const { data, error } = await supabase.from(T_CASES).insert(payload).select('*').single();
+      if (error) throw new Error(`No fue posible crear expediente real desde índice PJUD: ${buildLoadError('la causa', error).message}`);
+
+      const newCaseId = String(data?.[C.k_id] || '').trim();
+      if (!newCaseId) throw new Error('La creación automática devolvió una causa sin ID persistido.');
+      const workspace = loadWorkspace();
+      workspace[newCaseId] = createSeedDetail({
+        id: newCaseId,
+        rol,
+        rit: indexItem.rit || '',
+        tribunal,
+        caratula,
+        materia,
+        estadoProcesal: 'Expediente creado automáticamente',
+        etapaProcesal: 'Pendiente de poblar',
+        expediente: folderName,
+        notes: `Creado automáticamente desde Índice PJUD (fila ${indexItem.row_position || 'sin posición'}).`,
+        pjudCaseKey: indexItem.pjud_row_key || '',
+        pjudTribunal: tribunal,
+        pjudLinkStatus: 'linked',
+        pjudTraceability: {
+          source: 'pjud_causes_index',
+          row_id: indexItem.id || null,
+          row_key: indexItem.pjud_row_key || null,
+          auto_created: true,
+          auto_created_reason: reason,
+          auto_created_at: new Date().toISOString(),
+        },
+      });
+      saveWorkspace(workspace);
+      await supabase
+        .from(T_PJUD_CAUSES_INDEX)
+        .update({
+          alpha_case_id: newCaseId,
+          sync_status: 'materialized',
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', indexItem.id)
+        .eq('user_id', authenticatedUser.id);
+      return { id: newCaseId };
+    }
+
+    async function ensureRealCasesForPjudIndexRows(rows = [], { reason = 'index-render' } = {}){
+      if (!Array.isArray(rows) || !rows.length) return { created: 0, ensured: 0 };
+      let ensured = 0;
+      let created = 0;
+      for (const row of rows) {
+        const beforeId = resolveCaseId(row?.alpha_case_id);
+        const result = await ensureRealCaseForPjudIndexItem(row, { reason });
+        if (!result?.id) continue;
+        const resolved = resolveCaseId(result.id);
+        if (!resolved) continue;
+        ensured += 1;
+        if (!beforeId) created += 1;
+      }
+      if (created > 0) {
+        await loadCases();
+        populateFilters();
+      }
+      if (ensured > 0) {
+        await loadPjudCausesIndexRows();
+      }
+      return { created, ensured };
     }
 
     function resetManualUploadModal(){
@@ -14975,6 +15107,7 @@
       initNonFatalPhase();
       try {
         await loadPjudCausesIndexRows();
+        await ensureRealCasesForPjudIndexRows(state.pjudCausesIndex.items, { reason: 'init-index-materialization' });
       } catch (error) {
         console.error('[Alpha Avocat][indice-pjud] No fue posible cargar el índice PJUD.', error);
         setMessage('pjudIndexSyncMsg', `No fue posible cargar el índice PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
