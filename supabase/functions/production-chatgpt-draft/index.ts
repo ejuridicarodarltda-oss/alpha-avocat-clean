@@ -81,7 +81,7 @@ function resolveDraftFromResponse(result: Record<string, unknown>) {
 }
 
 serve(async (req) => {
-  console.log('FUNCTION HIT')
+  console.log('FUNCTION EXECUTED')
 
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
@@ -172,17 +172,17 @@ serve(async (req) => {
     }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
-  } catch (error) {
-    const errorMessage = String(error?.message || error || 'Error desconocido')
-    const isTimeout = errorMessage.toLowerCase().includes('timeout') || errorMessage.toLowerCase().includes('abort')
+  } catch (e: any) {
+    console.error('ERROR EN FUNCTION:', e)
+
     return new Response(JSON.stringify({
-      error: isTimeout
-        ? `OpenAI no respondió dentro del tiempo límite (${OPENAI_TIMEOUT_MS}ms).`
-        : `No fue posible generar borrador con ChatGPT: ${errorMessage}`,
-      details: isTimeout ? 'timeout' : errorMessage,
+      error: e?.message || 'error desconocido'
     }), {
-      status: isTimeout ? 504 : 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+      }
     })
   }
 })
