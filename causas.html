@@ -9247,40 +9247,14 @@
     }
 
     async function invokeProduccionDraftEdgeFunction(payload){
-      try {
-        console.log("Invocando production-chatgpt-draft...");
-
-        const projectRef = String(supabaseUrl || '').replace('https://', '').split('.supabase.co')[0];
-        const res = await fetch(`https://${projectRef}.supabase.co/functions/v1/production-chatgpt-draft`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": `Bearer ${supabaseAnonKey}`
-          },
-          body: JSON.stringify(payload)
-        });
-
-        console.log("STATUS:", res.status);
-
-        const text = await res.text();
-        console.log("RAW RESPONSE:", text);
-
-        if (!res.ok) {
-          throw new Error(`HTTP ${res.status} - ${text}`);
-        }
-
-        return { data: JSON.parse(text), error: null };
-
-      } catch (err) {
-        console.error("ERROR REAL DETECTADO:", err);
-
-        alert(
-          "ERROR REAL:\n" +
-          (err.message || err.toString())
-        );
-
-        throw err;
+      const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', {
+        body: payload,
+      });
+      if (error) {
+        console.error('FUNCTION INVOKE ERROR:', error);
+        throw error;
       }
+      return { data, error: null };
     }
 
     async function persistProduccionDraftVersion({ selectedCause, tipoEscrito, status = 'en_revision', draftText = '' }){
