@@ -583,6 +583,92 @@
         .replace(/\s+/g, ' ')
         .trim();
     }
+    function normalizeCauseIdentityRol(raw = '') {
+      const visible = normalizeVisibleRol(raw);
+      return normalize(visible).replace(/[^a-z0-9]/g, '');
+    }
+    function normalizeCauseIdentityTribunal(raw = '') {
+      return normalizeTribunalSpecificPanelKey(normalizeTribunal(raw));
+    }
+    function buildCauseIdentityKey({ rol = '', tribunal = '' } = {}) {
+      const normalizedRol = normalizeCauseIdentityRol(rol);
+      const normalizedTribunal = normalizeCauseIdentityTribunal(tribunal);
+      if (!normalizedRol || !normalizedTribunal) return '';
+      return `${normalizedRol}::${normalizedTribunal}`;
+    }
+    function isPendingCaratula(value = '') {
+      const normalizedValue = normalize(value);
+      if (!normalizedValue) return true;
+      return /caratula pendiente|sin caratula|pendiente de caratula|por definir/.test(normalizedValue);
+    }
+    function collectOperationalEntries(node, output = [], depth = 0) {
+      if (!node || depth > 8) return output;
+      if (Array.isArray(node)) {
+        node.forEach((entry) => collectOperationalEntries(entry, output, depth + 1));
+        return output;
+      }
+      if (typeof node !== 'object') return output;
+      const rol = node.rol || node.rol_rit || node.rit || node.pjud_rit || node.ruc || node.pjud_ruc || '';
+      const tribunal = node.tribunal || node.court || node.pjud_tribunal || node.corte || '';
+      const caratula = node.caratula || node.caratulado || node.subject || node.materia || '';
+      if (rol || tribunal || caratula) output.push({ rol, tribunal, caratula });
+      Object.values(node).forEach((value) => {
+        if (value && typeof value === 'object') collectOperationalEntries(value, output, depth + 1);
+      });
+      return output;
+    }
+    function selectBestCaratula(candidates = []) {
+      const valid = candidates
+        .map((candidate) => normalizeCaratula(candidate))
+        .filter((candidate) => candidate && !isPendingCaratula(candidate));
+      if (!valid.length) return '';
+      return valid.sort((a, b) => b.length - a.length || a.localeCompare(b, 'es'))[0];
+    }
+    function buildOperationalCaratulaIndex(cases = [], manualRegistry = {}, pjudRegistry = {}) {
+      const index = new Map();
+      const register = ({ rol = '', tribunal = '', caratula = '' } = {}) => {
+        const key = buildCauseIdentityKey({ rol, tribunal });
+        if (!key) return;
+        const best = selectBestCaratula([caratula]);
+        if (!best) return;
+        const current = index.get(key);
+        index.set(key, selectBestCaratula([current, best]));
+      };
+      (Array.isArray(cases) ? cases : []).forEach((cause) => {
+        const tribunal = cause[C.kTrib] || cause[C.kCourt] || cause.tribunal || cause.corte || '';
+        const roles = [cause[C.kRol], cause[C.kRit], cause[C.kRuc], cause.rol, cause.rit, cause.ruc];
+        const caratulas = [cause[C.kCaratula], cause.caratulado, cause.subject, cause.metadata?.caratula];
+        roles.forEach((rol) => caratulas.forEach((caratula) => register({ rol, tribunal, caratula })));
+      });
+      Object.values(manualRegistry || {}).forEach((entry) => {
+        const tribunal = entry?.base?.tribunal || '';
+        const roles = [entry?.base?.rol, entry?.base?.rit, entry?.base?.ruc];
+        const caratulas = [entry?.base?.caratula, entry?.lastSuggestions?.caratula?.value];
+        roles.forEach((rol) => caratulas.forEach((caratula) => register({ rol, tribunal, caratula })));
+      });
+      const operationalEntries = collectOperationalEntries(pjudRegistry?.current || {});
+      collectOperationalEntries(pjudRegistry?.versions || [], operationalEntries);
+      operationalEntries.forEach((entry) => register(entry));
+      return index;
+    }
+    function resolveVisibleCaratula(cause = {}, manualData = null, operationalIndex = new Map()) {
+      const tribunal = cause[C.kTrib] || cause[C.kCourt] || manualData?.base?.tribunal || '';
+      const roles = [cause[C.kRol], cause[C.kRit], cause[C.kRuc], manualData?.base?.rol, manualData?.base?.rit, manualData?.base?.ruc];
+      const candidates = [
+        cause[C.kCaratula],
+        cause.caratulado,
+        cause.subject,
+        cause.metadata?.caratula,
+        manualData?.base?.caratula,
+        manualData?.lastSuggestions?.caratula?.value,
+      ];
+      roles.forEach((rol) => {
+        const key = buildCauseIdentityKey({ rol, tribunal });
+        if (key && operationalIndex.has(key)) candidates.push(operationalIndex.get(key));
+      });
+      const best = selectBestCaratula(candidates);
+      return best || 'Carátula pendiente';
+    }
     function pickTribunalBucketDisplayName(candidates = []) {
       if (!candidates.length) return 'Tribunal sin clasificar';
       const scored = candidates.map((name) => {
@@ -984,16 +1070,20 @@
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
       const tribunalRemovalReport = { removed: new Set() };
+      const manualRegistry = loadManualRegistry();
+      const pjudGeneralIndexRegistry = loadPjudGeneralIndexRegistry();
+      const operationalCaratulaIndex = buildOperationalCaratulaIndex(cases, manualRegistry, pjudGeneralIndexRegistry);
       for (const k of cases) {
-        const manualData = readManualCauseData(String(k[C.kId] || ''));
+        const manualData = manualRegistry[String(k[C.kId] || '')] || null;
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
         const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
-        const tribunal = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
+        const tribunalResolved = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
+        const tribunal = normalizeTribunal(tribunalResolved) || 'Tribunal sin clasificar';
         if (isRemovedOvalleCivilCourt(tribunal)) {
           tribunalRemovalReport.removed.add(tribunal);
           continue;
         }
-        const caratula = String(k[C.kCaratula] || manualData?.base?.caratula || 'Carátula pendiente').trim();
+        const caratula = resolveVisibleCaratula(k, manualData, operationalCaratulaIndex);
         const cliente = resolveClienteVinculado(k, clientMap, manualData);
         const caseParties = Array.isArray(k.partes) ? k.partes : [];
         const manualParties = Array.isArray(manualData?.parties) ? manualData.parties : [];
