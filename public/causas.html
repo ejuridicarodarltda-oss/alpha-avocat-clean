@@ -1924,7 +1924,6 @@
         <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
       </div>
       <div class="pjud-index-stats" id="pjudIndexStats"></div>
-      <div id="pjudCivilSpecificTribunals"></div>
     </section>
 
     <section class="screen-grid">
@@ -5997,7 +5996,6 @@
           <strong>${escapeHtml(item.value)}</strong>
         </article>
       `).join('');
-      renderPjudCivilSpecificTribunalsPanel();
     }
 
     function isPjudMisCausasUrl(urlValue = ''){
@@ -6906,66 +6904,6 @@
 
 
 
-
-    function getCivilTribunalSpecificList(){
-      const fromIndex = (state.pjudCausesIndex.items || [])
-        .map((item) => String(item?.court_name || '').trim())
-        .filter(Boolean);
-      const fromCases = getAllCases()
-        .map((item) => String(item?.tribunal || '').trim())
-        .filter(Boolean);
-      const onlyCivil = [...fromIndex, ...fromCases].filter((name) => {
-        const normalized = normalizeTextForMatch(name);
-        return normalized.includes('civil') || normalized.includes('letras');
-      });
-      const territoryPriority = ['ovalle', 'la serena', 'coquimbo', 'combarbala'];
-      return [...new Set(onlyCivil)]
-        .sort((a, b) => {
-          const normalizedA = normalizeTextForMatch(a).toLowerCase();
-          const normalizedB = normalizeTextForMatch(b).toLowerCase();
-          const ordinalA = Number((normalizedA.match(/(\d+)\s*(?:o|º|°)?\s*juzgado/i) || [])[1] || Number.MAX_SAFE_INTEGER);
-          const ordinalB = Number((normalizedB.match(/(\d+)\s*(?:o|º|°)?\s*juzgado/i) || [])[1] || Number.MAX_SAFE_INTEGER);
-          if (ordinalA !== ordinalB) return ordinalA - ordinalB;
-          const territoryA = territoryPriority.findIndex((name) => normalizedA.includes(name));
-          const territoryB = territoryPriority.findIndex((name) => normalizedB.includes(name));
-          const territoryRankA = territoryA === -1 ? Number.MAX_SAFE_INTEGER : territoryA;
-          const territoryRankB = territoryB === -1 ? Number.MAX_SAFE_INTEGER : territoryB;
-          if (territoryRankA !== territoryRankB) return territoryRankA - territoryRankB;
-          return a.localeCompare(b, 'es');
-        });
-    }
-
-    function renderPjudCivilSpecificTribunalsPanel(){
-      const container = $('pjudCivilSpecificTribunals');
-      if (!container) return;
-      const tribunals = getCivilTribunalSpecificList();
-      container.innerHTML = `
-        <section class="section-card" id="pjudCivilSpecificTribunalsPanel">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Juzgados Civiles · Tribunales específicos</h4>
-              <p class="section-copy">Vista autónoma del Índice General PJUD para abrir tribunales civiles específicos, sin incrustarse en el visor de una causa individual.</p>
-            </div>
-          </div>
-          <div class="tribunal-calendar-frame">
-            <div class="tribunal-calendar-toolbar">
-              <strong>${escapeHtml(String(tribunals.length))} tribunal(es) disponible(s)</strong>
-              <span class="muted">Seleccione un tribunal para abrir su carpeta</span>
-            </div>
-            <div class="tribunal-calendar-grid">
-              ${tribunals.length ? tribunals.map((tribunalName) => `
-                <article class="tribunal-calendar-cell">
-                  <div class="tribunal-calendar-name">🗄️ ${escapeHtml(tribunalName)}</div>
-                  <div class="tribunal-calendar-actions">
-                    <button class="btn tribunal-open-btn" type="button" data-tribunal-action="open-tribunal" data-tribunal-name="${escapeHtml(tribunalName)}">Abrir tribunal</button>
-                  </div>
-                </article>
-              `).join('') : '<div class="helper-box">No hay tribunales civiles disponibles en este momento.</div>'}
-            </div>
-          </div>
-        </section>
-      `;
-    }
 
     function renderExpedienteArchivadores(cause){
       const archivadores = getExpedienteTribunalArchivadores(cause);
@@ -14434,17 +14372,6 @@
         const actionTrigger = event.target?.closest?.('[data-pjud-index-action]');
         if (!actionTrigger) return;
         await handlePjudIndexRowAction({ target: actionTrigger });
-      });
-      $('pjudCivilSpecificTribunals')?.addEventListener('click', async (event) => {
-        const tribunalAction = event.target?.closest?.('[data-tribunal-action]');
-        if (!tribunalAction) return;
-        event.preventDefault();
-        event.stopPropagation();
-        await handleTribunalManualAction(
-          tribunalAction.dataset.tribunalAction,
-          tribunalAction.dataset.case,
-          { tribunalName: tribunalAction.dataset.tribunalName, pjudIndexId: tribunalAction.dataset.pjudIndexId }
-        );
       });
       $('pjudAssistedSourceUrl')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
       $('pjudAssistedSourceHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
