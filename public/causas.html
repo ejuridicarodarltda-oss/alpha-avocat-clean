@@ -1924,6 +1924,7 @@
         <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
       </div>
       <div class="pjud-index-stats" id="pjudIndexStats"></div>
+      <div id="pjudCivilSpecificTribunals"></div>
     </section>
 
     <section class="screen-grid">
@@ -5996,6 +5997,7 @@
           <strong>${escapeHtml(item.value)}</strong>
         </article>
       `).join('');
+      renderPjudCivilSpecificTribunalsPanel();
     }
 
     function isPjudMisCausasUrl(urlValue = ''){
@@ -6658,7 +6660,14 @@
       state.selectedId = String(cause.id);
 
       if (actionName === 'open-tribunal') {
-        openWorkspaceModal({ tabId: 'expedientes', caseId: cause.id, origin: 'manual-open-tribunal' });
+        const tribunalName = tribunalNameFromContext || cause?.tribunal || '';
+        if (tribunalName) {
+          state.filters.tribunal = tribunalName;
+          const tribunalFilterNode = $('filterTribunal');
+          if (tribunalFilterNode) tribunalFilterNode.value = tribunalName;
+        }
+        renderAll();
+        setDetailStatus(`Tribunal abierto desde Tribunales específicos: ${tribunalName || 'Sin nombre'}.`, 'ok');
         return;
       }
       if (actionName === 'delete-tribunal') {
@@ -6907,14 +6916,16 @@
         });
     }
 
-    function renderTribunalesEspecificosPanel(){
+    function renderPjudCivilSpecificTribunalsPanel(){
+      const container = $('pjudCivilSpecificTribunals');
+      if (!container) return;
       const tribunals = getCivilTribunalSpecificList();
-      return `
-        <section class="section-card" id="tribunalesEspecificosPanel">
+      container.innerHTML = `
+        <section class="section-card" id="pjudCivilSpecificTribunalsPanel">
           <div class="section-head">
             <div>
               <h4 class="section-title">Juzgados Civiles · Tribunales específicos</h4>
-              <p class="section-copy">Listado puntual de tribunales civiles para abrir su carpeta y ejecutar acciones manuales por tribunal.</p>
+              <p class="section-copy">Vista autónoma del Índice General PJUD para abrir tribunales civiles específicos, sin incrustarse en el visor de una causa individual.</p>
             </div>
           </div>
           <div class="tribunal-calendar-frame">
@@ -14284,6 +14295,17 @@
         const actionTrigger = event.target?.closest?.('[data-pjud-index-action]');
         if (!actionTrigger) return;
         await handlePjudIndexRowAction({ target: actionTrigger });
+      });
+      $('pjudCivilSpecificTribunals')?.addEventListener('click', async (event) => {
+        const tribunalAction = event.target?.closest?.('[data-tribunal-action]');
+        if (!tribunalAction) return;
+        event.preventDefault();
+        event.stopPropagation();
+        await handleTribunalManualAction(
+          tribunalAction.dataset.tribunalAction,
+          tribunalAction.dataset.case,
+          { tribunalName: tribunalAction.dataset.tribunalName, pjudIndexId: tribunalAction.dataset.pjudIndexId }
+        );
       });
       $('pjudAssistedSourceUrl')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
       $('pjudAssistedSourceHtml')?.addEventListener('input', () => updatePjudAssistedSourceFromInputs());
