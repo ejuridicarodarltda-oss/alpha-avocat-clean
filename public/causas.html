@@ -1898,11 +1898,11 @@
       <div class="screen-header">
         <div>
           <h2 class="screen-title">MÓDULO CAUSAS</h2>
-          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial. La creación de nueva causa, carpeta rol y alojamiento de archivos debe quedar desacoplada del flujo PJUD y del Excel, para que funcione también como sistema manual autónomo desde ya.</p>
+          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial. La ruta operativa confirmada para causas con carátula bajo Índice General PJUD es: Índice General PJUD → Abrir índice general → Alpha Avocat · Expedientes Digitales → Fichero principal · Índice General PJUD.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Información</button>
-          <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
+          <button class="btn" id="btnQuickExpedientes">Índice General PJUD</button>
           <button class="btn" id="btnQuickProduction">Producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
@@ -1917,12 +1917,13 @@
     <section class="pjud-index-priority" aria-label="Índice General PJUD">
       <div>
         <h3 class="panel-title">Índice General PJUD</h3>
-        <p class="panel-subtitle">Control del índice general de causas. El almacenamiento y las versiones quedan en Expedientes Digitales &gt; Fichero principal &gt; Índice General PJUD.</p>
+        <p class="panel-subtitle">Control del índice general de causas. Usar la ruta confirmada sin puerta externa ni paneles paralelos: Índice General PJUD &gt; Abrir índice general &gt; Alpha Avocat · Expedientes Digitales &gt; Fichero principal · Índice General PJUD.</p>
       </div>
       <div class="pjud-index-actions">
         <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
         <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
       </div>
+      <div class="helper-box">Dentro de Fichero principal · Índice General PJUD, trabajar en el listado general interno con filtros y KÁRDEX TRIBUNAL.</div>
       <div class="pjud-index-stats" id="pjudIndexStats"></div>
     </section>
 
@@ -14368,6 +14369,10 @@
     }
 
     function wireEvents(){
+      const navigateToPjudGeneralIndex = () => {
+        window.location.href = './expedientes-digitales.html#indice-general-pjud';
+      };
+
       bindEvent('btnLogout', 'click', async () => {
         await supabase.auth.signOut();
         window.location.href = './login.html';
@@ -14379,9 +14384,7 @@
       bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
       bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
       bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
-      bindEvent('btnIndiceAbrirGeneral', 'click', () => {
-        window.location.href = './expedientes-digitales.html#indice-general-pjud';
-      }, { scope: 'indice-general' });
+      bindEvent('btnIndiceAbrirGeneral', 'click', () => navigateToPjudGeneralIndex(), { scope: 'indice-general' });
       bindEvent('btnIndiceUsarDescargas', 'click', () => {
         state.pjudGeneralIndexControl.lastStatus = 'Índice general marcado como fuente de descargas';
         setMessage('importMsg', 'El Índice General PJUD vigente se usará como referencia de descargas en el siguiente proceso.', 'ok');
@@ -14447,7 +14450,7 @@
       });
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
-      bindEvent('btnQuickExpedientes', 'click', () => openBranchScreen('expedientes', 'btnQuickExpedientes'), { scope: 'quick-nav' });
+      bindEvent('btnQuickExpedientes', 'click', () => navigateToPjudGeneralIndex(), { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
