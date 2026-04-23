@@ -8779,6 +8779,17 @@
       return normalizeIdentifierValue(value).toUpperCase().replace(/[^A-Z0-9]/g, '');
     }
 
+    function normalizeCourtLabel(value = ''){
+      return String(value || '')
+        .normalize('NFC')
+        .replace(/\s+/g, ' ')
+        .replace(/(\d+)\s*[°ºo]/gi, '$1º')
+        .replace(/(\d+)[º°](Juzgado)/gi, '$1º $2')
+        .replace(/\bJdo\.\b/gi, 'Juzgado')
+        .replace(/\bGar\.\b/gi, 'Garantía')
+        .trim();
+    }
+
     function renderCauseSearchResults(results = []){
       const tbody = $('buscarCausaResultados');
       if (!tbody) return;
@@ -8848,7 +8859,8 @@
     }
 
     function normalizeTribunalKey(value = ''){
-      const normalized = normalizeTextForMatch(value)
+      const normalizedCourt = normalizeCourtLabel(value);
+      const normalized = normalizeTextForMatch(normalizedCourt)
         .replace(/\b(primero|primer|1o|1º|1°)\b/g, '1')
         .replace(/\b(segundo|2o|2º|2°)\b/g, '2')
         .replace(/\b(tercero|3o|3º|3°)\b/g, '3')
@@ -9041,7 +9053,7 @@
 
     function runProduccionDraftSearch(){
       const rol = String($('producirEscritoRol')?.value || '').trim();
-      const tribunal = String($('producirEscritoTribunal')?.value || '').trim();
+      const tribunal = normalizeCourtLabel($('producirEscritoTribunal')?.value || '');
       if (!rol) {
         setMessage('producirEscritoMsg', 'Rol obligatorio para buscar en Expedientes Digitales.', 'error');
         renderProduccionDraftMatches([]);
@@ -9057,11 +9069,13 @@
       const rolMatches = expedientesCases.filter((item) => normalizeRolSearchKey(item?.rol || '') === rolKey);
       let matches = rolMatches;
       if (rolMatches.length > 1) {
-        const tribunalMatches = rolMatches.filter((item) => tribunalesAreEquivalent(tribunal, item?.tribunal || ''));
+        const tribunalMatches = rolMatches.filter((item) => tribunalesAreEquivalent(tribunal, normalizeCourtLabel(item?.tribunal || '')));
         if (tribunalMatches.length) matches = tribunalMatches;
       }
       state.produccionDraft.matches = matches;
       state.produccionDraft.selectedCaseId = matches.length === 1 ? String(matches[0].id) : '';
+      const tribunalInput = $('producirEscritoTribunal');
+      if (tribunalInput) tribunalInput.value = tribunal;
       renderProduccionDraftMatches(matches);
       renderProduccionWorkspace();
       if (!matches.length) {
@@ -9170,7 +9184,7 @@
         sessionId: state.produccionDraft.sessionId || null,
         cause_id: selectedCause.id,
         rol: selectedCause.rol,
-        tribunal: selectedCause.tribunal,
+        tribunal: normalizeCourtLabel(selectedCause.tribunal),
         caratula: selectedCause.caratula,
         tipoEscrito,
         tipo_escrito: tipoEscrito,
@@ -9183,7 +9197,7 @@
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
-          tribunal: selectedCause.tribunal,
+          tribunal: normalizeCourtLabel(selectedCause.tribunal),
           caratula: selectedCause.caratula,
           estado: selectedCause.estadoProcesal || selectedCause.estado,
           materia: selectedCause.materia,
@@ -9239,33 +9253,20 @@
     }
 
     async function invokeProduccionDraftEdgeFunction(payload){
-      console.log('SUPABASE INSTANCE:', supabase);
       if (!supabase) {
         throw new Error('Supabase no inicializado: instancia null/undefined');
       }
-      const runtimeEnv = (typeof process !== 'undefined' && process?.env) ? process.env : {};
-      console.log('SUPABASE URL:', runtimeEnv.SUPABASE_URL);
-      console.log('SUPABASE ANON KEY:', runtimeEnv.SUPABASE_ANON_KEY);
-      console.log('SUPABASE CLIENTE COMPARTIDO:', window.__ALPHA_SUPABASE_SINGLETON__ === supabase);
-      console.log('INTENTANDO INVOCAR EDGE FUNCTION');
       const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', {
         body: payload,
       });
       if (error) {
-        console.error('FUNCTION INVOKE ERROR:', error);
-        const manualUrl = `${supabaseUrl}/functions/v1/production-chatgpt-draft`;
-        console.log('PROBANDO FETCH MANUAL EDGE FUNCTION:', manualUrl);
-        const manualResponse = await fetch(manualUrl, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        console.log('FETCH MANUAL STATUS:', manualResponse.status, manualResponse.statusText);
-        throw error;
+        const normalizedError = new Error(String(error.message || 'No fue posible invocar production-chatgpt-draft.'));
+        (normalizedError).context = {
+          name: error.name || 'FunctionsInvokeError',
+          message: error.message || '',
+          details: error.details || '',
+        };
+        throw normalizedError;
       }
       return { data, error: null };
     }
