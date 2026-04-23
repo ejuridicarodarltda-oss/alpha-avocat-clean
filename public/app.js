@@ -35,6 +35,10 @@ export const supabase = createClient(
   supabaseAnonKey
 )
 
+if (typeof window !== 'undefined') {
+  window.__ALPHA_SUPABASE_SINGLETON__ = supabase
+}
+
 
 // ===============================
 // Control de sesión

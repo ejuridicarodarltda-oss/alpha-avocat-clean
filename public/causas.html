@@ -9239,11 +9239,32 @@
     }
 
     async function invokeProduccionDraftEdgeFunction(payload){
+      console.log('SUPABASE INSTANCE:', supabase);
+      if (!supabase) {
+        throw new Error('Supabase no inicializado: instancia null/undefined');
+      }
+      const runtimeEnv = (typeof process !== 'undefined' && process?.env) ? process.env : {};
+      console.log('SUPABASE URL:', runtimeEnv.SUPABASE_URL);
+      console.log('SUPABASE ANON KEY:', runtimeEnv.SUPABASE_ANON_KEY);
+      console.log('SUPABASE CLIENTE COMPARTIDO:', window.__ALPHA_SUPABASE_SINGLETON__ === supabase);
+      console.log('INTENTANDO INVOCAR EDGE FUNCTION');
       const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', {
         body: payload,
       });
       if (error) {
         console.error('FUNCTION INVOKE ERROR:', error);
+        const manualUrl = `${supabaseUrl}/functions/v1/production-chatgpt-draft`;
+        console.log('PROBANDO FETCH MANUAL EDGE FUNCTION:', manualUrl);
+        const manualResponse = await fetch(manualUrl, {
+          method: 'POST',
+          headers: {
+            apikey: supabaseAnonKey,
+            Authorization: `Bearer ${supabaseAnonKey}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(payload),
+        });
+        console.log('FETCH MANUAL STATUS:', manualResponse.status, manualResponse.statusText);
         throw error;
       }
       return { data, error: null };
