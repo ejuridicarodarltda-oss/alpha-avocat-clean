@@ -8977,6 +8977,7 @@
     }
 
     function renderProduccionWorkspace(){
+      console.log('PANEL_D_RENDER');
       const wrap = $('produccionChatWorkspace');
       if (!wrap) return;
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
@@ -9020,10 +9021,14 @@
 
       const historyNode = $('produccionDraftHistory');
       if (historyNode) {
-        if (!state.produccionDraft.chatHistory.length) {
+        if (state.produccionDraft.isDraftLoading) {
+          historyNode.innerHTML = '<div><strong>ChatGPT:</strong> Generando borrador jurídico...</div>';
+        } else if (state.produccionDraft.draftError) {
+          historyNode.innerHTML = `<div style="color:#7f1d1d;"><strong>Error real:</strong> ${escapeHtml(state.produccionDraft.draftError)}</div>`;
+        } else if (!state.produccionDraft.draftIterations.length) {
           historyNode.textContent = 'Sin iteraciones aún.';
         } else {
-          historyNode.innerHTML = state.produccionDraft.chatHistory.slice(-12).map((entry, index) => `
+          historyNode.innerHTML = state.produccionDraft.draftIterations.slice(-12).map((entry, index) => `
             <div style="margin-bottom:8px; border-bottom:1px solid rgba(0,0,0,.1); padding-bottom:6px;">
               <strong>#${index + 1} · ${escapeHtml(entry.role === 'user' ? 'Usuario' : 'ChatGPT')}</strong>
               <div>${escapeHtml(String(entry.content || '').slice(0, 260))}</div>
@@ -9033,9 +9038,16 @@
       }
 
       const editor = $('produccionDraftEditor');
-      if (editor && !editor.value && state.produccionDraft.draftText) {
-        editor.value = state.produccionDraft.draftText;
+      if (editor) {
+        const nextDraft = state.produccionDraft.draftResponse || '';
+        if (editor.value !== nextDraft && document.activeElement !== editor) {
+          editor.value = nextDraft;
+        }
       }
+      const generateButton = $('btnGenerarBorradorChatGPT');
+      if (generateButton) generateButton.disabled = state.produccionDraft.isDraftLoading;
+      const regenerateButton = $('btnRegenerarBorradorChatGPT');
+      if (regenerateButton) regenerateButton.disabled = state.produccionDraft.isDraftLoading;
     }
 
     function resetProducirEscritosModal(){
@@ -9046,6 +9058,10 @@
       state.produccionDraft.chatHistory = [];
       state.produccionDraft.sessionId = '';
       state.produccionDraft.draftText = '';
+      state.produccionDraft.isDraftLoading = false;
+      state.produccionDraft.draftResponse = '';
+      state.produccionDraft.draftError = '';
+      state.produccionDraft.draftIterations = [];
       state.produccionDraft.wordGenerated = false;
       const editor = $('produccionDraftEditor');
       if (editor) editor.value = '';
@@ -9160,6 +9176,7 @@
     }
 
     async function callProduccionChatGpt({ mode = 'generate' } = {}){
+      console.log('ENTER_HANDLE_GENERATE_DRAFT');
       const selectedCaseId = state.produccionDraft.selectedCaseId || '';
       if (!selectedCaseId) {
         setMessage('producirEscritoMsg', 'Debes identificar y seleccionar una causa de Expedientes Digitales antes de generar.', 'error');
@@ -9183,7 +9200,10 @@
       const antecedentes = collectProduccionSelectedAntecedentes(selectedCause);
       const instrucciones = String($('producirEscritoInstrucciones')?.value || '').trim();
       const ajuste = String($('producirEscritoAjuste')?.value || '').trim();
+      state.produccionDraft.isDraftLoading = true;
+      state.produccionDraft.draftError = '';
       setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
+      renderProduccionWorkspace();
 
       const payload = {
         mode,
@@ -9210,70 +9230,68 @@
         history: state.produccionDraft.chatHistory.slice(-10),
       };
 
-      const { data, error } = await invokeProduccionDraftEdgeFunction(payload);
-      if (error || !data?.draft) {
-        const normalizedError = [
-          error?.context?.error,
-          error?.context?.message,
-          error?.message,
-          data?.error,
-          data?.details,
-          'Falló la respuesta de ChatGPT. Reintenta.',
-        ].find((item) => String(item || '').trim());
-        const historyNode = $('produccionDraftHistory');
-        if (historyNode) {
-          historyNode.innerHTML = `<div style="color:#7f1d1d;"><strong>Error real:</strong> ${escapeHtml(String(normalizedError || 'Error desconocido'))}</div>`;
+      try {
+        const { data, error } = await invokeProduccionDraftEdgeFunction(payload);
+        if (error || !data?.draft) {
+          const normalizedError = [
+            error?.context?.error,
+            error?.context?.message,
+            error?.message,
+            data?.error,
+            data?.details,
+            'Falló la respuesta de ChatGPT. Reintenta.',
+          ].find((item) => String(item || '').trim());
+          state.produccionDraft.draftError = String(normalizedError || 'Error desconocido');
+          state.produccionDraft.draftResponse = '';
+          setMessage('producirEscritoMsg', state.produccionDraft.draftError, 'error');
+          return;
         }
-        setMessage('producirEscritoMsg', String(normalizedError || 'Falló la respuesta de ChatGPT. Reintenta.'), 'error');
-        return;
+
+        const nextHistory = Array.isArray(data.history) ? data.history : state.produccionDraft.chatHistory;
+        state.produccionDraft.sessionId = String(data.sessionId || state.produccionDraft.sessionId || '');
+        state.produccionDraft.draftText = String(data.draft || '');
+        state.produccionDraft.chatHistory = nextHistory;
+        state.produccionDraft.draftResponse = state.produccionDraft.draftText;
+        state.produccionDraft.draftIterations = nextHistory;
+        state.produccionDraft.draftError = '';
+        setMessage('producirEscritoMsg', 'Borrador generado correctamente. Puedes iterar, guardar versión o exportar a Word.', 'ok');
+        const resultNode = $('producirEscritoResultado');
+        if (resultNode) resultNode.textContent = 'Borrador generado con IA real. Puedes continuar iterando sin cerrar este hilo de trabajo.';
+
+        await persistProduccionDraftVersion({
+          selectedCause,
+          tipoEscrito,
+          status: 'en_revision',
+          draftText: state.produccionDraft.draftResponse,
+        });
+      } catch (err) {
+        const normalizedError = String(err?.message || 'Falló la respuesta de ChatGPT. Reintenta.');
+        state.produccionDraft.draftError = normalizedError;
+        state.produccionDraft.draftResponse = '';
+        setMessage('producirEscritoMsg', normalizedError, 'error');
+      } finally {
+        state.produccionDraft.isDraftLoading = false;
+        renderProduccionWorkspace();
       }
-
-      state.produccionDraft.sessionId = String(data.sessionId || state.produccionDraft.sessionId || '');
-      state.produccionDraft.draftText = String(data.draft || '');
-      state.produccionDraft.chatHistory = Array.isArray(data.history) ? data.history : state.produccionDraft.chatHistory;
-      const editor = $('produccionDraftEditor');
-      if (editor) editor.value = state.produccionDraft.draftText;
-      renderProduccionWorkspace();
-      setMessage('producirEscritoMsg', 'Borrador generado correctamente. Puedes iterar, guardar versión o exportar a Word.', 'ok');
-      const resultNode = $('producirEscritoResultado');
-      if (resultNode) resultNode.textContent = 'Borrador generado con IA real. Puedes continuar iterando sin cerrar este hilo de trabajo.';
-
-      await persistProduccionDraftVersion({
-        selectedCause,
-        tipoEscrito,
-        status: 'en_revision',
-        draftText: state.produccionDraft.draftText,
-      });
     }
 
     async function invokeProduccionDraftEdgeFunction(payload){
-      console.log('SUPABASE INSTANCE:', supabase);
       if (!supabase) {
         throw new Error('Supabase no inicializado: instancia null/undefined');
       }
-      const runtimeEnv = (typeof process !== 'undefined' && process?.env) ? process.env : {};
-      console.log('SUPABASE URL:', runtimeEnv.SUPABASE_URL);
-      console.log('SUPABASE ANON KEY:', runtimeEnv.SUPABASE_ANON_KEY);
-      console.log('SUPABASE CLIENTE COMPARTIDO:', window.__ALPHA_SUPABASE_SINGLETON__ === supabase);
-      console.log('INTENTANDO INVOCAR EDGE FUNCTION');
+      console.log('BEFORE_EDGE_INVOKE');
       const { data, error } = await supabase.functions.invoke('production-chatgpt-draft', {
         body: payload,
       });
+      console.log('AFTER_EDGE_INVOKE');
       if (error) {
-        console.error('FUNCTION INVOKE ERROR:', error);
-        const manualUrl = `${supabaseUrl}/functions/v1/production-chatgpt-draft`;
-        console.log('PROBANDO FETCH MANUAL EDGE FUNCTION:', manualUrl);
-        const manualResponse = await fetch(manualUrl, {
-          method: 'POST',
-          headers: {
-            apikey: supabaseAnonKey,
-            Authorization: `Bearer ${supabaseAnonKey}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(payload),
-        });
-        console.log('FETCH MANUAL STATUS:', manualResponse.status, manualResponse.statusText);
-        throw error;
+        const normalizedError = new Error(String(error.message || 'No fue posible invocar production-chatgpt-draft.'));
+        normalizedError.context = {
+          name: error.name || 'FunctionsInvokeError',
+          message: error.message || '',
+          details: error.details || '',
+        };
+        throw normalizedError;
       }
       return { data, error: null };
     }
@@ -9313,6 +9331,7 @@
 
     async function submitProducirEscritos(event){
       event.preventDefault();
+      console.log('CLICK_GENERAR_BORRADOR');
       await callProduccionChatGpt({ mode: 'generate' });
     }
 
