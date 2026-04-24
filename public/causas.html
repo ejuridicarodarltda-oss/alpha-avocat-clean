@@ -2622,6 +2622,12 @@
           <label for="listadoCausasFile">Archivo Excel depurado tribunal</label>
           <input id="listadoCausasFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
         </div>
+        <div class="field">
+          <label for="listadoCausasSheetSelect">Hoja a procesar</label>
+          <select id="listadoCausasSheetSelect" class="input" disabled>
+            <option value="">Selecciona un archivo para cargar hojas</option>
+          </select>
+        </div>
         <div id="listadoCausasFileMeta" class="helper-box">No hay archivo seleccionado.</div>
         <div id="listadoCausasValidation" class="helper-box">Carga un archivo para generar vista previa y validaciones.</div>
         <div id="listadoCausasProgress" class="excel-progress-shell" role="status" aria-live="polite">
@@ -2680,6 +2686,12 @@
         <div class="field">
           <label for="estadoDiarioFile">Archivo Excel estado diario</label>
           <input id="estadoDiarioFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+        </div>
+        <div class="field">
+          <label for="estadoDiarioSheetSelect">Hoja a procesar</label>
+          <select id="estadoDiarioSheetSelect" class="input" disabled>
+            <option value="">Selecciona un archivo para cargar hojas</option>
+          </select>
         </div>
         <div id="estadoDiarioFileMeta" class="helper-box">No hay archivo seleccionado.</div>
         <div id="estadoDiarioValidation" class="helper-box">Carga un archivo para generar vista previa y validaciones.</div>
@@ -2931,8 +2943,8 @@
         },
       },
       excelUploads: {
-        listado: { file: null, parsed: null, lastUpload: null, isProcessing: false, cancelRequested: false, progress: null, lastProcess: null },
-        estado_diario: { file: null, parsed: null, lastUpload: null },
+        listado: { file: null, parsed: null, selectedSheetName: '', lastUpload: null, isProcessing: false, cancelRequested: false, progress: null, lastProcess: null },
+        estado_diario: { file: null, parsed: null, selectedSheetName: '', lastUpload: null },
       },
       produccionDraft: {
         matches: [],
@@ -10139,21 +10151,15 @@
       return normalized;
     }
 
-    function resolveExcelWorkbookSheet(workbook = {}, preferredSheetName = ''){
-      const sheetNames = Array.isArray(workbook.SheetNames) ? workbook.SheetNames : [];
-      if (!sheetNames.length) return { sheetName: '', sheet: null, hidden: false };
-      if (preferredSheetName && sheetNames.includes(preferredSheetName)) {
-        return { sheetName: preferredSheetName, sheet: workbook.Sheets?.[preferredSheetName] || null, hidden: false };
+    function getSheetPhysicalRowCount(XLSX, sheet){
+      const ref = String(sheet?.['!ref'] || '').trim();
+      if (!ref) return 0;
+      try {
+        const range = XLSX.utils.decode_range(ref);
+        return Number(range?.e?.r ?? -1) - Number(range?.s?.r ?? 0) + 1;
+      } catch (error) {
+        return 0;
       }
-      const workbookSheets = workbook.Workbook?.Sheets || [];
-      const firstVisible = sheetNames.find((name, index) => {
-        const sheetMeta = workbookSheets[index] || {};
-        return !sheetMeta || sheetMeta.Hidden !== 1;
-      });
-      const sheetName = firstVisible || sheetNames[0];
-      const sheetIndex = sheetNames.indexOf(sheetName);
-      const hidden = Boolean((workbookSheets[sheetIndex] || {}).Hidden === 1);
-      return { sheetName, sheet: workbook.Sheets?.[sheetName] || null, hidden };
     }
 
     function detectExcelHeaderRow(XLSX, sheet){
@@ -10182,6 +10188,29 @@
         normalizedHeaders: preferred ? preferred.headers : [],
         eraDetected,
       };
+    }
+
+    function buildWorkbookSheetOptions(type){
+      const isListado = type === 'listado';
+      const store = state.excelUploads[isListado ? 'listado' : 'estado_diario'];
+      const selectId = isListado ? 'listadoCausasSheetSelect' : 'estadoDiarioSheetSelect';
+      const selectNode = $(selectId);
+      if (!selectNode) return;
+      const options = Array.isArray(store?.parsed?.availableSheets) ? store.parsed.availableSheets : [];
+      if (!options.length) {
+        selectNode.innerHTML = '<option value="">Selecciona un archivo para cargar hojas</option>';
+        selectNode.disabled = true;
+        return;
+      }
+      const selected = store?.parsed?.sheetName || store?.selectedSheetName || options[0]?.sheetName || '';
+      selectNode.innerHTML = options.map((sheet) => {
+        const valid = Number(sheet.validRows || 0);
+        const dataRows = Number(sheet.dataRows || 0);
+        const suffix = sheet.sheetName === selected ? ' (seleccionada)' : '';
+        return `<option value="${escapeHtml(sheet.sheetName)}">${escapeHtml(sheet.sheetName)} · válidas ${valid} / con datos ${dataRows}${suffix}</option>`;
+      }).join('');
+      selectNode.value = selected;
+      selectNode.disabled = false;
     }
 
     function resolveExcelRowCanonical(row = {}){
@@ -10219,6 +10248,7 @@
     function renderExcelPreview(type){
       const isListado = type === 'listado';
       const store = state.excelUploads[isListado ? 'listado' : 'estado_diario'];
+      buildWorkbookSheetOptions(type);
       const fileMetaNode = $(isListado ? 'listadoCausasFileMeta' : 'estadoDiarioFileMeta');
       const validationNode = $(isListado ? 'listadoCausasValidation' : 'estadoDiarioValidation');
       const rowsNode = $(isListado ? 'listadoCausasPreviewRows' : 'estadoDiarioPreviewRows');
@@ -10233,14 +10263,16 @@
       if (store.parsed.duplicates > 0) warnings.push(`Duplicados detectados: ${store.parsed.duplicates}`);
       if (store.parsed.missingCritical?.length) warnings.push(`Columnas críticas ausentes: ${store.parsed.missingCritical.join(', ')}`);
       const validationSummary = [
-        `Filas leídas: ${store.parsed.totalRows}`,
-        `Filas válidas: ${store.parsed.validRows.length}`,
-        `Filas vacías: ${store.parsed.emptyRows}`,
-        `Errores estructurales: ${store.parsed.invalidRows}`,
+        `Hoja procesada: ${store.parsed.sheetName || '—'}`,
+        `Filas físicas: ${store.parsed.totalPhysicalRows ?? store.parsed.totalRows ?? 0}`,
+        `Filas con datos: ${store.parsed.totalRowsWithData ?? store.parsed.totalRows ?? 0}`,
+        `Filas válidas: ${store.parsed.totalValidRows ?? store.parsed.validRows.length}`,
+        `Filas descartadas: ${store.parsed.totalDiscardedRows ?? ((store.parsed.emptyRows || 0) + (store.parsed.invalidRows || 0))}`,
       ];
       if (validationNode) {
         const diagnostics = [
           `Hoja leída: ${store.parsed.sheetName || '—'}${store.parsed.sheetHidden ? ' (oculta)' : ''}`,
+          `Hojas detectadas: ${(store.parsed.sheetNames || []).join(', ') || '—'}`,
           `Fila encabezado detectada: ${store.parsed.headerRowNumber || '—'}`,
           `Encabezados detectados: ${(store.parsed.detectedHeaders || []).join(', ') || '—'}`,
         ];
@@ -10365,19 +10397,71 @@
       const xlsxModule = await ensureXlsxModule();
       const buffer = await file.arrayBuffer();
       const workbook = xlsxModule.read(buffer, { type: 'array', cellDates: true });
-      const { sheetName, sheet, hidden } = resolveExcelWorkbookSheet(workbook, options?.sheetName || '');
-      if (!sheetName || !sheet) throw new Error('El archivo no contiene hojas disponibles.');
-      const { headerRowIndex, normalizedHeaders, rows: rawRows, eraDetected } = detectExcelHeaderRow(xlsxModule, sheet);
-      if (headerRowIndex < 0) {
-        throw new Error('No se detectó una fila de encabezados válida. Debe incluir al menos Rol/RIT, Tribunal y Caratulado/Carátula.');
+      const sheetNames = Array.isArray(workbook?.SheetNames) ? workbook.SheetNames : [];
+      if (!sheetNames.length) throw new Error('El archivo no contiene hojas disponibles.');
+      const workbookSheets = workbook.Workbook?.Sheets || [];
+      const sheetAnalyses = sheetNames.map((sheetName, index) => {
+        const sheet = workbook.Sheets?.[sheetName] || null;
+        if (!sheet) {
+          return {
+            sheetName,
+            hidden: Boolean((workbookSheets[index] || {}).Hidden === 1),
+            physicalRows: 0,
+            headerRowIndex: -1,
+            detectedHeaders: [],
+            eraDetected: false,
+            dataRows: 0,
+            rawRows: [],
+            rows: [],
+            invalidHeader: true,
+          };
+        }
+        const { headerRowIndex, normalizedHeaders, rows: rawRows, eraDetected } = detectExcelHeaderRow(xlsxModule, sheet);
+        const parsedRows = headerRowIndex >= 0
+          ? xlsxModule.utils.sheet_to_json(sheet, { defval: '', raw: false, range: headerRowIndex })
+          : [];
+        const dataRows = rawRows.slice(Math.max(0, headerRowIndex + 1))
+          .filter((row) => (Array.isArray(row) ? row : []).some((value) => String(value || '').trim()))
+          .length;
+        return {
+          sheetName,
+          hidden: Boolean((workbookSheets[index] || {}).Hidden === 1),
+          physicalRows: getSheetPhysicalRowCount(xlsxModule, sheet),
+          headerRowIndex,
+          detectedHeaders: normalizedHeaders,
+          eraDetected,
+          dataRows,
+          rawRows,
+          rows: parsedRows,
+          invalidHeader: headerRowIndex < 0,
+        };
+      });
+      const sheetsWithHeader = sheetAnalyses.filter((item) => !item.invalidHeader);
+      if (!sheetsWithHeader.length) {
+        throw new Error('No se detectó una fila de encabezados válida en ninguna hoja. Debe incluir al menos Rol/RIT, Tribunal y Caratulado/Carátula.');
       }
+      const bestSheetByData = sheetsWithHeader
+        .slice()
+        .sort((a, b) => Number(b.dataRows || 0) - Number(a.dataRows || 0))[0];
+      const forcedSheetName = String(options?.sheetName || '').trim();
+      let selectedSheet = forcedSheetName
+        ? sheetsWithHeader.find((item) => item.sheetName === forcedSheetName)
+        : null;
+      if (!selectedSheet) selectedSheet = bestSheetByData;
+      if (!selectedSheet) throw new Error('No fue posible resolver la hoja a procesar.');
       const requiredCanonicalHeaders = ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
-      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !normalizedHeaders.includes(key));
+      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !(selectedSheet.detectedHeaders || []).includes(key));
       if (missingCanonicalHeaders.length) {
-        throw new Error(`Encabezados insuficientes en la fila detectada. Faltan: ${missingCanonicalHeaders.join(', ')}.`);
+        throw new Error(`Encabezados insuficientes en la hoja "${selectedSheet.sheetName}". Faltan: ${missingCanonicalHeaders.join(', ')}.`);
       }
-      const rows = xlsxModule.utils.sheet_to_json(sheet, { defval: '', raw: false, range: headerRowIndex });
-      if (!rows.length) throw new Error('El archivo Excel está vacío.');
+      const sheetName = selectedSheet.sheetName;
+      const hidden = selectedSheet.hidden;
+      const headerRowIndex = selectedSheet.headerRowIndex;
+      const normalizedHeaders = selectedSheet.detectedHeaders;
+      const rawRows = selectedSheet.rawRows;
+      const eraDetected = selectedSheet.eraDetected;
+      const rows = selectedSheet.rows;
+      if (!rows.length) throw new Error(`La hoja "${sheetName}" no contiene filas de datos.`);
       const validRows = [];
       let emptyRows = 0;
       let invalidRows = 0;
@@ -10416,17 +10500,36 @@
       } else if (!validRows.some((row) => row.rol || row.tribunal || row.caratula)) {
         missingCritical.push('identificador (rol / tribunal / carátula)');
       }
+      const workbookPhysicalRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.physicalRows || 0)), 0);
+      const workbookDataRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.dataRows || 0)), 0);
+      const selectedDataRows = Number(selectedSheet.dataRows || 0);
+      const warningSheetMismatch = workbookDataRows > 0 && selectedDataRows > 0 && selectedDataRows < Math.ceil(workbookDataRows * 0.6);
       return {
         sheetName,
         sheetHidden: hidden,
+        sheetNames,
+        availableSheets: sheetAnalyses.map((item) => ({
+          sheetName: item.sheetName,
+          hidden: item.hidden,
+          physicalRows: item.physicalRows,
+          dataRows: item.dataRows,
+          validRows: item.sheetName === sheetName ? validRows.length : 0,
+          hasHeader: !item.invalidHeader,
+        })),
         headerRowNumber: headerRowIndex + 1,
         detectedHeaders: normalizedHeaders,
         headerWarnings: [
           ...(eraDetected ? ['Se detectó encabezado "Era". Se priorizó una fila que incluyera "Tribunal".'] : []),
-          ...(workbook.SheetNames?.length > 1 && !options?.sheetName ? [`Se seleccionó automáticamente la hoja visible "${sheetName}".`] : []),
+          ...(sheetNames.length > 1 && !options?.sheetName ? [`Se seleccionó automáticamente la hoja con más filas con datos: "${sheetName}".`] : []),
+          ...(warningSheetMismatch ? ['El sistema solo detectó 52 filas, pero el archivo aparenta contener más registros. Revise hoja/rango seleccionado.'] : []),
         ],
         firstReadRows: rawRows.slice(headerRowIndex + 1, headerRowIndex + 6),
         totalRows: rows.length,
+        totalPhysicalRows: Number(selectedSheet.physicalRows || 0),
+        totalRowsWithData: selectedDataRows,
+        totalValidRows: validRows.length,
+        totalDiscardedRows: emptyRows + invalidRows,
+        workbookExpectedRows: workbookDataRows || workbookPhysicalRows || rows.length,
         emptyRows,
         invalidRows,
         duplicates,
@@ -10528,6 +10631,13 @@
       if (!store.parsed.validRows.length) throw new Error('No hay filas válidas para procesar.');
       if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
       if (key === 'listado') {
+        const detectedRows = Number(store.parsed.totalRowsWithData || store.parsed.totalRows || 0);
+        const expectedRows = Number(store.parsed.workbookExpectedRows || detectedRows || 0);
+        if (expectedRows > 0 && detectedRows > 0 && detectedRows < expectedRows) {
+          throw new Error('El sistema solo detectó 52 filas, pero el archivo aparenta contener más registros. Revise hoja/rango seleccionado.');
+        }
+      }
+      if (key === 'listado') {
         state.excelUploads.listado.isProcessing = true;
         state.excelUploads.listado.cancelRequested = false;
         setListadoProgress({
@@ -10535,7 +10645,7 @@
           stage: 'Leyendo Excel',
           status: 'running',
           subaction: `Preparando lote con ${store.parsed.validRows.length} filas válidas.`,
-          totalRows: store.parsed.totalRows,
+          totalRows: store.parsed.totalRowsWithData || store.parsed.totalRows,
           processedRows: 0,
           foundFolders: 0,
           updatedFolders: 0,
@@ -10553,7 +10663,7 @@
         file_name: store.file.name || 'archivo.xlsx',
         original_filename: store.file.name || 'archivo.xlsx',
         tribunal_name: store.parsed.validRows[0]?.tribunal || null,
-        total_rows: store.parsed.totalRows,
+        total_rows: store.parsed.totalRowsWithData || store.parsed.totalRows,
         valid_rows: store.parsed.validRows.length,
         empty_rows: store.parsed.emptyRows || 0,
         structural_errors: store.parsed.invalidRows || 0,
@@ -10704,7 +10814,7 @@
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
       }
       const processedCount = createdCases + updatedCases;
-      const discardedCount = Math.max(0, Number(store.parsed.totalRows || 0) - Number(processedCount || 0));
+      const discardedCount = Math.max(0, Number(store.parsed.totalRowsWithData || store.parsed.totalRows || 0) - Number(processedCount || 0));
       const structuralErrors = Number(store.parsed.invalidRows || 0);
       const emptyRows = Number(store.parsed.emptyRows || 0);
       const errorCount = processingErrors + structuralErrors;
@@ -10764,7 +10874,7 @@
           startedAt: batch?.created_at || new Date().toISOString(),
           finishedAt: new Date().toISOString(),
           finalStatus,
-          totalRows: store.parsed.totalRows,
+          totalRows: store.parsed.totalRowsWithData || store.parsed.totalRows,
           processedRows: processedCount,
           updatedFolders: updatedCases,
           unmatchedRows: createdCases,
@@ -10794,7 +10904,7 @@
         renderListadoProgress();
       }
       return {
-        totalRows: store.parsed.totalRows,
+        totalRows: store.parsed.totalRowsWithData || store.parsed.totalRows,
         validRows: store.parsed.validRows.length,
         createdCases,
         updatedCases,
@@ -14994,6 +15104,8 @@
         const file = $('listadoCausasFile')?.files?.[0] || null;
         state.excelUploads.listado.file = file;
         state.excelUploads.listado.parsed = null;
+        state.excelUploads.listado.selectedSheetName = '';
+        buildWorkbookSheetOptions('listado');
         if (!file) {
           setListadoProgress({ percent: 0, stage: 'Esperando archivo', status: 'idle', subaction: 'Sin actividad en curso.', totalRows: 0, processedRows: 0, foundFolders: 0, updatedFolders: 0, unmatchedRows: 0, errors: 0 });
         } else {
@@ -15007,12 +15119,14 @@
         try {
           setListadoProgress({ percent: 15, stage: 'Leyendo Excel', status: 'running', subaction: `Leyendo estructura de ${file.name}...` });
           state.excelUploads.listado.parsed = await parseExcelUploadFile('listado', file);
+          state.excelUploads.listado.selectedSheetName = state.excelUploads.listado.parsed.sheetName || '';
+          buildWorkbookSheetOptions('listado');
           setListadoProgress({
             percent: 22,
             stage: 'Normalizando datos',
             status: 'running',
             subaction: `Filas válidas detectadas: ${state.excelUploads.listado.parsed.validRows.length}`,
-            totalRows: state.excelUploads.listado.parsed.totalRows,
+            totalRows: state.excelUploads.listado.parsed.totalRowsWithData || state.excelUploads.listado.parsed.totalRows,
             processedRows: 0,
             foundFolders: 0,
             updatedFolders: 0,
@@ -15031,6 +15145,8 @@
         const file = $('estadoDiarioFile')?.files?.[0] || null;
         state.excelUploads.estado_diario.file = file;
         state.excelUploads.estado_diario.parsed = null;
+        state.excelUploads.estado_diario.selectedSheetName = '';
+        buildWorkbookSheetOptions('estado');
         setMessage('estadoDiarioMsg', '', '');
         if (!file) {
           renderExcelPreview('estado');
@@ -15038,11 +15154,42 @@
         }
         try {
           state.excelUploads.estado_diario.parsed = await parseExcelUploadFile('estado', file);
+          state.excelUploads.estado_diario.selectedSheetName = state.excelUploads.estado_diario.parsed.sheetName || '';
+          buildWorkbookSheetOptions('estado');
           renderExcelPreview('estado');
           setMessage('estadoDiarioMsg', 'Archivo validado. Revisa la vista previa y confirma para guardar.', 'ok');
         } catch (error) {
           renderExcelPreview('estado');
           setMessage('estadoDiarioMsg', error?.message || 'No fue posible leer el archivo.', 'error');
+        }
+      }, { scope: 'excel-estado' });
+      bindEvent('listadoCausasSheetSelect', 'change', async (event) => {
+        const file = state.excelUploads.listado.file;
+        const sheetName = String(event?.target?.value || '').trim();
+        state.excelUploads.listado.selectedSheetName = sheetName;
+        if (!file || !sheetName) return;
+        try {
+          setListadoProgress({ percent: 18, stage: 'Leyendo Excel', status: 'running', subaction: `Releyendo hoja "${sheetName}"...` });
+          state.excelUploads.listado.parsed = await parseExcelUploadFile('listado', file, { sheetName });
+          buildWorkbookSheetOptions('listado');
+          renderExcelPreview('listado');
+          setMessage('listadoCausasMsg', `Hoja "${sheetName}" lista para procesar.`, 'ok');
+        } catch (error) {
+          setMessage('listadoCausasMsg', error?.message || 'No fue posible cambiar de hoja.', 'error');
+        }
+      }, { scope: 'excel-listado' });
+      bindEvent('estadoDiarioSheetSelect', 'change', async (event) => {
+        const file = state.excelUploads.estado_diario.file;
+        const sheetName = String(event?.target?.value || '').trim();
+        state.excelUploads.estado_diario.selectedSheetName = sheetName;
+        if (!file || !sheetName) return;
+        try {
+          state.excelUploads.estado_diario.parsed = await parseExcelUploadFile('estado', file, { sheetName });
+          buildWorkbookSheetOptions('estado');
+          renderExcelPreview('estado');
+          setMessage('estadoDiarioMsg', `Hoja "${sheetName}" lista para procesar.`, 'ok');
+        } catch (error) {
+          setMessage('estadoDiarioMsg', error?.message || 'No fue posible cambiar de hoja.', 'error');
         }
       }, { scope: 'excel-estado' });
       bindEvent('formListadoCausas', 'submit', async (event) => {
