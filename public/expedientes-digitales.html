@@ -246,6 +246,7 @@
               <button id="excelDepuradoProcessBtn" class="manual-btn" type="button">Procesar Excel depurado</button>
             </div>
             <div id="excelDepuradoStatus" class="manual-status" aria-live="polite"></div>
+            <div id="excelDepuradoDebug" class="excel-upload-report" hidden></div>
             <div id="excelDepuradoReport" class="excel-upload-report" hidden></div>
           </div>
           <div class="matter-grid" id="matterFolders"></div>
@@ -764,6 +765,70 @@
       const yyyy = Number(match[3]) < 100 ? `20${String(match[3]).padStart(2, '0')}` : String(match[3]);
       return `${yyyy}-${mm}-${dd}`;
     }
+    function buildExcelDepuradoDebugCandidates(allCandidates = [], rowTribunalKey = '', rowRolParsed = null, rowRolUsed = '') {
+      const scored = (Array.isArray(allCandidates) ? allCandidates : []).map((item) => {
+        const rolCarpeta = String(item?.[C.kRol] || item?.[C.kRit] || item?.[C.kRuc] || item?.id || '').trim();
+        const tribunalCarpeta = String(item?.[C.kTrib] || item?.[C.kCourt] || '').trim();
+        const tribunalMatches = normalizeCauseIdentityTribunal(tribunalCarpeta) === rowTribunalKey;
+        const rolParsed = parseRolComponents(rolCarpeta);
+        const exactRole = rolesMatchExactly(rowRolUsed, rolCarpeta);
+        const numberYearMatch = Boolean(rowRolParsed?.numero && rowRolParsed?.year && rolParsed?.numero && rolParsed?.year
+          && rowRolParsed.numero === rolParsed.numero
+          && rowRolParsed.year === rolParsed.year);
+        const score = (exactRole ? 12 : 0) + (numberYearMatch ? 8 : 0) + (tribunalMatches ? 6 : 0);
+        return { rolCarpeta, tribunalCarpeta, tribunalMatches, numberYearMatch, exactRole, score };
+      });
+      return scored
+        .sort((a, b) => b.score - a.score || a.rolCarpeta.localeCompare(b.rolCarpeta, 'es'))
+        .slice(0, 5);
+    }
+    function computeNoMatchReasons(rowRolParsed = null, rowTribunalKey = '', allCandidates = []) {
+      if (!rowRolParsed?.numero || !rowRolParsed?.year || !rowTribunalKey) return ['rol no comparable'];
+      const parsedCandidates = (Array.isArray(allCandidates) ? allCandidates : []).map((item) => ({
+        tribunalKey: normalizeCauseIdentityTribunal(item?.[C.kTrib] || item?.[C.kCourt] || ''),
+        role: parseRolComponents(String(item?.[C.kRol] || item?.[C.kRit] || item?.[C.kRuc] || item?.id || '').trim()),
+      }));
+      const hasComparableRole = parsedCandidates.some((entry) => entry.role?.numero && entry.role?.year);
+      if (!hasComparableRole) return ['rol no comparable'];
+      const hasSameNumber = parsedCandidates.some((entry) => entry.role?.numero === rowRolParsed.numero);
+      const hasSameYear = parsedCandidates.some((entry) => entry.role?.year === rowRolParsed.year);
+      const hasSameTribunal = parsedCandidates.some((entry) => entry.tribunalKey && entry.tribunalKey === rowTribunalKey);
+      const reasons = [];
+      if (!hasSameNumber) reasons.push('número distinto');
+      if (!hasSameYear) reasons.push('año distinto');
+      if (!hasSameTribunal) reasons.push('tribunal distinto');
+      return reasons.length ? reasons : ['rol no comparable'];
+    }
+    function renderExcelDepuradoDebug(report = null) {
+      const node = document.getElementById('excelDepuradoDebug');
+      if (!node) return;
+      const rows = Array.isArray(report?.debugRows) ? report.debugRows : [];
+      if (!rows.length) {
+        node.hidden = true;
+        node.innerHTML = '';
+        return;
+      }
+      node.hidden = false;
+      node.innerHTML = `
+        <strong>Debug controlado (primeras ${escapeHtml(String(rows.length))} filas)</strong>
+        ${rows.map((row) => `
+          <article class="excel-debug-row" style="margin-top:10px;padding-top:10px;border-top:1px dashed rgba(148,163,184,.35)">
+            <div><strong>Fila ${escapeHtml(String(row.rowNumber || ''))}</strong></div>
+            <div>rolExcelOriginal: <strong>${escapeHtml(row.rolExcelOriginal || '')}</strong></div>
+            <div>rolExcelUsado: <strong>${escapeHtml(row.rolExcelUsado || '')}</strong></div>
+            <div>tribunalExcelOriginal: <strong>${escapeHtml(row.tribunalExcelOriginal || '')}</strong></div>
+            <div>tribunalExcelNormalizado: <strong>${escapeHtml(row.tribunalExcelNormalizado || '')}</strong></div>
+            <div style="margin-top:6px"><strong>Carpetas candidatas (máx. 5):</strong></div>
+            ${row.candidates?.length
+              ? `<ul>${row.candidates.map((candidate) => `<li>rolCarpeta: ${escapeHtml(candidate.rolCarpeta || '')} · tribunalCarpeta: ${escapeHtml(candidate.tribunalCarpeta || '')}</li>`).join('')}</ul>`
+              : '<div class="muted">Sin candidatas</div>'}
+            <div><strong>Comparación:</strong> match exacto: ${row.comparison?.exact ? 'SI' : 'NO'} · match flexible número+año: ${row.comparison?.numberYear ? 'SI' : 'NO'} · tribunal coincide: ${row.comparison?.tribunal ? 'SI' : 'NO'}</div>
+            <div><strong>Decisión final:</strong> carpeta encontrada: ${escapeHtml(row.decision?.folder || 'N/A')} · resultado: ${escapeHtml(row.decision?.result || 'sin coincidencia')}</div>
+            ${row.noMatchReasons?.length ? `<div><strong>No coincide porque:</strong><ul>${row.noMatchReasons.map((reason) => `<li>${escapeHtml(reason)}</li>`).join('')}</ul></div>` : ''}
+          </article>
+        `).join('')}
+      `;
+    }
     function renderExcelDepuradoReport(report = null) {
       const node = document.getElementById('excelDepuradoReport');
       if (!node) return;
@@ -1204,6 +1269,7 @@
       }
       statusNode.className = 'manual-status';
       statusNode.textContent = 'Procesando Excel depurado y buscando carpetas existentes...';
+      renderExcelDepuradoDebug(null);
       const report = {
         rowsRead: 0,
         updatedFolders: 0,
@@ -1220,6 +1286,7 @@
         formatErrors: [],
         preliminaryHidden: false,
         warnings: [],
+        debugRows: [],
       };
       try {
         const xlsx = await ensureXlsxModule();
@@ -1271,10 +1338,12 @@
           }
           const rawExcelRole = readRawExcelRole(source);
           const roleUsedForComparison = cleanRawRoleOnly(rawExcelRole);
+          const tribunalOriginal = String(source.tribunal || '').trim();
+          const tribunalNormalizado = normalizeTribunal(tribunalOriginal);
           const normalizedRow = {
             rit: roleUsedForComparison,
             rawExcelRole,
-            tribunal: normalizeTribunal(source.tribunal || ''),
+            tribunal: tribunalNormalizado,
             caratulado: String(source.caratulado || '').trim(),
             fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
             estadoCausa: String(source.estado_causa || '').trim(),
@@ -1287,12 +1356,62 @@
               row: i + 2,
               error: `Error crítico de rol: Excel="${rawExcelRole}" vs comparación="${roleUsedForComparison}".`,
             });
+            if (report.debugRows.length < 10) {
+              report.debugRows.push({
+                rowNumber: i + 2,
+                rolExcelOriginal: rawExcelRole,
+                rolExcelUsado: roleUsedForComparison,
+                tribunalExcelOriginal: tribunalOriginal,
+                tribunalExcelNormalizado: tribunalNormalizado,
+                candidates: [],
+                comparison: { exact: false, numberYear: false, tribunal: false },
+                decision: { folder: 'N/A', result: 'sin coincidencia' },
+                noMatchReasons: ['rol no comparable'],
+              });
+            }
             continue;
           }
           const rowRolParsed = parseRolComponents(normalizedRow.rit);
           const rowTribunalKey = normalizeCauseIdentityTribunal(normalizedRow.tribunal);
+          const exactMatches = allCases.filter((item) => {
+            const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
+            const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
+            return rolesMatchExactly(normalizedRow.rit, rolCandidate)
+              && normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey;
+          });
+          const numberYearMatches = allCases.filter((item) => {
+            const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
+            const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
+            return normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey
+              && rolesMatchByNumberYearOnly(normalizedRow.rit, rolCandidate);
+          });
+          const tribunalMatches = allCases.filter((item) => {
+            const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
+            return normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey;
+          });
+          const debugCandidates = buildExcelDepuradoDebugCandidates(allCases, rowTribunalKey, rowRolParsed, normalizedRow.rit);
+          const debugEntry = {
+            rowNumber: i + 2,
+            rolExcelOriginal: rawExcelRole,
+            rolExcelUsado: roleUsedForComparison,
+            tribunalExcelOriginal: tribunalOriginal,
+            tribunalExcelNormalizado: tribunalNormalizado,
+            candidates: debugCandidates,
+            comparison: {
+              exact: exactMatches.length > 0,
+              numberYear: numberYearMatches.length > 0,
+              tribunal: tribunalMatches.length > 0,
+            },
+            decision: {
+              folder: 'N/A',
+              result: 'sin coincidencia',
+            },
+            noMatchReasons: [],
+          };
           if (!rowTribunalKey || !rowRolParsed?.numero || !rowRolParsed?.year) {
             report.formatErrors.push({ row: i + 2, error: 'RIT/Rol o tribunal inválido para comparación directa y fallback número-año.' });
+            debugEntry.noMatchReasons = ['rol no comparable'];
+            if (report.debugRows.length < 10) report.debugRows.push(debugEntry);
             continue;
           }
           const key = `${normalizeVisibleRol(normalizedRow.rit)}::${rowTribunalKey}::${rowRolParsed.numero}-${rowRolParsed.year}`;
@@ -1301,12 +1420,6 @@
             continue;
           }
           seen.add(key);
-          const exactMatches = allCases.filter((item) => {
-            const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
-            const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
-            return rolesMatchExactly(normalizedRow.rit, rolCandidate)
-              && normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey;
-          });
           let matchType = '';
           let candidateMatches = exactMatches;
           if (!candidateMatches.length) {
@@ -1322,6 +1435,8 @@
           }
           if (!candidateMatches.length) {
             report.missingFolderRows.push(normalizedRow);
+            debugEntry.noMatchReasons = computeNoMatchReasons(rowRolParsed, rowTribunalKey, allCases);
+            if (report.debugRows.length < 10) report.debugRows.push(debugEntry);
             continue;
           }
           if (candidateMatches.length > 1) {
@@ -1329,6 +1444,11 @@
               ...normalizedRow,
               candidates: candidateMatches.map((item) => String(item[C.kRol] || item[C.kRit] || item[C.kRuc] || item.id || '').trim()),
             });
+            debugEntry.decision = {
+              folder: candidateMatches.map((item) => String(item[C.kRol] || item[C.kRit] || item[C.kRuc] || item.id || '').trim()).join(', ') || 'N/A',
+              result: 'múltiple',
+            };
+            if (report.debugRows.length < 10) report.debugRows.push(debugEntry);
             continue;
           }
           const cause = candidateMatches[0];
@@ -1374,9 +1494,15 @@
           if (matchType === 'number_year') report.numberYearMatchRows.push(normalizedRow);
           report.updatedFolders += 1;
           report.updatedMetadataRows += 1;
+          debugEntry.decision = {
+            folder: String(cause[C.kRol] || cause[C.kRit] || cause[C.kRuc] || cause.id || '').trim() || 'N/A',
+            result: 'actualizado',
+          };
+          if (report.debugRows.length < 10) report.debugRows.push(debugEntry);
         }
         report.preliminaryHidden = report.updatedFolders > 0;
         saveJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, report);
+        renderExcelDepuradoDebug(report);
         renderExcelDepuradoReport(report);
         statusNode.className = 'manual-status ok';
         statusNode.textContent = `Carga completada. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin coincidencia: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
