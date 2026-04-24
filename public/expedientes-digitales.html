@@ -371,7 +371,23 @@
     const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
     const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
-    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha ingreso', 'estado causa', 'institucion'];
+    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa', 'institucion'];
+    const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
+      rit: ['rit', 'rol'],
+      tribunal: ['tribunal', 'juzgado', 'tribunal de letras'],
+      caratulado: ['caratulado', 'carátula', 'caratula'],
+      fecha_ingreso: ['fecha ingreso', 'fecha', 'ingreso'],
+      estado_causa: ['estado', 'estado causa'],
+      institucion: ['institución', 'institucion'],
+    };
+    const EXCEL_DEPURADO_COLUMN_LABELS = {
+      rit: 'Rit',
+      tribunal: 'Tribunal',
+      caratulado: 'Caratulado',
+      fecha_ingreso: 'Fecha Ingreso',
+      estado_causa: 'Estado Causa',
+      institucion: 'Institución',
+    };
     const ALLOWED_UPLOAD_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.zip';
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
@@ -630,8 +646,29 @@
       }
       throw new Error(`No fue posible cargar el motor XLSX. ${lastError?.message || ''}`.trim());
     }
-    function normalizeExcelHeaderKey(value = '') {
-      return normalize(value).replace(/[^a-z0-9]+/g, ' ').trim();
+    function normalizeExcelHeaderCanonical(value = '') {
+      return normalize(value).replace(/[^a-z0-9]+/g, '');
+    }
+    function resolveExcelDepuradoHeaders(raw = {}) {
+      const detectedHeaders = Object.keys(raw || {});
+      const canonicalToOriginal = new Map();
+      detectedHeaders.forEach((header) => {
+        const canonical = normalizeExcelHeaderCanonical(header);
+        if (!canonical || canonicalToOriginal.has(canonical)) return;
+        canonicalToOriginal.set(canonical, header);
+      });
+      const resolved = {};
+      const missing = [];
+      EXCEL_DEPURADO_REQUIRED_COLUMNS.forEach((requiredKey) => {
+        const aliases = EXCEL_DEPURADO_COLUMN_EQUIVALENCES[requiredKey] || [requiredKey];
+        const matched = aliases.find((alias) => canonicalToOriginal.has(normalizeExcelHeaderCanonical(alias)));
+        if (!matched) {
+          missing.push(requiredKey);
+          return;
+        }
+        resolved[requiredKey] = canonicalToOriginal.get(normalizeExcelHeaderCanonical(matched));
+      });
+      return { resolved, missing, detectedHeaders };
     }
     function parseDateFromExcel(raw = '') {
       const value = String(raw || '').trim();
@@ -1067,21 +1104,26 @@
         const rows = xlsx.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
         if (!rows.length) throw new Error('El Excel depurado no contiene filas.');
         const seen = new Set();
+        let resolvedHeaders = null;
         for (let i = 0; i < rows.length; i += 1) {
           const raw = rows[i] || {};
-          const normalizedMap = {};
-          Object.entries(raw).forEach(([key, value]) => { normalizedMap[normalizeExcelHeaderKey(key)] = value; });
-          if (i === 0) {
-            const missingCols = EXCEL_DEPURADO_REQUIRED_COLUMNS.filter((column) => !(column in normalizedMap));
-            if (missingCols.length) throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}`);
+          if (!resolvedHeaders) {
+            const resolution = resolveExcelDepuradoHeaders(raw);
+            if (resolution.missing.length) {
+              const missingLabel = resolution.missing
+                .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
+                .join(', ');
+              throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
+            }
+            resolvedHeaders = resolution.resolved;
           }
           const normalizedRow = {
-            rit: normalizeVisibleRol(normalizedMap.rit || normalizedMap.rol || ''),
-            tribunal: normalizeTribunal(normalizedMap.tribunal || ''),
-            caratulado: String(normalizedMap.caratulado || '').trim(),
-            fechaIngreso: parseDateFromExcel(normalizedMap['fecha ingreso'] || ''),
-            estadoCausa: String(normalizedMap['estado causa'] || '').trim(),
-            institucion: String(normalizedMap.institucion || '').trim(),
+            rit: normalizeVisibleRol(raw[resolvedHeaders.rit] || ''),
+            tribunal: normalizeTribunal(raw[resolvedHeaders.tribunal] || ''),
+            caratulado: String(raw[resolvedHeaders.caratulado] || '').trim(),
+            fechaIngreso: parseDateFromExcel(raw[resolvedHeaders.fecha_ingreso] || ''),
+            estadoCausa: String(raw[resolvedHeaders.estado_causa] || '').trim(),
+            institucion: String(raw[resolvedHeaders.institucion] || '').trim(),
           };
           report.rowsRead += 1;
           const key = buildCauseIdentityKey({ rol: normalizedRow.rit, tribunal: normalizedRow.tribunal });
