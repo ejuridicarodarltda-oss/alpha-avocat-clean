@@ -132,6 +132,9 @@
     .excel-upload-report{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px;display:grid;gap:6px}
     .excel-upload-report ul{margin:0;padding-left:18px}
     .excel-upload-report[hidden]{display:none}
+    .excel-debug-panel{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px;display:grid;gap:6px}
+    .excel-debug-panel ul{margin:0;padding-left:18px}
+    .excel-debug-panel[hidden]{display:none}
     .folder-nav-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
     .folder-nav-btn{appearance:none;border:1px solid #b9ddd6;background:#f8fffd;border-radius:12px;padding:12px;text-align:left;cursor:pointer}
     .folder-nav-btn:hover{border-color:#163A5F;box-shadow:0 6px 12px rgba(11,37,34,.1)}
@@ -247,6 +250,7 @@
             </div>
             <div id="excelDepuradoStatus" class="manual-status" aria-live="polite"></div>
             <div id="excelDepuradoReport" class="excel-upload-report" hidden></div>
+            <div id="excelDepuradoDebugPanel" class="excel-debug-panel" hidden></div>
           </div>
           <div class="matter-grid" id="matterFolders"></div>
         </article>
@@ -801,6 +805,28 @@
         ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
+      `;
+    }
+    function renderExcelDepuradoDebugPanel(report = null) {
+      const node = document.getElementById('excelDepuradoDebugPanel');
+      if (!node) return;
+      if (!report) {
+        node.hidden = true;
+        node.innerHTML = '';
+        return;
+      }
+      const exact = Array.isArray(report.exactMatchRows) ? report.exactMatchRows : [];
+      const numberYear = Array.isArray(report.numberYearMatchRows) ? report.numberYearMatchRows : [];
+      const multiple = Array.isArray(report.multipleMatchesRows) ? report.multipleMatchesRows : [];
+      const unmatched = Array.isArray(report.missingFolderRows) ? report.missingFolderRows : [];
+      node.hidden = false;
+      node.innerHTML = `
+        <strong>Panel debug · Coincidencias Excel depurado</strong>
+        <div class="muted">Se muestra debajo del reporte final para revisar cómo se resolvió cada coincidencia.</div>
+        <div>Exactas: <strong>${escapeHtml(String(exact.length))}</strong> · Número+Año: <strong>${escapeHtml(String(numberYear.length))}</strong> · Múltiples: <strong>${escapeHtml(String(multiple.length))}</strong> · Sin carpeta: <strong>${escapeHtml(String(unmatched.length))}</strong></div>
+        ${exact.length ? `<div><strong>Match exacto (muestra):</strong><ul>${exact.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${numberYear.length ? `<div><strong>Match por número+año (muestra):</strong><ul>${numberYear.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${multiple.length ? `<div><strong>Coincidencias múltiples (muestra):</strong><ul>${multiple.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
       `;
     }
     function findClientMatchByInstitution(institucion = '') {
@@ -1379,6 +1405,7 @@
         report.preliminaryHidden = report.updatedFolders > 0;
         saveJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, report);
         renderExcelDepuradoReport(report);
+        renderExcelDepuradoDebugPanel(report);
         statusNode.className = 'manual-status ok';
         statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
         await loadData();
@@ -2386,7 +2413,9 @@
 
     activeSearch = readCrossSearchFromQuery();
     if (activeSearch) document.getElementById('expedientesSearchInput').value = activeSearch;
-    renderExcelDepuradoReport(loadJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, null));
+    const cachedExcelDepuradoReport = loadJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, null);
+    renderExcelDepuradoReport(cachedExcelDepuradoReport);
+    renderExcelDepuradoDebugPanel(cachedExcelDepuradoReport);
 
     ensureAuth().then(loadData);
   </script>
