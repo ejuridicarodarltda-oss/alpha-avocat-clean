@@ -1764,6 +1764,76 @@
       color:var(--causas-text-secondary);
     }
 
+    .causas-page .excel-progress-shell{
+      border:1px solid rgba(31,90,83,.22);
+      border-radius:14px;
+      background:rgba(255,255,255,.85);
+      padding:12px;
+      display:grid;
+      gap:10px;
+    }
+
+    .causas-page .excel-progress-head{
+      display:flex;
+      justify-content:space-between;
+      align-items:center;
+      gap:8px;
+      flex-wrap:wrap;
+      font-size:13px;
+      color:var(--causas-text-secondary);
+    }
+
+    .causas-page .excel-progress-stage{
+      font-weight:700;
+      color:var(--causas-title-dark);
+    }
+
+    .causas-page .excel-progress-subaction{
+      font-size:13px;
+      color:var(--causas-text-secondary);
+      min-height:1.4em;
+    }
+
+    .causas-page .excel-progress-spinner{
+      width:14px;
+      height:14px;
+      border-radius:50%;
+      border:2px solid rgba(31,90,83,.25);
+      border-top-color:#1f6b62;
+      animation:excel-spinner .9s linear infinite;
+      display:none;
+    }
+
+    .causas-page .excel-progress-shell.is-running .excel-progress-spinner{
+      display:inline-block;
+    }
+
+    .causas-page .excel-progress-counts{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:8px;
+    }
+
+    .causas-page .excel-progress-count{
+      border:1px solid rgba(22,58,95,.12);
+      border-radius:10px;
+      background:rgba(245,250,255,.9);
+      padding:8px;
+      font-size:12px;
+      color:var(--causas-text-secondary);
+    }
+
+    .causas-page .excel-progress-count strong{
+      display:block;
+      font-size:16px;
+      color:var(--causas-text);
+      margin-top:2px;
+    }
+
+    @keyframes excel-spinner{
+      to{ transform:rotate(360deg); }
+    }
+
     .causas-page .empty-state{
       padding:28px;
       text-align:center;
@@ -2554,6 +2624,27 @@
         </div>
         <div id="listadoCausasFileMeta" class="helper-box">No hay archivo seleccionado.</div>
         <div id="listadoCausasValidation" class="helper-box">Carga un archivo para generar vista previa y validaciones.</div>
+        <div id="listadoCausasProgress" class="excel-progress-shell" role="status" aria-live="polite">
+          <div class="excel-progress-head">
+            <span id="listadoCausasProgressStage" class="excel-progress-stage">Esperando archivo</span>
+            <span id="listadoCausasProgressPercent">0%</span>
+            <span id="listadoCausasProgressSpinner" class="excel-progress-spinner" aria-hidden="true"></span>
+          </div>
+          <div class="pjud-access-progress is-waiting" id="listadoCausasProgressBar">
+            <div class="pjud-access-progress-bar">
+              <div id="listadoCausasProgressFill" class="pjud-access-progress-fill" style="width:0%"></div>
+            </div>
+          </div>
+          <div id="listadoCausasProgressSubaction" class="excel-progress-subaction">Sin actividad en curso.</div>
+          <div class="excel-progress-counts">
+            <div class="excel-progress-count">Total filas Excel<strong id="listadoCountTotalRows">0</strong></div>
+            <div class="excel-progress-count">Filas procesadas<strong id="listadoCountProcessedRows">0</strong></div>
+            <div class="excel-progress-count">Carpetas encontradas<strong id="listadoCountFoundFolders">0</strong></div>
+            <div class="excel-progress-count">Carpetas actualizadas<strong id="listadoCountUpdatedFolders">0</strong></div>
+            <div class="excel-progress-count">Filas sin coincidencia<strong id="listadoCountUnmatchedRows">0</strong></div>
+            <div class="excel-progress-count">Errores<strong id="listadoCountErrors">0</strong></div>
+          </div>
+        </div>
         <div class="table-wrap">
           <table class="table">
             <thead>
@@ -2565,8 +2656,10 @@
           </table>
         </div>
         <div id="listadoCausasLastUpload" class="helper-box">Última carga: sin registros.</div>
+        <div id="listadoCausasLastProcess" class="helper-box">Último proceso ejecutado: sin registros.</div>
         <div class="modal-actions">
           <button type="button" class="btn" data-close="1" data-modal-id="modalListadoCausas">Cancelar</button>
+          <button id="btnCancelarListadoCausasProceso" type="button" class="btn">Cancelar proceso</button>
           <button id="btnConfirmarListadoCausas" type="submit" class="btn btn-primary">Procesar Excel depurado</button>
         </div>
         <div id="listadoCausasMsg" class="msg" aria-live="polite"></div>
@@ -2735,6 +2828,7 @@
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
     const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
+    const EXCEL_LISTADO_LAST_PROCESS_STORAGE_KEY = 'alpha-causas-excel-listado-last-process-v1';
     const GENERAL_PJUD_EXCEL_SOURCE_TYPE = 'pjud_general_excel_panel';
     const GENERAL_PJUD_EXCEL_STORAGE_BUCKET = 'case-files';
     const CASE_DOCUMENT_STORAGE_BUCKET = 'case-files';
@@ -2837,7 +2931,7 @@
         },
       },
       excelUploads: {
-        listado: { file: null, parsed: null, lastUpload: null },
+        listado: { file: null, parsed: null, lastUpload: null, isProcessing: false, cancelRequested: false, progress: null, lastProcess: null },
         estado_diario: { file: null, parsed: null, lastUpload: null },
       },
       produccionDraft: {
@@ -10101,6 +10195,94 @@
       }).join('');
     }
 
+    function buildListadoProgressSnapshot(overrides = {}){
+      const current = state.excelUploads.listado.progress || {};
+      return {
+        percent: Number(overrides.percent ?? current.percent ?? 0),
+        stage: String(overrides.stage ?? current.stage ?? 'Esperando archivo'),
+        status: String(overrides.status ?? current.status ?? 'idle'),
+        subaction: String(overrides.subaction ?? current.subaction ?? 'Sin actividad en curso.'),
+        totalRows: Number(overrides.totalRows ?? current.totalRows ?? 0),
+        processedRows: Number(overrides.processedRows ?? current.processedRows ?? 0),
+        foundFolders: Number(overrides.foundFolders ?? current.foundFolders ?? 0),
+        updatedFolders: Number(overrides.updatedFolders ?? current.updatedFolders ?? 0),
+        unmatchedRows: Number(overrides.unmatchedRows ?? current.unmatchedRows ?? 0),
+        errors: Number(overrides.errors ?? current.errors ?? 0),
+      };
+    }
+
+    function renderListadoProgress(){
+      const progress = buildListadoProgressSnapshot();
+      state.excelUploads.listado.progress = progress;
+      const shell = $('listadoCausasProgress');
+      const percent = Math.max(0, Math.min(100, Number(progress.percent || 0)));
+      if ($('listadoCausasProgressPercent')) $('listadoCausasProgressPercent').textContent = `${Math.round(percent)}%`;
+      if ($('listadoCausasProgressStage')) $('listadoCausasProgressStage').textContent = progress.stage;
+      if ($('listadoCausasProgressSubaction')) $('listadoCausasProgressSubaction').textContent = progress.subaction;
+      if ($('listadoCausasProgressFill')) $('listadoCausasProgressFill').style.width = `${percent}%`;
+      if ($('listadoCountTotalRows')) $('listadoCountTotalRows').textContent = String(progress.totalRows);
+      if ($('listadoCountProcessedRows')) $('listadoCountProcessedRows').textContent = String(progress.processedRows);
+      if ($('listadoCountFoundFolders')) $('listadoCountFoundFolders').textContent = String(progress.foundFolders);
+      if ($('listadoCountUpdatedFolders')) $('listadoCountUpdatedFolders').textContent = String(progress.updatedFolders);
+      if ($('listadoCountUnmatchedRows')) $('listadoCountUnmatchedRows').textContent = String(progress.unmatchedRows);
+      if ($('listadoCountErrors')) $('listadoCountErrors').textContent = String(progress.errors);
+      if (shell) {
+        shell.classList.toggle('is-running', progress.status === 'running');
+      }
+      const progressBar = $('listadoCausasProgressBar');
+      if (progressBar) {
+        progressBar.classList.remove('is-waiting', 'is-error', 'is-completed');
+        if (progress.status === 'running') progressBar.classList.add('is-waiting');
+        if (progress.status === 'error') progressBar.classList.add('is-error');
+        if (progress.status === 'success' || progress.status === 'success_with_errors') progressBar.classList.add('is-completed');
+      }
+      const submitBtn = $('btnConfirmarListadoCausas');
+      const cancelBtn = $('btnCancelarListadoCausasProceso');
+      if (submitBtn) submitBtn.disabled = Boolean(state.excelUploads.listado.isProcessing);
+      if (cancelBtn) cancelBtn.disabled = !state.excelUploads.listado.isProcessing;
+    }
+
+    function setListadoProgress(overrides = {}){
+      state.excelUploads.listado.progress = buildListadoProgressSnapshot(overrides);
+      renderListadoProgress();
+    }
+
+    function persistListadoLastProcess(record = null){
+      state.excelUploads.listado.lastProcess = record;
+      try {
+        if (!record) {
+          window.localStorage.removeItem(EXCEL_LISTADO_LAST_PROCESS_STORAGE_KEY);
+          return;
+        }
+        window.localStorage.setItem(EXCEL_LISTADO_LAST_PROCESS_STORAGE_KEY, JSON.stringify(record));
+      } catch (error) {
+        console.warn('[CAUSAS][EXCEL-DEPURADO] No fue posible persistir último proceso en localStorage.', error);
+      }
+    }
+
+    function loadListadoLastProcessFromStorage(){
+      try {
+        const raw = window.localStorage.getItem(EXCEL_LISTADO_LAST_PROCESS_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === 'object') state.excelUploads.listado.lastProcess = parsed;
+      } catch (error) {
+        console.warn('[CAUSAS][EXCEL-DEPURADO] No fue posible recuperar último proceso guardado.', error);
+      }
+    }
+
+    function renderListadoLastProcess(){
+      const node = $('listadoCausasLastProcess');
+      if (!node) return;
+      const record = state.excelUploads.listado.lastProcess;
+      if (!record) {
+        node.textContent = 'Último proceso ejecutado: sin registros.';
+        return;
+      }
+      const withErrors = Number(record.errors || 0) > 0;
+      node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · actualizadas ${Number(record.updatedFolders || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
+    }
+
     async function parseExcelUploadFile(type, file){
       if (!file) throw new Error('Debes seleccionar un archivo Excel.');
       const lowerName = String(file.name || '').toLowerCase();
@@ -10189,6 +10371,8 @@
         openManagedModal('modalListadoCausas');
         renderExcelPreview('listado');
         renderUploadLastInfo('listado');
+        renderListadoProgress();
+        renderListadoLastProcess();
         return;
       }
       openManagedModal('modalEstadoDiario');
@@ -10252,6 +10436,23 @@
       if (!store?.file || !store?.parsed) throw new Error('Primero debes cargar y analizar un archivo Excel válido.');
       if (!store.parsed.validRows.length) throw new Error('No hay filas válidas para procesar.');
       if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
+      if (key === 'listado') {
+        state.excelUploads.listado.isProcessing = true;
+        state.excelUploads.listado.cancelRequested = false;
+        setListadoProgress({
+          percent: 25,
+          stage: 'Leyendo Excel',
+          status: 'running',
+          subaction: `Preparando lote con ${store.parsed.validRows.length} filas válidas.`,
+          totalRows: store.parsed.totalRows,
+          processedRows: 0,
+          foundFolders: 0,
+          updatedFolders: 0,
+          unmatchedRows: 0,
+          errors: Number(store.parsed.invalidRows || 0),
+        });
+      }
+      try {
       const batchPayload = {
         owner_user_id: authenticatedUser.id,
         uploaded_by: authenticatedUser.id,
@@ -10285,6 +10486,9 @@
       };
       let batch = null;
       try {
+        if (key === 'listado') {
+          setListadoProgress({ percent: 35, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Registrando lote en infraestructura de carga.' });
+        }
         batch = await createCauseExcelUploadBatch(batchPayload);
       } catch (batchError) {
         console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar lote de carga.', { type, batchPayload, error: batchError });
@@ -10304,6 +10508,9 @@
         payload: row.raw || {},
       }));
       try {
+        if (key === 'listado') {
+          setListadoProgress({ percent: 42, stage: 'Normalizando datos', status: 'running', subaction: 'Persistiendo trazabilidad base de filas del Excel.' });
+        }
         await appendCauseExcelUploadRows(rowsPayload);
       } catch (rowsError) {
         console.error('[CAUSAS][EXCEL-DEPURADO] Error al registrar filas del lote.', { type, batchId: batch.id, error: rowsError });
@@ -10316,7 +10523,12 @@
       if (key === 'listado') {
         const allCases = getAllCases();
         const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
+        if (key === 'listado') {
+          setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas existentes.' });
+        }
+        let processedRows = 0;
         for (const row of store.parsed.validRows) {
+          if (state.excelUploads.listado.cancelRequested) break;
           const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
           const existing = byKey.get(lookupKey);
           try {
@@ -10328,6 +10540,20 @@
               }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
               if (updateError) throw updateError;
               updatedCases += 1;
+              processedRows += 1;
+              if (key === 'listado') {
+                setListadoProgress({
+                  percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+                  stage: 'Actualizando carpetas',
+                  status: 'running',
+                  subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
+                  processedRows,
+                  foundFolders: updatedCases,
+                  updatedFolders: updatedCases,
+                  unmatchedRows: createdCases,
+                  errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+                });
+              }
               continue;
             }
             const { error: insertError } = await supabase.from(T_CASES).insert({
@@ -10344,8 +10570,36 @@
             });
             if (insertError) throw insertError;
             createdCases += 1;
+            processedRows += 1;
+            if (key === 'listado') {
+              setListadoProgress({
+                percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+                stage: 'Actualizando carpetas',
+                status: 'running',
+                subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
+                processedRows,
+                foundFolders: updatedCases,
+                updatedFolders: updatedCases,
+                unmatchedRows: createdCases,
+                errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+              });
+            }
           } catch (rowPersistenceError) {
             processingErrors += 1;
+            processedRows += 1;
+            if (key === 'listado') {
+              setListadoProgress({
+                percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+                stage: 'Actualizando carpetas',
+                status: 'running',
+                subaction: `Error en fila ${row?.rowNumber || 's/n'} (${row?.rol || 'sin rol'}). Continuando con el resto...`,
+                processedRows,
+                foundFolders: updatedCases,
+                updatedFolders: updatedCases,
+                unmatchedRows: createdCases,
+                errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+              });
+            }
             console.warn('[CAUSAS][EXCEL-DEPURADO] Fila omitida por error de persistencia de causa.', {
               batchId: batch.id,
               rowNumber: row?.rowNumber,
@@ -10363,6 +10617,20 @@
       const structuralErrors = Number(store.parsed.invalidRows || 0);
       const emptyRows = Number(store.parsed.emptyRows || 0);
       const errorCount = processingErrors + structuralErrors;
+      const wasCancelled = key === 'listado' && state.excelUploads.listado.cancelRequested;
+      if (key === 'listado') {
+        setListadoProgress({
+          percent: 95,
+          stage: 'Generando reporte final',
+          status: 'running',
+          subaction: 'Consolidando resultados finales del procesamiento.',
+          processedRows: processedCount,
+          foundFolders: updatedCases,
+          updatedFolders: updatedCases,
+          unmatchedRows: createdCases,
+          errors: errorCount,
+        });
+      }
       const { data: updatedBatch, error: updatedBatchError } = await supabase
         .from(T_CAUSE_UPLOAD_BATCHES)
         .update({
@@ -10371,8 +10639,10 @@
           created_count: createdCases,
           updated_count: updatedCases,
           discarded_count: discardedCount,
-          status: errorCount > 0 ? 'processed_with_errors' : 'processed',
-          error_summary: errorCount > 0 ? `Errores detectados: ${errorCount} (estructurales: ${structuralErrors}, persistencia: ${processingErrors}).` : null,
+          status: wasCancelled ? 'processed_with_errors' : (errorCount > 0 ? 'processed_with_errors' : 'processed'),
+          error_summary: wasCancelled
+            ? `Proceso cancelado por usuario. Avance parcial con ${errorCount} errores acumulados.`
+            : (errorCount > 0 ? `Errores detectados: ${errorCount} (estructurales: ${structuralErrors}, persistencia: ${processingErrors}).` : null),
           metadata: {
             ...batchPayload.metadata,
             finishedAt: new Date().toISOString(),
@@ -10395,10 +10665,43 @@
         throw buildCauseExcelInfrastructureError(updatedBatchError) || updatedBatchError;
       }
       store.lastUpload = updatedBatch || batch;
+      if (key === 'listado') {
+        const finalStatus = wasCancelled
+          ? 'Proceso completado con errores'
+          : (errorCount > 0 ? 'Proceso completado con errores' : 'Proceso completado correctamente');
+        const lastRecord = {
+          startedAt: batch?.created_at || new Date().toISOString(),
+          finishedAt: new Date().toISOString(),
+          finalStatus,
+          totalRows: store.parsed.totalRows,
+          processedRows: processedCount,
+          updatedFolders: updatedCases,
+          unmatchedRows: createdCases,
+          errors: errorCount,
+        };
+        persistListadoLastProcess(lastRecord);
+        renderListadoLastProcess();
+        setListadoProgress({
+          percent: 100,
+          stage: 'Proceso completado',
+          status: errorCount > 0 || wasCancelled ? 'success_with_errors' : 'success',
+          subaction: finalStatus,
+          processedRows: processedCount,
+          foundFolders: updatedCases,
+          updatedFolders: updatedCases,
+          unmatchedRows: createdCases,
+          errors: errorCount,
+        });
+      }
       await loadCases();
       populateFilters();
       renderAll();
       renderUploadLastInfo(type);
+      if (key === 'listado') {
+        state.excelUploads.listado.isProcessing = false;
+        state.excelUploads.listado.cancelRequested = false;
+        renderListadoProgress();
+      }
       return {
         totalRows: store.parsed.totalRows,
         validRows: store.parsed.validRows.length,
@@ -10408,6 +10711,13 @@
         discardedCount,
         errors: errorCount,
       };
+      } finally {
+        if (key === 'listado') {
+          state.excelUploads.listado.isProcessing = false;
+          state.excelUploads.listado.cancelRequested = false;
+          renderListadoProgress();
+        }
+      }
     }
 
     function renderMassiveExcelBasePanel(){
@@ -14562,16 +14872,35 @@
         const file = $('listadoCausasFile')?.files?.[0] || null;
         state.excelUploads.listado.file = file;
         state.excelUploads.listado.parsed = null;
+        if (!file) {
+          setListadoProgress({ percent: 0, stage: 'Esperando archivo', status: 'idle', subaction: 'Sin actividad en curso.', totalRows: 0, processedRows: 0, foundFolders: 0, updatedFolders: 0, unmatchedRows: 0, errors: 0 });
+        } else {
+          setListadoProgress({ percent: 8, stage: 'Archivo cargado', status: 'running', subaction: `Archivo seleccionado: ${file.name}` });
+        }
         setMessage('listadoCausasMsg', '', '');
         if (!file) {
           renderExcelPreview('listado');
           return;
         }
         try {
+          setListadoProgress({ percent: 15, stage: 'Leyendo Excel', status: 'running', subaction: `Leyendo estructura de ${file.name}...` });
           state.excelUploads.listado.parsed = await parseExcelUploadFile('listado', file);
+          setListadoProgress({
+            percent: 22,
+            stage: 'Normalizando datos',
+            status: 'running',
+            subaction: `Filas válidas detectadas: ${state.excelUploads.listado.parsed.validRows.length}`,
+            totalRows: state.excelUploads.listado.parsed.totalRows,
+            processedRows: 0,
+            foundFolders: 0,
+            updatedFolders: 0,
+            unmatchedRows: 0,
+            errors: Number(state.excelUploads.listado.parsed.invalidRows || 0),
+          });
           renderExcelPreview('listado');
           setMessage('listadoCausasMsg', 'Archivo validado. Revisa la vista previa y confirma para guardar.', 'ok');
         } catch (error) {
+          setListadoProgress({ stage: 'Proceso completado con errores', status: 'error', subaction: error?.message || 'No fue posible leer el archivo.', percent: 100 });
           renderExcelPreview('listado');
           setMessage('listadoCausasMsg', error?.message || 'No fue posible leer el archivo.', 'error');
         }
@@ -14596,6 +14925,10 @@
       }, { scope: 'excel-estado' });
       bindEvent('formListadoCausas', 'submit', async (event) => {
         event.preventDefault();
+        if (state.excelUploads.listado.isProcessing) {
+          setMessage('listadoCausasMsg', 'Ya existe un proceso en ejecución. Espera a que termine o cancélalo.', 'warn');
+          return;
+        }
         try {
           const summary = await processExcelUpload('listado');
           setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedCases}. Descartadas: ${summary.discardedCount}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
@@ -14603,9 +14936,27 @@
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
           const normalized = buildCauseExcelInfrastructureError(error) || error;
+          setListadoProgress({
+            percent: 100,
+            stage: 'Proceso completado con errores',
+            status: 'error',
+            subaction: normalized?.message || 'Error desconocido',
+          });
           setMessage('listadoCausasMsg', `Error al procesar Excel depurado: ${normalized?.message || 'Error desconocido'}`, 'error');
         }
       }, { required: true, scope: 'excel-listado' });
+      bindEvent('btnCancelarListadoCausasProceso', 'click', () => {
+        if (!state.excelUploads.listado.isProcessing) {
+          setMessage('listadoCausasMsg', 'No hay un proceso activo para cancelar.', 'warn');
+          return;
+        }
+        state.excelUploads.listado.cancelRequested = true;
+        setListadoProgress({
+          stage: 'Generando reporte final',
+          status: 'running',
+          subaction: 'Cancelación solicitada. Cerrando procesamiento de forma segura...',
+        });
+      }, { scope: 'excel-listado' });
       bindEvent('formEstadoDiario', 'submit', async (event) => {
         event.preventDefault();
         try {
@@ -15105,6 +15456,9 @@
       } catch (error) {
         console.error('[Alpha Avocat][excel-uploads] No fue posible cargar trazabilidad de Excel.', error);
       }
+      loadListadoLastProcessFromStorage();
+      setListadoProgress({ percent: 0, stage: 'Esperando archivo', status: 'idle', subaction: 'Sin actividad en curso.' });
+      renderListadoLastProcess();
       renderPjudIndexSyncPanel();
     }
 
