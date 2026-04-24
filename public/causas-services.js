@@ -1272,6 +1272,64 @@ function toSheetJsonRows(XLSX, sheet) {
   })
 }
 
+function toSheetMatrixRows(XLSX, sheet) {
+  return XLSX.utils.sheet_to_json(sheet, {
+    header: 1,
+    defval: '',
+    raw: false,
+    blankrows: false,
+  })
+}
+
+function buildRowObjectFromHeaders(headers = [], row = []) {
+  const obj = {}
+  headers.forEach((header, index) => {
+    const key = sanitizeVisibleText(header)
+    if (!key) return
+    obj[key] = row[index]
+  })
+  return obj
+}
+
+function normalizeMatrixCell(value = '') {
+  return sanitizeVisibleText(value)
+}
+
+function isLikelyRolOrRitHeader(value = '') {
+  const normalized = normalizeForComparison(value)
+  return normalized === 'rol' || normalized === 'rit' || normalized.includes('rol')
+}
+
+function isLikelyCaratuladoHeader(value = '') {
+  const normalized = normalizeForComparison(value)
+  return normalized.includes('caratula') || normalized.includes('caratulado')
+}
+
+function hasTribunalLikeContent(values = []) {
+  return values.some((value) => /(juzgado|tribunal|corte|civil|familia|garantia|garantía)/i.test(normalizeMatrixCell(value)))
+}
+
+function shouldForcePositionalMapping(headerRow = [], rowArray = []) {
+  if (!Array.isArray(rowArray) || rowArray.length !== 6) return false
+  const normalizedHeader = headerRow.map((item) => normalizeMatrixCell(item))
+  if (!normalizedHeader.length) return true
+  const firstLooksRol = isLikelyRolOrRitHeader(normalizedHeader[0] || '')
+  const thirdLooksCaratulado = isLikelyCaratuladoHeader(normalizedHeader[2] || '')
+  return firstLooksRol && thirdLooksCaratulado
+}
+
+function detectEraTribunalAnomaly(headerRow = [], dataRows = []) {
+  if (!Array.isArray(headerRow) || headerRow.length !== 6) return false
+  const first = normalizeMatrixCell(headerRow[0] || '')
+  const second = normalizeMatrixCell(headerRow[1] || '')
+  const third = normalizeMatrixCell(headerRow[2] || '')
+  if (!isLikelyRolOrRitHeader(first)) return false
+  if (normalizeForComparison(second) !== 'era') return false
+  if (!isLikelyCaratuladoHeader(third)) return false
+  const column1Values = (dataRows || []).slice(0, 25).map((row) => row?.[1] || '')
+  return hasTribunalLikeContent(column1Values)
+}
+
 function parseFlexibleDate(value = '') {
   if (value == null || value === '') return ''
   if (value instanceof Date && !Number.isNaN(value.getTime())) return value.toISOString().slice(0, 10)
@@ -1344,7 +1402,12 @@ function pickPreferredPjudRow(current = {}, candidate = {}) {
   return current
 }
 
-function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map()) {
+function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map(), options = {}) {
+  const {
+    rowArray = [],
+    forcePositionalMapping = false,
+    eraAsTribunal = false,
+  } = options || {}
   const mapped = {
     materia,
     tipoTribunal: materia,
@@ -1366,17 +1429,31 @@ function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map()) {
     sourceConfidence: 'high',
   }
 
-  Object.entries(PJUD_MIS_CAUSAS_FIELD_ALIASES).forEach(([field, aliases]) => {
-    const headerName = resolveHeaderName(headerLookup, aliases)
-    if (!headerName) return
-    const rawValue = rawRow[headerName]
-    if (field === 'fechaIngreso' || field === 'fechaUbicacion') {
-      mapped[field] = parseFlexibleDate(rawValue)
-      mapped[`${field}Original`] = sanitizeVisibleText(rawValue)
-      return
-    }
-    mapped[field] = sanitizeVisibleText(rawValue)
-  })
+  if (forcePositionalMapping && Array.isArray(rowArray) && rowArray.length === 6) {
+    mapped.rol = normalizePjudRol(rowArray[0] || '')
+    mapped.tribunal = sanitizeVisibleText(rowArray[1] || '')
+    mapped.caratulado = sanitizeVisibleText(rowArray[2] || '')
+    mapped.fechaIngreso = parseFlexibleDate(rowArray[3] || '')
+    mapped.fechaIngresoOriginal = sanitizeVisibleText(rowArray[3] || '')
+    mapped.estadoCausa = sanitizeVisibleText(rowArray[4] || '')
+    mapped.institucion = sanitizeVisibleText(rowArray[5] || '')
+  } else {
+    Object.entries(PJUD_MIS_CAUSAS_FIELD_ALIASES).forEach(([field, aliases]) => {
+      const headerName = resolveHeaderName(headerLookup, aliases)
+      if (!headerName) return
+      const rawValue = rawRow[headerName]
+      if (field === 'fechaIngreso' || field === 'fechaUbicacion') {
+        mapped[field] = parseFlexibleDate(rawValue)
+        mapped[`${field}Original`] = sanitizeVisibleText(rawValue)
+        return
+      }
+      mapped[field] = sanitizeVisibleText(rawValue)
+    })
+  }
+
+  if (eraAsTribunal && !mapped.tribunal && mapped.era) {
+    if (/(juzgado|tribunal|corte|civil|familia|garantia|garantía)/i.test(mapped.era)) mapped.tribunal = mapped.era
+  }
 
   mapped.rol = normalizePjudRol(mapped.rol || mapped.rit || '')
   mapped.tribunal = mapped.tribunal || mapped.corte
@@ -1406,13 +1483,21 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
   const invalidRows = []
   const countsBySheet = {}
   const sheetBreakdown = []
+  const mappingWarnings = []
+  const rawMatrixPreview = []
 
   sheetNames.forEach((sheetName) => {
     const canonical = canonicalSheetName(sheetName) || collapseWhitespace(sheetName) || 'Sin tipo'
     const tipoTribunal = canonical
     const sheet = workbook.Sheets[sheetName]
     if (!sheet) return
-    const rows = toSheetJsonRows(XLSX, sheet)
+    const matrixRows = toSheetMatrixRows(XLSX, sheet)
+    const sheetRawPreview = matrixRows.slice(0, 10)
+    console.log('RAW EXCEL ROWS', sheetRawPreview)
+    rawMatrixPreview.push({ sheetName, rows: sheetRawPreview })
+    const headerRow = Array.isArray(matrixRows[0]) ? matrixRows[0] : []
+    const dataRows = matrixRows.slice(1)
+    const rows = dataRows.map((row) => buildRowObjectFromHeaders(headerRow, row))
     if (!rows.length) {
       sheetBreakdown.push({ sheetName, tipoTribunal, rowsRead: 0, validRows: 0, invalidRows: 0 })
       return
@@ -1422,9 +1507,22 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
     let validInSheet = 0
     let invalidInSheet = 0
     countsBySheet[sheetName] = rows.length
+    const eraAnomalyDetected = detectEraTribunalAnomaly(headerRow, dataRows)
+    if (eraAnomalyDetected) {
+      mappingWarnings.push({
+        sheetName,
+        message: "Se detectó encabezado anómalo ‘Era’ en la posición de Tribunal; se procesó como Tribunal por estructura del Excel.",
+      })
+    }
 
     rows.forEach((rawRow, index) => {
-      const mapped = mapPjudSheetRow(rawRow, tipoTribunal, headerLookup)
+      const rowArray = Array.isArray(dataRows[index]) ? dataRows[index] : []
+      const forcePositionalMapping = shouldForcePositionalMapping(headerRow, rowArray)
+      const mapped = mapPjudSheetRow(rawRow, tipoTribunal, headerLookup, {
+        rowArray,
+        forcePositionalMapping,
+        eraAsTribunal: eraAnomalyDetected,
+      })
       if (!isStructurallyValidPjudRow(mapped)) {
         invalidInSheet += 1
         invalidRows.push({ sheetName, tipoTribunal, rowNumber: index + 2, raw: rawRow })
@@ -1525,6 +1623,8 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
     countsBySheet,
     rowsProcessed: rawRows.length,
     invalidRows: invalidRows.length,
+    mappingWarnings,
+    rawMatrixPreview,
     rawRows: includeRawRows ? rawRows : [],
     invalidRowDetails: includeInvalidDetails ? invalidRows.slice(0, 200) : [],
     consolidatedCount: consolidatedCases.length,
