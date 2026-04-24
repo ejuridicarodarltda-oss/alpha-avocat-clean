@@ -12148,6 +12148,31 @@
       const sheetMarkup = (summary?.sheetBreakdown || [])
         .map((sheet) => `<span class="badge badge-active">${escapeHtml(sheet.sheetName)}: ${escapeHtml(sheet.validRows)} válidas / ${escapeHtml(sheet.rowsRead)} leídas</span>`)
         .join(' ');
+      const warningsMarkup = (summary?.mappingWarnings || [])
+        .map((item) => `<div class="timeline-meta">⚠️ ${escapeHtml(item.message)}${item.sheetName ? ` (Hoja: ${escapeHtml(item.sheetName)})` : ''}</div>`)
+        .join('');
+      const rawPreviewMarkup = (summary?.rawMatrixPreview || [])
+        .map((sheetPreview) => {
+          const rows = Array.isArray(sheetPreview?.rows) ? sheetPreview.rows : [];
+          const headerCells = Array.from({ length: 6 }, (_, index) => `<th>Col ${index}</th>`).join('');
+          const rowCells = rows
+            .slice(0, 10)
+            .map((row) => `<tr>${Array.from({ length: 6 }, (_, index) => `<td>${escapeHtml((Array.isArray(row) ? row[index] : '') || '')}</td>`).join('')}</tr>`)
+            .join('');
+          return `
+            <div class="selection-card">
+              <strong>RAW EXCEL ROWS · ${escapeHtml(sheetPreview?.sheetName || 'Hoja')}</strong>
+              <div class="timeline-meta">Vista cruda primeras 10 filas (6 columnas esperadas).</div>
+              <div style="overflow:auto; margin-top:8px;">
+                <table class="table">
+                  <thead><tr>${headerCells}</tr></thead>
+                  <tbody>${rowCells || '<tr><td colspan="6">Sin filas para mostrar.</td></tr>'}</tbody>
+                </table>
+              </div>
+            </div>
+          `;
+        })
+        .join('');
 
       preview.innerHTML = `
         <div class="selection-grid">
@@ -12164,7 +12189,9 @@
             <div class="timeline-meta">Totales por materia: ${countsMarkup || 'Sin distribución por materia disponible.'}</div>
             <div class="timeline-meta">Total general consolidado: ${escapeHtml(summary?.consolidatedCount ?? items.length)} causa(s) única(s).</div>
             <div class="timeline-meta">Duplicados por materia: ${duplicatesMarkup || 'Sin duplicados detectados por materia.'}</div>
+            ${warningsMarkup}
           </div>
+          ${rawPreviewMarkup}
           ${items.slice(0, 6).map((item) => `
             <div class="selection-card">
               <strong>${escapeHtml(item.basic?.caratula || item.basic?.rol || `Causa ${item.batchMeta?.blockIndex + 1 || ''}`)}</strong>
@@ -13767,6 +13794,10 @@
           }
           const duplicatedInternal = Math.max(0, Number(summary.rowsProcessed || 0) - Number(summary.consolidatedCount || 0));
           setMessage('importMsg', `Excel Mis Causas analizado: filas analizadas ${summary.rowsProcessed}, causas únicas ${summary.consolidatedCount}, duplicados internos ${duplicatedInternal}, descartadas por estructura ${summary.invalidRows}, hojas reconocidas ${summary.sheetsDetected.length}.`, 'ok');
+          if (Array.isArray(summary.mappingWarnings) && summary.mappingWarnings.length) {
+            const warningText = summary.mappingWarnings.map((item) => item?.message).filter(Boolean).join(' | ');
+            setDetailStatus(warningText, 'warn');
+          }
           return;
         } catch (error) {
           console.error('[Alpha Avocat][pjud-excel] No fue posible analizar el Excel Mis Causas.', error);
