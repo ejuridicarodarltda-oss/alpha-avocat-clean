@@ -371,7 +371,8 @@
     const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
     const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
-    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa', 'institucion'];
+    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa'];
+    const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['institucion'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
       rit: ['rit', 'rol'],
       tribunal: ['tribunal', 'era', 'juzgado', 'tribunal de letras'],
@@ -408,6 +409,7 @@
       'corte de apelaciones de santiago': 'Corte de Apelaciones de Santiago',
     };
     let allCases = [];
+    let allClients = [];
 
     function isLegalEntity(name=''){
       const v = String(name).toLowerCase();
@@ -704,6 +706,12 @@
         }
         resolved[requiredKey] = canonicalToOriginal.get(normalizeExcelHeaderCanonical(matched));
       });
+      EXCEL_DEPURADO_OPTIONAL_COLUMNS.forEach((optionalKey) => {
+        const aliases = EXCEL_DEPURADO_COLUMN_EQUIVALENCES[optionalKey] || [optionalKey];
+        const matched = aliases.find((alias) => canonicalToOriginal.has(normalizeExcelHeaderCanonical(alias)));
+        if (!matched) return;
+        resolved[optionalKey] = canonicalToOriginal.get(normalizeExcelHeaderCanonical(matched));
+      });
       return { resolved, missing, detectedHeaders };
     }
     function hasExcelDepuradoSixColumnShape(raw = {}) {
@@ -746,12 +754,17 @@
       const numberYear = Array.isArray(report.numberYearMatchRows) ? report.numberYearMatchRows : [];
       const multiple = Array.isArray(report.multipleMatchesRows) ? report.multipleMatchesRows : [];
       const formatErrors = Array.isArray(report.formatErrors) ? report.formatErrors : [];
+      const pendingClientLinking = Array.isArray(report.pendingClientLinkingRows) ? report.pendingClientLinkingRows : [];
       const warnings = Array.isArray(report.warnings) ? report.warnings : [];
       node.hidden = false;
       node.innerHTML = `
         <strong>Reporte final de carga Excel depurado</strong>
         <div>Filas leídas: <strong>${escapeHtml(String(report.rowsRead || 0))}</strong></div>
         <div>Carpetas actualizadas: <strong>${escapeHtml(String(report.updatedFolders || 0))}</strong></div>
+        <div>Carpetas con carátula/metadatos actualizados por Rol/RIT + Tribunal: <strong>${escapeHtml(String(report.updatedMetadataRows || report.updatedFolders || 0))}</strong></div>
+        <div>Cliente vinculado desde Institución: <strong>${escapeHtml(String(report.clientLinkedRows || 0))}</strong></div>
+        <div>Cliente pendiente de vincular: <strong>${escapeHtml(String(report.clientPendingRows || 0))}</strong></div>
+        <div>Sin dato de institución/cliente: <strong>${escapeHtml(String(report.missingInstitutionRows || 0))}</strong></div>
         <div>Match exacto: <strong>${escapeHtml(String(exact.length))}</strong></div>
         <div>Match por número+año+tribunal: <strong>${escapeHtml(String(numberYear.length))}</strong></div>
         <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
@@ -759,11 +772,20 @@
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
         <div>Errores de columna/formato: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
         ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+        ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
         ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
         ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
       `;
+    }
+    function findClientMatchByInstitution(institucion = '') {
+      const target = normalize(institucion);
+      if (!target) return null;
+      return allClients.find((client) => {
+        const clientName = normalize(client?.[C.cName] || '');
+        return clientName && (clientName.includes(target) || target.includes(clientName));
+      }) || null;
     }
     function isPendingCaratula(value = '') {
       const normalizedValue = normalize(value);
@@ -1116,7 +1138,12 @@
         updatedAt: source.updatedAt || '',
       };
     }
-    function upsertExcelDepuradoManualData(cause = {}, row = {}) {
+    function upsertExcelDepuradoManualData(cause = {}, row = {}, options = {}) {
+      const {
+        linkedClientName = '',
+        clienteEstadoVinculacion = 'pendiente_vincular',
+        clienteVinculacionNota = '',
+      } = options;
       const registry = loadManualRegistry();
       const current = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [], documentosResumen: [] };
       const baseTribunalActual = String(current.base?.tribunal || cause.tribunal || '').trim();
@@ -1128,11 +1155,15 @@
           tribunal: baseTribunalActual || String(row.tribunal || '').trim(),
           caratula: String(row.caratulado || current.base?.caratula || cause.caratula || '').trim(),
           fechaIngreso: String(row.fechaIngreso || current.base?.fechaIngreso || '').trim(),
+          cliente: String(linkedClientName || current.base?.cliente || '').trim(),
         },
         excelDepurado: {
           rit: String(row.rit || '').trim(),
           estadoCausa: String(row.estadoCausa || '').trim(),
           institucion: String(row.institucion || '').trim(),
+          clienteVinculado: String(linkedClientName || '').trim(),
+          clienteEstadoVinculacion: String(clienteEstadoVinculacion || 'pendiente_vincular').trim(),
+          clienteVinculacionNota: String(clienteVinculacionNota || '').trim(),
           fuente: 'Excel depurado',
           updatedAt: new Date().toISOString(),
         },
@@ -1153,10 +1184,15 @@
       const report = {
         rowsRead: 0,
         updatedFolders: 0,
+        updatedMetadataRows: 0,
+        clientLinkedRows: 0,
+        clientPendingRows: 0,
+        missingInstitutionRows: 0,
         exactMatchRows: [],
         numberYearMatchRows: [],
         missingFolderRows: [],
         multipleMatchesRows: [],
+        pendingClientLinkingRows: [],
         duplicatesIgnored: 0,
         formatErrors: [],
         preliminaryHidden: false,
@@ -1264,22 +1300,54 @@
             continue;
           }
           const cause = candidateMatches[0];
+          const institutionValue = String(normalizedRow.institucion || '').trim();
+          let linkedClientName = '';
+          let clienteEstadoVinculacion = 'pendiente_vincular';
+          let clienteVinculacionNota = '';
+          if (!institutionValue) {
+            report.missingInstitutionRows += 1;
+            report.clientPendingRows += 1;
+            clienteVinculacionNota = 'sin dato de institución/cliente';
+            report.pendingClientLinkingRows.push({
+              ...normalizedRow,
+              reason: 'sin dato de institución/cliente',
+            });
+          } else {
+            const matchedClient = findClientMatchByInstitution(institutionValue);
+            if (matchedClient) {
+              linkedClientName = String(matchedClient?.[C.cName] || '').trim();
+              clienteEstadoVinculacion = 'vinculado';
+              report.clientLinkedRows += 1;
+            } else {
+              report.clientPendingRows += 1;
+              clienteVinculacionNota = 'institución sin coincidencia de cliente';
+              report.pendingClientLinkingRows.push({
+                ...normalizedRow,
+                reason: 'institución sin coincidencia de cliente',
+              });
+            }
+          }
           upsertExcelDepuradoManualData({
             ...cause,
             identificador: String(cause[C.kRol] || cause[C.kRit] || cause[C.kRuc] || cause.id || '').trim(),
             rolReal: String(cause[C.kRol] || '').trim(),
             tribunal: String(cause[C.kTrib] || cause[C.kCourt] || '').trim(),
             caratula: String(cause[C.kCaratula] || cause.caratulado || '').trim(),
-          }, normalizedRow);
+          }, normalizedRow, {
+            linkedClientName,
+            clienteEstadoVinculacion,
+            clienteVinculacionNota,
+          });
           if (matchType === 'exact') report.exactMatchRows.push(normalizedRow);
           if (matchType === 'number_year') report.numberYearMatchRows.push(normalizedRow);
           report.updatedFolders += 1;
+          report.updatedMetadataRows += 1;
         }
         report.preliminaryHidden = report.updatedFolders > 0;
         saveJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, report);
         renderExcelDepuradoReport(report);
         statusNode.className = 'manual-status ok';
-        statusNode.textContent = `Carga completada. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin coincidencia: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}.`;
+        statusNode.textContent = `Carga completada. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin coincidencia: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
         await loadData();
       } catch (error) {
         statusNode.className = 'manual-status error';
@@ -2236,6 +2304,7 @@
         supabase.from('cases').select('*').order('created_at', { ascending:false }),
       ]);
       allCases = Array.isArray(cases) ? cases : [];
+      allClients = Array.isArray(clients) ? clients : [];
 
       const clientMap = new Map((clients || []).map(c => [c[C.cId], c[C.cName]]));
       const naturals = [];
