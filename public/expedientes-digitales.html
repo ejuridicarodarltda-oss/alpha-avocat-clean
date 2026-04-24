@@ -584,46 +584,69 @@
     function normalizeWhitespace(value = '') {
       return String(value || '').replace(/\s+/g, ' ').trim();
     }
-    function normalizeVisibleRol(raw = '') {
-      const cleaned = normalizeWhitespace(String(raw || '').toUpperCase()).replace(/\s*-\s*/g, '-');
-      const match = cleaned.match(/([A-Z]{1,4})-?(\d{1,6})-?(\d{4})/);
-      return match ? `${match[1]}-${match[2]}-${match[3]}` : cleaned;
-    }
-    function parseRolComponents(raw = '') {
-      const input = normalizeWhitespace(String(raw || '').toUpperCase());
-      if (!input) return null;
-      const compact = input
-        .replace(/[·•]/g, '-')
-        .replace(/[–—]/g, '-')
-        .replace(/\s*\/\s*/g, '-')
-        .replace(/\s*-\s*/g, '-')
-        .replace(/\s+/g, ' ')
-        .trim();
-      const fullMatch = compact.match(/^([A-Z]{1,4})-?(\d{1,6})-?(\d{4})$/);
-      if (fullMatch) {
-        return { prefix: fullMatch[1], numero: fullMatch[2], year: fullMatch[3] };
-      }
-      const splitMatch = compact.match(/^(\d{1,6})-?(\d{4})$/);
-      if (splitMatch) {
-        return { prefix: '', numero: splitMatch[1], year: splitMatch[2] };
-      }
-      const genericMatch = compact.match(/(?:\b([A-Z]{1,4})\b[^0-9]{0,3})?(\d{1,6})[^0-9]{1,6}(19\d{2}|20\d{2})/);
-      if (!genericMatch) return null;
-      return { prefix: genericMatch[1] || '', numero: genericMatch[2], year: genericMatch[3] };
-    }
-    function buildRolCompleto(row = {}) {
-      const original = String(
+    function readRawExcelRole(row = {}) {
+      return String(
         row?.rit
         || row?.rol
         || row?.rol_rit
         || row?.['Rit/Rol']
         || row?.['RIT/Rol']
         || '',
-      ).trim();
-      const parsed = parseRolComponents(original);
-      if (!parsed) return normalizeVisibleRol(original);
-      if (parsed.prefix) return `${parsed.prefix}-${parsed.numero}-${parsed.year}`;
-      return `${parsed.numero}-${parsed.year}`;
+      );
+    }
+    function cleanRawRoleOnly(raw = '') {
+      return String(raw || '').trim().replaceAll(' · ', '-');
+    }
+    function isDigitsOnly(value = '') {
+      const text = String(value || '');
+      if (!text) return false;
+      for (let i = 0; i < text.length; i += 1) {
+        const code = text.charCodeAt(i);
+        if (code < 48 || code > 57) return false;
+      }
+      return true;
+    }
+    function splitRoleParts(raw = '') {
+      return String(raw || '')
+        .split('-')
+        .map((part) => part.trim())
+        .filter(Boolean);
+    }
+    function extractRoleNumberYear(raw = '') {
+      const parts = splitRoleParts(raw);
+      if (parts.length < 2) return null;
+      const year = parts[parts.length - 1];
+      if (!isDigitsOnly(year)) return null;
+      if (parts.length === 2) {
+        const number = parts[0];
+        if (!isDigitsOnly(number)) return null;
+        return { number, year };
+      }
+      const possibleNumber = parts[parts.length - 2];
+      if (!isDigitsOnly(possibleNumber)) return null;
+      return { number: possibleNumber, year };
+    }
+    function rolesMatchExactly(rolExcel = '', rolCarpeta = '') {
+      return cleanRawRoleOnly(rolExcel) === cleanRawRoleOnly(rolCarpeta);
+    }
+    function rolesMatchByNumberYearOnly(rolExcel = '', rolCarpeta = '') {
+      const excelParts = extractRoleNumberYear(cleanRawRoleOnly(rolExcel));
+      const folderParts = extractRoleNumberYear(cleanRawRoleOnly(rolCarpeta));
+      if (!excelParts || !folderParts) return false;
+      return excelParts.number === folderParts.number && excelParts.year === folderParts.year;
+    }
+    function normalizeVisibleRol(raw = '') {
+      return cleanRawRoleOnly(raw);
+    }
+    function parseRolComponents(raw = '') {
+      const parsed = extractRoleNumberYear(raw);
+      if (!parsed) return null;
+      const parts = splitRoleParts(cleanRawRoleOnly(raw));
+      const prefix = parts.length > 2 ? parts[parts.length - 3] || '' : '';
+      return { prefix, numero: parsed.number, year: parsed.year };
+    }
+    function buildRolCompleto(row = {}) {
+      return cleanRawRoleOnly(readRawExcelRole(row));
     }
     function normalizeCaratula(raw = '') {
       const cleaned = normalizeWhitespace(raw).replace(/["'`]/g, '').replace(/\s{2,}/g, ' ');
@@ -1246,19 +1269,30 @@
             report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
             eraPositionWarningEmitted = true;
           }
+          const rawExcelRole = readRawExcelRole(source);
+          const roleUsedForComparison = cleanRawRoleOnly(rawExcelRole);
           const normalizedRow = {
-            rit: normalizeVisibleRol(buildRolCompleto(source)),
+            rit: roleUsedForComparison,
+            rawExcelRole,
             tribunal: normalizeTribunal(source.tribunal || ''),
             caratulado: String(source.caratulado || '').trim(),
             fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
             estadoCausa: String(source.estado_causa || '').trim(),
             institucion: String(source.institucion || '').trim(),
           };
+          console.info(`[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rol usado comparación="${roleUsedForComparison}"`);
           report.rowsRead += 1;
+          if (rawExcelRole !== roleUsedForComparison) {
+            report.formatErrors.push({
+              row: i + 2,
+              error: `Error crítico de rol: Excel="${rawExcelRole}" vs comparación="${roleUsedForComparison}".`,
+            });
+            continue;
+          }
           const rowRolParsed = parseRolComponents(normalizedRow.rit);
           const rowTribunalKey = normalizeCauseIdentityTribunal(normalizedRow.tribunal);
           if (!rowTribunalKey || !rowRolParsed?.numero || !rowRolParsed?.year) {
-            report.formatErrors.push({ row: i + 2, error: 'RIT/Rol o tribunal inválido para normalización.' });
+            report.formatErrors.push({ row: i + 2, error: 'RIT/Rol o tribunal inválido para comparación directa y fallback número-año.' });
             continue;
           }
           const key = `${normalizeVisibleRol(normalizedRow.rit)}::${rowTribunalKey}::${rowRolParsed.numero}-${rowRolParsed.year}`;
@@ -1270,7 +1304,7 @@
           const exactMatches = allCases.filter((item) => {
             const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
             const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
-            return normalizeVisibleRol(rolCandidate) === normalizeVisibleRol(normalizedRow.rit)
+            return rolesMatchExactly(normalizedRow.rit, rolCandidate)
               && normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey;
           });
           let matchType = '';
@@ -1279,10 +1313,8 @@
             candidateMatches = allCases.filter((item) => {
               const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
               const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
-              const parsed = parseRolComponents(rolCandidate);
               return normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey
-                && parsed?.numero === rowRolParsed.numero
-                && parsed?.year === rowRolParsed.year;
+                && rolesMatchByNumberYearOnly(normalizedRow.rit, rolCandidate);
             });
             if (candidateMatches.length) matchType = 'number_year';
           } else {
