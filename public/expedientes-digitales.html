@@ -128,6 +128,10 @@
     .manual-status.ok{color:#0f5f2d}
     .manual-status.error{color:#8b0000}
     .manual-status.warn{color:#7a4b00}
+    .excel-upload-shell{margin-top:12px;background:#f8fffd;border:1px dashed #8ec7be;border-radius:12px;padding:12px;display:grid;gap:10px}
+    .excel-upload-report{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px;display:grid;gap:6px}
+    .excel-upload-report ul{margin:0;padding-left:18px}
+    .excel-upload-report[hidden]{display:none}
     .folder-nav-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:10px}
     .folder-nav-btn{appearance:none;border:1px solid #b9ddd6;background:#f8fffd;border-radius:12px;padding:12px;text-align:left;cursor:pointer}
     .folder-nav-btn:hover{border-color:#163A5F;box-shadow:0 6px 12px rgba(11,37,34,.1)}
@@ -234,6 +238,16 @@
         <article class="icon-card" id="archJuicios">
           <div class="line"><span class="icon">🏛️</span><div><strong>EXPEDIENTES DIGITALES DE JUICIOS</strong><div class="muted">Primer nivel de navegación por materia judicial.</div></div></div>
           <span class="tag">Archivador</span>
+          <div class="excel-upload-shell">
+            <strong>Cargar Excel depurado para completar carátulas y metadatos</strong>
+            <div class="muted">Actualiza carpetas existentes por coincidencia de Rol/RIT + Tribunal. No crea carpetas nuevas.</div>
+            <div class="flow">
+              <input id="excelDepuradoInput" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
+              <button id="excelDepuradoProcessBtn" class="manual-btn" type="button">Procesar Excel depurado</button>
+            </div>
+            <div id="excelDepuradoStatus" class="manual-status" aria-live="polite"></div>
+            <div id="excelDepuradoReport" class="excel-upload-report" hidden></div>
+          </div>
           <div class="matter-grid" id="matterFolders"></div>
         </article>
       </div>
@@ -349,12 +363,15 @@
     let currentTribunalRoles = [];
     let currentMatterTribunalBuckets = [];
     let tribunalSearchTestsExecuted = false;
+    let XLSX_MODULE = null;
     const manualDocumentsInMemory = new Map();
     const PJUD_GENERAL_INDEX_STORAGE_KEY = 'alpha-pjud-general-index-v1';
     const MANUAL_STORAGE_KEY = 'alpha-expedientes-manual-v1';
     const EXTRACTION_LOGS_STORAGE_KEY = 'alpha-expedientes-extraction-logs-v1';
     const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
     const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
+    const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
+    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha ingreso', 'estado causa', 'institucion'];
     const ALLOWED_UPLOAD_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.zip';
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
@@ -595,6 +612,61 @@
       const normalizedTribunal = normalizeCauseIdentityTribunal(tribunal);
       if (!normalizedRol || !normalizedTribunal) return '';
       return `${normalizedRol}::${normalizedTribunal}`;
+    }
+    async function ensureXlsxModule() {
+      if (XLSX_MODULE) return XLSX_MODULE;
+      const urls = [
+        'https://esm.sh/xlsx@0.18.5',
+        'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/+esm',
+      ];
+      let lastError = null;
+      for (const url of urls) {
+        try {
+          XLSX_MODULE = await import(url);
+          return XLSX_MODULE;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+      throw new Error(`No fue posible cargar el motor XLSX. ${lastError?.message || ''}`.trim());
+    }
+    function normalizeExcelHeaderKey(value = '') {
+      return normalize(value).replace(/[^a-z0-9]+/g, ' ').trim();
+    }
+    function parseDateFromExcel(raw = '') {
+      const value = String(raw || '').trim();
+      if (!value) return '';
+      const date = new Date(value);
+      if (!Number.isNaN(date.getTime())) return date.toISOString().slice(0, 10);
+      const match = value.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+      if (!match) return '';
+      const dd = String(match[1]).padStart(2, '0');
+      const mm = String(match[2]).padStart(2, '0');
+      const yyyy = Number(match[3]) < 100 ? `20${String(match[3]).padStart(2, '0')}` : String(match[3]);
+      return `${yyyy}-${mm}-${dd}`;
+    }
+    function renderExcelDepuradoReport(report = null) {
+      const node = document.getElementById('excelDepuradoReport');
+      if (!node) return;
+      if (!report) {
+        node.hidden = true;
+        node.innerHTML = '';
+        return;
+      }
+      const missing = Array.isArray(report.missingFolderRows) ? report.missingFolderRows : [];
+      const formatErrors = Array.isArray(report.formatErrors) ? report.formatErrors : [];
+      node.hidden = false;
+      node.innerHTML = `
+        <strong>Reporte final de carga Excel depurado</strong>
+        <div>Filas leídas: <strong>${escapeHtml(String(report.rowsRead || 0))}</strong></div>
+        <div>Carpetas actualizadas: <strong>${escapeHtml(String(report.updatedFolders || 0))}</strong></div>
+        <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
+        <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
+        <div>Errores de columna/formato: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
+        ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
+        <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
+      `;
     }
     function isPendingCaratula(value = '') {
       const normalizedValue = normalize(value);
@@ -934,6 +1006,123 @@
       const registry = loadManualRegistry();
       return registry[causeId] || null;
     }
+    function resolveCauseExcelMetadata(cause = {}, manualData = null) {
+      const source = manualData?.excelDepurado || {};
+      return {
+        rol: String(manualData?.base?.rol || cause.rolReal || cause.identificador || '').trim(),
+        tribunal: String(manualData?.base?.tribunal || cause.tribunal || '').trim(),
+        caratula: String(manualData?.base?.caratula || cause.caratula || '').trim(),
+        fechaIngreso: String(manualData?.base?.fechaIngreso || source.fechaIngreso || '').trim(),
+        estadoCausa: String(source.estadoCausa || '').trim(),
+        institucion: String(source.institucion || '').trim(),
+        fuente: source.fuente || '',
+        updatedAt: source.updatedAt || '',
+      };
+    }
+    function upsertExcelDepuradoManualData(cause = {}, row = {}) {
+      const registry = loadManualRegistry();
+      const current = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [], documentosResumen: [] };
+      registry[cause.id] = {
+        ...current,
+        base: {
+          ...current.base,
+          rol: String(current.base?.rol || cause.rolReal || cause.identificador || '').trim(),
+          tribunal: String(row.tribunal || current.base?.tribunal || cause.tribunal || '').trim(),
+          caratula: String(row.caratulado || current.base?.caratula || cause.caratula || '').trim(),
+          fechaIngreso: String(row.fechaIngreso || current.base?.fechaIngreso || '').trim(),
+        },
+        excelDepurado: {
+          rit: String(row.rit || '').trim(),
+          estadoCausa: String(row.estadoCausa || '').trim(),
+          institucion: String(row.institucion || '').trim(),
+          fuente: 'Excel depurado',
+          updatedAt: new Date().toISOString(),
+        },
+        updatedAt: new Date().toISOString(),
+      };
+      saveManualRegistry(registry);
+    }
+    async function processExcelDepuradoUpload() {
+      const statusNode = document.getElementById('excelDepuradoStatus');
+      const file = document.getElementById('excelDepuradoInput')?.files?.[0];
+      if (!file) {
+        statusNode.className = 'manual-status warn';
+        statusNode.textContent = 'Selecciona un archivo Excel depurado antes de procesar.';
+        return;
+      }
+      statusNode.className = 'manual-status';
+      statusNode.textContent = 'Procesando Excel depurado y buscando carpetas existentes...';
+      const report = {
+        rowsRead: 0,
+        updatedFolders: 0,
+        missingFolderRows: [],
+        duplicatesIgnored: 0,
+        formatErrors: [],
+        preliminaryHidden: false,
+      };
+      try {
+        const xlsx = await ensureXlsxModule();
+        const workbook = xlsx.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+        const rows = xlsx.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
+        if (!rows.length) throw new Error('El Excel depurado no contiene filas.');
+        const seen = new Set();
+        for (let i = 0; i < rows.length; i += 1) {
+          const raw = rows[i] || {};
+          const normalizedMap = {};
+          Object.entries(raw).forEach(([key, value]) => { normalizedMap[normalizeExcelHeaderKey(key)] = value; });
+          if (i === 0) {
+            const missingCols = EXCEL_DEPURADO_REQUIRED_COLUMNS.filter((column) => !(column in normalizedMap));
+            if (missingCols.length) throw new Error(`Faltan columnas requeridas: ${missingCols.join(', ')}`);
+          }
+          const normalizedRow = {
+            rit: normalizeVisibleRol(normalizedMap.rit || normalizedMap.rol || ''),
+            tribunal: normalizeTribunal(normalizedMap.tribunal || ''),
+            caratulado: String(normalizedMap.caratulado || '').trim(),
+            fechaIngreso: parseDateFromExcel(normalizedMap['fecha ingreso'] || ''),
+            estadoCausa: String(normalizedMap['estado causa'] || '').trim(),
+            institucion: String(normalizedMap.institucion || '').trim(),
+          };
+          report.rowsRead += 1;
+          const key = buildCauseIdentityKey({ rol: normalizedRow.rit, tribunal: normalizedRow.tribunal });
+          if (!key) {
+            report.formatErrors.push({ row: i + 2, error: 'RIT/Rol o tribunal inválido para normalización.' });
+            continue;
+          }
+          if (seen.has(key)) {
+            report.duplicatesIgnored += 1;
+            continue;
+          }
+          seen.add(key);
+          const cause = allCases.find((item) => {
+            const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
+            const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
+            return buildCauseIdentityKey({ rol: rolCandidate, tribunal: tribunalCandidate }) === key;
+          });
+          if (!cause) {
+            report.missingFolderRows.push(normalizedRow);
+            continue;
+          }
+          upsertExcelDepuradoManualData({
+            ...cause,
+            identificador: String(cause[C.kRol] || cause[C.kRit] || cause[C.kRuc] || cause.id || '').trim(),
+            rolReal: String(cause[C.kRol] || '').trim(),
+            tribunal: String(cause[C.kTrib] || cause[C.kCourt] || '').trim(),
+            caratula: String(cause[C.kCaratula] || cause.caratulado || '').trim(),
+          }, normalizedRow);
+          report.updatedFolders += 1;
+        }
+        report.preliminaryHidden = report.updatedFolders > 0;
+        saveJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, report);
+        renderExcelDepuradoReport(report);
+        statusNode.className = 'manual-status ok';
+        statusNode.textContent = `Carga completada. ${report.updatedFolders} carpeta(s) actualizada(s), ${report.missingFolderRows.length} fila(s) sin carpeta existente.`;
+        await loadData();
+      } catch (error) {
+        statusNode.className = 'manual-status error';
+        statusNode.textContent = `No fue posible procesar Excel depurado: ${error?.message || 'error desconocido'}`;
+      }
+    }
     function extractPartiesFromCaratula(caratula = '') {
       const text = String(caratula || '').trim();
       if (!text) return [];
@@ -1005,6 +1194,8 @@
               <h4>📁 ${highlightText(cause.identificador, query)} · ${highlightText(cause.caratula, query)}</h4>
               <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
             </div>
+            <div class="muted"><strong>Rol:</strong> ${highlightText(cause.identificador, query)}</div>
+            <div class="muted"><strong>Carátula:</strong> ${highlightText(cause.caratula, query)}</div>
             <div class="muted">Cliente: ${highlightText(cause.cliente, query)}</div>
             <div class="muted">Tribunal: ${highlightText(cause.tribunal, query)}</div>
             <div class="muted">Intervinientes: ${highlightText(flattenParties(cause.partes).join(' · ') || 'Sin intervinientes', query)}</div>
@@ -1304,6 +1495,8 @@
     }
     async function renderRoleRoot(cause) {
       document.getElementById('rolePanelTitle').textContent = `${cause.identificador} · ${cause.caratula}`;
+      const manualData = readManualCauseData(cause.id);
+      const metadata = resolveCauseExcelMetadata(cause, manualData);
       const files = await listCaseFilesForCause(cause);
       const countByCategory = files.reduce((acc, item) => {
         const key = item.folder_category || 'documento';
@@ -1314,6 +1507,16 @@
         <div class="folder">
           <h5>📁 Carpeta por rol ${escapeHtml(cause.identificador)}</h5>
           <div class="muted">Expediente vivo de esta causa. Cada subfolder es operativo y no comparte archivos con otras causas.</div>
+          <div class="detected-grid" style="margin-top:8px;">
+            <div class="detected-item"><strong>Rol/RIT</strong><span>${escapeHtml(metadata.rol || 'Sin rol')}</span></div>
+            <div class="detected-item"><strong>Tribunal</strong><span>${escapeHtml(metadata.tribunal || 'Sin tribunal')}</span></div>
+            <div class="detected-item"><strong>Carátula</strong><span>${escapeHtml(metadata.caratula || 'Carátula pendiente')}</span></div>
+            <div class="detected-item"><strong>Fecha ingreso</strong><span>${escapeHtml(metadata.fechaIngreso || 'Sin fecha')}</span></div>
+            <div class="detected-item"><strong>Estado causa</strong><span>${escapeHtml(metadata.estadoCausa || 'Sin estado')}</span></div>
+            <div class="detected-item"><strong>Institución</strong><span>${escapeHtml(metadata.institucion || 'Sin institución')}</span></div>
+            <div class="detected-item"><strong>Fuente</strong><span>${escapeHtml(metadata.fuente || 'Registro operativo')}</span></div>
+            <div class="detected-item"><strong>Fecha de actualización</strong><span>${escapeHtml(formatDateTime(metadata.updatedAt || ''))}</span></div>
+          </div>
           <div class="folder-nav-grid">
             ${ROLE_FOLDER_CATEGORIES.map((entry) => `
               <button class="folder-nav-btn" type="button" data-open-folder="${escapeHtml(entry.key)}">
@@ -1914,9 +2117,11 @@
       document.getElementById('expedientesSearchInput').value = '';
       loadData();
     });
+    document.getElementById('excelDepuradoProcessBtn').addEventListener('click', processExcelDepuradoUpload);
 
     activeSearch = readCrossSearchFromQuery();
     if (activeSearch) document.getElementById('expedientesSearchInput').value = activeSearch;
+    renderExcelDepuradoReport(loadJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, null));
 
     ensureAuth().then(loadData);
   </script>
