@@ -9951,12 +9951,68 @@
         tribunal: pickRowValue(normalizedMap, ['tribunal', 'juzgado', 'corte']),
         tipoTribunal: pickRowValue(normalizedMap, ['tipotribunal', 'tribunaltipo', 'tipodejuzgado']),
         caratula: pickRowValue(normalizedMap, ['caratula', 'caratulado', 'causa', 'nombrecausa']),
+        caratulado: pickRowValue(normalizedMap, ['caratulado', 'caratula', 'causa', 'nombrecausa']),
         partes: pickRowValue(normalizedMap, ['partes', 'demandante', 'demandado', 'intervinientes']),
         estado: pickRowValue(normalizedMap, ['estado', 'estadocausa', 'estadoprocesal']),
+        estadoCausa: pickRowValue(normalizedMap, ['estadocausa', 'estado', 'estadoprocesal']),
         fecha: pickRowValue(normalizedMap, ['fecha', 'fechaestado', 'fecharesolucion', 'fechagestion']),
+        fechaIngreso: pickRowValue(normalizedMap, ['fechaingreso', 'fecha_inicio', 'fechaentrada', 'fecha']),
         materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
         procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
       };
+    }
+
+    function normalizeImmutableRolString(value = ''){
+      return String(value == null ? '' : value)
+        .trim()
+        .replace(/\s*·\s*/g, '-')
+        .replace(/\//g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^\s*-\s*|\s*-\s*$/g, '')
+        .trim();
+    }
+
+    function extractRolNumberYearTuple(rawRol = ''){
+      const normalizedRol = normalizeImmutableRolString(rawRol);
+      if (!normalizedRol) return null;
+      const match = normalizedRol.match(/(?:^|[^0-9])(\d+)-(\d{4})(?:[^0-9]|$)/);
+      if (!match) return null;
+      return {
+        number: match[1],
+        year: match[2],
+      };
+    }
+
+    function resolveCaseMatchFromExcelRow(row = {}, allCases = []){
+      const rowRolOriginal = String(row?.rol || '');
+      const rowRolComparable = normalizeImmutableRolString(rowRolOriginal);
+      const rowTribunalComparable = normalizeTextForMatch(String(row?.tribunal || ''));
+      if (!rowRolComparable) return { match: null, method: 'none', rowRolOriginal, rowRolComparable };
+
+      const exactCandidates = allCases.filter((cause) => normalizeImmutableRolString(cause?.rol || '') === rowRolComparable);
+      if (exactCandidates.length === 1) {
+        return { match: exactCandidates[0], method: 'exact', rowRolOriginal, rowRolComparable };
+      }
+      if (exactCandidates.length > 1 && rowTribunalComparable) {
+        const byTribunal = exactCandidates.find((cause) => normalizeTextForMatch(String(cause?.tribunal || '')) === rowTribunalComparable) || null;
+        if (byTribunal) return { match: byTribunal, method: 'exact', rowRolOriginal, rowRolComparable };
+      }
+
+      const rowTuple = extractRolNumberYearTuple(rowRolComparable);
+      if (!rowTuple) return { match: null, method: 'none', rowRolOriginal, rowRolComparable };
+      const flexibleCandidates = allCases.filter((cause) => {
+        const causeTuple = extractRolNumberYearTuple(cause?.rol || '');
+        return Boolean(causeTuple && causeTuple.number === rowTuple.number && causeTuple.year === rowTuple.year);
+      });
+      if (flexibleCandidates.length === 1) {
+        return { match: flexibleCandidates[0], method: 'flexible', rowRolOriginal, rowRolComparable };
+      }
+      if (flexibleCandidates.length > 1 && rowTribunalComparable) {
+        const byTribunal = flexibleCandidates.find((cause) => normalizeTextForMatch(String(cause?.tribunal || '')) === rowTribunalComparable) || null;
+        if (byTribunal) return { match: byTribunal, method: 'flexible', rowRolOriginal, rowRolComparable };
+      }
+
+      return { match: null, method: 'none', rowRolOriginal, rowRolComparable };
     }
 
     function renderUploadLastInfo(type){
@@ -10028,8 +10084,6 @@
       const duplicatesRegistry = new Set();
       let duplicates = 0;
       const allCases = getAllCases();
-      const indexedByRolTribunal = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)]));
-      const indexedByCaratula = new Map(allCases.map((cause) => [String(cause.caratula || '').trim().toLowerCase(), String(cause.id)]));
       rows.forEach((rawRow, index) => {
         const parsed = resolveExcelRowCanonical(rawRow);
         const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
@@ -10040,7 +10094,16 @@
         const duplicateKey = `${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}|${parsed.caratula.toLowerCase()}`;
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
-        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || indexedByCaratula.get(parsed.caratula.toLowerCase()) || null;
+        const matchResolution = resolveCaseMatchFromExcelRow(parsed, allCases);
+        const linkedCaseId = matchResolution.match?.id ? String(matchResolution.match.id) : null;
+        console.info('[CAUSAS][EXCEL-DEPURADO][MATCH]', {
+          rowNumber: index + 2,
+          rol_original_excel: matchResolution.rowRolOriginal,
+          rol_usado_comparacion: matchResolution.rowRolComparable,
+          coincidencia: linkedCaseId ? 'sí' : 'no',
+          metodo: matchResolution.method,
+          rol_carpeta_encontrado: linkedCaseId ? String(matchResolution.match?.rol || '') : '',
+        });
         const minimalIdentityOk = type === 'listado'
           ? Boolean(parsed.rol && parsed.tribunal && parsed.caratula)
           : Boolean(parsed.rol || parsed.caratula || parsed.tribunal);
@@ -10223,18 +10286,27 @@
       let processingErrors = 0;
       if (key === 'listado') {
         const allCases = getAllCases();
-        const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
         for (const row of store.parsed.validRows) {
-          const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
-          const existing = byKey.get(lookupKey);
+          const matchResolution = resolveCaseMatchFromExcelRow(row, allCases);
+          const existing = matchResolution.match || null;
           try {
             if (existing) {
               const { error: updateError } = await supabase.from(T_CASES).update({
-                matter: row.materia || existing.matter || null,
-                notes: row.estado || existing.notes || null,
+                [C.k_court]: row.tribunal || existing.tribunal || existing[C.k_court] || null,
+                [C.k_notes]: row.estadoCausa || row.estado || existing.estadoProcesal || existing.notes || null,
                 updated_at: new Date().toISOString(),
               }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
               if (updateError) throw updateError;
+              updateWorkspaceEntry(String(existing.id), (entry) => {
+                const next = entry && typeof entry === 'object' ? { ...entry } : { id: String(existing.id) };
+                next.rol = normalizeImmutableRolString(row.rol || next.rol || existing.rol || '');
+                next.caratula = normalizeCaratula(row.caratulado || row.caratula || next.caratula || existing.caratula || '');
+                next.fechaInicio = normalizeIdentifierValue(row.fechaIngreso || row.fecha || next.fechaInicio || existing.fechaInicio || '');
+                next.estadoProcesal = normalizeIdentifierValue(row.estadoCausa || row.estado || next.estadoProcesal || existing.estadoProcesal || '');
+                next.estadoCausa = normalizeIdentifierValue(row.estadoCausa || row.estado || next.estadoCausa || existing.estadoCausa || '');
+                next.tribunal = normalizeIdentifierValue(row.tribunal || next.tribunal || existing.tribunal || '');
+                return markManualEdit(next);
+              });
               updatedCases += 1;
               continue;
             }
