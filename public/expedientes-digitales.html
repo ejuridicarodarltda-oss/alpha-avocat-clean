@@ -783,6 +783,7 @@
       node.innerHTML = `
         <strong>Reporte final de carga Excel depurado</strong>
         <div>Filas leídas: <strong>${escapeHtml(String(report.rowsRead || 0))}</strong></div>
+        <div>Filas procesadas: <strong>${escapeHtml(String(report.rowsProcessed || 0))}</strong></div>
         <div>Carpetas actualizadas: <strong>${escapeHtml(String(report.updatedFolders || 0))}</strong></div>
         <div>Carpetas con carátula/metadatos actualizados por Rol/RIT + Tribunal: <strong>${escapeHtml(String(report.updatedMetadataRows || report.updatedFolders || 0))}</strong></div>
         <div>Cliente vinculado desde Institución: <strong>${escapeHtml(String(report.clientLinkedRows || 0))}</strong></div>
@@ -793,11 +794,11 @@
         <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
         <div>Coincidencias múltiples (no actualizadas): <strong>${escapeHtml(String(multiple.length))}</strong></div>
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
-        <div>Errores de columna/formato: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
+        <div>Errores reales por celdas vacías: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
         ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
-        ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
-        ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
-        ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
+        ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
+        ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
       `;
@@ -1206,6 +1207,7 @@
       statusNode.textContent = 'Procesando Excel depurado y buscando carpetas existentes...';
       const report = {
         rowsRead: 0,
+        rowsProcessed: 0,
         updatedFolders: 0,
         updatedMetadataRows: 0,
         clientLinkedRows: 0,
@@ -1271,10 +1273,12 @@
           }
           const rawExcelRole = readRawExcelRole(source);
           const roleUsedForComparison = cleanRawRoleOnly(rawExcelRole);
+          const rawTribunal = String(source.tribunal || '').trim();
           const normalizedRow = {
             rit: roleUsedForComparison,
-            rawExcelRole,
-            tribunal: normalizeTribunal(source.tribunal || ''),
+            rolOriginalExcel: rawExcelRole,
+            rolUsadoParaComparar: roleUsedForComparison,
+            tribunal: normalizeTribunal(rawTribunal),
             caratulado: String(source.caratulado || '').trim(),
             fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
             estadoCausa: String(source.estado_causa || '').trim(),
@@ -1282,20 +1286,17 @@
           };
           console.info(`[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rol usado comparación="${roleUsedForComparison}"`);
           report.rowsRead += 1;
-          if (rawExcelRole !== roleUsedForComparison) {
-            report.formatErrors.push({
-              row: i + 2,
-              error: `Error crítico de rol: Excel="${rawExcelRole}" vs comparación="${roleUsedForComparison}".`,
-            });
+          if (!roleUsedForComparison) {
+            report.formatErrors.push({ row: i + 2, error: 'Rol/RIT vacío.' });
             continue;
           }
-          const rowRolParsed = parseRolComponents(normalizedRow.rit);
+          if (!rawTribunal) {
+            report.formatErrors.push({ row: i + 2, error: 'Tribunal vacío.' });
+            continue;
+          }
+          report.rowsProcessed += 1;
           const rowTribunalKey = normalizeCauseIdentityTribunal(normalizedRow.tribunal);
-          if (!rowTribunalKey || !rowRolParsed?.numero || !rowRolParsed?.year) {
-            report.formatErrors.push({ row: i + 2, error: 'RIT/Rol o tribunal inválido para comparación directa y fallback número-año.' });
-            continue;
-          }
-          const key = `${normalizeVisibleRol(normalizedRow.rit)}::${rowTribunalKey}::${rowRolParsed.numero}-${rowRolParsed.year}`;
+          const key = `${normalizeVisibleRol(normalizedRow.rit)}::${rowTribunalKey}`;
           if (seen.has(key)) {
             report.duplicatesIgnored += 1;
             continue;
@@ -1379,7 +1380,7 @@
         saveJsonStorage(EXCEL_DEPURADO_REPORT_STORAGE_KEY, report);
         renderExcelDepuradoReport(report);
         statusNode.className = 'manual-status ok';
-        statusNode.textContent = `Carga completada. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin coincidencia: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
+        statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
         await loadData();
       } catch (error) {
         statusNode.className = 'manual-status error';
