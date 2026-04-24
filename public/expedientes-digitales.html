@@ -374,7 +374,7 @@
     const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa', 'institucion'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
       rit: ['rit', 'rol'],
-      tribunal: ['tribunal', 'juzgado', 'tribunal de letras'],
+      tribunal: ['tribunal', 'era', 'juzgado', 'tribunal de letras'],
       caratulado: ['caratulado', 'carátula', 'caratula'],
       fecha_ingreso: ['fecha ingreso', 'fecha', 'ingreso'],
       estado_causa: ['estado', 'estado causa'],
@@ -670,6 +670,21 @@
       });
       return { resolved, missing, detectedHeaders };
     }
+    function hasExcelDepuradoSixColumnShape(raw = {}) {
+      return Object.keys(raw || {}).length === 6;
+    }
+    function resolveExcelDepuradoRowByPosition(raw = {}) {
+      const headers = Object.keys(raw || {});
+      const values = headers.map((header) => raw?.[header]);
+      return {
+        rit: values[0] || '',
+        tribunal: values[1] || '',
+        caratulado: values[2] || '',
+        fecha_ingreso: values[3] || '',
+        estado_causa: values[4] || '',
+        institucion: values[5] || '',
+      };
+    }
     function parseDateFromExcel(raw = '') {
       const value = String(raw || '').trim();
       if (!value) return '';
@@ -692,6 +707,7 @@
       }
       const missing = Array.isArray(report.missingFolderRows) ? report.missingFolderRows : [];
       const formatErrors = Array.isArray(report.formatErrors) ? report.formatErrors : [];
+      const warnings = Array.isArray(report.warnings) ? report.warnings : [];
       node.hidden = false;
       node.innerHTML = `
         <strong>Reporte final de carga Excel depurado</strong>
@@ -700,6 +716,7 @@
         <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
         <div>Errores de columna/formato: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
+        ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
         ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
@@ -1096,6 +1113,7 @@
         duplicatesIgnored: 0,
         formatErrors: [],
         preliminaryHidden: false,
+        warnings: [],
       };
       try {
         const xlsx = await ensureXlsxModule();
@@ -1105,25 +1123,53 @@
         if (!rows.length) throw new Error('El Excel depurado no contiene filas.');
         const seen = new Set();
         let resolvedHeaders = null;
+        let usePositionalMapping = false;
+        let eraPositionWarningEmitted = false;
         for (let i = 0; i < rows.length; i += 1) {
           const raw = rows[i] || {};
-          if (!resolvedHeaders) {
-            const resolution = resolveExcelDepuradoHeaders(raw);
-            if (resolution.missing.length) {
-              const missingLabel = resolution.missing
-                .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
-                .join(', ');
-              throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
+          if (!resolvedHeaders && !usePositionalMapping) {
+            if (hasExcelDepuradoSixColumnShape(raw)) {
+              usePositionalMapping = true;
+              const secondHeader = String(Object.keys(raw || {})[1] || '').trim();
+              if (normalizeExcelHeaderCanonical(secondHeader) === 'era') {
+                report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
+                eraPositionWarningEmitted = true;
+              }
+            } else {
+              const resolution = resolveExcelDepuradoHeaders(raw);
+              if (resolution.missing.length) {
+                const missingWithoutTribunal = resolution.missing.filter((key) => key !== 'tribunal');
+                if (missingWithoutTribunal.length) {
+                  const missingLabel = missingWithoutTribunal
+                    .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
+                    .join(', ');
+                  throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
+                }
+              }
+              resolvedHeaders = resolution.resolved;
             }
-            resolvedHeaders = resolution.resolved;
+          }
+          const source = usePositionalMapping
+            ? resolveExcelDepuradoRowByPosition(raw)
+            : {
+              rit: raw[resolvedHeaders.rit] || '',
+              tribunal: raw[resolvedHeaders.tribunal] || '',
+              caratulado: raw[resolvedHeaders.caratulado] || '',
+              fecha_ingreso: raw[resolvedHeaders.fecha_ingreso] || '',
+              estado_causa: raw[resolvedHeaders.estado_causa] || '',
+              institucion: raw[resolvedHeaders.institucion] || '',
+            };
+          if (!eraPositionWarningEmitted && normalizeExcelHeaderCanonical(String(resolvedHeaders?.tribunal || '')) === 'era') {
+            report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
+            eraPositionWarningEmitted = true;
           }
           const normalizedRow = {
-            rit: normalizeVisibleRol(raw[resolvedHeaders.rit] || ''),
-            tribunal: normalizeTribunal(raw[resolvedHeaders.tribunal] || ''),
-            caratulado: String(raw[resolvedHeaders.caratulado] || '').trim(),
-            fechaIngreso: parseDateFromExcel(raw[resolvedHeaders.fecha_ingreso] || ''),
-            estadoCausa: String(raw[resolvedHeaders.estado_causa] || '').trim(),
-            institucion: String(raw[resolvedHeaders.institucion] || '').trim(),
+            rit: normalizeVisibleRol(source.rit || ''),
+            tribunal: normalizeTribunal(source.tribunal || ''),
+            caratulado: String(source.caratulado || '').trim(),
+            fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
+            estadoCausa: String(source.estado_causa || '').trim(),
+            institucion: String(source.institucion || '').trim(),
           };
           report.rowsRead += 1;
           const key = buildCauseIdentityKey({ rol: normalizedRow.rit, tribunal: normalizedRow.tribunal });
