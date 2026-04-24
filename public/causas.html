@@ -10228,6 +10228,7 @@
         fecha: pickRowValue(normalizedMap, ['fecha', 'fecha_ingreso', 'fechaestado', 'fecharesolucion', 'fechagestion']),
         materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
         procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
+        institucion: pickRowValue(normalizedMap, ['institucion']),
       };
     }
 
@@ -10385,7 +10386,7 @@
         return;
       }
       const withErrors = Number(record.errors || 0) > 0;
-      node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · actualizadas ${Number(record.updatedFolders || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
+      node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · exactas ${Number(record.exactUpdated || 0)} · flexibles ${Number(record.flexibleUpdated || 0)} · múltiples ${Number(record.multipleMatches || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
     }
 
     async function parseExcelUploadFile(type, file, options = {}){
@@ -10721,86 +10722,108 @@
       let createdCases = 0;
       let updatedCases = 0;
       let processingErrors = 0;
+      const listadoMatchStats = {
+        exactUpdated: 0,
+        flexibleUpdated: 0,
+        unmatched: 0,
+        multiple: 0,
+      };
+      const listadoExamples = [];
       if (key === 'listado') {
         const allCases = getAllCases();
-        const byKey = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, cause]));
-        if (key === 'listado') {
-          setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas existentes.' });
-        }
+        const byExactKey = new Map();
+        const byFlexibleKey = new Map();
+        const pushCase = (map, keyName, cause) => {
+          if (!keyName) return;
+          if (!map.has(keyName)) map.set(keyName, []);
+          map.get(keyName).push(cause);
+        };
+        allCases.forEach((cause) => {
+          const exactKey = `${normalizePjudText(cause?.rol || '')}|${normalizePjudText(cause?.tribunal || cause?.court || '')}`;
+          const flexibleRoleKey = buildExcelFlexibleMatchKey(cause?.rol || '');
+          const flexibleCourt = normalizeCourtForFlexibleMatch(cause?.tribunal || cause?.court || '');
+          pushCase(byExactKey, exactKey, cause);
+          if (flexibleRoleKey && flexibleCourt) pushCase(byFlexibleKey, `${flexibleRoleKey}|${flexibleCourt}`, cause);
+        });
+        setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas tipo Office existentes.' });
         let processedRows = 0;
         for (const row of store.parsed.validRows) {
           if (state.excelUploads.listado.cancelRequested) break;
-          const lookupKey = `${String(row.rol || '').trim().toLowerCase()}|${String(row.tribunal || '').trim().toLowerCase()}`;
-          const existing = byKey.get(lookupKey);
+          const exactKey = `${normalizePjudText(row?.rol || '')}|${normalizePjudText(row?.tribunal || '')}`;
+          const exactMatches = byExactKey.get(exactKey) || [];
+          const flexibleRoleKey = buildExcelFlexibleMatchKey(row?.rol || '');
+          const flexibleCourt = normalizeCourtForFlexibleMatch(row?.tribunal || '');
+          const flexibleMatches = exactMatches.length || !flexibleRoleKey || !flexibleCourt
+            ? []
+            : (byFlexibleKey.get(`${flexibleRoleKey}|${flexibleCourt}`) || []);
+          const resolvedMatches = exactMatches.length ? exactMatches : flexibleMatches;
+          const resolvedMatchType = exactMatches.length ? 'exacto' : (flexibleMatches.length ? 'flexible' : 'sin_coincidencia');
+          let resultLabel = 'sin carpeta existente';
+          let matchedCase = null;
           try {
-            if (existing) {
-              const { error: updateError } = await supabase.from(T_CASES).update({
-                matter: row.materia || existing.matter || null,
-                notes: row.estado || existing.notes || null,
+            if (resolvedMatches.length === 1) {
+              matchedCase = resolvedMatches[0];
+              const payload = {
+                caratula: row?.caratula || matchedCase?.caratula || null,
+                pjud_caratulado: row?.caratula || matchedCase?.pjud_caratulado || null,
+                pjud_fecha_ingreso: row?.fecha || matchedCase?.pjud_fecha_ingreso || null,
+                pjud_estado_causa: row?.estado || matchedCase?.pjud_estado_causa || null,
                 updated_at: new Date().toISOString(),
-              }).eq('owner_user_id', authenticatedUser.id).eq('id', existing.id);
+              };
+              const institucion = String(row?.institucion || '').trim();
+              if (institucion) payload.pjud_institucion = institucion;
+              const { error: updateError } = await supabase
+                .from(T_CASES)
+                .update(payload)
+                .eq('owner_user_id', authenticatedUser.id)
+                .eq('id', matchedCase.id);
               if (updateError) throw updateError;
               updatedCases += 1;
-              processedRows += 1;
-              if (key === 'listado') {
-                setListadoProgress({
-                  percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
-                  stage: 'Actualizando carpetas',
-                  status: 'running',
-                  subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
-                  processedRows,
-                  foundFolders: updatedCases,
-                  updatedFolders: updatedCases,
-                  unmatchedRows: createdCases,
-                  errors: Number(store.parsed.invalidRows || 0) + processingErrors,
-                });
-              }
-              continue;
+              linkedRows += 1;
+              if (resolvedMatchType === 'exacto') listadoMatchStats.exactUpdated += 1;
+              if (resolvedMatchType === 'flexible') listadoMatchStats.flexibleUpdated += 1;
+              resultLabel = resolvedMatchType === 'exacto' ? 'actualizada (match exacto)' : 'actualizada (match flexible)';
+            } else if (resolvedMatches.length > 1) {
+              listadoMatchStats.multiple += 1;
+              resultLabel = 'coincidencia múltiple';
+            } else {
+              listadoMatchStats.unmatched += 1;
             }
-            const { error: insertError } = await supabase.from(T_CASES).insert({
-              owner_user_id: authenticatedUser.id,
-              client_id: null,
-              assigned_lawyer: null,
-              court: row.tribunal || null,
-              rol: row.rol || null,
-              matter: row.materia || null,
-              notes: row.estado || row.partes || null,
-              source: 'excel_listado_causas',
-              source_confidence: 'medium',
-              imported_at: new Date().toISOString(),
-            });
-            if (insertError) throw insertError;
-            createdCases += 1;
             processedRows += 1;
-            if (key === 'listado') {
-              setListadoProgress({
-                percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
-                stage: 'Actualizando carpetas',
-                status: 'running',
-                subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
-                processedRows,
-                foundFolders: updatedCases,
-                updatedFolders: updatedCases,
-                unmatchedRows: createdCases,
-                errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+            if (listadoExamples.length < 10) {
+              listadoExamples.push({
+                rolExcel: row?.rol || '',
+                tribunalExcel: row?.tribunal || '',
+                rolCarpetaEncontrada: matchedCase?.rol || '',
+                tribunalCarpetaEncontrada: matchedCase?.tribunal || '',
+                resultado: resultLabel,
               });
             }
+            setListadoProgress({
+              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              stage: 'Actualizando carpetas',
+              status: 'running',
+              subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
+              processedRows,
+              foundFolders: updatedCases,
+              updatedFolders: updatedCases,
+              unmatchedRows: listadoMatchStats.unmatched,
+              errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+            });
           } catch (rowPersistenceError) {
             processingErrors += 1;
             processedRows += 1;
-            if (key === 'listado') {
-              setListadoProgress({
-                percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
-                stage: 'Actualizando carpetas',
-                status: 'running',
-                subaction: `Error en fila ${row?.rowNumber || 's/n'} (${row?.rol || 'sin rol'}). Continuando con el resto...`,
-                processedRows,
-                foundFolders: updatedCases,
-                updatedFolders: updatedCases,
-                unmatchedRows: createdCases,
-                errors: Number(store.parsed.invalidRows || 0) + processingErrors,
-              });
-            }
+            setListadoProgress({
+              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              stage: 'Actualizando carpetas',
+              status: 'running',
+              subaction: `Error en fila ${row?.rowNumber || 's/n'} (${row?.rol || 'sin rol'}). Continuando con el resto...`,
+              processedRows,
+              foundFolders: updatedCases,
+              updatedFolders: updatedCases,
+              unmatchedRows: listadoMatchStats.unmatched,
+              errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+            });
             console.warn('[CAUSAS][EXCEL-DEPURADO] Fila omitida por error de persistencia de causa.', {
               batchId: batch.id,
               rowNumber: row?.rowNumber,
@@ -10813,7 +10836,9 @@
       } else {
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
       }
-      const processedCount = createdCases + updatedCases;
+      const processedCount = key === 'listado'
+        ? (updatedCases + listadoMatchStats.unmatched + listadoMatchStats.multiple)
+        : (createdCases + updatedCases);
       const discardedCount = Math.max(0, Number(store.parsed.totalRowsWithData || store.parsed.totalRows || 0) - Number(processedCount || 0));
       const structuralErrors = Number(store.parsed.invalidRows || 0);
       const emptyRows = Number(store.parsed.emptyRows || 0);
@@ -10828,7 +10853,7 @@
           processedRows: processedCount,
           foundFolders: updatedCases,
           updatedFolders: updatedCases,
-          unmatchedRows: createdCases,
+          unmatchedRows: listadoMatchStats.unmatched,
           errors: errorCount,
         });
       }
@@ -10851,6 +10876,11 @@
             processedCount,
             createdCases,
             updatedCases,
+            exactUpdated: listadoMatchStats.exactUpdated,
+            flexibleUpdated: listadoMatchStats.flexibleUpdated,
+            unmatchedRows: listadoMatchStats.unmatched,
+            multipleMatches: listadoMatchStats.multiple,
+            examples: listadoExamples,
             discardedCount,
             structuralErrors,
             emptyRows,
@@ -10877,7 +10907,11 @@
           totalRows: store.parsed.totalRowsWithData || store.parsed.totalRows,
           processedRows: processedCount,
           updatedFolders: updatedCases,
-          unmatchedRows: createdCases,
+          unmatchedRows: listadoMatchStats.unmatched,
+          exactUpdated: listadoMatchStats.exactUpdated,
+          flexibleUpdated: listadoMatchStats.flexibleUpdated,
+          multipleMatches: listadoMatchStats.multiple,
+          examples: listadoExamples,
           errors: errorCount,
         };
         persistListadoLastProcess(lastRecord);
@@ -10890,7 +10924,7 @@
           processedRows: processedCount,
           foundFolders: updatedCases,
           updatedFolders: updatedCases,
-          unmatchedRows: createdCases,
+          unmatchedRows: listadoMatchStats.unmatched,
           errors: errorCount,
         });
       }
@@ -10908,6 +10942,11 @@
         validRows: store.parsed.validRows.length,
         createdCases,
         updatedCases,
+        updatedExactMatches: listadoMatchStats.exactUpdated,
+        updatedFlexibleMatches: listadoMatchStats.flexibleUpdated,
+        unmatchedRows: listadoMatchStats.unmatched,
+        multipleMatches: listadoMatchStats.multiple,
+        examples: listadoExamples,
         linkedRows,
         discardedCount,
         errors: errorCount,
@@ -11383,6 +11422,35 @@
         normalizePjudCourt(court),
       ].filter(Boolean).join('|');
       return key || null;
+    }
+
+    function normalizeCourtForFlexibleMatch(value = ''){
+      return normalizePjudText(value)
+        .replace(/[^\w\s]/g, ' ')
+        .replace(/\bde\b/g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    }
+
+    function extractRoleNumberYear(value = ''){
+      const structured = parsePjudStructuredRole(value);
+      const raw = normalizePjudText(value);
+      const numberMatch = raw.match(/(?:^|[^0-9])(\d{1,9})(?:[^0-9]|$)/);
+      const yearMatch = raw.match(/(?:19\d{2}|20\d{2}|\d{2})/g);
+      const lastYear = yearMatch?.length ? yearMatch[yearMatch.length - 1] : '';
+      const parsedYear = lastYear
+        ? Number(lastYear.length === 2 ? `20${lastYear}` : lastYear)
+        : null;
+      return {
+        roleNumber: structured?.roleNumber ?? (numberMatch ? Number(numberMatch[1]) : null),
+        roleYear: structured?.roleYear ?? (Number.isFinite(parsedYear) ? parsedYear : null),
+      };
+    }
+
+    function buildExcelFlexibleMatchKey(value = ''){
+      const tuple = extractRoleNumberYear(value);
+      if (!Number.isFinite(tuple.roleNumber) || !Number.isFinite(tuple.roleYear)) return '';
+      return `${tuple.roleNumber}|${tuple.roleYear}`;
     }
 
 
@@ -15200,7 +15268,11 @@
         }
         try {
           const summary = await processExcelUpload('listado');
-          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedCases}. Descartadas: ${summary.discardedCount}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          const exampleRows = (summary.examples || []).slice(0, 10);
+          const examplesText = exampleRows.length
+            ? ` Ejemplos: ${exampleRows.map((item) => `${item.rolExcel || 's/rol'} | ${item.tribunalExcel || 's/tribunal'} => ${item.rolCarpetaEncontrada || '—'} | ${item.tribunalCarpetaEncontrada || '—'} (${item.resultado || 'sin resultado'})`).join(' · ')}.`
+            : '';
+          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Actualizadas match flexible: ${summary.updatedFlexibleMatches || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
