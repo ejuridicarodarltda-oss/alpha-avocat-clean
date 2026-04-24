@@ -10127,19 +10127,76 @@
       return '';
     }
 
+    function normalizeExcelHeaderLabel(label = ''){
+      const normalized = normalizeExcelHeaderKey(label);
+      if (['rit', 'rol', 'rolrit', 'ritrol'].includes(normalized)) return 'rol';
+      if (['tribunal', 'juzgado'].includes(normalized)) return 'tribunal';
+      if (['caratulado', 'caratula', 'causa', 'nombrecausa'].includes(normalized)) return 'caratula';
+      if (['fechaingreso'].includes(normalized)) return 'fecha_ingreso';
+      if (['estadocausa'].includes(normalized)) return 'estado_causa';
+      if (['institucion', 'institucionresponsable'].includes(normalized)) return 'institucion';
+      if (normalized === 'era') return 'era';
+      return normalized;
+    }
+
+    function resolveExcelWorkbookSheet(workbook = {}, preferredSheetName = ''){
+      const sheetNames = Array.isArray(workbook.SheetNames) ? workbook.SheetNames : [];
+      if (!sheetNames.length) return { sheetName: '', sheet: null, hidden: false };
+      if (preferredSheetName && sheetNames.includes(preferredSheetName)) {
+        return { sheetName: preferredSheetName, sheet: workbook.Sheets?.[preferredSheetName] || null, hidden: false };
+      }
+      const workbookSheets = workbook.Workbook?.Sheets || [];
+      const firstVisible = sheetNames.find((name, index) => {
+        const sheetMeta = workbookSheets[index] || {};
+        return !sheetMeta || sheetMeta.Hidden !== 1;
+      });
+      const sheetName = firstVisible || sheetNames[0];
+      const sheetIndex = sheetNames.indexOf(sheetName);
+      const hidden = Boolean((workbookSheets[sheetIndex] || {}).Hidden === 1);
+      return { sheetName, sheet: workbook.Sheets?.[sheetName] || null, hidden };
+    }
+
+    function detectExcelHeaderRow(XLSX, sheet){
+      const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false });
+      let eraDetected = false;
+      const candidates = [];
+      rows.forEach((row, index) => {
+        const normalizedHeaders = (Array.isArray(row) ? row : [])
+          .map((value) => normalizeExcelHeaderLabel(value))
+          .filter(Boolean);
+        const unique = [...new Set(normalizedHeaders)];
+        const hasRol = unique.includes('rol');
+        const hasTribunal = unique.includes('tribunal');
+        const hasCaratula = unique.includes('caratula');
+        const hasEra = unique.includes('era');
+        if (hasEra) eraDetected = true;
+        if (!(hasRol && hasCaratula)) return;
+        candidates.push({ rowIndex: index, headers: unique, hasTribunal, hasEra });
+      });
+      const preferred = candidates.find((candidate) => candidate.hasTribunal && !candidate.hasEra)
+        || candidates.find((candidate) => candidate.hasTribunal)
+        || null;
+      return {
+        rows,
+        headerRowIndex: preferred ? preferred.rowIndex : -1,
+        normalizedHeaders: preferred ? preferred.headers : [],
+        eraDetected,
+      };
+    }
+
     function resolveExcelRowCanonical(row = {}){
       const normalizedMap = {};
       Object.entries(row || {}).forEach(([key, value]) => {
-        normalizedMap[normalizeExcelHeaderKey(key)] = value;
+        normalizedMap[normalizeExcelHeaderLabel(key)] = value;
       });
       return {
-        rol: pickRowValue(normalizedMap, ['rol', 'rolrit', 'rit', 'ritrol', 'rolinterno']),
-        tribunal: pickRowValue(normalizedMap, ['tribunal', 'juzgado', 'corte']),
+        rol: pickRowValue(normalizedMap, ['rol']),
+        tribunal: pickRowValue(normalizedMap, ['tribunal', 'corte']),
         tipoTribunal: pickRowValue(normalizedMap, ['tipotribunal', 'tribunaltipo', 'tipodejuzgado']),
-        caratula: pickRowValue(normalizedMap, ['caratula', 'caratulado', 'causa', 'nombrecausa']),
+        caratula: pickRowValue(normalizedMap, ['caratula']),
         partes: pickRowValue(normalizedMap, ['partes', 'demandante', 'demandado', 'intervinientes']),
-        estado: pickRowValue(normalizedMap, ['estado', 'estadocausa', 'estadoprocesal']),
-        fecha: pickRowValue(normalizedMap, ['fecha', 'fechaestado', 'fecharesolucion', 'fechagestion']),
+        estado: pickRowValue(normalizedMap, ['estado', 'estado_causa', 'estadoprocesal']),
+        fecha: pickRowValue(normalizedMap, ['fecha', 'fecha_ingreso', 'fechaestado', 'fecharesolucion', 'fechagestion']),
         materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
         procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
       };
@@ -10181,7 +10238,23 @@
         `Filas vacías: ${store.parsed.emptyRows}`,
         `Errores estructurales: ${store.parsed.invalidRows}`,
       ];
-      if (validationNode) validationNode.textContent = `${validationSummary.join(' · ')}${warnings.length ? ` · ${warnings.join(' · ')}` : ''}`;
+      if (validationNode) {
+        const diagnostics = [
+          `Hoja leída: ${store.parsed.sheetName || '—'}${store.parsed.sheetHidden ? ' (oculta)' : ''}`,
+          `Fila encabezado detectada: ${store.parsed.headerRowNumber || '—'}`,
+          `Encabezados detectados: ${(store.parsed.detectedHeaders || []).join(', ') || '—'}`,
+        ];
+        const firstRows = Array.isArray(store.parsed.firstReadRows) ? store.parsed.firstReadRows.slice(0, 5) : [];
+        const firstRowsMarkup = firstRows.length
+          ? `<pre style="margin:8px 0 0;white-space:pre-wrap;">${escapeHtml(firstRows.map((row, index) => `#${index + 1}: ${JSON.stringify(row)}`).join('\n'))}</pre>`
+          : '<div style="margin-top:8px;">Primeras 5 filas leídas: sin datos.</div>';
+        const warningsBlock = [...warnings, ...(store.parsed.headerWarnings || [])];
+        validationNode.innerHTML = `${escapeHtml(validationSummary.join(' · '))}
+          <div style="margin-top:8px;">${escapeHtml(diagnostics.join(' · '))}</div>
+          ${warningsBlock.length ? `<div style="margin-top:6px;">Advertencias: ${escapeHtml(warningsBlock.join(' · '))}</div>` : ''}
+          <div style="margin-top:6px;">Primeras 5 filas leídas:</div>
+          ${firstRowsMarkup}`;
+      }
       if (!rowsNode) return;
       if (!store.parsed.preview.length) {
         rowsNode.innerHTML = isListado ? '<tr><td colspan="8">No hay filas válidas para vista previa.</td></tr>' : '<tr><td colspan="7">No hay filas válidas para vista previa.</td></tr>';
@@ -10283,7 +10356,7 @@
       node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · actualizadas ${Number(record.updatedFolders || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
     }
 
-    async function parseExcelUploadFile(type, file){
+    async function parseExcelUploadFile(type, file, options = {}){
       if (!file) throw new Error('Debes seleccionar un archivo Excel.');
       const lowerName = String(file.name || '').toLowerCase();
       if (!lowerName.endsWith('.xlsx') && !lowerName.endsWith('.xls')) {
@@ -10292,9 +10365,18 @@
       const xlsxModule = await ensureXlsxModule();
       const buffer = await file.arrayBuffer();
       const workbook = xlsxModule.read(buffer, { type: 'array', cellDates: true });
-      const firstSheetName = workbook.SheetNames?.[0];
-      if (!firstSheetName) throw new Error('El archivo no contiene hojas disponibles.');
-      const rows = xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheetName], { defval: '', raw: false });
+      const { sheetName, sheet, hidden } = resolveExcelWorkbookSheet(workbook, options?.sheetName || '');
+      if (!sheetName || !sheet) throw new Error('El archivo no contiene hojas disponibles.');
+      const { headerRowIndex, normalizedHeaders, rows: rawRows, eraDetected } = detectExcelHeaderRow(xlsxModule, sheet);
+      if (headerRowIndex < 0) {
+        throw new Error('No se detectó una fila de encabezados válida. Debe incluir al menos Rol/RIT, Tribunal y Caratulado/Carátula.');
+      }
+      const requiredCanonicalHeaders = ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
+      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !normalizedHeaders.includes(key));
+      if (missingCanonicalHeaders.length) {
+        throw new Error(`Encabezados insuficientes en la fila detectada. Faltan: ${missingCanonicalHeaders.join(', ')}.`);
+      }
+      const rows = xlsxModule.utils.sheet_to_json(sheet, { defval: '', raw: false, range: headerRowIndex });
       if (!rows.length) throw new Error('El archivo Excel está vacío.');
       const validRows = [];
       let emptyRows = 0;
@@ -10322,7 +10404,7 @@
           invalidRows += 1;
           return;
         }
-        validRows.push({ ...parsed, linkedCaseId, rowNumber: index + 2, raw: rawRow });
+        validRows.push({ ...parsed, linkedCaseId, rowNumber: index + headerRowIndex + 2, raw: rawRow });
       });
       const required = type === 'listado' ? ['rol', 'tribunal', 'caratula'] : ['rol|tribunal|caratula'];
       const missingCritical = [];
@@ -10335,6 +10417,15 @@
         missingCritical.push('identificador (rol / tribunal / carátula)');
       }
       return {
+        sheetName,
+        sheetHidden: hidden,
+        headerRowNumber: headerRowIndex + 1,
+        detectedHeaders: normalizedHeaders,
+        headerWarnings: [
+          ...(eraDetected ? ['Se detectó encabezado "Era". Se priorizó una fila que incluyera "Tribunal".'] : []),
+          ...(workbook.SheetNames?.length > 1 && !options?.sheetName ? [`Se seleccionó automáticamente la hoja visible "${sheetName}".`] : []),
+        ],
+        firstReadRows: rawRows.slice(headerRowIndex + 1, headerRowIndex + 6),
         totalRows: rows.length,
         emptyRows,
         invalidRows,
