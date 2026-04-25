@@ -336,7 +336,6 @@
     let fileAttachmentCache = [];
     let activeSearch = '';
     let editorAttachments = [];
-    let citationSequence = 0;
     let pendingFootnotes = [];
 
     async function ensureAuth(){
@@ -476,12 +475,71 @@
       setTimeout(() => URL.revokeObjectURL(url), 1200);
     }
 
+    function normalizeFootnoteRecord(note, index){
+      if (note && typeof note === 'object') {
+        return {
+          number: Number(note.number) || (index + 1),
+          authority: String(note.authority || '').trim(),
+          publisher: String(note.publisher || '').trim(),
+          year: String(note.year || '').trim(),
+          page: String(note.page || '').trim(),
+          url: String(note.url || '').trim(),
+        };
+      }
+      return {
+        number: index + 1,
+        authority: String(note || '').trim(),
+        publisher: '',
+        year: '',
+        page: '',
+        url: '',
+      };
+    }
+
+    function getFootnoteNumber(){
+      return pendingFootnotes.length + 1;
+    }
+
+    function formatFootnoteText(note, index){
+      const normalized = normalizeFootnoteRecord(note, index);
+      const chunks = [];
+      if (normalized.authority) chunks.push(normalized.authority);
+      if (normalized.publisher) chunks.push(normalized.publisher);
+      if (normalized.year) chunks.push(normalized.year);
+      if (normalized.page) chunks.push(`p. ${normalized.page}`);
+      if (normalized.url) chunks.push(`URL: ${normalized.url}`);
+      return chunks.length ? chunks.join('. ') : `Nota ${normalized.number}`;
+    }
+
+    function requestFootnoteData(noteNumber){
+      const authority = window.prompt(`Nota ${noteNumber}: nombre de la norma o autor`, '') || '';
+      const publisher = window.prompt(`Nota ${noteNumber}: editorial`, '') || '';
+      const year = window.prompt(`Nota ${noteNumber}: año`, '') || '';
+      const page = window.prompt(`Nota ${noteNumber}: página`, '') || '';
+      const url = window.prompt(`Nota ${noteNumber}: URL (si es digital)`, '') || '';
+      return { number: noteNumber, authority, publisher, year, page, url };
+    }
+
+    function appendFootnoteWithSuperscript(noteData){
+      const noteNumber = Number(noteData?.number) || getFootnoteNumber();
+      pendingFootnotes.push({
+        number: noteNumber,
+        authority: String(noteData?.authority || '').trim(),
+        publisher: String(noteData?.publisher || '').trim(),
+        year: String(noteData?.year || '').trim(),
+        page: String(noteData?.page || '').trim(),
+        url: String(noteData?.url || '').trim(),
+      });
+      document.execCommand('insertHTML', false, `<sup>${noteNumber}</sup>`);
+      renderDocxPreview();
+    }
+
     function buildWordHtmlDocument(request){
       const citationNorm = CITATION_NORMS[request.citationNorm] || CITATION_NORMS['rchd-2025'];
       const modeLine = request.mode === 'with-cause'
         ? `Vinculado a causa preexistente: ${escapeHtml(request.caseTitle || request.caseRol || 'Sin individualización completa')}.`
         : 'Redactado sin causa previa asociada.';
-      const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
+      const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(formatFootnoteText(note, index))}</li>`).join('');
       const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
       return `<!doctype html>
 <html lang="es">
@@ -558,7 +616,10 @@ sup { vertical-align: super; font-size: 10pt; }
       const rawText = legalEditor.innerText || '';
       const bodyWithParagraphs = escapeHtml(rawText).split('\n').filter(Boolean).map((line) => `<p>${line}</p>`).join('');
       const notes = pendingFootnotes.length
-        ? pendingFootnotes.map((note, index) => `<li>${escapeHtml(note)}<sup>${index + 1}</sup></li>`).join('')
+        ? pendingFootnotes.map((note, index) => {
+          const normalized = normalizeFootnoteRecord(note, index);
+          return `<li><sup>${normalized.number}</sup> ${escapeHtml(formatFootnoteText(normalized, index))}</li>`;
+        }).join('')
         : '<li>Sin notas al pie.</li>';
       docxPreviewBody.innerHTML = `
         <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo.</div>
@@ -797,21 +858,19 @@ sup { vertical-align: super; font-size: 10pt; }
     legalEditor.addEventListener('input', renderDocxPreview);
 
     document.getElementById('btnInsertTextCitation')?.addEventListener('click', () => {
-      citationSequence += 1;
       document.execCommand('insertText', false, `artículo [x], inciso [y]`);
-      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
-      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
-      renderDocxPreview();
+      appendFootnoteWithSuperscript(requestFootnoteData(getFootnoteNumber()));
     });
     document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => {
-      document.execCommand('insertHTML', false, `<div class="extract-box">[EXTRACTO RELEVANTE]</div>`);
+      const noteData = requestFootnoteData(getFootnoteNumber());
+      const extractLabel = window.prompt('Texto del recuadro', '[EXTRACTO RELEVANTE]') || '[EXTRACTO RELEVANTE]';
+      const extractHtml = `<div class="extract-box">${escapeHtml(extractLabel)}<sup>${noteData.number}</sup></div>`;
+      pendingFootnotes.push(noteData);
+      document.execCommand('insertHTML', false, extractHtml);
       renderDocxPreview();
     });
     document.getElementById('btnInsertFootnote')?.addEventListener('click', () => {
-      citationSequence += 1;
-      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
-      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
-      renderDocxPreview();
+      appendFootnoteWithSuperscript(requestFootnoteData(getFootnoteNumber()));
     });
     document.getElementById('btnAutoInterview')?.addEventListener('click', () => {
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
@@ -859,7 +918,7 @@ sup { vertical-align: super; font-size: 10pt; }
         destinationLabel: 'Mantener en Producción',
         mode: selectedMode,
         instructions: 'Generado desde editor jurídico en curso.',
-        footnotes: pendingFootnotes,
+        footnotes: [...pendingFootnotes],
         docBodyHtml: (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>')
       };
       downloadWordDocument(`produccion-en-curso-${Date.now()}.doc`, buildWordHtmlDocument(request));
