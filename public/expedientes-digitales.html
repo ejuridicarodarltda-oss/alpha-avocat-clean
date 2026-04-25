@@ -599,7 +599,10 @@
       );
     }
     function cleanRawRoleOnly(raw = '') {
-      return String(raw || '').trim().replaceAll(' · ', '-');
+      return String(raw || '')
+        .trim()
+        .replace(/\s*·\s*/g, '-')
+        .replace(/\s*-\s*/g, '-');
     }
     function isDigitsOnly(value = '') {
       const text = String(value || '');
@@ -651,6 +654,12 @@
     }
     function buildRolCompleto(row = {}) {
       return cleanRawRoleOnly(readRawExcelRole(row));
+    }
+    function buildReconstructedRoleNumberYear(raw = '') {
+      const cleaned = cleanRawRoleOnly(raw);
+      const parsed = extractRoleNumberYear(cleaned);
+      if (!parsed) return cleaned;
+      return `${parsed.number}-${parsed.year}`;
     }
     function normalizeCaratula(raw = '') {
       const cleaned = normalizeWhitespace(raw).replace(/["'`]/g, '').replace(/\s{2,}/g, ' ');
@@ -1298,19 +1307,22 @@
             eraPositionWarningEmitted = true;
           }
           const rawExcelRole = readRawExcelRole(source);
-          const roleUsedForComparison = cleanRawRoleOnly(rawExcelRole);
+          const roleUsedForComparison = buildReconstructedRoleNumberYear(rawExcelRole);
           const rawTribunal = String(source.tribunal || '').trim();
           const normalizedRow = {
             rit: roleUsedForComparison,
             rolOriginalExcel: rawExcelRole,
             rolUsadoParaComparar: roleUsedForComparison,
+            rolExcelReconstruido: roleUsedForComparison,
             tribunal: normalizeTribunal(rawTribunal),
             caratulado: String(source.caratulado || '').trim(),
             fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
             estadoCausa: String(source.estado_causa || '').trim(),
             institucion: String(source.institucion || '').trim(),
           };
-          console.info(`[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rol usado comparación="${roleUsedForComparison}"`);
+          console.info(
+            `[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rolExcelReconstruido: ${roleUsedForComparison}`,
+          );
           report.rowsRead += 1;
           if (!roleUsedForComparison) {
             report.formatErrors.push({ row: i + 2, error: 'Rol/RIT vacío.' });
@@ -1343,6 +1355,9 @@
               return normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey
                 && rolesMatchByNumberYearOnly(normalizedRow.rit, rolCandidate);
             });
+            console.info(
+              `[Excel depurado][fila ${i + 2}] rolExcelReconstruido: ${normalizedRow.rolExcelReconstruido} | candidatosCarpetaPorNumeroAnio: ${candidateMatches.length}`,
+            );
             if (candidateMatches.length) matchType = 'number_year';
           } else {
             matchType = 'exact';
