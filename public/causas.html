@@ -3062,6 +3062,10 @@
       pjudGeneralIndexControl: {
         lastStatus: 'Sin ejecución',
       },
+      officeFoldersSource: {
+        generatedAt: null,
+        byCaseId: new Map(),
+      },
       pjudCausesIndex: {
         items: [],
         loading: false,
@@ -5680,6 +5684,50 @@
       return matchedClient ? String(matchedClient[C.c_id]) : '';
     }
 
+    function normalizeOfficeFolderField(value = ''){
+      return String(value || '').trim();
+    }
+
+    function buildOfficeFolderIdentity(baseCase = {}){
+      const rol = normalizeOfficeFolderField(baseCase[C.k_rol] || baseCase.pjud_rit || baseCase.pjud_ruc || '');
+      const tribunal = normalizeOfficeFolderField(baseCase.pjud_tribunal || baseCase[C.k_court] || baseCase.court || '');
+      const fallbackId = normalizeOfficeFolderField(baseCase[C.k_id] || baseCase.id || '');
+      const normalizedRol = normalizeImportComparisonKey(rol);
+      const normalizedTribunal = normalizeImportComparisonKey(tribunal);
+      if (normalizedRol || normalizedTribunal) return `${normalizedRol}::${normalizedTribunal}`;
+      return fallbackId ? `id::${normalizeImportComparisonKey(fallbackId)}` : '';
+    }
+
+    function rebuildOfficeFoldersSource(){
+      const identityMap = new Map();
+      const byCaseId = new Map();
+      (state.supabaseCases || []).forEach((baseCase) => {
+        const caseId = String(baseCase?.[C.k_id] || baseCase?.id || '').trim();
+        if (!caseId) return;
+        const identityKey = buildOfficeFolderIdentity(baseCase);
+        if (!identityKey) return;
+        if (!identityMap.has(identityKey)) {
+          identityMap.set(identityKey, {
+            caseId,
+            rol: normalizeOfficeFolderField(baseCase[C.k_rol] || baseCase.pjud_rit || baseCase.pjud_ruc || ''),
+            tribunal: normalizeOfficeFolderField(baseCase.pjud_tribunal || baseCase[C.k_court] || baseCase.court || ''),
+            materia: normalizeOfficeFolderField(baseCase.pjud_materia || baseCase[C.k_subject] || ''),
+          });
+        }
+      });
+      identityMap.forEach((folder) => {
+        byCaseId.set(folder.caseId, folder);
+      });
+      state.officeFoldersSource = {
+        generatedAt: new Date().toISOString(),
+        byCaseId,
+      };
+    }
+
+    function getOfficeFolderSnapshot(caseId = ''){
+      return state.officeFoldersSource?.byCaseId?.get?.(String(caseId || '')) || null;
+    }
+
 	    async function loadCases(){
       const { data, error } = await supabase
         .from(T_CASES)
@@ -5700,11 +5748,23 @@
           return [caseId, merged];
         })
         .filter(Boolean));
+      rebuildOfficeFoldersSource();
 	      if (state.selectedId && !state.caseMap.has(state.selectedId)) state.selectedId = null;
 	    }
 
     function getAllCases(){
-      return [...state.caseMap.values()];
+      return [...state.caseMap.values()]
+        .map((item) => {
+          const snapshot = getOfficeFolderSnapshot(item?.id);
+          if (!snapshot) return null;
+          return {
+            ...item,
+            rol: snapshot.rol || item.rol,
+            tribunal: snapshot.tribunal || item.tribunal,
+            materia: snapshot.materia || item.materia,
+          };
+        })
+        .filter(Boolean);
     }
 
     function uniqueValues(key){
@@ -6184,9 +6244,9 @@
         expedientesDigitales,
         produccionEnCurso: escritosEnCurso + asesoriasActivas,
         sources: {
-          informacionBase: `${T_CASES} + workspace (causas fusionadas por ID)`,
-          expedientesDigitales: 'solo causas con documentos reales accesibles (content/sourceUrl/sourcePageUrl)',
-          produccionEnCurso: 'solo producción vinculada a causas con contenido documental real',
+          informacionBase: 'carpetas reales tipo Office (Expedientes Digitales) reconstruidas desde cases',
+          expedientesDigitales: 'solo carpetas reales con documentos accesibles (content/sourceUrl/sourcePageUrl)',
+          produccionEnCurso: 'solo producción vinculada a carpetas reales con contenido documental',
         },
       };
     }
@@ -6752,9 +6812,9 @@
       if (!metricsNode) return;
       const summary = computeSummaryMetricSources();
       metricsNode.innerHTML = [
-        { label:'Información base', value:summary.informacionBase, helper:'Causas reales fusionadas desde Supabase + workspace por ID persistido.' },
-        { label:'Expedientes digitales', value:summary.expedientesDigitales, helper:'Documentos reales accesibles (URL, página origen o contenido local).' },
-        { label:'Producción en curso', value:summary.produccionEnCurso, helper:'Borradores/revisión/redacción + asesorías activas vinculadas a causa.', fullWidth:true },
+        { label:'Información base', value:summary.informacionBase, helper:'Conteo de carpetas reales tipo Office en Expedientes Digitales.' },
+        { label:'Expedientes digitales', value:summary.expedientesDigitales, helper:'Documentos reales accesibles (URL, página origen o contenido local) sobre carpetas Office.' },
+        { label:'Producción en curso', value:summary.produccionEnCurso, helper:'Borradores/revisión/redacción + asesorías activas vinculadas a carpetas reales.', fullWidth:true },
       ].map(item => `
         <article class="metric ${item.fullWidth ? 'metric-wide' : ''}">
           <span class="mini-label">${escapeHtml(item.label)}</span>
