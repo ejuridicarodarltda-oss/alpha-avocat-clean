@@ -2055,6 +2055,8 @@
 
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
+      <div class="timeline-meta" id="officeSourceBanner"></div>
+      <div class="timeline-meta" id="officeSourceDebug"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
@@ -3064,7 +3066,16 @@
       },
       officeFoldersSource: {
         generatedAt: null,
+        status: 'idle',
+        error: '',
         byCaseId: new Map(),
+        folders: [],
+        debug: {
+          totalRead: 0,
+          totalClassified: 0,
+          totalWithoutClassification: 0,
+          byFuero: {},
+        },
       },
       pjudCausesIndex: {
         items: [],
@@ -5688,40 +5699,64 @@
       return String(value || '').trim();
     }
 
-    function buildOfficeFolderIdentity(baseCase = {}){
-      const rol = normalizeOfficeFolderField(baseCase[C.k_rol] || baseCase.pjud_rit || baseCase.pjud_ruc || '');
-      const tribunal = normalizeOfficeFolderField(baseCase.pjud_tribunal || baseCase[C.k_court] || baseCase.court || '');
-      const fallbackId = normalizeOfficeFolderField(baseCase[C.k_id] || baseCase.id || '');
-      const normalizedRol = normalizeImportComparisonKey(rol);
-      const normalizedTribunal = normalizeImportComparisonKey(tribunal);
-      if (normalizedRol || normalizedTribunal) return `${normalizedRol}::${normalizedTribunal}`;
-      return fallbackId ? `id::${normalizeImportComparisonKey(fallbackId)}` : '';
+    function readOfficeFolderRecord(caseItem = {}){
+      const caseId = String(caseItem?.id || caseItem?.[C.k_id] || '').trim();
+      if (!caseId) return null;
+      const rol = normalizeOfficeFolderField(caseItem?.rol || caseItem?.pjud_rit || caseItem?.rit || caseItem?.ruc || '');
+      const tribunal = normalizeOfficeFolderField(caseItem?.tribunal || caseItem?.pjudTribunal || caseItem?.pjud_tribunal || caseItem?.court || '');
+      if (!rol && !tribunal) return null;
+      const caratula = normalizeOfficeFolderField(caseItem?.caratula || caseItem?.pjud_caratulado || '');
+      const estado = normalizeOfficeFolderField(caseItem?.estadoProcesal || caseItem?.estadoCausa || caseItem?.pjud_estado_procesal || caseItem?.pjud_estado_causa || '');
+      const fuero = tribunal ? inferKardexLabel(tribunal) : '';
+      return {
+        caseId,
+        rol,
+        tribunal,
+        caratula,
+        estado,
+        materia: normalizeOfficeFolderField(caseItem?.materia || caseItem?.pjud_materia || ''),
+        fuero,
+      };
+    }
+
+    function buildEmptyOfficeFolderSource(status = 'idle', error = ''){
+      return {
+        generatedAt: new Date().toISOString(),
+        status,
+        error,
+        byCaseId: new Map(),
+        folders: [],
+        debug: {
+          totalRead: 0,
+          totalClassified: 0,
+          totalWithoutClassification: 0,
+          byFuero: {},
+        },
+      };
     }
 
     function rebuildOfficeFoldersSource(){
-      const identityMap = new Map();
-      const byCaseId = new Map();
-      (state.supabaseCases || []).forEach((baseCase) => {
-        const caseId = String(baseCase?.[C.k_id] || baseCase?.id || '').trim();
-        if (!caseId) return;
-        const identityKey = buildOfficeFolderIdentity(baseCase);
-        if (!identityKey) return;
-        if (!identityMap.has(identityKey)) {
-          identityMap.set(identityKey, {
-            caseId,
-            rol: normalizeOfficeFolderField(baseCase[C.k_rol] || baseCase.pjud_rit || baseCase.pjud_ruc || ''),
-            tribunal: normalizeOfficeFolderField(baseCase.pjud_tribunal || baseCase[C.k_court] || baseCase.court || ''),
-            materia: normalizeOfficeFolderField(baseCase.pjud_materia || baseCase[C.k_subject] || ''),
-          });
-        }
-      });
-      identityMap.forEach((folder) => {
-        byCaseId.set(folder.caseId, folder);
-      });
-      state.officeFoldersSource = {
-        generatedAt: new Date().toISOString(),
-        byCaseId,
-      };
+      try {
+        const source = buildEmptyOfficeFolderSource('ready', '');
+        const countsByFuero = new Map(KARDEX_GROUPS.map((label) => [label, 0]));
+        [...state.caseMap.values()].forEach((caseItem) => {
+          const folder = readOfficeFolderRecord(caseItem);
+          if (!folder) return;
+          source.folders.push(folder);
+          source.byCaseId.set(folder.caseId, folder);
+          if (folder.fuero && countsByFuero.has(folder.fuero)) {
+            countsByFuero.set(folder.fuero, Number(countsByFuero.get(folder.fuero) || 0) + 1);
+          }
+        });
+        source.debug.totalRead = source.folders.length;
+        source.debug.totalClassified = source.folders.filter((folder) => Boolean(folder.fuero)).length;
+        source.debug.totalWithoutClassification = Math.max(0, source.debug.totalRead - source.debug.totalClassified);
+        source.debug.byFuero = Object.fromEntries(countsByFuero.entries());
+        state.officeFoldersSource = source;
+      } catch (error) {
+        const message = `No fue posible leer las carpetas tipo Office desde Expedientes Digitales: ${error?.message || 'error desconocido'}`;
+        state.officeFoldersSource = buildEmptyOfficeFolderSource('error', message);
+      }
     }
 
     function getOfficeFolderSnapshot(caseId = ''){
@@ -5753,6 +5788,8 @@
 	    }
 
     function getAllCases(){
+      const sourceStatus = String(state.officeFoldersSource?.status || 'idle');
+      if (sourceStatus === 'error') return [];
       return [...state.caseMap.values()]
         .map((item) => {
           const snapshot = getOfficeFolderSnapshot(item?.id);
@@ -5761,6 +5798,8 @@
             ...item,
             rol: snapshot.rol || item.rol,
             tribunal: snapshot.tribunal || item.tribunal,
+            caratula: snapshot.caratula || item.caratula,
+            estadoProcesal: snapshot.estado || item.estadoProcesal,
             materia: snapshot.materia || item.materia,
           };
         })
@@ -6807,7 +6846,29 @@
       };
     }
 
+    function renderOfficeFolderSourceStatus(){
+      const sourceNode = $('officeSourceBanner');
+      const debugNode = $('officeSourceDebug');
+      if (!sourceNode && !debugNode) return;
+      const source = state.officeFoldersSource || buildEmptyOfficeFolderSource();
+      if (sourceNode) {
+        if (source.status === 'error') {
+          sourceNode.textContent = source.error || 'Error: no fue posible leer las carpetas tipo Office de Expedientes Digitales.';
+          sourceNode.className = 'timeline-meta msg-error';
+        } else {
+          sourceNode.textContent = 'Fuente activa: Expedientes Digitales / carpetas tipo Office actualizadas desde Excel depurado.';
+          sourceNode.className = 'timeline-meta';
+        }
+      }
+      if (debugNode) {
+        const byFuero = source.debug?.byFuero || {};
+        const perFuero = KARDEX_GROUPS.map((label) => `${label}: ${Number(byFuero[label] || 0)}`).join(' · ');
+        debugNode.textContent = `Debug temporal · total carpetas leídas: ${Number(source.debug?.totalRead || 0)} · total clasificadas: ${Number(source.debug?.totalClassified || 0)} · total sin clasificación: ${Number(source.debug?.totalWithoutClassification || 0)} · por fuero: ${perFuero}`;
+      }
+    }
+
     function renderSummaryMetrics(){
+      renderOfficeFolderSourceStatus();
       const metricsNode = $('summaryMetrics');
       if (!metricsNode) return;
       const summary = computeSummaryMetricSources();
