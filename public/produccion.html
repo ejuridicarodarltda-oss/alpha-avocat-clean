@@ -73,6 +73,10 @@
     .docx-preview{background:#fff;border:1px solid #8ec7be;border-radius:14px;padding:14px;min-height:360px}
     .docx-preview-header{font-size:12px;color:#496b66;margin-bottom:8px}
     .extract-box{border-left:4px solid #163A5F;background:#f2f8ff;padding:8px 10px;margin:8px 0}
+    .legal-citation-box{border:1px solid #7ea6d9;border-left:4px solid #163A5F;background:#eef5ff;border-radius:8px;padding:10px 12px;margin:10px 0;color:#132538}
+    .legal-citation-box p{margin:4px 0}
+    .legal-citation-box .citation-meta{font-size:12px;color:#2a4f73}
+    .legal-citation-box .citation-sup{text-align:right;margin-top:6px}
     .footnote-list{font-size:12px;color:#2f4f4b;border-top:1px solid #c2e4de;margin-top:10px;padding-top:8px}
     .production-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
     .subtle-header{font-size:12px;color:#4a6b67;margin-bottom:8px}
@@ -147,6 +151,7 @@
           </div>
           <div class="editor-toolbar">
             <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
+            <button class="btn" id="btnConvertCitationBox" type="button">Convertir referencia en recuadro</button>
             <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
             <button class="btn" id="btnInsertFootnote" type="button">Agregar nota al pie</button>
             <button class="btn" id="btnAutoInterview" type="button">Cargar Acta automática</button>
@@ -608,17 +613,68 @@ sup { vertical-align: super; font-size: 10pt; }
     }
 
     function renderDocxPreview(){
-      const rawText = legalEditor.innerText || '';
-      const bodyWithParagraphs = escapeHtml(rawText).split('\n').filter(Boolean).map((line) => `<p>${line}</p>`).join('');
+      const bodyWithStructure = (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>').trim();
       const notes = pendingFootnotes.length
         ? pendingFootnotes.map((note, index) => `<li>${escapeHtml(note)}<sup>${index + 1}</sup></li>`).join('')
         : '<li>Sin notas al pie.</li>';
       docxPreviewBody.innerHTML = `
         <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo.</div>
-        <div>${bodyWithParagraphs || '<p class="muted">Sin texto en editor.</p>'}</div>
+        <div>${bodyWithStructure || '<p class="muted">Sin texto en editor.</p>'}</div>
         <div class="footnote-list"><strong>Notas al pie</strong><ol>${notes}</ol></div>
         <div class="small-gray">Pie: Mario Javier Rodríguez Ardiles · Estudio Jurídico · ... · Fecha/hora automática.</div>
       `;
+    }
+
+    function parseArticleInciso(referenceText = ''){
+      const cleaned = referenceText.trim();
+      const articleMatch = cleaned.match(/art(?:í|i)?culo\s+([\wº°.-]+)/i);
+      const incisoMatch = cleaned.match(/inciso\s+([\wº°.-]+)/i);
+      return {
+        article: articleMatch?.[1] || '[indicar artículo]',
+        inciso: incisoMatch?.[1] || '[indicar inciso]'
+      };
+    }
+
+    function buildCitationBoxHtml({ referenceText = '', type = 'norma', extract = '', superscript = 1 } = {}){
+      const { article, inciso } = parseArticleInciso(referenceText);
+      const typeLabelMap = {
+        norma: 'Norma',
+        doctrina: 'Doctrina',
+        jurisprudencia: 'Jurisprudencia'
+      };
+      return `<div class="legal-citation-box extract-box" contenteditable="true" data-citation-kind="${escapeHtml(type)}">
+  <p class="citation-meta"><strong>Tipo:</strong> ${escapeHtml(typeLabelMap[type] || 'Norma')}</p>
+  <p><strong>Artículo e inciso:</strong> artículo ${escapeHtml(article)}, inciso ${escapeHtml(inciso)}.</p>
+  <p><strong>Extracto pertinente:</strong> ${escapeHtml(extract || '[Completar extracto útil, sin bibliografía.]')}</p>
+  <p class="citation-sup"><sup>${superscript}</sup></p>
+</div>`;
+    }
+
+    function insertCitationBoxFromSelection(){
+      const selection = window.getSelection();
+      const selectedReference = (selection && selection.rangeCount ? selection.toString() : '').trim();
+      const referenceText = selectedReference || window.prompt('Indica la referencia (ej: "artículo 26 inciso segundo"):') || '';
+      if (!referenceText.trim()) return;
+      const typePrompt = (window.prompt('Tipo de cita: norma, doctrina o jurisprudencia', 'norma') || 'norma').toLowerCase().trim();
+      const citationType = ['norma', 'doctrina', 'jurisprudencia'].includes(typePrompt) ? typePrompt : 'norma';
+      const extract = window.prompt('Ingresa solo el extracto útil (sin bibliografía):', '') || '';
+      citationSequence += 1;
+      const citationBoxHtml = buildCitationBoxHtml({
+        referenceText,
+        type: citationType,
+        extract,
+        superscript: citationSequence
+      });
+      if (selection && selection.rangeCount) {
+        const range = selection.getRangeAt(0);
+        range.collapse(false);
+        const fragment = range.createContextualFragment(`<div>${citationBoxHtml}</div>`);
+        range.insertNode(fragment);
+        selection.removeAllRanges();
+      } else {
+        document.execCommand('insertHTML', false, `<div>${citationBoxHtml}</div>`);
+      }
+      renderDocxPreview();
     }
 
     function renderExternalInputs(){
@@ -867,8 +923,17 @@ sup { vertical-align: super; font-size: 10pt; }
       pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
       renderDocxPreview();
     });
+    document.getElementById('btnConvertCitationBox')?.addEventListener('click', () => {
+      insertCitationBoxFromSelection();
+    });
     document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => {
-      document.execCommand('insertHTML', false, `<div class="extract-box">[EXTRACTO RELEVANTE]</div>`);
+      citationSequence += 1;
+      document.execCommand('insertHTML', false, buildCitationBoxHtml({
+        referenceText: 'artículo [x] inciso [y]',
+        type: 'norma',
+        extract: '[EXTRACTO RELEVANTE]',
+        superscript: citationSequence
+      }));
       renderDocxPreview();
     });
     document.getElementById('btnInsertFootnote')?.addEventListener('click', () => {
@@ -1049,10 +1114,7 @@ sup { vertical-align: super; font-size: 10pt; }
         pdfFilename: null,
         body: plainBody,
         footnotes: [...pendingFootnotes],
-        docBodyHtml: escapeHtml((buildStructuredDraftPrefix(draftStage) + (legalEditor.innerText || '')).trim())
-          .split('\n')
-          .map((line) => `<p>${line}</p>`)
-          .join(''),
+        docBodyHtml: (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>'),
         createdAt: new Date().toISOString(),
       };
       const wordHtml = buildWordHtmlDocument(newRequest);
