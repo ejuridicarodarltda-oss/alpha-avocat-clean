@@ -3440,11 +3440,11 @@
       'Juzgados de Familia',
       'Juzgados del Trabajo',
       'Juzgados de Garantía',
-      'Cortes de Apelaciones',
-      'Corte Suprema',
-      'Juzgados de Policía Local',
       'Juzgados de Cobranza Laboral y Previsional',
-      'Tribunales de Juicio Oral en lo Penal'
+      'Juzgados de Policía Local',
+      'Tribunales de Juicio Oral en lo Penal',
+      'Cortes de Apelaciones',
+      'Corte Suprema'
     ];
 
 	    function inferKardexLabel(tribunal = ''){
@@ -3452,12 +3452,13 @@
 	      if (normalized.includes('corte suprema')) return 'Corte Suprema';
 	      if (
 	        normalized.includes('corte de apelaciones')
-	        || normalized.startsWith('c a de ')
+	        || normalized.includes('corte apelaciones')
+	        || /\bc\.?\s*a\.?\b/.test(normalized)
 	        || normalized.startsWith('ca de ')
 	      ) return 'Cortes de Apelaciones';
-	      if (normalized.includes('juzgado de policia local')) return 'Juzgados de Policía Local';
 	      if (normalized.includes('cobranza') || normalized.includes('previsional')) return 'Juzgados de Cobranza Laboral y Previsional';
-	      if (normalized.includes('juicio oral') || normalized.includes('top')) return 'Tribunales de Juicio Oral en lo Penal';
+	      if (normalized.includes('juicio oral') || /\btop\b/.test(normalized)) return 'Tribunales de Juicio Oral en lo Penal';
+	      if (normalized.includes('policia local')) return 'Juzgados de Policía Local';
 	      if (
 	        normalized.includes('garantia')
 	        || normalized.includes('medidas cautelares')
@@ -3468,7 +3469,6 @@
 	      if (normalized.includes('familia')) return 'Juzgados de Familia';
 	      if (normalized.includes('trabajo')) return 'Juzgados del Trabajo';
 	      if (normalized.includes('letras') || normalized.includes('civil')) return 'Juzgados Civiles';
-	      if (normalized.includes('policia local')) return 'Juzgados de Policía Local';
 	      if (!normalized) return 'Juzgados Civiles';
 	      return 'Juzgados Civiles';
 	    }
@@ -6720,13 +6720,11 @@
 	      renderVisibilityDiagnostics(list);
       $('countLabel').textContent = `${list.length} causa(s)`;
       if (!list.length) {
-        $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
         $('detailTitle').textContent = 'Sin causas visibles';
         $('detailMeta').textContent = 'Ajusta los filtros o crea una nueva causa para abrir la ficha interna.';
         $('detailActions').innerHTML = '';
         $('tabBar').innerHTML = '';
         $('detailContent').innerHTML = '<div class="empty-state">No hay ficha para mostrar.</div>';
-        return;
       }
 	      if (state.selectedId && !list.some(item => item.id === state.selectedId)) state.selectedId = null;
 	      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
@@ -6742,7 +6740,6 @@
 	      persistKardexExpandedState();
 
       $('casesList').innerHTML = orderedGroups
-        .filter((label) => (grouped.get(label) || []).length)
         .map((label) => {
           const items = grouped.get(label) || [];
           const isOpen = Boolean(state.openKardexByTribunal[label]);
@@ -6756,7 +6753,8 @@
                 <span class="badge badge-info">${items.length} causa(s)</span>
               </button>
               <div class="kardex-body">
-                ${items.map((item) => {
+                ${items.length
+                  ? items.map((item) => {
                   const days = daysBetween(item.proximoPlazo);
                   const selected = item.id === state.selectedId ? 'selected' : '';
                   const identity = getCauseIdentifier(item);
@@ -6784,7 +6782,8 @@
                       </div>
                     </article>
                   `;
-                }).join('')}
+                }).join('')
+                  : '<div class="empty-state">Sin tribunales todavía</div>'}
               </div>
             </section>
           `;
