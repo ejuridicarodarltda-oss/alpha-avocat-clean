@@ -953,6 +953,44 @@
       flex-wrap:wrap;
     }
 
+    .causas-page .section-head-collapsible{
+      cursor:pointer;
+      user-select:none;
+      align-items:center;
+    }
+
+    .causas-page .section-head-main{
+      flex:1 1 320px;
+      min-width:0;
+    }
+
+    .causas-page .section-head-tools{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      margin-left:auto;
+    }
+
+    .causas-page .section-toggle-icon{
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      width:28px;
+      height:28px;
+      border-radius:999px;
+      border:1px solid rgba(45,124,116,.35);
+      background:#edf8f6;
+      color:#1d5f58;
+      font-weight:800;
+      font-size:14px;
+      flex:0 0 auto;
+    }
+
+    .causas-page .section-card.collapsed .section-copy,
+    .causas-page .section-card.collapsed .section-collapsible-body{
+      display:none;
+    }
+
     .causas-page .section-copy{
       color:var(--causas-text-secondary);
       line-height:1.55;
@@ -2802,6 +2840,7 @@
         search: '', estado: '', tribunal: '', materia: '', procedimiento: '', responsable: '', urgencia: '', audiencia: '', plazo: '', importBatch: '', importStatus: '', lastImported: '', sortBy: 'updated'
       },
       openKardexByTribunal: {},
+      mainCardsExpanded: {},
       rectificationOpen: false,
       rectificationScope: 'general',
       rectificationValidation: null,
@@ -6944,29 +6983,52 @@
 
     function renderExpedienteArchivadores(cause){
       const archivadores = getExpedienteTribunalArchivadores(cause);
+      return renderMainCollapsibleSection({
+        key: 'archivadoresTribunal',
+        title: 'Archivadores por tribunal',
+        copy: 'Cada archivador funciona como contenedor principal por materia o tribunal. Dentro de cada uno se muestra una carpeta individual por causa con sus subcarpetas jurídicas.',
+        body: buildPairedCards(archivadores, (archivador, isOddTail) => `
+          <article class="folder-card ${isOddTail ? 'span-full' : ''}">
+            <div class="case-top">
+              <strong>${escapeHtml(archivador.name)}</strong>
+              <span class="badge badge-info">Archivador principal</span>
+            </div>
+            <div class="case-meta">${escapeHtml(archivador.causeFolderName)}</div>
+            ${buildPairedCards(archivador.causeSubfolders, (subfolder, isSubOddTail) => `
+              <div class="info-card ${isSubOddTail ? 'span-full' : ''}">
+                <div class="mini-label">Carpeta interna</div>
+                <div class="case-meta">${escapeHtml(subfolder)}</div>
+              </div>
+            `)}
+          </article>
+        `),
+      });
+    }
+
+    function isMainCardExpanded(key){
+      return Boolean(state.mainCardsExpanded?.[key]);
+    }
+
+    function toggleMainCard(key){
+      state.mainCardsExpanded[key] = !isMainCardExpanded(key);
+      renderCurrentTab();
+    }
+
+    function renderMainCollapsibleSection({ key, title, copy = '', body = '', toolbar = '' } = {}){
+      const expanded = isMainCardExpanded(key);
       return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">Archivadores por tribunal</h4>
-              <p class="section-copy">Cada archivador funciona como contenedor principal por materia o tribunal. Dentro de cada uno se muestra una carpeta individual por causa con sus subcarpetas jurídicas.</p>
+        <section class="section-card ${expanded ? 'expanded' : 'collapsed'}" data-main-card="${escapeHtml(String(key || ''))}">
+          <div class="section-head section-head-collapsible" data-main-card-toggle="${escapeHtml(String(key || ''))}" role="button" tabindex="0" aria-expanded="${expanded ? 'true' : 'false'}">
+            <div class="section-head-main">
+              <h4 class="section-title">${escapeHtml(title || '')}</h4>
+              ${expanded && copy ? `<p class="section-copy">${escapeHtml(copy)}</p>` : ''}
+            </div>
+            <div class="section-head-tools">
+              ${expanded && toolbar ? `<div class="toolbar">${toolbar}</div>` : ''}
+              <span class="section-toggle-icon" aria-hidden="true">${expanded ? '▾' : '▸'}</span>
             </div>
           </div>
-          ${buildPairedCards(archivadores, (archivador, isOddTail) => `
-            <article class="folder-card ${isOddTail ? 'span-full' : ''}">
-              <div class="case-top">
-                <strong>${escapeHtml(archivador.name)}</strong>
-                <span class="badge badge-info">Archivador principal</span>
-              </div>
-              <div class="case-meta">${escapeHtml(archivador.causeFolderName)}</div>
-              ${buildPairedCards(archivador.causeSubfolders, (subfolder, isSubOddTail) => `
-                <div class="info-card ${isSubOddTail ? 'span-full' : ''}">
-                  <div class="mini-label">Carpeta interna</div>
-                  <div class="case-meta">${escapeHtml(subfolder)}</div>
-                </div>
-              `)}
-            </article>
-          `)}
+          <div class="section-collapsible-body">${body}</div>
         </section>
       `;
     }
@@ -7040,18 +7102,15 @@
       return `
         ${renderResumen(cause)}
         ${renderPjudLinkagePanel(cause)}
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">INFORMACIÓN DE CLIENTES, ASESORÍAS Y CAUSAS</h4>
-              <p class="section-copy">Detalle jurídico del cliente, identificación interna del asunto, coordinación operativa y vínculos con asesorías y gestión diaria.</p>
-            </div>
-            <div class="toolbar">
-              <span class="badge badge-active">Cliente vinculado</span>
-              <span class="badge ${computeBadgeClass('alert', cause.alerta)}">${escapeHtml(cause.alerta)}</span>
-            </div>
-          </div>
-          ${buildKeyValueGrid([
+        ${renderMainCollapsibleSection({
+          key: 'informacionPrincipal',
+          title: 'INFORMACIÓN DE CLIENTES, ASESORÍAS Y CAUSAS',
+          copy: 'Detalle jurídico del cliente, identificación interna del asunto, coordinación operativa y vínculos con asesorías y gestión diaria.',
+          toolbar: `
+            <span class="badge badge-active">Cliente vinculado</span>
+            <span class="badge ${computeBadgeClass('alert', cause.alerta)}">${escapeHtml(cause.alerta)}</span>
+          `,
+          body: buildKeyValueGrid([
             ['Cliente', cause.cliente],
             ['Tipo de causa', cause.tipoCausa],
             ['Submateria', cause.submateria],
@@ -7068,8 +7127,8 @@
             ['Instrucciones activas', `${(cause.instrucciones || []).length} registro(s)`],
             ['Asesorías vinculadas', `${(cause.asesorias || []).length} vinculada(s)`],
             ['Expediente relacionado', cause.expediente],
-          ])}
-        </section>
+          ]),
+        })}
         ${renderClientCauseAssociationBlock(cause)}
         ${renderEstadoProcesal(cause)}
         ${renderPartes(cause)}
@@ -7444,20 +7503,17 @@
 
     function renderExpedientesPillar(cause){
       return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">EXPEDIENTES DIGITALES</h4>
-              <p class="section-copy">Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.</p>
-            </div>
-            <div class="toolbar">
-              <button class="btn btn-primary" data-doc-upload="depositoDocumentos">Agregar archivos</button>
-              <button class="btn" data-doc-upload="documentos">Subir archivo</button>
-              <button class="btn" data-doc-upload="ebook">Subir ebook</button>
-            </div>
-          </div>
-          ${renderDocumentExplorer(cause)}
-        </section>
+        ${renderMainCollapsibleSection({
+          key: 'expedientesDigitales',
+          title: 'EXPEDIENTES DIGITALES',
+          copy: 'Panel documental principal del módulo CAUSAS con navegación tipo explorador, vista jerárquica y apertura directa de archivos reales vinculados a la causa.',
+          toolbar: `
+            <button class="btn btn-primary" data-doc-upload="depositoDocumentos">Agregar archivos</button>
+            <button class="btn" data-doc-upload="documentos">Subir archivo</button>
+            <button class="btn" data-doc-upload="ebook">Subir ebook</button>
+          `,
+          body: renderDocumentExplorer(cause),
+        })}
         ${renderExpedienteArchivadores(cause)}
         ${renderContenedor(cause)}
         ${renderPrueba(cause)}
@@ -7546,26 +7602,25 @@
 
     function renderProduccionPillar(cause){
       return `
-        <section class="section-card">
-          <div class="section-head">
-            <div>
-              <h4 class="section-title">PRODUCCIÓN</h4>
-              <p class="section-copy">Pilar de creación jurídica con redacción de escritos, plantillas, borradores, finales, prueba, asistente IA e historial.</p>
+        ${renderMainCollapsibleSection({
+          key: 'produccionJuridica',
+          title: 'PRODUCCIÓN',
+          copy: 'Pilar de creación jurídica con redacción de escritos, plantillas, borradores, finales, prueba, asistente IA e historial.',
+          toolbar: `
+            <span class="badge badge-active">Borradores de escritos</span>
+            <span class="badge badge-ok">Carpeta digital</span>
+          `,
+          body: `
+            <div class="action-grid">
+              <article class="action-card"><strong>Redacción de escritos</strong><div class="case-meta">Conectada con cliente, asesoría, causa y alertas.</div></article>
+              <article class="action-card"><strong>Plantillas</strong><div class="case-meta">Reutiliza estructura del estudio sin alterar el diseño del sistema.</div></article>
+              <article class="action-card"><strong>Borradores</strong><div class="case-meta">Se guardan en Borradores de escritos hasta su validación.</div></article>
+              <article class="action-card"><strong>Documentos finales</strong><div class="case-meta">Pueden pasar a Carpeta digital cuando corresponda.</div></article>
+              <article class="action-card"><strong>Producción probatoria</strong><div class="case-meta">Integra testimonios, pericias y documentos con trazabilidad.</div></article>
             </div>
-            <div class="toolbar">
-              <span class="badge badge-active">Borradores de escritos</span>
-              <span class="badge badge-ok">Carpeta digital</span>
-            </div>
-          </div>
-          <div class="action-grid">
-            <article class="action-card"><strong>Redacción de escritos</strong><div class="case-meta">Conectada con cliente, asesoría, causa y alertas.</div></article>
-            <article class="action-card"><strong>Plantillas</strong><div class="case-meta">Reutiliza estructura del estudio sin alterar el diseño del sistema.</div></article>
-            <article class="action-card"><strong>Borradores</strong><div class="case-meta">Se guardan en Borradores de escritos hasta su validación.</div></article>
-            <article class="action-card"><strong>Documentos finales</strong><div class="case-meta">Pueden pasar a Carpeta digital cuando corresponda.</div></article>
-            <article class="action-card"><strong>Producción probatoria</strong><div class="case-meta">Integra testimonios, pericias y documentos con trazabilidad.</div></article>
-          </div>
-          <div class="linked-note">Todo documento generado desde PRODUCCIÓN puede quedar vinculado a la causa, al cliente, a una asesoría y al expediente digital del asunto.</div>
-        </section>
+            <div class="linked-note">Todo documento generado desde PRODUCCIÓN puede quedar vinculado a la causa, al cliente, a una asesoría y al expediente digital del asunto.</div>
+          `,
+        })}
         ${renderProductionHub(cause)}
         ${renderProduccion(cause)}
         ${renderEscritos(cause)}
@@ -14785,6 +14840,12 @@
       });
 
       $('detailContent')?.addEventListener('click', async (event) => {
+        const mainCardToggle = event.target.closest('[data-main-card-toggle]');
+        if (mainCardToggle && !event.target.closest('.toolbar, .section-head-actions')) {
+          toggleMainCard(mainCardToggle.dataset.mainCardToggle || '');
+          return;
+        }
+
         const associationClient = event.target.closest('[data-select-associated-client]');
         if (associationClient) {
           state.selectedAssociationClientId = associationClient.dataset.selectAssociatedClient || null;
@@ -15039,6 +15100,13 @@
           });
           setDetailStatus('Se detectó un botón sin acción asignada. Revisa la consola para vincular su handler.', 'warn');
         }
+      });
+      $('detailContent')?.addEventListener('keydown', (event) => {
+        if (!['Enter', ' '].includes(event.key)) return;
+        const mainCardToggle = event.target.closest('[data-main-card-toggle]');
+        if (!mainCardToggle) return;
+        event.preventDefault();
+        toggleMainCard(mainCardToggle.dataset.mainCardToggle || '');
       });
       $('detailContent')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
