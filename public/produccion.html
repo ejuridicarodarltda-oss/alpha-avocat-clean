@@ -62,9 +62,26 @@
     .search-shell .field{margin:0}
     .citation-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     .citation-strip .label{margin:0}
+    .editor-shell{display:grid;grid-template-columns:minmax(320px,1fr) minmax(320px,1fr);gap:12px}
+    .editor-vscode{background:#0d1117;border:1px solid #2e3b4f;border-radius:14px;padding:12px;min-height:360px;color:#e6edf3;font-family:Consolas,"Liberation Mono",Menlo,monospace}
+    .editor-vscode:focus{outline:2px solid #3b82f6;outline-offset:2px}
+    .editor-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .editor-toolbar .btn{background:#162132;color:#e6edf3;border-color:#364863}
+    .docx-preview{background:#fff;border:1px solid #8ec7be;border-radius:14px;padding:14px;min-height:360px}
+    .docx-preview-header{font-size:12px;color:#496b66;margin-bottom:8px}
+    .extract-box{border-left:4px solid #163A5F;background:#f2f8ff;padding:8px 10px;margin:8px 0}
+    .footnote-list{font-size:12px;color:#2f4f4b;border-top:1px solid #c2e4de;margin-top:10px;padding-top:8px}
+    .production-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+    .subtle-header{font-size:12px;color:#4a6b67;margin-bottom:8px}
+    .small-gray{font-size:11px;color:#6c7f7c}
+    .insumos-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .insumos-list{display:grid;gap:8px}
+    .insumo-item{background:#fff;border:1px solid #8ec7be;border-radius:10px;padding:8px}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
+    @media (max-width:1050px){.editor-shell{grid-template-columns:1fr}}
+    @media (max-width:900px){.insumos-grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
@@ -108,6 +125,73 @@
       </div>
     </section>
     <section class="card">
+      <h3 class="title">Editor jurídico de Producción en curso</h3>
+      <p class="subtitle">Capa 1: editor rápido tipo Visual Studio Code · Capa 2: salida obligatoria a Word (.docx) con formato jurídico completo.</p>
+      <div class="editor-shell">
+        <div>
+          <div class="editor-toolbar">
+            <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
+            <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
+            <button class="btn" id="btnInsertFootnote" type="button">Agregar nota al pie</button>
+            <button class="btn" id="btnAutoInterview" type="button">Cargar Acta automática</button>
+          </div>
+          <div id="legalEditor" class="editor-vscode" contenteditable="true" spellcheck="false"></div>
+          <div class="production-buttons">
+            <button id="btnExportWord" class="btn btn-primary" type="button">Exportar a Word</button>
+            <button id="btnConvertPdf" class="btn" type="button">Convertir a PDF</button>
+            <button id="btnPrintDoc" class="btn" type="button">Imprimir</button>
+            <button id="btnLoadEditorDocs" class="btn" type="button">Cargar documentos</button>
+            <button id="btnOpenProvisionalContainer" class="btn" type="button">Contenedor provisorio de demandas nuevas</button>
+            <button id="btnCopyEditor" class="btn" type="button">Copiar</button>
+            <button id="btnPasteEditor" class="btn" type="button">Pegar</button>
+          </div>
+          <input id="editorFileInput" type="file" multiple class="hidden" />
+        </div>
+        <div class="docx-preview" id="docxPreview">
+          <div class="docx-preview-header">Vista de estructuración jurídica automática (Word): encabezado, cuerpo, recuadros, superíndices, notas al pie, pie y numeración.</div>
+          <div id="docxPreviewBody" class="muted">Sin contenido aún.</div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
+      <h3 class="title">Insumos externos (global)</h3>
+      <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, ver y eliminar insumos.</p>
+      <div class="insumos-grid">
+        <div class="item">
+          <div class="field">
+            <label class="label" for="externalInputType">Clasificación</label>
+            <select id="externalInputType">
+              <option value="jurisprudencia">Jurisprudencia</option>
+              <option value="doctrina">Doctrina</option>
+              <option value="codigos">Códigos y leyes especiales</option>
+              <option value="normas-cita">Normas de cita</option>
+              <option value="instrucciones">Instrucciones</option>
+              <option value="documentos">Documentos</option>
+              <option value="audios">Audios</option>
+              <option value="videos">Videos</option>
+              <option value="planos">Planos</option>
+              <option value="declaraciones">Declaraciones</option>
+            </select>
+          </div>
+          <div class="field">
+            <label class="label" for="externalInputName">Nombre</label>
+            <input id="externalInputName" type="text" placeholder="Nombre del insumo" />
+          </div>
+          <div class="field">
+            <label class="label" for="externalInputFile">Archivo (opcional)</label>
+            <input id="externalInputFile" type="file" />
+          </div>
+          <button id="btnSaveExternalInput" class="btn btn-primary" type="button">Guardar insumo externo</button>
+        </div>
+        <div>
+          <div class="subtle-header">Listado global</div>
+          <div id="externalInputsList" class="insumos-list">
+            <article class="empty">Sin insumos externos cargados.</article>
+          </div>
+        </div>
+      </div>
+    </section>
+    <section class="card">
       <div class="grid" id="productionGrid"></div>
     </section>
     <section class="card">
@@ -145,6 +229,13 @@
         <div class="field">
           <label class="label" for="draftClient">Cliente relacionado *</label>
           <select id="draftClient" name="draftClient" required></select>
+        </div>
+        <div class="field">
+          <label class="label" for="draftStage">Tipo de presentación *</label>
+          <select id="draftStage" name="draftStage" required>
+            <option value="primera">Primera presentación (presuma + suma)</option>
+            <option value="posterior">Escrito posterior (suma)</option>
+          </select>
         </div>
         <div class="field span-2">
           <span class="label">Modo de redacción *</span>
@@ -222,9 +313,16 @@
     const productionSearchInput = document.getElementById('productionSearchInput');
     const productionSearchClear = document.getElementById('productionSearchClear');
     const activeCitationNorm = document.getElementById('activeCitationNorm');
+    const legalEditor = document.getElementById('legalEditor');
+    const docxPreviewBody = document.getElementById('docxPreviewBody');
+    const editorFileInput = document.getElementById('editorFileInput');
+    const externalInputsList = document.getElementById('externalInputsList');
+    const externalInputFile = document.getElementById('externalInputFile');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
     const normalize = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
+    const PROVISIONAL_KEY = 'alpha-avocat:production:provisional-container:v1';
+    const EXTERNAL_INPUTS_KEY = 'alpha-avocat:production:external-inputs:v1';
     const CITATION_NORMS = {
       'rchd-2025': {
         id: 'rchd-2025',
@@ -237,6 +335,9 @@
     let clientsCache = [];
     let fileAttachmentCache = [];
     let activeSearch = '';
+    let editorAttachments = [];
+    let citationSequence = 0;
+    let pendingFootnotes = [];
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -267,6 +368,46 @@
 
     function writeRequests(payload){
       window.localStorage.setItem(REQUESTS_KEY, JSON.stringify(payload));
+    }
+
+    function readJsonStorage(key, fallback = []){
+      try {
+        const parsed = JSON.parse(window.localStorage.getItem(key) || JSON.stringify(fallback));
+        return Array.isArray(parsed) ? parsed : fallback;
+      } catch (_error) {
+        return fallback;
+      }
+    }
+
+    function writeJsonStorage(key, payload){
+      try {
+        window.localStorage.setItem(key, JSON.stringify(payload));
+      } catch (error) {
+        console.warn('[PRODUCCIÓN] No se pudo escribir en localStorage', error);
+      }
+    }
+
+    function buildStructuredDraftPrefix(stage = 'posterior'){
+      if (stage === 'primera') {
+        return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
+      }
+      return 'SUMA: [petición concreta del escrito posterior]\n\n';
+    }
+
+    function extractRoleFromCase(selectedCase){
+      return (selectedCase?.rol || '').trim();
+    }
+
+    function getHierarchyInputs(selectedCase){
+      return {
+        acta: toList(selectedCase?.meetings || selectedCase?.actas || []),
+        caso: [selectedCase?.caratula || selectedCase?.rol || 'Sin individualización'],
+        normativa: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'codigos'),
+        jurisprudencia: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'jurisprudencia'),
+        doctrina: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'doctrina'),
+        instrucciones: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'instrucciones'),
+        practica: toList(selectedCase?.production_documents || selectedCase?.escritos || [])
+      };
     }
 
     function parseDeepLinkParams() {
@@ -340,9 +481,8 @@
       const modeLine = request.mode === 'with-cause'
         ? `Vinculado a causa preexistente: ${escapeHtml(request.caseTitle || request.caseRol || 'Sin individualización completa')}.`
         : 'Redactado sin causa previa asociada.';
-      const doctrinaFootnote = request.doctrinaAbrev || 'AUTOR/ES (AÑO) p. [pendiente].';
-      const normaFootnote = request.normaAbrev || 'CHILE, [norma pendiente de individualizar].';
-      const jurisprudenciaFootnote = request.jurisAbrev || 'Tribunal [pendiente], [fecha o caso pendiente].';
+      const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
+      const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
       return `<!doctype html>
 <html lang="es">
 <head>
@@ -357,44 +497,32 @@ h1,h2,h3 { margin: 0 0 12pt 0; }
 sup { vertical-align: super; font-size: 10pt; }
 .footnotes { margin-top: 18pt; border-top: 1px solid #888; padding-top: 10pt; }
 .footnotes ol { margin: 0; padding-left: 18pt; }
-ul { margin: 6pt 0 0 0; padding-left: 18pt; }
-li { margin-bottom: 6pt; }
+.page-number { position: fixed; top: 0.2cm; right: 0.5cm; font-size: 10pt; color:#666; }
+.doc-header { position: fixed; top: 0.2cm; left: 0.5cm; font-size: 10pt; color:#666; }
+.doc-footer { position: fixed; bottom: 0.3cm; left: 0.5cm; right: 0.5cm; font-size: 8.5pt; color:#888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.extract-box { border-left: 4px solid #163A5F; background:#f2f8ff; padding: 8pt; margin: 10pt 0; }
 </style>
 </head>
 <body>
+  <div class="doc-header">Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo</div>
+  <div class="page-number">Página <span style="mso-field-code:' PAGE '">1</span></div>
+  <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · esjuridica.rodar.ltda@gmail.com · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
   <h1>${escapeHtml(request.type)}</h1>
   <p class="meta"><strong>Cliente:</strong> ${escapeHtml(request.clientName)}<br>
   <strong>Norma de citas activa:</strong> ${escapeHtml(citationNorm.label)}<br>
-  <strong>Destino:</strong> ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}</p>
+  <strong>Destino:</strong> ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}<br>
+  <strong>Idioma:</strong> Español (Chile) · <strong>Formato:</strong> Oficio, interlineado 1,5, justificado</p>
   <p>${modeLine}</p>
-
-  <p>En atención a los antecedentes disponibles se formula la estrategia jurídica de este borrador<sup>1</sup>, integrando normativa aplicable<sup>2</sup>, y soporte jurisprudencial pertinente<sup>3</sup>.</p>
+  <div>${request.docBodyHtml || '<p>Sin contenido de redacción.</p>'}</div>
   <p><strong>Instrucciones del abogado:</strong> ${escapeHtml(request.instructions || 'Sin instrucciones adicionales registradas')}</p>
-  <p><strong>Estilo del abogado:</strong> ${escapeHtml(request.lawyerStyle || 'Sin observaciones de estilo registradas')}</p>
+  <p><strong>Uso referencial de práctica forense:</strong> principal = escritos del abogado; secundario = escritos externos (sin copia literal).</p>
 
   <p class="section-title">Notas al pie (referencia abreviada)</p>
   <div class="footnotes">
     <ol>
-      <li>${escapeHtml(doctrinaFootnote)}</li>
-      <li>${escapeHtml(normaFootnote)}</li>
-      <li>${escapeHtml(jurisprudenciaFootnote)}</li>
+      ${noteItems || '<li>Sin notas al pie registradas.</li>'}
     </ol>
   </div>
-
-  <h3 class="section-title">Bibliografía citada</h3>
-  <ul>
-    <li>${escapeHtml(request.doctrinaCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
-  </ul>
-
-  <h3 class="section-title">Normas e instrumentos citados</h3>
-  <ul>
-    <li>${escapeHtml(request.normaCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
-  </ul>
-
-  <h3 class="section-title">Jurisprudencia citada</h3>
-  <ul>
-    <li>${escapeHtml(request.jurisCompleta || 'Referencia incompleta o pendiente de completar por el usuario (sin invención de datos).')}</li>
-  </ul>
 </body>
 </html>`;
     }
@@ -424,6 +552,56 @@ li { margin-bottom: 6pt; }
       };
       const { error } = await supabase.from('cases').update(payload).eq('id', request.caseId);
       if (error) console.error('[PRODUCCIÓN] No se pudo asociar borrador a causa', error);
+    }
+
+    function renderDocxPreview(){
+      const rawText = legalEditor.innerText || '';
+      const bodyWithParagraphs = escapeHtml(rawText).split('\n').filter(Boolean).map((line) => `<p>${line}</p>`).join('');
+      const notes = pendingFootnotes.length
+        ? pendingFootnotes.map((note, index) => `<li>${escapeHtml(note)}<sup>${index + 1}</sup></li>`).join('')
+        : '<li>Sin notas al pie.</li>';
+      docxPreviewBody.innerHTML = `
+        <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo.</div>
+        <div>${bodyWithParagraphs || '<p class="muted">Sin texto en editor.</p>'}</div>
+        <div class="footnote-list"><strong>Notas al pie</strong><ol>${notes}</ol></div>
+        <div class="small-gray">Pie: Mario Javier Rodríguez Ardiles · Estudio Jurídico · ... · Fecha/hora automática.</div>
+      `;
+    }
+
+    function renderExternalInputs(){
+      const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      if (!inputs.length) {
+        externalInputsList.innerHTML = '<article class="empty">Sin insumos externos cargados.</article>';
+        return;
+      }
+      externalInputsList.innerHTML = inputs.map((item) => `
+        <article class="insumo-item">
+          <div><strong>${escapeHtml(item.name)}</strong> <span class="pill">${escapeHtml(item.type)}</span></div>
+          <div class="small muted">${escapeHtml(item.fileName || 'Sin archivo')} · ${new Date(item.createdAt).toLocaleString('es-CL')}</div>
+          <div class="draft-actions">
+            <button class="btn" type="button" data-action="view-external" data-id="${escapeHtml(item.id)}">Ver</button>
+            <button class="btn" type="button" data-action="delete-external" data-id="${escapeHtml(item.id)}">Eliminar</button>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    function saveToProvisionalContainer(request){
+      const provisional = readJsonStorage(PROVISIONAL_KEY);
+      provisional.push({
+        id: request.id,
+        title: request.title,
+        createdAt: request.createdAt,
+        rol: request.caseRol || '',
+        payload: request
+      });
+      writeJsonStorage(PROVISIONAL_KEY, provisional);
+    }
+
+    function moveToExpedientesIfRol(request){
+      if (!request.caseRol) return;
+      const provisional = readJsonStorage(PROVISIONAL_KEY).filter((item) => item.id !== request.id);
+      writeJsonStorage(PROVISIONAL_KEY, provisional);
     }
 
     function renderRequests(){
@@ -616,6 +794,115 @@ li { margin-bottom: 6pt; }
         ? `${fileAttachmentCache.length} antecedente(s) listo(s): ${fileAttachmentCache.map((file) => file.name).join(', ')}`
         : 'Sin archivos cargados manualmente.';
     });
+    legalEditor.addEventListener('input', renderDocxPreview);
+
+    document.getElementById('btnInsertTextCitation')?.addEventListener('click', () => {
+      citationSequence += 1;
+      document.execCommand('insertText', false, `artículo [x], inciso [y]`);
+      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
+      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
+      renderDocxPreview();
+    });
+    document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => {
+      document.execCommand('insertHTML', false, `<div class="extract-box">[EXTRACTO RELEVANTE]</div>`);
+      renderDocxPreview();
+    });
+    document.getElementById('btnInsertFootnote')?.addEventListener('click', () => {
+      citationSequence += 1;
+      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
+      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
+      renderDocxPreview();
+    });
+    document.getElementById('btnAutoInterview')?.addEventListener('click', () => {
+      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
+      if (acta) {
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
+      } else {
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
+      }
+      renderDocxPreview();
+    });
+
+    document.getElementById('btnCopyEditor')?.addEventListener('click', async () => {
+      try { await navigator.clipboard.writeText(legalEditor.innerText || ''); } catch (_error) {}
+    });
+    document.getElementById('btnPasteEditor')?.addEventListener('click', async () => {
+      try {
+        const pasted = await navigator.clipboard.readText();
+        legalEditor.textContent += `${legalEditor.textContent ? '\n' : ''}${pasted}`;
+      } catch (_error) {}
+      renderDocxPreview();
+    });
+    document.getElementById('btnLoadEditorDocs')?.addEventListener('click', () => editorFileInput.click());
+    editorFileInput.addEventListener('change', (event) => {
+      editorAttachments = Array.from(event.target.files || []);
+      if (editorAttachments.length) {
+        legalEditor.textContent += `\n\n[Documentos cargados al editor: ${editorAttachments.map((file) => file.name).join(', ')}]`;
+      }
+      renderDocxPreview();
+    });
+    document.getElementById('btnOpenProvisionalContainer')?.addEventListener('click', () => {
+      const provisional = readJsonStorage(PROVISIONAL_KEY);
+      const summary = provisional.length
+        ? provisional.map((item, index) => `${index + 1}. ${item.title} (${new Date(item.createdAt).toLocaleString('es-CL')})`).join('\n')
+        : 'Contenedor provisorio vacío.';
+      window.alert(summary);
+    });
+    document.getElementById('btnExportWord')?.addEventListener('click', () => {
+      const request = {
+        id: `live-${Date.now()}`,
+        title: 'Editor-Produccion-curso',
+        type: 'Escrito jurídico',
+        clientName: 'Producción en curso',
+        citationNorm: 'rchd-2025',
+        destinationLabel: 'Mantener en Producción',
+        mode: selectedMode,
+        instructions: 'Generado desde editor jurídico en curso.',
+        footnotes: pendingFootnotes,
+        docBodyHtml: (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>')
+      };
+      downloadWordDocument(`produccion-en-curso-${Date.now()}.doc`, buildWordHtmlDocument(request));
+    });
+    document.getElementById('btnConvertPdf')?.addEventListener('click', () => window.print());
+    document.getElementById('btnPrintDoc')?.addEventListener('click', () => window.print());
+
+    document.getElementById('btnSaveExternalInput')?.addEventListener('click', () => {
+      const name = document.getElementById('externalInputName').value.trim();
+      const type = document.getElementById('externalInputType').value;
+      if (!name) {
+        window.alert('Debes indicar nombre del insumo externo.');
+        return;
+      }
+      const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      inputs.push({
+        id: `external-${Date.now()}`,
+        name,
+        type,
+        fileName: externalInputFile.files?.[0]?.name || '',
+        createdAt: new Date().toISOString()
+      });
+      writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs);
+      document.getElementById('externalInputName').value = '';
+      externalInputFile.value = '';
+      renderExternalInputs();
+    });
+    externalInputsList.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-action]');
+      if (!button) return;
+      const action = button.dataset.action;
+      const id = button.dataset.id;
+      const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      const target = inputs.find((item) => item.id === id);
+      if (!target) return;
+      if (action === 'view-external') {
+        window.alert(`${target.name}\nTipo: ${target.type}\nArchivo: ${target.fileName || 'Sin archivo'}\nFecha: ${new Date(target.createdAt).toLocaleString('es-CL')}`);
+      }
+      if (action === 'delete-external') {
+        writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs.filter((item) => item.id !== id));
+        renderExternalInputs();
+      }
+    });
 
     draftRequestForm.addEventListener('submit', async (event) => {
       event.preventDefault();
@@ -625,6 +912,7 @@ li { margin-bottom: 6pt; }
       }
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const draftStage = draftRequestForm.draftStage.value || 'posterior';
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
       const destination = draftRequestForm.draftDestination.value;
       if (destination === 'expediente' && !selectedCase) {
@@ -638,10 +926,12 @@ li { margin-bottom: 6pt; }
       };
       const citationNorm = draftRequestForm.citationNorm.value || 'rchd-2025';
       const requestId = `draft-${Date.now()}`;
+      const hierarchy = getHierarchyInputs(selectedCase);
       const plainBody = [
         `Solicitud de redacción jurídica`,
         `Norma de citas activa: ${(CITATION_NORMS[citationNorm] || CITATION_NORMS['rchd-2025']).label}`,
         `Tipo de escrito: ${draftRequestForm.draftType.value.trim()}`,
+        `Presentación: ${draftStage === 'primera' ? 'Primera presentación (presuma + suma)' : 'Escrito posterior (suma)'}`,
         `Cliente: ${selectedClient?.full_name || selectedClient?.name || 'No definido'}`,
         `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
         selectedCase ? `Causa: ${selectedCase.caratula || selectedCase.rol || selectedCase.id}` : '',
@@ -653,11 +943,21 @@ li { margin-bottom: 6pt; }
         ``,
         `Estilo del abogado`,
         draftRequestForm.lawyerStyle.value.trim(),
+        ``,
+        `Jerarquía de insumos aplicada`,
+        `1 Acta (${hierarchy.acta.length})`,
+        `2 Caso (${hierarchy.caso.length})`,
+        `3 Normativa (${hierarchy.normativa.length})`,
+        `4 Jurisprudencia (${hierarchy.jurisprudencia.length})`,
+        `5 Doctrina (${hierarchy.doctrina.length})`,
+        `6 Instrucciones (${hierarchy.instrucciones.length})`,
+        `7 Práctica (${hierarchy.practica.length})`,
       ].filter(Boolean).join('\n');
       const newRequest = {
         id: requestId,
         title: `${draftRequestForm.draftType.value.trim()} · ${selectedClient?.full_name || selectedClient?.name || 'Sin cliente'}`,
         type: draftRequestForm.draftType.value.trim(),
+        stage: draftStage,
         clientId: selectedClient?.id || null,
         clientName: selectedClient?.full_name || selectedClient?.name || 'Sin cliente',
         mode: selectedMode,
@@ -667,7 +967,7 @@ li { margin-bottom: 6pt; }
         citationNorm,
         caseId: selectedCase?.id || null,
         caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
-        caseRol: selectedCase?.rol || '',
+        caseRol: extractRoleFromCase(selectedCase),
         caseCourt: selectedCase?.pjud_tribunal || selectedCase?.court || selectedCase?.tribunal || '',
         selectedCauseInputs: selectedInputs,
         manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
@@ -677,6 +977,11 @@ li { margin-bottom: 6pt; }
         wordFilename: `${requestId}.doc`,
         pdfFilename: null,
         body: plainBody,
+        footnotes: [...pendingFootnotes],
+        docBodyHtml: escapeHtml((buildStructuredDraftPrefix(draftStage) + (legalEditor.innerText || '')).trim())
+          .split('\n')
+          .map((line) => `<p>${line}</p>`)
+          .join(''),
         createdAt: new Date().toISOString(),
       };
       const wordHtml = buildWordHtmlDocument(newRequest);
@@ -684,6 +989,8 @@ li { margin-bottom: 6pt; }
       const requests = readRequests();
       requests.push(newRequest);
       writeRequests(requests);
+      if (!newRequest.caseRol) saveToProvisionalContainer(newRequest);
+      else moveToExpedientesIfRol(newRequest);
       await persistRequestInCase(newRequest);
       renderRequests();
       downloadWordDocument(newRequest.wordFilename, wordHtml);
@@ -706,6 +1013,7 @@ li { margin-bottom: 6pt; }
         openModal();
         document.getElementById('draftType').value = target.type;
         draftClient.value = target.clientId || '';
+        draftRequestForm.draftStage.value = target.stage || 'posterior';
         applyMode(target.mode || 'no-cause');
         draftCause.value = target.caseId || '';
         draftRequestForm.draftDestination.value = target.destination || 'produccion';
@@ -716,13 +1024,22 @@ li { margin-bottom: 6pt; }
       }
       if (action === 'pdf') {
         const pdfName = `${target.id}.pdf`;
-        downloadBlob(pdfName, target.body, 'application/pdf');
+        const pdfWindow = window.open('', '_blank');
+        if (pdfWindow) {
+          pdfWindow.document.write(`<html><head><title>${escapeHtml(pdfName)}</title><style>@page{size:8.5in 13in;margin:2.5cm 2cm;}body{font-family:"Deng Xian",sans-serif;font-size:14pt;line-height:1.5;text-align:justify;}</style></head><body>${target.wordHtml || buildWordHtmlDocument(target)}</body></html>`);
+          pdfWindow.document.close();
+          pdfWindow.focus();
+          pdfWindow.print();
+        } else {
+          downloadBlob(pdfName, target.body, 'application/pdf');
+        }
         target.status = 'Convertido a PDF';
         target.pdfFilename = pdfName;
       }
       if (action === 'send') {
         if ((target.destination || 'produccion') === 'expediente') {
           target.status = target.caseId ? 'Guardado en expediente de la causa' : 'Pendiente de causa para expediente';
+          if (target.caseRol) moveToExpedientesIfRol(target);
         } else if (target.destination === 'asesoria') {
           target.status = 'Vinculado a asesoría';
         } else {
@@ -742,8 +1059,19 @@ li { margin-bottom: 6pt; }
       productionSearchInput.value = prefillParts.join(' ');
       activeSearch = normalize(productionSearchInput.value);
     }
+    legalEditor.textContent = buildStructuredDraftPrefix('posterior');
+    renderDocxPreview();
+    renderExternalInputs();
+    draftRequestForm.draftStage.addEventListener('change', () => {
+      legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}${(legalEditor.innerText || '').replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '')}`;
+      renderDocxPreview();
+    });
 
-    ensureAuth().then(loadProduction);
+    ensureAuth().then(loadProduction).catch((error) => {
+      console.warn('[PRODUCCIÓN] Tolerancia total activa: se continúa operando con funciones locales.', error);
+      renderRequests();
+      renderExternalInputs();
+    });
   </script>
 </body>
 </html>
