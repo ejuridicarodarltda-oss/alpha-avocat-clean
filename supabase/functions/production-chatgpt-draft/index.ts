@@ -58,6 +58,11 @@ function buildPrompt(input: PromptInput) {
     `Estilo requerido: ${input?.stylePrompt || 'Jurídico chileno, tono forense técnico.'}`,
     `Contexto de causa: ${JSON.stringify(causeInfo, null, 2)}`,
     `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
+    'Práctica forense (base de estilo): 1) escritos propios del abogado (principal), 2) documentos cargados como práctica forense, 3) manuales externos de práctica forense chilena (secundario).',
+    'Prohibiciones: no copiar textos completos, no replicar escritos antiguos literalmente.',
+    'Usa la práctica forense solo para estructura, lenguaje, orden de argumentos y fórmulas forenses.',
+    'Obligatorio reconocer y aplicar: uso de "S. S.", estructura "EN LO PRINCIPAL / OTROSÍ", cierre "POR TANTO", y ubicación de citas/recuadros dentro del escrito.',
+    'Mantén el análisis estrictamente basado en el caso concreto.',
     'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
   ].join('\n\n')
 }
@@ -108,7 +113,7 @@ serve(async (req) => {
     const messages = [
       {
         role: 'system',
-        content: 'Eres abogado litigante chileno senior. Redacta escritos procesales sólidos, claros y accionables para revisión profesional.',
+        content: 'Eres abogado litigante chileno senior. Redacta escritos procesales sólidos, claros y accionables para revisión profesional, usando práctica forense chilena como referencia de estilo sin copiar escritos anteriores.',
       },
       ...history.map((entry) => ({ role: entry.role, content: String(entry.content || '') })),
       { role: 'user', content: buildPrompt(payload) },

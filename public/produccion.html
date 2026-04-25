@@ -389,9 +389,9 @@
 
     function buildStructuredDraftPrefix(stage = 'posterior'){
       if (stage === 'primera') {
-        return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
+        return 'S. S.:\nEN LO PRINCIPAL: [indicar naturaleza y objeto de la acción]\nOTROSÍ: [peticiones accesorias]\nPOR TANTO: [peticiones concretas al tribunal]\n\n';
       }
-      return 'SUMA: [petición concreta del escrito posterior]\n\n';
+      return 'S. S.:\nEN LO PRINCIPAL: [petición concreta del escrito posterior]\nOTROSÍ: [peticiones accesorias, si aplica]\nPOR TANTO: [petición final al tribunal]\n\n';
     }
 
     function extractRoleFromCase(selectedCase){
@@ -515,7 +515,8 @@ sup { vertical-align: super; font-size: 10pt; }
   <p>${modeLine}</p>
   <div>${request.docBodyHtml || '<p>Sin contenido de redacción.</p>'}</div>
   <p><strong>Instrucciones del abogado:</strong> ${escapeHtml(request.instructions || 'Sin instrucciones adicionales registradas')}</p>
-  <p><strong>Uso referencial de práctica forense:</strong> principal = escritos del abogado; secundario = escritos externos (sin copia literal).</p>
+  <p><strong>Uso referencial de práctica forense:</strong> escritos del abogado (principal), documentos cargados como práctica forense y manuales externos chilenos (secundario).</p>
+  <p><strong>Regla de redacción:</strong> la práctica forense se utiliza solo para estructura, lenguaje, orden argumental, fórmulas forenses y ubicación de citas/recuadros, sin copiar textos completos ni replicar escritos antiguos.</p>
 
   <p class="section-title">Notas al pie (referencia abreviada)</p>
   <div class="footnotes">
@@ -673,6 +674,12 @@ sup { vertical-align: super; font-size: 10pt; }
         style.estructuraUsual ? `Estructura usual: ${style.estructuraUsual}` : '',
         style.formulasFrecuentes ? `Fórmulas frecuentes: ${style.formulasFrecuentes}` : '',
         style.reglasPropias ? `Reglas propias: ${style.reglasPropias}` : '',
+        'Base obligatoria de estilo: práctica forense chilena.',
+        'Referencias: 1) escritos propios del abogado (principal), 2) documentos cargados como práctica forense, 3) manuales externos chilenos (secundario).',
+        'Prohibición: no copiar textos completos ni replicar escritos antiguos literalmente.',
+        'Aplicación permitida: estructura, lenguaje, orden de argumentos y fórmulas forenses.',
+        'Debe reconocer uso de S. S., EN LO PRINCIPAL / OTROSÍ, POR TANTO y ubicación de citas/recuadros.',
+        'Mantener análisis del caso concreto y peticiones procesales específicas.',
       ].filter(Boolean).join('\n');
     }
 
@@ -943,6 +950,13 @@ sup { vertical-align: super; font-size: 10pt; }
         ``,
         `Estilo del abogado`,
         draftRequestForm.lawyerStyle.value.trim(),
+        ``,
+        `Reglas forenses obligatorias`,
+        `- La práctica forense se usa como referencia de estilo.`,
+        `- No se copian textos completos.`,
+        `- No se replican escritos antiguos literalmente.`,
+        `- Se respeta estructura forense chilena (S. S. / EN LO PRINCIPAL / OTROSÍ / POR TANTO).`,
+        `- Se mantiene análisis y argumentación del caso concreto.`,
         ``,
         `Jerarquía de insumos aplicada`,
         `1 Acta (${hierarchy.acta.length})`,
