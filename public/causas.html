@@ -9206,26 +9206,43 @@
 
     function buildProduccionDraftWordHtml({ cause, tipoEscrito, draftText }){
       const fecha = new Date().toISOString().slice(0, 10);
+      const applyMandatoryLegalMarkers = (paragraphText = '') => {
+        const normalized = String(paragraphText || '').trim();
+        if (!normalized) return { html: '', className: '' };
+        const escaped = escapeHtml(normalized);
+        const isPorTanto = /^POR\s+TANTO\b[:.,;]?/i.test(normalized);
+        if (isPorTanto) return { html: `<strong>${escaped}</strong>`, className: 'legal-center' };
+        const highlighted = escaped
+          .replace(/\bEN\s+LO\s+PRINCIPAL\b/gi, '<strong>EN LO PRINCIPAL</strong>')
+          .replace(/\bOTROS[ÍI]\b/gi, '<strong>OTROSÍ</strong>')
+          .replace(/\bS\.S\.\b/gi, '<strong>S.S.</strong>');
+        return { html: highlighted, className: '' };
+      };
       const bodyParagraphs = String(draftText || '')
         .split(/\n{2,}/)
         .map((line) => line.trim())
         .filter(Boolean)
-        .map((line) => `<p>${escapeHtml(line)}</p>`)
+        .map((line) => {
+          const formatted = applyMandatoryLegalMarkers(line);
+          const paragraphClass = formatted.className ? ` class="${formatted.className}"` : '';
+          return `<p${paragraphClass}>${formatted.html}</p>`;
+        })
         .join('');
       return `<!doctype html>
-<html lang="es">
+<html lang="es-CL" xml:lang="es-CL">
 <head>
   <meta charset="utf-8" />
   <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
   <style>
-    @page { size: 8.5in 13in; margin: 2.5cm; }
-    body { font-family: "DengXian", "Deng Xian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; }
-    p { margin: 0 0 14pt; text-align: justify; }
+    @page { size: 8.5in 13in; margin: 2.5cm 2cm; }
+    body { font-family: "Deng Xian", "DengXian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; mso-ansi-language: ES-CL; mso-fareast-language: ES-CL; mso-bidi-language: ES-CL; }
+    p { margin: 0 0 14pt; text-align: justify; text-indent: 1.25cm; }
+    .legal-center { text-align: center; text-indent: 0; }
     .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
   </style>
 </head>
 <body>
-  <p><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+  <p style="text-indent:0;"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
   ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
   <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
 </body>
