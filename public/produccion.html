@@ -155,22 +155,18 @@
     </section>
     <section class="card">
       <h3 class="title">Insumos externos (global)</h3>
-      <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, ver y eliminar insumos.</p>
+      <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, visualizar, reemplazar y eliminar insumos sin bloquear al editor.</p>
       <div class="insumos-grid">
         <div class="item">
           <div class="field">
             <label class="label" for="externalInputType">Clasificación</label>
             <select id="externalInputType">
-              <option value="jurisprudencia">Jurisprudencia</option>
-              <option value="doctrina">Doctrina</option>
-              <option value="codigos">Códigos y leyes especiales</option>
               <option value="normas-cita">Normas de cita</option>
-              <option value="instrucciones">Instrucciones</option>
-              <option value="documentos">Documentos</option>
-              <option value="audios">Audios</option>
-              <option value="videos">Videos</option>
-              <option value="planos">Planos</option>
-              <option value="declaraciones">Declaraciones</option>
+              <option value="practica-forense">Práctica forense</option>
+              <option value="doctrina">Doctrina</option>
+              <option value="jurisprudencia">Jurisprudencia</option>
+              <option value="formularios">Formularios</option>
+              <option value="otros">Otros</option>
             </select>
           </div>
           <div class="field">
@@ -178,10 +174,10 @@
             <input id="externalInputName" type="text" placeholder="Nombre del insumo" />
           </div>
           <div class="field">
-            <label class="label" for="externalInputFile">Archivo (opcional)</label>
-            <input id="externalInputFile" type="file" />
+            <label class="label" for="externalInputFile">Archivo(s) (opcional)</label>
+            <input id="externalInputFile" type="file" accept=".docx,.pdf,.txt,.rtf,image/*,audio/*,video/*" multiple />
           </div>
-          <button id="btnSaveExternalInput" class="btn btn-primary" type="button">Guardar insumo externo</button>
+          <button id="btnSaveExternalInput" class="btn btn-primary" type="button">Cargar insumo externo</button>
         </div>
         <div>
           <div class="subtle-header">Listado global</div>
@@ -318,6 +314,17 @@
     const editorFileInput = document.getElementById('editorFileInput');
     const externalInputsList = document.getElementById('externalInputsList');
     const externalInputFile = document.getElementById('externalInputFile');
+    const EXTERNAL_INPUT_CLASSIFICATIONS = [
+      { value: 'normas-cita', label: 'Normas de cita' },
+      { value: 'practica-forense', label: 'Práctica forense' },
+      { value: 'doctrina', label: 'Doctrina' },
+      { value: 'jurisprudencia', label: 'Jurisprudencia' },
+      { value: 'formularios', label: 'Formularios' },
+      { value: 'otros', label: 'Otros' }
+    ];
+    const ALLOWED_EXTERNAL_INPUT_EXTENSIONS = ['docx', 'pdf', 'txt', 'rtf'];
+    const EXTERNAL_INPUT_ACCEPT = '.docx,.pdf,.txt,.rtf,image/*,audio/*,video/*';
+    const externalInputFileStore = new Map();
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
     const normalize = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
@@ -399,15 +406,31 @@
     }
 
     function getHierarchyInputs(selectedCase){
+      const externalInputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      const byType = (type) => externalInputs.filter((item) => item.type === type);
       return {
         acta: toList(selectedCase?.meetings || selectedCase?.actas || []),
         caso: [selectedCase?.caratula || selectedCase?.rol || 'Sin individualización'],
-        normativa: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'codigos'),
-        jurisprudencia: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'jurisprudencia'),
-        doctrina: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'doctrina'),
-        instrucciones: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'instrucciones'),
+        normativa: [...byType('normas-cita'), ...byType('codigos')],
+        jurisprudencia: byType('jurisprudencia'),
+        doctrina: byType('doctrina'),
+        instrucciones: [...byType('practica-forense'), ...byType('instrucciones')],
         practica: toList(selectedCase?.production_documents || selectedCase?.escritos || [])
       };
+    }
+
+    function isAllowedExternalInput(file){
+      if (!file) return false;
+      const fileName = String(file.name || '').toLowerCase();
+      const extension = fileName.includes('.') ? fileName.split('.').pop() : '';
+      if (ALLOWED_EXTERNAL_INPUT_EXTENSIONS.includes(extension)) return true;
+      return file.type.startsWith('image/') || file.type.startsWith('audio/') || file.type.startsWith('video/');
+    }
+
+    function getExternalInputTypeLabel(type){
+      const found = EXTERNAL_INPUT_CLASSIFICATIONS.find((item) => item.value === type);
+      if (found) return found.label;
+      return type || 'Otros';
     }
 
     function parseDeepLinkParams() {
@@ -576,10 +599,15 @@ sup { vertical-align: super; font-size: 10pt; }
       }
       externalInputsList.innerHTML = inputs.map((item) => `
         <article class="insumo-item">
-          <div><strong>${escapeHtml(item.name)}</strong> <span class="pill">${escapeHtml(item.type)}</span></div>
+          <div><strong>${escapeHtml(item.name)}</strong> <span class="pill">${escapeHtml(getExternalInputTypeLabel(item.type))}</span></div>
           <div class="small muted">${escapeHtml(item.fileName || 'Sin archivo')} · ${new Date(item.createdAt).toLocaleString('es-CL')}</div>
           <div class="draft-actions">
+            <select class="btn" data-action="classify-external" data-id="${escapeHtml(item.id)}">
+              ${EXTERNAL_INPUT_CLASSIFICATIONS.map((classification) => `<option value="${escapeHtml(classification.value)}" ${classification.value === item.type ? 'selected' : ''}>${escapeHtml(classification.label)}</option>`).join('')}
+            </select>
             <button class="btn" type="button" data-action="view-external" data-id="${escapeHtml(item.id)}">Ver</button>
+            <button class="btn" type="button" data-action="use-external" data-id="${escapeHtml(item.id)}">Usar en editor</button>
+            <button class="btn" type="button" data-action="replace-external" data-id="${escapeHtml(item.id)}">Reemplazar</button>
             <button class="btn" type="button" data-action="delete-external" data-id="${escapeHtml(item.id)}">Eliminar</button>
           </div>
         </article>
@@ -867,41 +895,119 @@ sup { vertical-align: super; font-size: 10pt; }
     document.getElementById('btnConvertPdf')?.addEventListener('click', () => window.print());
     document.getElementById('btnPrintDoc')?.addEventListener('click', () => window.print());
 
-    document.getElementById('btnSaveExternalInput')?.addEventListener('click', () => {
+    document.getElementById('btnSaveExternalInput')?.addEventListener('click', async () => {
       const name = document.getElementById('externalInputName').value.trim();
       const type = document.getElementById('externalInputType').value;
-      if (!name) {
+      const files = Array.from(externalInputFile.files || []);
+      if (!name && !files.length) {
         window.alert('Debes indicar nombre del insumo externo.');
         return;
       }
+      if (files.length) {
+        const invalidFile = files.find((file) => !isAllowedExternalInput(file));
+        if (invalidFile) {
+          window.alert(`Tipo de archivo no permitido: ${invalidFile.name}. Formatos permitidos: .docx, .pdf, .txt, .rtf, imágenes, audio y video.`);
+          return;
+        }
+      }
       const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
-      inputs.push({
-        id: `external-${Date.now()}`,
-        name,
-        type,
-        fileName: externalInputFile.files?.[0]?.name || '',
-        createdAt: new Date().toISOString()
+      const createdAt = new Date().toISOString();
+      const entries = files.length
+        ? files.map((file, index) => ({
+            id: `external-${Date.now()}-${index}`,
+            name: files.length > 1 ? `${name || 'Insumo externo'} · ${file.name}` : (name || file.name),
+            type,
+            fileName: file.name,
+            fileSize: file.size || 0,
+            fileMime: file.type || '',
+            createdAt
+          }))
+        : [{
+            id: `external-${Date.now()}`,
+            name,
+            type,
+            fileName: '',
+            fileSize: 0,
+            fileMime: '',
+            createdAt
+          }];
+      entries.forEach((entry, index) => {
+        const file = files[index];
+        if (!file) return;
+        const objectUrl = URL.createObjectURL(file);
+        externalInputFileStore.set(entry.id, { file, objectUrl });
       });
+      inputs.push(...entries);
       writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs);
       document.getElementById('externalInputName').value = '';
       externalInputFile.value = '';
+      legalEditor.textContent += `${legalEditor.textContent ? '\n' : ''}[Insumos externos disponibles: ${entries.map((entry) => entry.name).join(', ')}]`;
+      renderDocxPreview();
       renderExternalInputs();
     });
     externalInputsList.addEventListener('click', (event) => {
-      const button = event.target.closest('button[data-action]');
-      if (!button) return;
-      const action = button.dataset.action;
-      const id = button.dataset.id;
+      const targetControl = event.target.closest('[data-action][data-id]');
+      if (!targetControl) return;
+      const action = targetControl.dataset.action;
+      const id = targetControl.dataset.id;
       const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
       const target = inputs.find((item) => item.id === id);
       if (!target) return;
       if (action === 'view-external') {
-        window.alert(`${target.name}\nTipo: ${target.type}\nArchivo: ${target.fileName || 'Sin archivo'}\nFecha: ${new Date(target.createdAt).toLocaleString('es-CL')}`);
+        const fileRecord = externalInputFileStore.get(id);
+        if (fileRecord?.objectUrl) {
+          window.open(fileRecord.objectUrl, '_blank', 'noopener,noreferrer');
+          return;
+        }
+        window.alert(`${target.name}\nTipo: ${getExternalInputTypeLabel(target.type)}\nArchivo: ${target.fileName || 'Sin archivo'}\nFecha: ${new Date(target.createdAt).toLocaleString('es-CL')}\n\nAviso: el archivo no está disponible para vista previa en esta sesión.`);
+      }
+      if (action === 'use-external') {
+        legalEditor.textContent += `${legalEditor.textContent ? '\n' : ''}[Referencia externa: ${target.name} · ${getExternalInputTypeLabel(target.type)} · Archivo: ${target.fileName || 'sin archivo adjunto'}]`;
+        renderDocxPreview();
+      }
+      if (action === 'replace-external') {
+        const replacementInput = document.createElement('input');
+        replacementInput.type = 'file';
+        replacementInput.accept = EXTERNAL_INPUT_ACCEPT;
+        replacementInput.onchange = () => {
+          const replacementFile = replacementInput.files?.[0];
+          if (!replacementFile) return;
+          if (!isAllowedExternalInput(replacementFile)) {
+            window.alert('Archivo no permitido. Formatos permitidos: .docx, .pdf, .txt, .rtf, imágenes, audio y video.');
+            return;
+          }
+          const previous = externalInputFileStore.get(id);
+          if (previous?.objectUrl) URL.revokeObjectURL(previous.objectUrl);
+          const objectUrl = URL.createObjectURL(replacementFile);
+          externalInputFileStore.set(id, { file: replacementFile, objectUrl });
+          target.fileName = replacementFile.name;
+          target.fileSize = replacementFile.size || 0;
+          target.fileMime = replacementFile.type || '';
+          target.updatedAt = new Date().toISOString();
+          writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs);
+          renderExternalInputs();
+        };
+        replacementInput.click();
       }
       if (action === 'delete-external') {
+        if (!window.confirm(`¿Eliminar el insumo externo "${target.name}"? Esta acción no se puede deshacer.`)) return;
+        const fileRecord = externalInputFileStore.get(id);
+        if (fileRecord?.objectUrl) URL.revokeObjectURL(fileRecord.objectUrl);
+        externalInputFileStore.delete(id);
         writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs.filter((item) => item.id !== id));
         renderExternalInputs();
       }
+    });
+    externalInputsList.addEventListener('change', (event) => {
+      const targetControl = event.target.closest('[data-action="classify-external"][data-id]');
+      if (!targetControl) return;
+      const id = targetControl.dataset.id;
+      const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      const target = inputs.find((item) => item.id === id);
+      if (!target) return;
+      target.type = targetControl.value || 'otros';
+      writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs);
+      renderExternalInputs();
     });
 
     draftRequestForm.addEventListener('submit', async (event) => {
