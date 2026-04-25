@@ -9136,13 +9136,29 @@
   <meta charset="utf-8" />
   <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
   <style>
-    @page { size: 8.5in 13in; margin: 2.5cm; }
+    @page {
+      size: 8.5in 13in;
+      margin: 2.5cm;
+      mso-header-margin: 1.2cm;
+      mso-footer-margin: 1.2cm;
+    }
     body { font-family: "DengXian", "Deng Xian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; }
     p { margin: 0 0 14pt; text-align: justify; }
     .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
+    .word-page-number {
+      mso-element: header;
+      text-align: right;
+      font-size: 10pt;
+      color: #444;
+      margin: 0;
+      padding: 0;
+    }
   </style>
 </head>
 <body>
+  <div class="word-page-number">
+    <span style='mso-field-code:" PAGE "'></span>
+  </div>
   <p><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
   ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
   <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
