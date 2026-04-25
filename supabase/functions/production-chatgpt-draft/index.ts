@@ -29,6 +29,54 @@ type PromptInput = {
   sessionId?: string
 }
 
+type HierarchyLevel =
+  | 'acta'
+  | 'caso'
+  | 'normativa'
+  | 'jurisprudencia'
+  | 'doctrina'
+  | 'instrucciones_abogado'
+  | 'practica_forense'
+  | 'otros'
+
+const HIERARCHY_ORDER: Array<{ level: HierarchyLevel; label: string }> = [
+  { level: 'acta', label: '1) Acta de entrevista del cliente' },
+  { level: 'caso', label: '2) Caso concreto (hechos/documentos)' },
+  { level: 'normativa', label: '3) Normativa aplicable' },
+  { level: 'jurisprudencia', label: '4) Jurisprudencia pertinente' },
+  { level: 'doctrina', label: '5) Doctrina relevante' },
+  { level: 'instrucciones_abogado', label: '6) Instrucciones del abogado' },
+  { level: 'practica_forense', label: '7) Práctica forense' },
+]
+
+function normalizeText(value: unknown) {
+  return String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+}
+
+function inferHierarchyLevel(item: Record<string, unknown>): HierarchyLevel {
+  const name = normalizeText(item?.name)
+  const category = normalizeText(item?.category)
+  const content = normalizeText(String(item?.content || '').slice(0, 900))
+  const haystack = `${category} ${name} ${content}`
+
+  if (/(acta|entrevista|reunion cliente|minuta cliente)/.test(haystack)) return 'acta'
+  if (/(normativa|codigo|cod\.|ley|decreto|reglamento|articulo)/.test(haystack)) return 'normativa'
+  if (/(jurisprud|sentencia|fallo|rol|cs|corte suprema|corte de apelaciones)/.test(haystack)) return 'jurisprudencia'
+  if (/(doctrina|tratado|manual|autor|articulo academico|revista juridica)/.test(haystack)) return 'doctrina'
+  if (/(instruccion|lineamiento|estrategia|abogado|socio)/.test(haystack)) return 'instrucciones_abogado'
+  if (/(practica forense|plantilla|formato tipo|machote|costumbre forense|estilo tribunal)/.test(haystack)) return 'practica_forense'
+  if (/(hecho|documento|prueba|expediente|contrato|correo|whatsapp|anexo|causa)/.test(haystack)) return 'caso'
+  return 'otros'
+}
+
+function renderAntecedente(item: Record<string, unknown>, i: number) {
+  const snippet = String(item?.content || '').slice(0, 1400)
+  return `${i + 1}. ${item?.name || 'Antecedente'} (${item?.category || 'Sin categoría'})\n${snippet || 'Sin contenido extraído.'}`
+}
+
 function buildPrompt(input: PromptInput) {
   const tipoEscrito = String(input?.tipoEscrito || input?.tipo_escrito || '').trim()
   const instrucciones = String(input?.instrucciones || input?.instrucciones_usuario || '').trim()
@@ -38,10 +86,21 @@ function buildPrompt(input: PromptInput) {
       ? input.documentosSeleccionados
       : (Array.isArray(input?.documentos_seleccionados) ? input.documentos_seleccionados : []))
 
-  const antecedentesText = antecedentesRaw.map((item: Record<string, unknown>, i: number) => {
-    const snippet = String(item?.content || '').slice(0, 1800)
-    return `${i + 1}. ${item?.name || 'Antecedente'} (${item?.category || 'Sin categoría'})\n${snippet}`
-  }).join('\n\n')
+  const grouped = antecedentesRaw.reduce<Record<HierarchyLevel, Array<Record<string, unknown>>>>((acc, item) => {
+    const level = inferHierarchyLevel(item)
+    if (!acc[level]) acc[level] = []
+    acc[level].push(item)
+    return acc
+  }, {
+    acta: [],
+    caso: [],
+    normativa: [],
+    jurisprudencia: [],
+    doctrina: [],
+    instrucciones_abogado: [],
+    practica_forense: [],
+    otros: [],
+  })
 
   const causeInfo = {
     id: input?.cause_id || input?.cause?.id || null,
@@ -51,14 +110,34 @@ function buildPrompt(input: PromptInput) {
     ...(input?.cause || {}),
   }
 
+  const hasActa = grouped.acta.length > 0
+  const hasCaso = grouped.caso.length > 0
+  const priorityStart = hasActa
+    ? 'Existe acta: parte desde el interés del cliente y úsala como criterio rector sobre todo lo demás.'
+    : (hasCaso
+      ? 'No existe acta: parte desde los hechos/documentos del caso concreto.'
+      : 'No hay acta ni hechos documentales claros: redacta con lo disponible sin inventar hechos y deja constancia de faltantes.')
+
+  const hierarchySections = HIERARCHY_ORDER
+    .filter(({ level }) => grouped[level].length > 0)
+    .map(({ label, level }) => `${label}\n${grouped[level].map(renderAntecedente).join('\n\n')}`)
+    .join('\n\n')
+
+  const fallbackOthers = grouped.otros.length
+    ? `Otros antecedentes no clasificados:\n${grouped.otros.map(renderAntecedente).join('\n\n')}`
+    : 'Otros antecedentes no clasificados: ninguno.'
+
   return [
     `Tipo de escrito: ${tipoEscrito || 'No indicado'}`,
-    `Instrucciones del usuario: ${instrucciones || 'Sin instrucciones adicionales'}`,
+    `Instrucciones del abogado/usuario: ${instrucciones || 'Sin instrucciones adicionales'}`,
     `Ajuste de iteración: ${input?.ajuste || 'Sin ajuste'}`,
     `Estilo requerido: ${input?.stylePrompt || 'Jurídico chileno, tono forense técnico.'}`,
     `Contexto de causa: ${JSON.stringify(causeInfo, null, 2)}`,
-    `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
-    'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
+    `Jerarquía obligatoria de insumos (de mayor a menor): ${HIERARCHY_ORDER.map((item) => item.label).join(' > ')}.`,
+    `Criterio de inicio: ${priorityStart}`,
+    'Reglas obligatorias: (a) prioriza siempre interés del cliente cuando exista acta; (b) no partas desde práctica forense; (c) no ignores hechos/documentos del caso; (d) usa jurisprudencia/doctrina solo si aportan al caso concreto; (e) si faltan niveles, continúa con los disponibles sin detenerte.',
+    `Antecedentes clasificados por jerarquía:\n${hierarchySections || 'No hay antecedentes clasificados en la jerarquía.'}\n\n${fallbackOthers}`,
+    'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, incorpóralas únicamente cuando sean pertinentes y déjalas marcadas para pie de página.',
   ].join('\n\n')
 }
 
