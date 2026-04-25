@@ -9206,6 +9206,15 @@
 
     function buildProduccionDraftWordHtml({ cause, tipoEscrito, draftText }){
       const fecha = new Date().toISOString().slice(0, 10);
+      const footerTimestamp = (() => {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(now.getFullYear());
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+      })();
       const bodyParagraphs = String(draftText || '')
         .split(/\n{2,}/)
         .map((line) => line.trim())
@@ -9218,16 +9227,30 @@
   <meta charset="utf-8" />
   <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
   <style>
-    @page { size: 8.5in 13in; margin: 2.5cm; }
+    @page { size: 8.5in 13in; margin: 2.5cm 2.5cm 3.2cm 2.5cm; }
     body { font-family: "DengXian", "Deng Xian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; }
     p { margin: 0 0 14pt; text-align: justify; }
-    .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
+    .content-wrap { padding-bottom: 1.2cm; }
+    .footnote-body { font-size: 11pt; margin-top: 22pt; margin-bottom: 1.2cm; border-top: 1px solid #777; padding-top: 10pt; }
+    .doc-footer {
+      position: fixed;
+      bottom: 0.6cm;
+      left: 1.3cm;
+      right: 1.3cm;
+      font-size: 8pt;
+      line-height: 1.2;
+      color: #7f7f7f;
+    }
+    .doc-footer a { color: #7f7f7f; text-decoration: none; }
   </style>
 </head>
 <body>
-  <p><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
-  ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
-  <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
+  <div class="content-wrap">
+    <p><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+    ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
+    <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
+  </div>
+  <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · <a href="mailto:esjuridica.rodar.ltda@gmail.com">esjuridica.rodar.ltda@gmail.com</a> · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerTimestamp)}</div>
 </body>
 </html>`;
     }

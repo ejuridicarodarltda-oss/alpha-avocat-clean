@@ -482,31 +482,40 @@
         ? `Vinculado a causa preexistente: ${escapeHtml(request.caseTitle || request.caseRol || 'Sin individualización completa')}.`
         : 'Redactado sin causa previa asociada.';
       const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
-      const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
+      const footerDate = (() => {
+        const now = new Date();
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = String(now.getFullYear());
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        return `${dd}/${mm}/${yyyy} ${hh}:${min}`;
+      })();
       return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(request.title)}</title>
 <style>
-@page { size: 8.5in 13in; margin: 2.5cm 2cm 2.5cm 2.5cm; }
+@page { size: 8.5in 13in; margin: 2.5cm 2cm 3.2cm 2.5cm; }
 body { font-family: "DengXian", "Deng Xian", sans-serif; font-size: 14pt; line-height: 1.5; text-align: justify; color:#111; }
 h1,h2,h3 { margin: 0 0 12pt 0; }
 .meta { margin-bottom: 12pt; }
 .section-title { font-weight: 700; margin-top: 14pt; }
 sup { vertical-align: super; font-size: 10pt; }
-.footnotes { margin-top: 18pt; border-top: 1px solid #888; padding-top: 10pt; }
+.footnotes { margin-top: 18pt; margin-bottom: 1.2cm; border-top: 1px solid #888; padding-top: 10pt; }
 .footnotes ol { margin: 0; padding-left: 18pt; }
 .page-number { position: fixed; top: 0.2cm; right: 0.5cm; font-size: 10pt; color:#666; }
 .doc-header { position: fixed; top: 0.2cm; left: 0.5cm; font-size: 10pt; color:#666; }
-.doc-footer { position: fixed; bottom: 0.3cm; left: 0.5cm; right: 0.5cm; font-size: 8.5pt; color:#888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.doc-footer { position: fixed; bottom: 0.6cm; left: 0.5cm; right: 0.5cm; font-size: 8pt; line-height: 1.2; color:#888; }
+.doc-footer a { color:#888; text-decoration: none; }
 .extract-box { border-left: 4px solid #163A5F; background:#f2f8ff; padding: 8pt; margin: 10pt 0; }
 </style>
 </head>
 <body>
   <div class="doc-header">Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo</div>
   <div class="page-number">Página <span style="mso-field-code:' PAGE '">1</span></div>
-  <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · esjuridica.rodar.ltda@gmail.com · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
+  <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · <a href="mailto:esjuridica.rodar.ltda@gmail.com">esjuridica.rodar.ltda@gmail.com</a> · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
   <h1>${escapeHtml(request.type)}</h1>
   <p class="meta"><strong>Cliente:</strong> ${escapeHtml(request.clientName)}<br>
   <strong>Norma de citas activa:</strong> ${escapeHtml(citationNorm.label)}<br>
