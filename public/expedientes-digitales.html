@@ -792,6 +792,10 @@
       const formatErrors = Array.isArray(report.formatErrors) ? report.formatErrors : [];
       const pendingClientLinking = Array.isArray(report.pendingClientLinkingRows) ? report.pendingClientLinkingRows : [];
       const warnings = Array.isArray(report.warnings) ? report.warnings : [];
+      const formatComparableRole = (row = {}) => buildReconstructedRoleNumberYear(
+        String(row.rolUsadoParaComparar || row.rit || 'Sin RIT')
+          .replace(/[·•∙⋅]/g, '-'),
+      );
       node.hidden = false;
       node.innerHTML = `
         <strong>Reporte final de carga Excel depurado</strong>
@@ -809,9 +813,9 @@
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
         <div>Errores reales por celdas vacías: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
         ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
-        ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
-        ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
-        ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
+        ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
+        ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
       `;
@@ -828,13 +832,17 @@
       const numberYear = Array.isArray(report.numberYearMatchRows) ? report.numberYearMatchRows : [];
       const multiple = Array.isArray(report.multipleMatchesRows) ? report.multipleMatchesRows : [];
       const unmatched = Array.isArray(report.missingFolderRows) ? report.missingFolderRows : [];
+      const formatComparableRole = (row = {}) => buildReconstructedRoleNumberYear(
+        String(row.rolUsadoParaComparar || row.rit || 'Sin RIT')
+          .replace(/[·•∙⋅]/g, '-'),
+      );
       node.hidden = false;
       node.innerHTML = `
         <strong>Panel debug · Coincidencias Excel depurado</strong>
         <div class="muted">Se muestra debajo del reporte final para revisar cómo se resolvió cada coincidencia.</div>
         <div>Exactas: <strong>${escapeHtml(String(exact.length))}</strong> · Número+Año: <strong>${escapeHtml(String(numberYear.length))}</strong> · Múltiples: <strong>${escapeHtml(String(multiple.length))}</strong> · Sin carpeta: <strong>${escapeHtml(String(unmatched.length))}</strong></div>
-        ${exact.length ? `<div><strong>Match exacto (muestra):</strong><ul>${exact.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
-        ${numberYear.length ? `<div><strong>Match por número+año (muestra):</strong><ul>${numberYear.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(row.rolUsadoParaComparar || row.rit || 'Sin RIT')} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${exact.length ? `<div><strong>Match exacto (muestra):</strong><ul>${exact.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${numberYear.length ? `<div><strong>Match por número+año (muestra):</strong><ul>${numberYear.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
         ${multiple.length ? `<div><strong>Coincidencias múltiples (muestra):</strong><ul>${multiple.slice(0, 20).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
       `;
     }
