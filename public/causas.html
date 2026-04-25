@@ -2471,11 +2471,22 @@
 
           <section class="panel-card" style="padding:12px; margin-top:10px;">
             <h4 class="section-title">E. Acciones finales</h4>
+            <div class="helper-box" style="margin-bottom:8px;">Barra de acciones del editor jurídico (Producción).</div>
+            <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap; margin-bottom:8px;">
+              <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
+              <button id="btnConvertirPdfProduccion" type="button" class="btn">Convertir a PDF</button>
+              <button id="btnImprimirProduccion" type="button" class="btn">Imprimir</button>
+              <button id="btnCargarDocumentosProduccion" type="button" class="btn">Cargar documentos</button>
+              <button id="btnInsumosExternosProduccion" type="button" class="btn">Insumos externos</button>
+              <button id="btnContenedorDemandasProduccion" type="button" class="btn">Contenedor provisorio de demandas nuevas</button>
+              <button id="btnCopiarProduccion" type="button" class="btn">Copiar</button>
+              <button id="btnPegarProduccion" type="button" class="btn">Pegar</button>
+            </div>
+            <input id="produccionDocumentUploadInput" type="file" multiple accept=".pdf,.doc,.docx,image/*,audio/*,video/*" style="display:none;" />
             <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap;">
               <button id="btnGenerarBorradorChatGPT" type="submit" class="btn btn-primary">Generar borrador con ChatGPT</button>
               <button id="btnRegenerarBorradorChatGPT" type="button" class="btn">Regenerar borrador</button>
               <button id="btnGuardarVersionProduccion" type="button" class="btn">Guardar versión</button>
-              <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
               <button id="btnDejarRevisionProduccion" type="button" class="btn btn-secondary">Dejar en revisión</button>
               <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cerrar</button>
             </div>
@@ -2483,6 +2494,38 @@
         </div>
         <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. Se mantendrá el hilo abierto para iterar sobre el borrador.</div>
       </form>
+    </div>
+  </div>
+
+  <div id="modalInsumosExternosProduccion" class="modal" aria-hidden="true">
+    <div class="modal-panel" style="max-width:min(760px,94vw);">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Insumos externos</div>
+          <p class="panel-subtitle">Espacio provisional para integrar fuentes externas en el editor jurídico de Producción.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalInsumosExternosProduccion" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="helper-box">Función en preparación: aquí se conectarán APIs, documentos y referencias externas para apoyar la redacción.</div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="1" data-modal-id="modalInsumosExternosProduccion">Cerrar</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="modalContenedorDemandasProduccion" class="modal" aria-hidden="true">
+    <div class="modal-panel" style="max-width:min(760px,94vw);">
+      <div class="modal-header">
+        <div>
+          <div class="modal-title">Contenedor provisorio de demandas nuevas</div>
+          <p class="panel-subtitle">Espacio provisional para gestionar nuevas demandas dentro de Producción.</p>
+        </div>
+        <button class="icon-btn" type="button" data-close="1" data-modal-id="modalContenedorDemandasProduccion" aria-label="Cerrar">✕</button>
+      </div>
+      <div class="helper-box">Función en preparación: este contenedor agrupará demandas nuevas antes de su consolidación.</div>
+      <div class="modal-actions">
+        <button type="button" class="btn" data-close="1" data-modal-id="modalContenedorDemandasProduccion">Cerrar</button>
+      </div>
     </div>
   </div>
 
@@ -9478,6 +9521,101 @@
       if (resultNode) resultNode.textContent = `Word generado correctamente (${fileName}). La causa se mantiene en Expedientes Digitales sin duplicación ni traslado.`;
     }
 
+    function getProduccionEditorText(){
+      return String($('produccionDraftEditor')?.value || '');
+    }
+
+    async function handleExportPdfProduccion(){
+      setMessage('producirEscritoMsg', 'Conversión a PDF en preparación.', 'warn');
+    }
+
+    function handlePrintProduccion(){
+      window.print();
+      setMessage('producirEscritoMsg', 'Vista de impresión abierta.', 'ok');
+    }
+
+    function handleUploadDocumentProduccion(){
+      $('produccionDocumentUploadInput')?.click();
+    }
+
+    function handleProduccionDocumentsSelected(){
+      const files = Array.from($('produccionDocumentUploadInput')?.files || []);
+      if (!files.length) {
+        setMessage('producirEscritoMsg', 'No se seleccionaron archivos para cargar.', 'warn');
+        return;
+      }
+      const allowed = files.filter((file) => {
+        const mime = String(file.type || '').toLowerCase();
+        const ext = (file.name.split('.').pop() || '').toLowerCase();
+        return mime.startsWith('image/')
+          || mime.startsWith('audio/')
+          || mime.startsWith('video/')
+          || mime === 'application/pdf'
+          || ext === 'doc'
+          || ext === 'docx'
+          || ext === 'pdf';
+      });
+      if (!allowed.length) {
+        setMessage('producirEscritoMsg', 'Formato no compatible. Usa PDF, DOCX, imágenes, audio o video.', 'error');
+        return;
+      }
+      setMessage('producirEscritoMsg', `${allowed.length} archivo(s) seleccionados para carga en Producción.`, 'ok');
+    }
+
+    function openInsumosExternosProduccion(){
+      openManagedModal('modalInsumosExternosProduccion');
+      setMessage('producirEscritoMsg', 'Se abrió la sección “Insumos externos”.', 'ok');
+    }
+
+    function openContenedorDemandasProduccion(){
+      openManagedModal('modalContenedorDemandasProduccion');
+      setMessage('producirEscritoMsg', 'Se abrió “Contenedor provisorio de demandas nuevas”.', 'ok');
+    }
+
+    async function handleCopyProduccion(){
+      const editor = $('produccionDraftEditor');
+      const text = getProduccionEditorText().trim();
+      if (!editor || !text) {
+        setMessage('producirEscritoMsg', 'No hay contenido en el editor para copiar.', 'warn');
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(text);
+        } else {
+          editor.focus();
+          editor.select();
+          document.execCommand('copy');
+        }
+        setMessage('producirEscritoMsg', 'Contenido del editor copiado al portapapeles.', 'ok');
+      } catch (error) {
+        setMessage('producirEscritoMsg', 'No fue posible copiar automáticamente. Usa Ctrl+C.', 'warn');
+      }
+    }
+
+    async function handlePasteProduccion(){
+      const editor = $('produccionDraftEditor');
+      if (!editor) return;
+      try {
+        if (!navigator.clipboard?.readText) {
+          throw new Error('clipboard-not-available');
+        }
+        const text = await navigator.clipboard.readText();
+        if (!text) {
+          setMessage('producirEscritoMsg', 'El portapapeles no contiene texto para pegar.', 'warn');
+          return;
+        }
+        const start = editor.selectionStart ?? editor.value.length;
+        const end = editor.selectionEnd ?? editor.value.length;
+        editor.value = `${editor.value.slice(0, start)}${text}${editor.value.slice(end)}`;
+        editor.selectionStart = editor.selectionEnd = start + text.length;
+        state.produccionDraft.draftResponse = editor.value;
+        setMessage('producirEscritoMsg', 'Texto pegado desde el portapapeles al editor.', 'ok');
+      } catch (error) {
+        setMessage('producirEscritoMsg', 'El navegador bloqueó el portapapeles. Usa Ctrl+V en el editor.', 'warn');
+      }
+    }
+
     function getSelectedCauseForEdition(){
       const preferredId = state.searchedCauseId || state.selectedId;
       if (!preferredId) return null;
@@ -15163,6 +15301,14 @@
       bindEvent('btnRegenerarBorradorChatGPT', 'click', () => regenerateProduccionDraft(), { scope: 'form-produccion-escritos' });
       bindEvent('btnGuardarVersionProduccion', 'click', () => saveProduccionDraftVersionManually(), { scope: 'form-produccion-escritos' });
       bindEvent('btnExportarWordProduccion', 'click', () => exportProduccionDraftWord(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnConvertirPdfProduccion', 'click', () => handleExportPdfProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnImprimirProduccion', 'click', () => handlePrintProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnCargarDocumentosProduccion', 'click', () => handleUploadDocumentProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('produccionDocumentUploadInput', 'change', () => handleProduccionDocumentsSelected(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnInsumosExternosProduccion', 'click', () => openInsumosExternosProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnContenedorDemandasProduccion', 'click', () => openContenedorDemandasProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnCopiarProduccion', 'click', () => handleCopyProduccion(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnPegarProduccion', 'click', () => handlePasteProduccion(), { scope: 'form-produccion-escritos' });
       bindEvent('btnDejarRevisionProduccion', 'click', () => markProduccionDraftInReview(), { scope: 'form-produccion-escritos' });
       document.querySelectorAll('#modalProducirEscritos [data-close]')?.forEach((button) => {
         button.addEventListener('click', () => closeManagedModal('modalProducirEscritos'));
