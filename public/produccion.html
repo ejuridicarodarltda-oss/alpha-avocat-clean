@@ -534,13 +534,23 @@
       setTimeout(() => URL.revokeObjectURL(url), 1200);
     }
 
-    function buildWordHtmlDocument(request){
+    function formatAutomaticDateTime(value = new Date()) {
+      const date = value instanceof Date ? value : new Date(value);
+      const day = String(date.getDate()).padStart(2, '0');
+      const month = String(date.getMonth() + 1).padStart(2, '0');
+      const year = String(date.getFullYear());
+      const hours = String(date.getHours()).padStart(2, '0');
+      const minutes = String(date.getMinutes()).padStart(2, '0');
+      return `${day}/${month}/${year} ${hours}:${minutes}`;
+    }
+
+    function buildWordHtmlDocument(request, options = {}){
       const citationNorm = CITATION_NORMS[request.citationNorm] || CITATION_NORMS['rchd-2025'];
       const modeLine = request.mode === 'with-cause'
         ? `Vinculado a causa preexistente: ${escapeHtml(request.caseTitle || request.caseRol || 'Sin individualización completa')}.`
         : 'Redactado sin causa previa asociada.';
       const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
-      const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
+      const footerDate = formatAutomaticDateTime(options.generatedAt || new Date());
       return `<!doctype html>
 <html lang="es">
 <head>
@@ -561,10 +571,10 @@ sup { vertical-align: super; font-size: 10pt; }
 .extract-box { border-left: 4px solid #163A5F; background:#f2f8ff; padding: 8pt; margin: 10pt 0; }
 </style>
 </head>
-<body>
+<body contenteditable="false">
   <div class="doc-header">Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo</div>
   <div class="page-number">Página <span style="mso-field-code:' PAGE '">1</span></div>
-  <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · esjuridica.rodar.ltda@gmail.com · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
+  <div class="doc-footer" contenteditable="false">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · esjuridica.rodar.ltda@gmail.com · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
   <h1>${escapeHtml(request.type)}</h1>
   <p class="meta"><strong>Cliente:</strong> ${escapeHtml(request.clientName)}<br>
   <strong>Norma de citas activa:</strong> ${escapeHtml(citationNorm.label)}<br>
@@ -1118,7 +1128,6 @@ sup { vertical-align: super; font-size: 10pt; }
         createdAt: new Date().toISOString(),
       };
       const wordHtml = buildWordHtmlDocument(newRequest);
-      newRequest.wordHtml = wordHtml;
       const requests = readRequests();
       requests.push(newRequest);
       writeRequests(requests);
@@ -1140,7 +1149,7 @@ sup { vertical-align: super; font-size: 10pt; }
       const target = requests.find((item) => item.id === requestId);
       if (!target) return;
       if (action === 'word') {
-        downloadWordDocument(target.wordFilename, target.wordHtml || buildWordHtmlDocument(target));
+        downloadWordDocument(target.wordFilename, buildWordHtmlDocument(target));
       }
       if (action === 'edit') {
         openModal();
@@ -1162,7 +1171,7 @@ sup { vertical-align: super; font-size: 10pt; }
         const pdfName = `${target.id}.pdf`;
         const pdfWindow = window.open('', '_blank');
         if (pdfWindow) {
-          pdfWindow.document.write(`<html><head><title>${escapeHtml(pdfName)}</title><style>@page{size:8.5in 13in;margin:2.5cm 2cm;}body{font-family:"Deng Xian",sans-serif;font-size:14pt;line-height:1.5;text-align:justify;}</style></head><body>${target.wordHtml || buildWordHtmlDocument(target)}</body></html>`);
+          pdfWindow.document.write(`<html><head><title>${escapeHtml(pdfName)}</title><style>@page{size:8.5in 13in;margin:2.5cm 2cm;}body{font-family:"Deng Xian",sans-serif;font-size:14pt;line-height:1.5;text-align:justify;}</style></head><body>${buildWordHtmlDocument(target)}</body></html>`);
           pdfWindow.document.close();
           pdfWindow.focus();
           pdfWindow.print();
