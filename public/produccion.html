@@ -220,9 +220,9 @@
           <label class="label" for="draftType">Tipo de escrito *</label>
           <input id="draftType" name="draftType" list="draftTypeOptions" placeholder="Demanda, apelación, escrito simple…" required />
           <datalist id="draftTypeOptions">
-            <option value="Demanda"></option><option value="Contestación"></option><option value="Réplica"></option><option value="Dúplica"></option>
+            <option value="Demanda"></option><option value="Demanda nueva"></option><option value="Contestación"></option><option value="Réplica"></option><option value="Dúplica"></option>
             <option value="Querella"></option><option value="Denuncia"></option><option value="Recurso de reposición"></option><option value="Apelación"></option>
-            <option value="Casación"></option><option value="Incidente"></option><option value="Medida prejudicial"></option><option value="Medida precautoria"></option>
+            <option value="Casación"></option><option value="Incidente"></option><option value="Medida prejudicial"></option><option value="Gestión preparatoria"></option><option value="Medida precautoria"></option>
             <option value="Téngase presente"></option><option value="Cúmplase"></option><option value="Escrito simple"></option><option value="Otro"></option>
           </datalist>
         </div>
@@ -236,6 +236,54 @@
             <option value="primera">Primera presentación (presuma + suma)</option>
             <option value="posterior">Escrito posterior (suma)</option>
           </select>
+        </div>
+        <div class="field" id="presumaBlock" hidden>
+          <span class="label">Presuma / formulario previo</span>
+          <div class="small muted">Completa la presuma para primeras presentaciones. Este bloque va antes de la suma.</div>
+        </div>
+        <div class="field span-2" id="presumaFields" hidden>
+          <div class="form-grid">
+            <label class="field">
+              <span class="label">Tipo de presentación</span>
+              <input id="presumaTipoPresentacion" name="presumaTipoPresentacion" type="text" placeholder="Demanda nueva / Medida prejudicial / Gestión preparatoria" />
+            </label>
+            <label class="field">
+              <span class="label">Nombre del cliente</span>
+              <input id="presumaNombreCliente" name="presumaNombreCliente" type="text" placeholder="Nombre completo" />
+            </label>
+            <label class="field">
+              <span class="label">RUT del cliente</span>
+              <input id="presumaRutCliente" name="presumaRutCliente" type="text" placeholder="12.345.678-9" />
+            </label>
+            <label class="field">
+              <span class="label">Calidad procesal proyectada</span>
+              <input id="presumaCalidadProcesal" name="presumaCalidadProcesal" type="text" placeholder="Demandante / Solicitante" />
+            </label>
+            <label class="field">
+              <span class="label">Nombre contraparte</span>
+              <input id="presumaNombreContraparte" name="presumaNombreContraparte" type="text" placeholder="Nombre contraparte" />
+            </label>
+            <label class="field">
+              <span class="label">RUT contraparte (si existe)</span>
+              <input id="presumaRutContraparte" name="presumaRutContraparte" type="text" placeholder="Opcional" />
+            </label>
+            <label class="field">
+              <span class="label">Materia</span>
+              <input id="presumaMateria" name="presumaMateria" type="text" placeholder="Materia principal" />
+            </label>
+            <label class="field">
+              <span class="label">Petición principal</span>
+              <input id="presumaPeticionPrincipal" name="presumaPeticionPrincipal" type="text" placeholder="Petición concreta" />
+            </label>
+            <label class="field span-2">
+              <span class="label">Documentos que se acompañarán</span>
+              <textarea id="presumaDocumentos" name="presumaDocumentos" placeholder="Lista breve de documentos"></textarea>
+            </label>
+            <label class="field span-2">
+              <span class="label">Observaciones</span>
+              <textarea id="presumaObservaciones" name="presumaObservaciones" placeholder="Notas relevantes"></textarea>
+            </label>
+          </div>
         </div>
         <div class="field span-2">
           <span class="label">Modo de redacción *</span>
@@ -303,6 +351,9 @@
     const draftRequestForm = document.getElementById('draftRequestForm');
     const draftClient = document.getElementById('draftClient');
     const draftCause = document.getElementById('draftCause');
+    const draftTypeInput = document.getElementById('draftType');
+    const presumaBlock = document.getElementById('presumaBlock');
+    const presumaFields = document.getElementById('presumaFields');
     const causePickerField = document.getElementById('causePickerField');
     const causeSourcesField = document.getElementById('causeSourcesField');
     const causeSourcesList = document.getElementById('causeSourcesList');
@@ -387,11 +438,76 @@
       }
     }
 
-    function buildStructuredDraftPrefix(stage = 'posterior'){
-      if (stage === 'primera') {
-        return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
+    const PRESUMA_ENABLED_TYPES = new Set(['demanda nueva', 'medida prejudicial', 'gestion preparatoria']);
+
+    function normalizeDraftType(value = '') {
+      return normalize(value).replace(/\./g, '');
+    }
+
+    function shouldShowPresumaForm(stage = 'posterior', draftType = '') {
+      return stage === 'primera' && PRESUMA_ENABLED_TYPES.has(normalizeDraftType(draftType));
+    }
+
+    function getPresumaData(){
+      return {
+        tipoPresentacion: document.getElementById('presumaTipoPresentacion')?.value?.trim() || '',
+        nombreCliente: document.getElementById('presumaNombreCliente')?.value?.trim() || '',
+        rutCliente: document.getElementById('presumaRutCliente')?.value?.trim() || '',
+        calidadProcesal: document.getElementById('presumaCalidadProcesal')?.value?.trim() || '',
+        nombreContraparte: document.getElementById('presumaNombreContraparte')?.value?.trim() || '',
+        rutContraparte: document.getElementById('presumaRutContraparte')?.value?.trim() || '',
+        materia: document.getElementById('presumaMateria')?.value?.trim() || '',
+        peticionPrincipal: document.getElementById('presumaPeticionPrincipal')?.value?.trim() || '',
+        documentos: document.getElementById('presumaDocumentos')?.value?.trim() || '',
+        observaciones: document.getElementById('presumaObservaciones')?.value?.trim() || '',
+      };
+    }
+
+    function buildStructuredDraftPrefix(stage = 'posterior', draftType = '', presumaData = null){
+      const showPresuma = shouldShowPresumaForm(stage, draftType);
+      if (!showPresuma) {
+        return stage === 'primera'
+          ? 'SUMA: [peticiones concretas al tribunal]\n\n'
+          : 'SUMA: [petición concreta del escrito posterior]\n\n';
       }
-      return 'SUMA: [petición concreta del escrito posterior]\n\n';
+      const data = presumaData || getPresumaData();
+      return [
+        'PRESUMA / FORMULARIO PREVIO',
+        `- Tipo de presentación: ${data.tipoPresentacion || draftType || '[pendiente]'}`,
+        `- Nombre del cliente: ${data.nombreCliente || '[pendiente]'}`,
+        `- RUT del cliente: ${data.rutCliente || '[pendiente]'}`,
+        `- Calidad procesal proyectada: ${data.calidadProcesal || '[pendiente]'}`,
+        `- Nombre contraparte: ${data.nombreContraparte || '[pendiente]'}`,
+        `- RUT contraparte (si existe): ${data.rutContraparte || '[sin dato]'}`,
+        `- Materia: ${data.materia || '[pendiente]'}`,
+        `- Petición principal: ${data.peticionPrincipal || '[pendiente]'}`,
+        `- Documentos que se acompañarán: ${data.documentos || '[pendiente]'}`,
+        `- Observaciones: ${data.observaciones || '[sin observaciones]'}`,
+        '',
+        'SUMA: [peticiones concretas al tribunal]',
+        ''
+      ].join('\n');
+    }
+
+    function stripStructuredDraftPrefix(content = '') {
+      return (content || '').replace(/^PRESUMA \/ FORMULARIO PREVIO[\s\S]*?\n\nSUMA:.*?\n\n|^SUMA:.*?\n\n/s, '');
+    }
+
+    function syncEditorStructuredPrefix(){
+      const bodyWithoutPrefix = stripStructuredDraftPrefix(legalEditor.innerText || '');
+      const prefix = buildStructuredDraftPrefix(draftRequestForm.draftStage.value, draftTypeInput.value, getPresumaData());
+      legalEditor.textContent = `${prefix}${bodyWithoutPrefix}`;
+      renderDocxPreview();
+    }
+
+    function togglePresumaVisibility(){
+      const visible = shouldShowPresumaForm(draftRequestForm.draftStage.value, draftTypeInput.value);
+      presumaBlock.hidden = !visible;
+      presumaFields.hidden = !visible;
+      if (visible && !document.getElementById('presumaTipoPresentacion').value.trim()) {
+        document.getElementById('presumaTipoPresentacion').value = draftTypeInput.value.trim();
+      }
+      syncEditorStructuredPrefix();
     }
 
     function extractRoleFromCase(selectedCase){
@@ -682,6 +798,7 @@ sup { vertical-align: super; font-size: 10pt; }
       modalBackdrop.classList.add('open');
       modalBackdrop.setAttribute('aria-hidden', 'false');
       hydrateFormDefaults();
+      togglePresumaVisibility();
     }
 
     function closeModal(){
@@ -692,6 +809,7 @@ sup { vertical-align: super; font-size: 10pt; }
       manualFilesSummary.textContent = 'Sin archivos cargados manualmente.';
       draftRequestForm.citationNorm.value = 'rchd-2025';
       applyMode('no-cause');
+      togglePresumaVisibility();
     }
 
     function buildProductionCards(cases, clientsMap){
@@ -788,6 +906,14 @@ sup { vertical-align: super; font-size: 10pt; }
       loadProduction();
     });
     draftCause.addEventListener('change', renderCauseSourceOptions);
+    draftClient.addEventListener('change', () => {
+      const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
+      const field = document.getElementById('presumaNombreCliente');
+      if (field && !field.value.trim()) {
+        field.value = selectedClient?.full_name || selectedClient?.name || '';
+      }
+      syncEditorStructuredPrefix();
+    });
     manualFilesInput.addEventListener('change', (event) => {
       fileAttachmentCache = Array.from(event.target.files || []);
       manualFilesSummary.textContent = fileAttachmentCache.length
@@ -817,9 +943,9 @@ sup { vertical-align: super; font-size: 10pt; }
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
       if (acta) {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value, draftTypeInput.value, getPresumaData())}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
       } else {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value, draftTypeInput.value, getPresumaData())}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
       }
       renderDocxPreview();
     });
@@ -973,12 +1099,13 @@ sup { vertical-align: super; font-size: 10pt; }
         manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
         instructions: draftRequestForm.extraInstructions.value.trim(),
         lawyerStyle: draftRequestForm.lawyerStyle.value.trim(),
+        presuma: getPresumaData(),
         status: 'Borrador Word generado',
         wordFilename: `${requestId}.doc`,
         pdfFilename: null,
         body: plainBody,
         footnotes: [...pendingFootnotes],
-        docBodyHtml: escapeHtml((buildStructuredDraftPrefix(draftStage) + (legalEditor.innerText || '')).trim())
+        docBodyHtml: escapeHtml((legalEditor.innerText || '').trim())
           .split('\n')
           .map((line) => `<p>${line}</p>`)
           .join(''),
@@ -1021,6 +1148,17 @@ sup { vertical-align: super; font-size: 10pt; }
         renderCauseSourceOptions();
         document.getElementById('extraInstructions').value = target.instructions || '';
         document.getElementById('lawyerStyle').value = target.lawyerStyle || '';
+        document.getElementById('presumaTipoPresentacion').value = target?.presuma?.tipoPresentacion || target.type || '';
+        document.getElementById('presumaNombreCliente').value = target?.presuma?.nombreCliente || target.clientName || '';
+        document.getElementById('presumaRutCliente').value = target?.presuma?.rutCliente || '';
+        document.getElementById('presumaCalidadProcesal').value = target?.presuma?.calidadProcesal || '';
+        document.getElementById('presumaNombreContraparte').value = target?.presuma?.nombreContraparte || '';
+        document.getElementById('presumaRutContraparte').value = target?.presuma?.rutContraparte || '';
+        document.getElementById('presumaMateria').value = target?.presuma?.materia || '';
+        document.getElementById('presumaPeticionPrincipal').value = target?.presuma?.peticionPrincipal || '';
+        document.getElementById('presumaDocumentos').value = target?.presuma?.documentos || '';
+        document.getElementById('presumaObservaciones').value = target?.presuma?.observaciones || '';
+        togglePresumaVisibility();
       }
       if (action === 'pdf') {
         const pdfName = `${target.id}.pdf`;
@@ -1059,13 +1197,24 @@ sup { vertical-align: super; font-size: 10pt; }
       productionSearchInput.value = prefillParts.join(' ');
       activeSearch = normalize(productionSearchInput.value);
     }
-    legalEditor.textContent = buildStructuredDraftPrefix('posterior');
+    legalEditor.textContent = buildStructuredDraftPrefix('posterior', '');
     renderDocxPreview();
     renderExternalInputs();
-    draftRequestForm.draftStage.addEventListener('change', () => {
-      legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}${(legalEditor.innerText || '').replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '')}`;
-      renderDocxPreview();
-    });
+    draftRequestForm.draftStage.addEventListener('change', togglePresumaVisibility);
+    draftTypeInput.addEventListener('input', togglePresumaVisibility);
+    [
+      'presumaTipoPresentacion',
+      'presumaNombreCliente',
+      'presumaRutCliente',
+      'presumaCalidadProcesal',
+      'presumaNombreContraparte',
+      'presumaRutContraparte',
+      'presumaMateria',
+      'presumaPeticionPrincipal',
+      'presumaDocumentos',
+      'presumaObservaciones'
+    ].forEach((id) => document.getElementById(id)?.addEventListener('input', syncEditorStructuredPrefix));
+    togglePresumaVisibility();
 
     ensureAuth().then(loadProduction).catch((error) => {
       console.warn('[PRODUCCIÓN] Tolerancia total activa: se continúa operando con funciones locales.', error);
