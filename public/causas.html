@@ -455,8 +455,8 @@
     }
 
     .causas-page .panel-card{
-      background:linear-gradient(180deg,#9acdc5 0%,var(--causas-block) 100%);
-      padding:14px;
+      background:linear-gradient(180deg,#d7efe9 0%,#c5e6df 100%);
+      padding:12px;
       display:flex;
       flex-direction:column;
       gap:8px;
@@ -475,6 +475,73 @@
       color:var(--causas-text-secondary);
       font-size:14px;
       line-height:1.45;
+    }
+
+    .causas-page .compact-collapsible-card{
+      overflow:hidden;
+    }
+
+    .causas-page .compact-card-toggle{
+      width:100%;
+      border:1px solid rgba(255,255,255,.45);
+      border-radius:14px;
+      background:rgba(255,255,255,.2);
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:12px;
+      padding:12px 14px;
+      text-align:left;
+      cursor:pointer;
+      color:var(--causas-text);
+      transition:background .16s ease, border-color .16s ease, transform .16s ease;
+    }
+
+    .causas-page .compact-card-toggle:hover{
+      background:rgba(255,255,255,.32);
+      border-color:rgba(22,58,95,.28);
+      transform:translateY(-1px);
+    }
+
+    .causas-page .compact-card-toggle:focus-visible{
+      outline:2px solid rgba(22,58,95,.28);
+      outline-offset:2px;
+    }
+
+    .causas-page .compact-card-summary{
+      font-size:13px;
+      color:var(--causas-text-secondary);
+      line-height:1.35;
+      margin-top:4px;
+    }
+
+    .causas-page .compact-card-toggle .panel-title{
+      display:block;
+      margin:0;
+      font-size:20px;
+      line-height:1.1;
+    }
+
+    .causas-page .compact-card-icon{
+      font-size:14px;
+      font-weight:800;
+      line-height:1;
+      margin-top:4px;
+      transition:transform .18s ease;
+    }
+
+    .causas-page .compact-collapsible-card:not(.is-collapsed) .compact-card-icon{
+      transform:rotate(90deg);
+    }
+
+    .causas-page .compact-card-content{
+      display:grid;
+      gap:10px;
+      padding:2px 2px 0;
+    }
+
+    .causas-page .compact-collapsible-card.is-collapsed .compact-card-content{
+      display:none;
     }
 
     .filter-grid,
@@ -614,12 +681,13 @@
     }
 
     .causas-page .pjud-index-priority{
-      background:linear-gradient(180deg,#b7ddd7 0%,#9fcec6 100%);
+      background:linear-gradient(180deg,#95c8be 0%,#75b3a7 100%);
       border:1px solid rgba(36,95,89,.24);
       border-radius:20px;
-      padding:14px;
+      padding:12px;
       display:grid;
-      gap:10px;
+      gap:8px;
+      box-shadow:0 10px 20px rgba(12,44,40,.12);
     }
 
     .causas-page .pjud-access-priority{
@@ -1990,25 +2058,36 @@
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
-    <section class="pjud-index-priority" aria-label="Índice General PJUD">
-      <div>
-        <h3 class="panel-title">Índice General PJUD</h3>
+    <section class="pjud-index-priority compact-collapsible-card is-collapsed" aria-label="Índice General PJUD" data-collapsible-card>
+      <button class="compact-card-toggle" type="button" id="btnToggleIndiceGeneralCard" aria-expanded="false" aria-controls="indiceGeneralCardContent">
+        <span>
+          <span class="panel-title">Índice General PJUD</span>
+          <p class="compact-card-summary">Control del índice general de causas y acceso directo a la ruta operativa confirmada.</p>
+        </span>
+        <span class="compact-card-icon" aria-hidden="true">▸</span>
+      </button>
+      <div class="compact-card-content" id="indiceGeneralCardContent" hidden>
         <p class="panel-subtitle">Control del índice general de causas. Usar la ruta confirmada sin puerta externa ni paneles paralelos: Índice General PJUD &gt; Abrir índice general &gt; Alpha Avocat · Expedientes Digitales &gt; Fichero principal · Índice General PJUD.</p>
+        <div class="pjud-index-actions">
+          <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
+          <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
+        </div>
+        <div class="helper-box">Dentro de Fichero principal · Índice General PJUD, trabajar en el listado general interno con filtros y KÁRDEX TRIBUNAL.</div>
+        <div class="pjud-index-stats" id="pjudIndexStats"></div>
       </div>
-      <div class="pjud-index-actions">
-        <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
-        <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
-      </div>
-      <div class="helper-box">Dentro de Fichero principal · Índice General PJUD, trabajar en el listado general interno con filtros y KÁRDEX TRIBUNAL.</div>
-      <div class="pjud-index-stats" id="pjudIndexStats"></div>
     </section>
 
     <section class="screen-grid">
-      <aside class="panel-card">
-        <div>
-          <h3 class="panel-title">Listado general de causas</h3>
+      <aside class="panel-card compact-collapsible-card is-collapsed" data-collapsible-card>
+        <button class="compact-card-toggle" type="button" id="btnToggleListadoGeneralCard" aria-expanded="false" aria-controls="listadoGeneralCardContent">
+          <span>
+            <span class="panel-title">Listado general de causas</span>
+            <p class="compact-card-summary">Filtros y búsqueda de causas en formato compacto. Despliega para ver todas las herramientas.</p>
+          </span>
+          <span class="compact-card-icon" aria-hidden="true">▸</span>
+        </button>
+        <div class="compact-card-content" id="listadoGeneralCardContent" hidden>
           <p class="panel-subtitle">Filtra por estado procesal, tribunal, materia, procedimiento, abogado responsable, urgencia, audiencia próxima y plazo próximo.</p>
-        </div>
 
         <div class="field panel-search">
           <label for="searchCausas">Buscador general</label>
@@ -2096,7 +2175,7 @@
           </div>
 
 	        <div class="list-wrap" id="casesList"></div>
-	        </div>
+        </div>
 	      </aside>
 
     </section>
@@ -5771,6 +5850,29 @@
 
     function disableLandingMode(){
       document.body.classList.remove('landing-mode');
+    }
+
+    function setCompactCardState(cardNode, expanded){
+      if (!cardNode) return;
+      const content = cardNode.querySelector('.compact-card-content');
+      const toggle = cardNode.querySelector('.compact-card-toggle');
+      const isExpanded = Boolean(expanded);
+      cardNode.classList.toggle('is-collapsed', !isExpanded);
+      if (toggle) toggle.setAttribute('aria-expanded', isExpanded ? 'true' : 'false');
+      if (content) content.hidden = !isExpanded;
+    }
+
+    function initializeCompactCollapsibleCards(){
+      document.querySelectorAll('[data-collapsible-card]').forEach((cardNode) => {
+        setCompactCardState(cardNode, false);
+        const toggle = cardNode.querySelector('.compact-card-toggle');
+        if (!toggle || toggle.dataset.boundCompactToggle === '1') return;
+        toggle.dataset.boundCompactToggle = '1';
+        toggle.addEventListener('click', () => {
+          const isExpanded = toggle.getAttribute('aria-expanded') === 'true';
+          setCompactCardState(cardNode, !isExpanded);
+        });
+      });
     }
 
     function closeWorkspaceModal(){
@@ -15442,6 +15544,8 @@
     }
 
     function wireEvents(){
+      initializeCompactCollapsibleCards();
+
       const navigateToPjudGeneralIndex = () => {
         window.location.href = './expedientes-digitales.html#indice-general-pjud';
       };
