@@ -75,8 +75,12 @@
     .subtle-header{font-size:12px;color:#4a6b67;margin-bottom:8px}
     .small-gray{font-size:11px;color:#6c7f7c}
     .insumos-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .insumos-nav{display:flex;flex-wrap:wrap;gap:8px;margin:0 0 10px}
+    .insumos-nav .btn.active{background:#163A5F;color:#fff;border-color:#163A5F}
     .insumos-list{display:grid;gap:8px}
     .insumo-item{background:#fff;border:1px solid #8ec7be;border-radius:10px;padding:8px}
+    .insumo-group{display:grid;gap:8px}
+    .insumo-group-title{margin:4px 0 0;color:#1f5a53;font-size:13px}
     @media (max-width:900px){.grid{grid-template-columns:1fr}}
     @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
@@ -104,6 +108,7 @@
         </div>
         <div class="draft-actions">
           <button id="btnOpenMonitoring" class="btn">Monitoreo</button>
+          <button id="btnOpenExternalInputs" class="btn">Insumos externos</button>
           <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
         </div>
       </div>
@@ -153,24 +158,20 @@
         </div>
       </div>
     </section>
-    <section class="card">
+    <section class="card" id="externalInputsSection">
       <h3 class="title">Insumos externos (global)</h3>
-      <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, ver y eliminar insumos.</p>
+      <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, navegar por tipo, ver y eliminar insumos.</p>
       <div class="insumos-grid">
         <div class="item">
           <div class="field">
             <label class="label" for="externalInputType">Clasificación</label>
             <select id="externalInputType">
-              <option value="jurisprudencia">Jurisprudencia</option>
+              <option value="normas-cita-bibliografica">Normas de cita bibliográfica</option>
+              <option value="practica-forense">Práctica forense</option>
+              <option value="escritos-del-abogado">Escritos del abogado</option>
               <option value="doctrina">Doctrina</option>
-              <option value="codigos">Códigos y leyes especiales</option>
-              <option value="normas-cita">Normas de cita</option>
-              <option value="instrucciones">Instrucciones</option>
-              <option value="documentos">Documentos</option>
-              <option value="audios">Audios</option>
-              <option value="videos">Videos</option>
-              <option value="planos">Planos</option>
-              <option value="declaraciones">Declaraciones</option>
+              <option value="jurisprudencia">Jurisprudencia</option>
+              <option value="formularios-base">Formularios base (ej: demanda nueva)</option>
             </select>
           </div>
           <div class="field">
@@ -185,6 +186,7 @@
         </div>
         <div>
           <div class="subtle-header">Listado global</div>
+          <div id="externalInputsNav" class="insumos-nav"></div>
           <div id="externalInputsList" class="insumos-list">
             <article class="empty">Sin insumos externos cargados.</article>
           </div>
@@ -317,12 +319,22 @@
     const docxPreviewBody = document.getElementById('docxPreviewBody');
     const editorFileInput = document.getElementById('editorFileInput');
     const externalInputsList = document.getElementById('externalInputsList');
+    const externalInputsNav = document.getElementById('externalInputsNav');
+    const externalInputsSection = document.getElementById('externalInputsSection');
     const externalInputFile = document.getElementById('externalInputFile');
     const escapeHtml = (value = '') => String(value).replace(/[&<>'"]/g, (ch) => ({ '&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;' }[ch] || ch));
     const normalize = (value = '') => String(value || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
     const PROVISIONAL_KEY = 'alpha-avocat:production:provisional-container:v1';
     const EXTERNAL_INPUTS_KEY = 'alpha-avocat:production:external-inputs:v1';
+    const EXTERNAL_INPUT_TYPES = [
+      { value: 'normas-cita-bibliografica', label: 'Normas de cita bibliográfica' },
+      { value: 'practica-forense', label: 'Práctica forense' },
+      { value: 'escritos-del-abogado', label: 'Escritos del abogado' },
+      { value: 'doctrina', label: 'Doctrina' },
+      { value: 'jurisprudencia', label: 'Jurisprudencia' },
+      { value: 'formularios-base', label: 'Formularios base' }
+    ];
     const CITATION_NORMS = {
       'rchd-2025': {
         id: 'rchd-2025',
@@ -338,6 +350,7 @@
     let editorAttachments = [];
     let citationSequence = 0;
     let pendingFootnotes = [];
+    let activeExternalFilter = 'all';
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -402,11 +415,15 @@
       return {
         acta: toList(selectedCase?.meetings || selectedCase?.actas || []),
         caso: [selectedCase?.caratula || selectedCase?.rol || 'Sin individualización'],
-        normativa: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'codigos'),
+        normativa: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'normas-cita-bibliografica'),
         jurisprudencia: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'jurisprudencia'),
         doctrina: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'doctrina'),
-        instrucciones: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'instrucciones'),
-        practica: toList(selectedCase?.production_documents || selectedCase?.escritos || [])
+        formularios: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'formularios-base'),
+        instrucciones: readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'escritos-del-abogado'),
+        practica: [
+          ...readJsonStorage(EXTERNAL_INPUTS_KEY).filter((item) => item.type === 'practica-forense'),
+          ...toList(selectedCase?.production_documents || selectedCase?.escritos || [])
+        ]
       };
     }
 
@@ -568,21 +585,53 @@ sup { vertical-align: super; font-size: 10pt; }
       `;
     }
 
+    function getExternalTypeLabel(value = ''){
+      return EXTERNAL_INPUT_TYPES.find((item) => item.value === value)?.label || value || 'Sin tipo';
+    }
+
+    function renderExternalInputNav(inputs = []){
+      const counts = EXTERNAL_INPUT_TYPES.reduce((acc, type) => {
+        acc[type.value] = inputs.filter((item) => item.type === type.value).length;
+        return acc;
+      }, {});
+      const buttons = [
+        `<button class="btn ${activeExternalFilter === 'all' ? 'active' : ''}" type="button" data-filter="all">Todos (${inputs.length})</button>`,
+        ...EXTERNAL_INPUT_TYPES.map((type) => `<button class="btn ${activeExternalFilter === type.value ? 'active' : ''}" type="button" data-filter="${escapeHtml(type.value)}">${escapeHtml(type.label)} (${counts[type.value] || 0})</button>`)
+      ];
+      externalInputsNav.innerHTML = buttons.join('');
+    }
+
     function renderExternalInputs(){
       const inputs = readJsonStorage(EXTERNAL_INPUTS_KEY);
+      renderExternalInputNav(inputs);
       if (!inputs.length) {
         externalInputsList.innerHTML = '<article class="empty">Sin insumos externos cargados.</article>';
         return;
       }
-      externalInputsList.innerHTML = inputs.map((item) => `
-        <article class="insumo-item">
-          <div><strong>${escapeHtml(item.name)}</strong> <span class="pill">${escapeHtml(item.type)}</span></div>
-          <div class="small muted">${escapeHtml(item.fileName || 'Sin archivo')} · ${new Date(item.createdAt).toLocaleString('es-CL')}</div>
-          <div class="draft-actions">
-            <button class="btn" type="button" data-action="view-external" data-id="${escapeHtml(item.id)}">Ver</button>
-            <button class="btn" type="button" data-action="delete-external" data-id="${escapeHtml(item.id)}">Eliminar</button>
-          </div>
-        </article>
+      const filtered = activeExternalFilter === 'all'
+        ? inputs
+        : inputs.filter((item) => item.type === activeExternalFilter);
+      if (!filtered.length) {
+        externalInputsList.innerHTML = '<article class="empty">No hay insumos para el tipo seleccionado.</article>';
+        return;
+      }
+      const grouped = EXTERNAL_INPUT_TYPES
+        .map((type) => ({ ...type, docs: filtered.filter((item) => item.type === type.value) }))
+        .filter((group) => group.docs.length > 0);
+      externalInputsList.innerHTML = grouped.map((group) => `
+        <section class="insumo-group">
+          <h4 class="insumo-group-title">${escapeHtml(group.label)}</h4>
+          ${group.docs.map((item) => `
+            <article class="insumo-item">
+              <div><strong>${escapeHtml(item.name)}</strong> <span class="pill">${escapeHtml(getExternalTypeLabel(item.type))}</span></div>
+              <div class="small muted">${escapeHtml(item.fileName || 'Sin archivo')} · ${new Date(item.createdAt).toLocaleString('es-CL')}</div>
+              <div class="draft-actions">
+                <button class="btn" type="button" data-action="view-external" data-id="${escapeHtml(item.id)}">Ver</button>
+                <button class="btn" type="button" data-action="delete-external" data-id="${escapeHtml(item.id)}">Eliminar</button>
+              </div>
+            </article>
+          `).join('')}
+        </section>
       `).join('');
     }
 
@@ -772,6 +821,11 @@ sup { vertical-align: super; font-size: 10pt; }
 
     document.getElementById('btnOpenDraftModal').addEventListener('click', openModal);
     document.getElementById('btnOpenMonitoring')?.addEventListener('click', () => { window.location.href = './monitoreo.html'; });
+    document.getElementById('btnOpenExternalInputs')?.addEventListener('click', () => {
+      activeExternalFilter = 'all';
+      renderExternalInputs();
+      externalInputsSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
     document.getElementById('btnCancelDraft').addEventListener('click', closeModal);
     modalBackdrop.addEventListener('click', (event) => {
       if (event.target === modalBackdrop) closeModal();
@@ -788,6 +842,12 @@ sup { vertical-align: super; font-size: 10pt; }
       loadProduction();
     });
     draftCause.addEventListener('change', renderCauseSourceOptions);
+    externalInputsNav.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-filter]');
+      if (!button) return;
+      activeExternalFilter = button.dataset.filter || 'all';
+      renderExternalInputs();
+    });
     manualFilesInput.addEventListener('change', (event) => {
       fileAttachmentCache = Array.from(event.target.files || []);
       manualFilesSummary.textContent = fileAttachmentCache.length
@@ -896,7 +956,7 @@ sup { vertical-align: super; font-size: 10pt; }
       const target = inputs.find((item) => item.id === id);
       if (!target) return;
       if (action === 'view-external') {
-        window.alert(`${target.name}\nTipo: ${target.type}\nArchivo: ${target.fileName || 'Sin archivo'}\nFecha: ${new Date(target.createdAt).toLocaleString('es-CL')}`);
+        window.alert(`${target.name}\nTipo: ${getExternalTypeLabel(target.type)}\nArchivo: ${target.fileName || 'Sin archivo'}\nFecha: ${new Date(target.createdAt).toLocaleString('es-CL')}`);
       }
       if (action === 'delete-external') {
         writeJsonStorage(EXTERNAL_INPUTS_KEY, inputs.filter((item) => item.id !== id));
@@ -950,8 +1010,9 @@ sup { vertical-align: super; font-size: 10pt; }
         `3 Normativa (${hierarchy.normativa.length})`,
         `4 Jurisprudencia (${hierarchy.jurisprudencia.length})`,
         `5 Doctrina (${hierarchy.doctrina.length})`,
-        `6 Instrucciones (${hierarchy.instrucciones.length})`,
-        `7 Práctica (${hierarchy.practica.length})`,
+        `6 Formularios base (${hierarchy.formularios.length})`,
+        `7 Escritos del abogado (${hierarchy.instrucciones.length})`,
+        `8 Práctica forense (${hierarchy.practica.length})`,
       ].filter(Boolean).join('\n');
       const newRequest = {
         id: requestId,
