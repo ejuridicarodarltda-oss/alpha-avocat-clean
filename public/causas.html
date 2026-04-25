@@ -10220,6 +10220,8 @@
       });
       return {
         rol: pickRowValue(normalizedMap, ['rol']),
+        rolNumero: pickRowValue(normalizedMap, ['rolnumero', 'numero', 'numerorol', 'nrorol']),
+        rolAnio: pickRowValue(normalizedMap, ['rolanio', 'ano', 'anio', 'era']),
         tribunal: pickRowValue(normalizedMap, ['tribunal', 'corte']),
         tipoTribunal: pickRowValue(normalizedMap, ['tipotribunal', 'tribunaltipo', 'tipodejuzgado']),
         caratula: pickRowValue(normalizedMap, ['caratula']),
@@ -10229,6 +10231,43 @@
         materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
         procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
         institucion: pickRowValue(normalizedMap, ['institucion']),
+      };
+    }
+
+    function parseExcelRoleNumberYearFromValue(value = ''){
+      const raw = String(value || '').trim();
+      if (!raw) return { roleNumber: '', roleYear: '' };
+      const normalized = normalizePjudText(raw);
+      const numbers = normalized.match(/\d{1,9}/g) || [];
+      if (!numbers.length) return { roleNumber: '', roleYear: '' };
+      const roleNumber = numbers[0] || '';
+      const yearCandidate = numbers.find((token) => /^(19\d{2}|20\d{2}|\d{2})$/.test(token)) || '';
+      const parsedYear = yearCandidate
+        ? String(yearCandidate).length === 2
+          ? `20${yearCandidate}`
+          : yearCandidate
+        : '';
+      return { roleNumber, roleYear: parsedYear };
+    }
+
+    function rebuildExcelRoleForComparison(row = {}){
+      const fromColumnsNumber = String(row?.rolNumero || '').trim();
+      const fromColumnsYear = String(row?.rolAnio || '').trim();
+      let roleNumber = fromColumnsNumber;
+      let roleYear = fromColumnsYear;
+      if (!roleNumber || !roleYear) {
+        const parsedFromRole = parseExcelRoleNumberYearFromValue(row?.rol || '');
+        if (!roleNumber) roleNumber = parsedFromRole.roleNumber;
+        if (!roleYear) roleYear = parsedFromRole.roleYear;
+      }
+      if (roleYear && String(roleYear).length === 2) roleYear = `20${roleYear}`;
+      const normalizedNumber = String(roleNumber || '').replace(/\D/g, '');
+      const normalizedYear = String(roleYear || '').replace(/\D/g, '');
+      const rebuiltRole = normalizedNumber && normalizedYear ? `${normalizedNumber}-${normalizedYear}` : '';
+      return {
+        roleNumberRead: normalizedNumber,
+        roleYearRead: normalizedYear,
+        rebuiltRole,
       };
     }
 
@@ -10749,13 +10788,21 @@
         let processedRows = 0;
         for (const row of store.parsed.validRows) {
           if (state.excelUploads.listado.cancelRequested) break;
-          const exactKey = `${normalizePjudText(row?.rol || '')}|${normalizePjudText(row?.tribunal || '')}`;
+          const roleDebug = rebuildExcelRoleForComparison(row);
+          const rolComparacion = roleDebug.rebuiltRole || String(row?.rol || '').trim();
+          const exactKey = `${normalizePjudText(rolComparacion)}|${normalizePjudText(row?.tribunal || '')}`;
           const exactMatches = byExactKey.get(exactKey) || [];
-          const flexibleRoleKey = buildExcelFlexibleMatchKey(row?.rol || '');
+          const flexibleRoleKey = buildExcelFlexibleMatchKey(rolComparacion || row?.rol || '');
           const flexibleCourt = normalizeCourtForFlexibleMatch(row?.tribunal || '');
           const flexibleMatches = exactMatches.length || !flexibleRoleKey || !flexibleCourt
             ? []
             : (byFlexibleKey.get(`${flexibleRoleKey}|${flexibleCourt}`) || []);
+          const candidateFoldersByNumberYear = [
+            ...new Set([
+              ...exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean),
+              ...flexibleMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean),
+            ]),
+          ];
           const resolvedMatches = exactMatches.length ? exactMatches : flexibleMatches;
           const resolvedMatchType = exactMatches.length ? 'exacto' : (flexibleMatches.length ? 'flexible' : 'sin_coincidencia');
           let resultLabel = 'sin carpeta existente';
@@ -10792,10 +10839,13 @@
             processedRows += 1;
             if (listadoExamples.length < 10) {
               listadoExamples.push({
-                rolExcel: row?.rol || '',
+                rolExcelReconstruido: rolComparacion || row?.rol || '',
+                numeroLeido: roleDebug.roleNumberRead || '',
+                anioLeido: roleDebug.roleYearRead || '',
                 tribunalExcel: row?.tribunal || '',
                 rolCarpetaEncontrada: matchedCase?.rol || '',
                 tribunalCarpetaEncontrada: matchedCase?.tribunal || '',
+                carpetasCandidatasNumeroAnio: candidateFoldersByNumberYear,
                 resultado: resultLabel,
               });
             }
@@ -10809,6 +10859,15 @@
               updatedFolders: updatedCases,
               unmatchedRows: listadoMatchStats.unmatched,
               errors: Number(store.parsed.invalidRows || 0) + processingErrors,
+            });
+            console.debug('[CAUSAS][EXCEL-DEPURADO][DEBUG-MATCH]', {
+              rowNumber: row?.rowNumber || null,
+              numeroLeido: roleDebug.roleNumberRead || null,
+              anioLeido: roleDebug.roleYearRead || null,
+              rolReconstruido: rolComparacion || null,
+              tribunalExcel: row?.tribunal || null,
+              carpetasCandidatasNumeroAnio: candidateFoldersByNumberYear,
+              resultadoFinal: resultLabel,
             });
           } catch (rowPersistenceError) {
             processingErrors += 1;
@@ -15270,7 +15329,7 @@
           const summary = await processExcelUpload('listado');
           const exampleRows = (summary.examples || []).slice(0, 10);
           const examplesText = exampleRows.length
-            ? ` Ejemplos: ${exampleRows.map((item) => `${item.rolExcel || 's/rol'} | ${item.tribunalExcel || 's/tribunal'} => ${item.rolCarpetaEncontrada || '—'} | ${item.tribunalCarpetaEncontrada || '—'} (${item.resultado || 'sin resultado'})`).join(' · ')}.`
+            ? ` Ejemplos: ${exampleRows.map((item) => `número leído=${item.numeroLeido || 's/n'} · año leído=${item.anioLeido || 's/a'} · rolExcelReconstruido=${item.rolExcelReconstruido || 's/rol'} · tribunal=${item.tribunalExcel || 's/tribunal'} · candidatas=${(item.carpetasCandidatasNumeroAnio || []).join(', ') || '—'} => ${item.rolCarpetaEncontrada || '—'} | ${item.tribunalCarpetaEncontrada || '—'} (${item.resultado || 'sin resultado'})`).join(' · ')}.`
             : '';
           setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Actualizadas match flexible: ${summary.updatedFlexibleMatches || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
