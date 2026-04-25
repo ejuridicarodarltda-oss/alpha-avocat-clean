@@ -401,15 +401,17 @@ function inferTribunalMainBucket(cause = {}) {
     cause?.tipo_tribunal,
     cause?.materia,
   ].filter(Boolean).join(' '))
-  if (!source) return { key: 'civil', label: 'Causas Juzgados Civiles' }
-  if (source.includes('oral') && source.includes('penal')) return { key: 'top', label: 'Tribunal Oral en lo Penal' }
-  if (source.includes('policia local')) return { key: 'policia_local', label: 'Juzgado de Policía Local' }
-  if (source.includes('garantia') || source.includes('penal')) return { key: 'garantia', label: 'Causas Juzgado de Garantía' }
-  if (source.includes('cobranza')) return { key: 'cobranza', label: 'Causas Juzgado de Cobranza' }
-  if (source.includes('familia')) return { key: 'familia', label: 'Causas Juzgado de Familia' }
-  if (source.includes('trabajo') || source.includes('laboral')) return { key: 'trabajo', label: 'Causas Juzgado del Trabajo' }
-  if (source.includes('civil') || source.includes('letras')) return { key: 'civil', label: 'Causas Juzgados Civiles' }
-  return { key: 'civil', label: 'Causas Juzgados Civiles' }
+  if (!source) return { key: 'tribunal_no_especificado', label: 'Tribunal no especificado' }
+  if (source.includes('corte suprema')) return { key: 'corte_suprema', label: 'Corte Suprema' }
+  if (source.includes('corte de apelaciones')) return { key: 'cortes_apelaciones', label: 'Cortes de Apelaciones' }
+  if (source.includes('juzgado de policia local')) return { key: 'policia_local', label: 'Juzgados de Policía Local' }
+  if (source.includes('cobranza') || source.includes('previsional')) return { key: 'cobranza_previsional', label: 'Juzgados de Cobranza Laboral y Previsional' }
+  if (source.includes('juicio oral') || source.includes('top')) return { key: 'top', label: 'Tribunales de Juicio Oral en lo Penal' }
+  if (source.includes('garantia')) return { key: 'garantia', label: 'Juzgados de Garantía' }
+  if (source.includes('familia')) return { key: 'familia', label: 'Juzgados de Familia' }
+  if (source.includes('trabajo')) return { key: 'trabajo', label: 'Juzgados del Trabajo' }
+  if (source.includes('civil') || source.includes('letras')) return { key: 'civil', label: 'Juzgados Civiles' }
+  return { key: `tribunal_${quickHash(source)}`, label: cause?.tribunal || cause?.court || cause?.corte || 'Tribunal no especificado' }
 }
 
 function sanitizeTribunalCarpetasForCause(cause = {}) {
