@@ -669,11 +669,14 @@
     function normalizeTribunal(raw = '') {
       const cleaned = normalizeWhitespace(raw);
       const normalizedKey = normalize(cleaned);
+      if (normalizedKey.includes('suprema')) return 'Corte Suprema';
       const learnedRules = loadNormalizationRules().tribunalAliases || {};
       return learnedRules[normalizedKey] || COURT_NORMALIZATION_MAP[normalizedKey] || cleaned;
     }
     function normalizeTribunalSpecificPanelKey(raw = '') {
-      return normalize(raw)
+      const normalizedSource = normalize(raw);
+      if (normalizedSource.includes('suprema')) return 'corte suprema';
+      return normalizedSource
         .replace(/\b(primero|primer|1o|1º|1°)\b/g, '1')
         .replace(/\b(segundo|2o|2º|2°)\b/g, '2')
         .replace(/\b(tercero|3o|3º|3°)\b/g, '3')
@@ -1166,9 +1169,9 @@
       return found ? Number(found[1]) : Number.MAX_SAFE_INTEGER;
     }
 
-    function inferMatter(cause = {}) {
-      const raw = normalize(cause[C.kMatter] || '');
-      const tribunal = normalize(cause[C.kTrib] || cause[C.kCourt] || '');
+    function inferMatter(cause = {}, fallbackTribunal = '', manualData = null) {
+      const raw = normalize(cause[C.kMatter] || manualData?.base?.materia || '');
+      const tribunal = normalize(cause[C.kTrib] || cause[C.kCourt] || manualData?.base?.tribunal || fallbackTribunal || '');
       const source = `${raw} ${tribunal}`;
       if (source.includes('familia')) return 'Juzgados de Familia';
       if (source.includes('cobranza')) return 'Juzgados de Cobranza Laboral y Previsional';
@@ -1603,13 +1606,14 @@
         const manualDataText = normalize(JSON.stringify({ base: manualData?.base || {}, registro: manualData?.registro || {}, parties: manualParties || [] }));
         const searchable = normalize(`${role} ${normalizeRol(role)} ${cliente} ${caratula} ${tribunal} ${rit} ${ruc} ${materia} ${procedimiento} ${observaciones} ${partiesText} ${manualDataText}`);
         if (activeSearch && !searchable.includes(activeSearch)) continue;
-        const matter = inferMatter(k);
-        const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunal)}`);
+        const matter = inferMatter(k, tribunalResolved, manualData);
+        const tribunalByMatter = matter === 'Corte Suprema' ? 'Corte Suprema' : tribunal;
+        const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunalByMatter)}`);
 
         if (!matterMap.has(matter)) matterMap.set(matter, new Map());
         const tribunalMap = matterMap.get(matter);
-        if (!tribunalMap.has(tribunal)) tribunalMap.set(tribunal, new Map());
-        const roleMap = tribunalMap.get(tribunal);
+        if (!tribunalMap.has(tribunalByMatter)) tribunalMap.set(tribunalByMatter, new Map());
+        const roleMap = tribunalMap.get(tribunalByMatter);
 
         if (!roleMap.has(dedupeKey)) {
           roleMap.set(dedupeKey, {
@@ -1668,11 +1672,15 @@
 
     function renderMatterFolders() {
       const html = ORDERED_MATTERS.map((matter) => {
-        const count = lastMatterMap.get(matter)?.size || 0;
+        const tribunalMap = lastMatterMap.get(matter) || new Map();
+        const tribunalBuckets = buildTribunalSpecificBuckets(tribunalMap);
+        const tribunalCount = tribunalBuckets.length;
+        const causeCount = tribunalBuckets.reduce((acc, bucket) => acc + Number(bucket.roleMap?.size || 0), 0);
+        const tribunalLabel = tribunalCount === 1 ? '1 tribunal' : `${tribunalCount} tribunal(es)`;
         return `
           <button class="matter-tile" type="button" data-matter="${escapeHtml(matter)}">
             <strong>⚖️ ${escapeHtml(matter)}</strong>
-            <div class="muted">${count ? `${count} tribunal(es) con causas` : 'Sin tribunales todavía'}</div>
+            <div class="muted">${tribunalLabel} · ${causeCount} causa(s)</div>
           </button>
         `;
       }).join('');
