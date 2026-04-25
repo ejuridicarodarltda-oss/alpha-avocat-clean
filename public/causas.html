@@ -2465,7 +2465,11 @@
             <section class="panel-card" style="padding:12px;">
               <h4 class="section-title">D. Respuesta de ChatGPT</h4>
               <div id="produccionDraftHistory" class="case-meta" style="max-height:140px; overflow:auto; margin-bottom:8px;">Sin iteraciones aún.</div>
-              <textarea id="produccionDraftEditor" class="textarea" style="min-height:260px;" placeholder="Aquí aparecerá el borrador jurídico editable generado por ChatGPT."></textarea>
+              <div class="modal-actions" style="justify-content:flex-start; margin-bottom:8px; gap:8px;">
+                <button id="btnCopiarProduccionEditor" type="button" class="btn">Copiar</button>
+                <button id="btnPegarProduccionEditor" type="button" class="btn">Pegar</button>
+              </div>
+              <textarea id="produccionDraftEditor" class="textarea" style="min-height:260px; background:#1e1e1e; color:#d4d4d4; border:1px solid #30363d; font-family:Consolas, 'Courier New', monospace; line-height:1.5; caret-color:#9cdcfe;" placeholder="Aquí aparecerá el borrador jurídico editable generado por ChatGPT."></textarea>
             </section>
           </div>
 
@@ -2884,6 +2888,7 @@
     const PJUD_MIS_CAUSAS_DEFAULT_URL = 'https://oficinajudicialvirtual.pjud.cl/indexN.php#';
     const IMPORT_FIELD_FEEDBACK_STORAGE_KEY = 'alpha-import-field-feedback-v1';
     const EXCEL_LISTADO_LAST_PROCESS_STORAGE_KEY = 'alpha-causas-excel-listado-last-process-v1';
+    const PRODUCCION_DRAFT_SESSION_STORAGE_KEY = 'alpha-causas-produccion-draft-session-v1';
     const GENERAL_PJUD_EXCEL_SOURCE_TYPE = 'pjud_general_excel_panel';
     const GENERAL_PJUD_EXCEL_STORAGE_BUCKET = 'case-files';
     const CASE_DOCUMENT_STORAGE_BUCKET = 'case-files';
@@ -3001,6 +3006,7 @@
         draftError: '',
         draftIterations: [],
         wordGenerated: false,
+        hydratedFromSession: false,
       },
     };
 
@@ -9059,6 +9065,85 @@
       return overlap.length >= Math.min(2, inputTokens.length);
     }
 
+    function persistProduccionDraftSession(){
+      try {
+        const payload = {
+          selectedCaseId: state.produccionDraft.selectedCaseId || '',
+          selectedAntecedentes: Array.isArray(state.produccionDraft.selectedAntecedentes) ? state.produccionDraft.selectedAntecedentes : [],
+          draftResponse: String(state.produccionDraft.draftResponse || ''),
+        };
+        window.sessionStorage.setItem(PRODUCCION_DRAFT_SESSION_STORAGE_KEY, JSON.stringify(payload));
+      } catch (error) {
+        console.warn('[CAUSAS][PRODUCCION] No fue posible guardar el editor jurídico en sessionStorage.', error);
+      }
+    }
+
+    function hydrateProduccionDraftSession(){
+      if (state.produccionDraft.hydratedFromSession) return;
+      state.produccionDraft.hydratedFromSession = true;
+      try {
+        const raw = window.sessionStorage.getItem(PRODUCCION_DRAFT_SESSION_STORAGE_KEY);
+        if (!raw) return;
+        const parsed = JSON.parse(raw || '{}');
+        state.produccionDraft.selectedCaseId = String(parsed?.selectedCaseId || '');
+        state.produccionDraft.selectedAntecedentes = Array.isArray(parsed?.selectedAntecedentes)
+          ? parsed.selectedAntecedentes.map((item) => String(item || '')).filter(Boolean)
+          : [];
+        state.produccionDraft.draftResponse = String(parsed?.draftResponse || '');
+      } catch (error) {
+        console.warn('[CAUSAS][PRODUCCION] No fue posible restaurar el editor jurídico de sessionStorage.', error);
+      }
+    }
+
+    function syncProduccionDraftFromEditor(value = ''){
+      state.produccionDraft.draftResponse = String(value || '');
+      persistProduccionDraftSession();
+    }
+
+    async function copyProduccionDraftEditorContent(){
+      const draftText = String($('produccionDraftEditor')?.value || state.produccionDraft.draftResponse || '');
+      if (!draftText.trim()) {
+        setMessage('producirEscritoMsg', 'No hay texto en el editor para copiar.', 'warn');
+        return;
+      }
+      try {
+        if (navigator.clipboard?.writeText) {
+          await navigator.clipboard.writeText(draftText);
+        } else {
+          throw new Error('API de portapapeles no disponible.');
+        }
+        setMessage('producirEscritoMsg', 'Contenido del editor copiado al portapapeles.', 'ok');
+      } catch (error) {
+        console.warn('[CAUSAS][PRODUCCION] No se pudo copiar el contenido del editor.', error);
+        setMessage('producirEscritoMsg', 'No se pudo copiar automáticamente. Usa Ctrl/Cmd+C como respaldo.', 'warn');
+      }
+    }
+
+    async function pasteProduccionDraftEditorContent(){
+      const editor = $('produccionDraftEditor');
+      if (!editor) return;
+      try {
+        const clipboardText = String(await navigator.clipboard.readText() || '');
+        if (!clipboardText) {
+          setMessage('producirEscritoMsg', 'El portapapeles está vacío.', 'warn');
+          return;
+        }
+        const start = Number.isInteger(editor.selectionStart) ? editor.selectionStart : editor.value.length;
+        const end = Number.isInteger(editor.selectionEnd) ? editor.selectionEnd : editor.value.length;
+        const nextValue = `${editor.value.slice(0, start)}${clipboardText}${editor.value.slice(end)}`;
+        editor.value = nextValue;
+        const cursor = start + clipboardText.length;
+        editor.selectionStart = cursor;
+        editor.selectionEnd = cursor;
+        editor.focus();
+        syncProduccionDraftFromEditor(nextValue);
+        setMessage('producirEscritoMsg', 'Contenido pegado en el editor jurídico.', 'ok');
+      } catch (error) {
+        console.warn('[CAUSAS][PRODUCCION] No se pudo pegar desde el portapapeles.', error);
+        setMessage('producirEscritoMsg', 'No se pudo leer el portapapeles. Usa Ctrl/Cmd+V como respaldo.', 'warn');
+      }
+    }
+
     function renderProduccionDraftMatches(results = []){
       const tbody = $('producirEscritoResultados');
       if (!tbody) return;
@@ -9101,6 +9186,7 @@
 
     function renderProduccionWorkspace(){
       console.log('PANEL_D_RENDER');
+      hydrateProduccionDraftSession();
       const wrap = $('produccionChatWorkspace');
       if (!wrap) return;
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
@@ -9188,6 +9274,7 @@
       state.produccionDraft.wordGenerated = false;
       const editor = $('produccionDraftEditor');
       if (editor) editor.value = '';
+      persistProduccionDraftSession();
       setMessage('producirEscritoMsg', '', '');
       const resultNode = $('producirEscritoResultado');
       if (resultNode) resultNode.textContent = 'Resultado pendiente. Se mantendrá el hilo abierto para iterar sobre el borrador.';
@@ -9197,7 +9284,9 @@
     }
 
     function openProducirEscritosModal(){
-      resetProducirEscritosModal();
+      hydrateProduccionDraftSession();
+      if ((state.produccionDraft.matches || []).length) renderProduccionDraftMatches(state.produccionDraft.matches || []);
+      renderProduccionWorkspace();
       openManagedModal('modalProducirEscritos');
     }
 
@@ -9224,6 +9313,7 @@
       }
       state.produccionDraft.matches = matches;
       state.produccionDraft.selectedCaseId = matches.length === 1 ? String(matches[0].id) : '';
+      persistProduccionDraftSession();
       const tribunalInput = $('producirEscritoTribunal');
       if (tribunalInput) tribunalInput.value = tribunal;
       renderProduccionDraftMatches(matches);
@@ -9371,6 +9461,7 @@
           ].find((item) => String(item || '').trim());
           state.produccionDraft.draftError = String(normalizedError || 'Error desconocido');
           state.produccionDraft.draftResponse = '';
+          persistProduccionDraftSession();
           setMessage('producirEscritoMsg', state.produccionDraft.draftError, 'error');
           return;
         }
@@ -9382,6 +9473,7 @@
         state.produccionDraft.draftResponse = state.produccionDraft.draftText;
         state.produccionDraft.draftIterations = nextHistory;
         state.produccionDraft.draftError = '';
+        persistProduccionDraftSession();
         setMessage('producirEscritoMsg', 'Borrador generado correctamente. Puedes iterar, guardar versión o exportar a Word.', 'ok');
         const resultNode = $('producirEscritoResultado');
         if (resultNode) resultNode.textContent = 'Borrador generado con IA real. Puedes continuar iterando sin cerrar este hilo de trabajo.';
@@ -9396,6 +9488,7 @@
         const normalizedError = String(err?.message || 'Falló la respuesta de ChatGPT. Reintenta.');
         state.produccionDraft.draftError = normalizedError;
         state.produccionDraft.draftResponse = '';
+        persistProduccionDraftSession();
         setMessage('producirEscritoMsg', normalizedError, 'error');
       } finally {
         state.produccionDraft.isDraftLoading = false;
@@ -15310,6 +15403,8 @@
       bindEvent('btnCopiarProduccion', 'click', () => handleCopyProduccion(), { scope: 'form-produccion-escritos' });
       bindEvent('btnPegarProduccion', 'click', () => handlePasteProduccion(), { scope: 'form-produccion-escritos' });
       bindEvent('btnDejarRevisionProduccion', 'click', () => markProduccionDraftInReview(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnCopiarProduccionEditor', 'click', () => copyProduccionDraftEditorContent(), { scope: 'form-produccion-escritos' });
+      bindEvent('btnPegarProduccionEditor', 'click', () => pasteProduccionDraftEditorContent(), { scope: 'form-produccion-escritos' });
       document.querySelectorAll('#modalProducirEscritos [data-close]')?.forEach((button) => {
         button.addEventListener('click', () => closeManagedModal('modalProducirEscritos'));
       });
@@ -15328,6 +15423,7 @@
         const option = event.target.closest('input[name="producirEscritoSeleccion"]');
         if (!option) return;
         state.produccionDraft.selectedCaseId = option.value || '';
+        persistProduccionDraftSession();
         renderProduccionWorkspace();
       });
       $('produccionAntecedentesList')?.addEventListener('change', (event) => {
@@ -15335,6 +15431,10 @@
         if (!checkbox) return;
         const selected = Array.from(document.querySelectorAll('.produccion-antecedente-check:checked')).map((node) => String(node.value || ''));
         state.produccionDraft.selectedAntecedentes = selected;
+        persistProduccionDraftSession();
+      });
+      $('produccionDraftEditor')?.addEventListener('input', (event) => {
+        syncProduccionDraftFromEditor(event?.target?.value || '');
       });
 
       bindEvent('btnAbrirExpedienteManual', 'click', () => {
