@@ -2392,15 +2392,15 @@
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalProducirEscritos" aria-label="Cerrar">✕</button>
       </div>
       <form id="formProducirEscritos" class="form">
-        <div class="helper-box">Paso 1 · Identificar causa en Expedientes Digitales (Rol y Tribunal obligatorios).</div>
+        <div class="helper-box">Paso 1 · Identificar causa en Expedientes Digitales (opcional para demandas nuevas o redacción con antecedentes parciales).</div>
         <div class="grid-2">
           <div class="field">
-            <label for="producirEscritoRol">Rol de la causa *</label>
-            <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+            <label for="producirEscritoRol">Rol de la causa (opcional)</label>
+            <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" />
           </div>
           <div class="field">
-            <label for="producirEscritoTribunal">Tribunal *</label>
-            <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+            <label for="producirEscritoTribunal">Tribunal (opcional)</label>
+            <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" />
           </div>
         </div>
         <div class="modal-actions">
@@ -2414,12 +2414,12 @@
                 <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Estado</th>
               </tr>
             </thead>
-            <tbody id="producirEscritoResultados"><tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
+            <tbody id="producirEscritoResultados"><tr><td colspan="5">Puedes buscar por Rol/Tribunal o continuar sin causa vinculada.</td></tr></tbody>
           </table>
         </div>
 
-        <div id="produccionChatWorkspace" style="display:none; margin-top:12px;">
-          <div class="helper-box">Paso 2 · Asistente de redacción jurídica con iteraciones sobre la misma causa (sin crear ni duplicar causa).</div>
+        <div id="produccionChatWorkspace" style="display:block; margin-top:12px;">
+          <div class="helper-box">Paso 2 · Asistente de redacción jurídica tolerante: si faltan insumos (acta, jurisprudencia, doctrina, rol o antecedentes), continúa con lo disponible.</div>
           <div class="grid-2" style="align-items:start;">
             <section class="panel-card" style="padding:12px;">
               <h4 class="section-title">A. Identificación de la causa</h4>
@@ -2435,8 +2435,8 @@
             <section class="panel-card" style="padding:12px;">
               <h4 class="section-title">C. Instrucción al asistente</h4>
               <div class="field">
-                <label for="producirEscritoTipo">Tipo de escrito *</label>
-                <select id="producirEscritoTipo" class="input" required>
+                <label for="producirEscritoTipo">Tipo de escrito (opcional)</label>
+                <select id="producirEscritoTipo" class="input">
                   <option value="">Selecciona tipo</option>
                   <option value="demanda">Demanda</option>
                   <option value="contestación">Contestación</option>
@@ -9062,21 +9062,31 @@
       if (!wrap) return;
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
       const hasCause = Boolean(selectedCause);
-      wrap.style.display = hasCause ? 'block' : 'none';
-      if (!hasCause) return;
+      wrap.style.display = 'block';
 
       const identity = $('produccionCauseIdentity');
       if (identity) {
-        identity.innerHTML = `
-          <strong>Rol:</strong> ${escapeHtml(selectedCause.rol || '—')}<br>
-          <strong>Tribunal:</strong> ${escapeHtml(selectedCause.tribunal || '—')}<br>
-          <strong>Carátula:</strong> ${escapeHtml(selectedCause.caratula || '—')}<br>
-          <strong>Estado:</strong> ${escapeHtml(selectedCause.estadoProcesal || selectedCause.estado || 'Sin estado')}<br>
-          <strong>ID causa seleccionada:</strong> ${escapeHtml(selectedCause.id || '—')}
-        `;
+        if (hasCause) {
+          identity.innerHTML = `
+            <strong>Rol:</strong> ${escapeHtml(selectedCause.rol || '—')}<br>
+            <strong>Tribunal:</strong> ${escapeHtml(selectedCause.tribunal || '—')}<br>
+            <strong>Carátula:</strong> ${escapeHtml(selectedCause.caratula || '—')}<br>
+            <strong>Estado:</strong> ${escapeHtml(selectedCause.estadoProcesal || selectedCause.estado || 'Sin estado')}<br>
+            <strong>ID causa seleccionada:</strong> ${escapeHtml(selectedCause.id || '—')}
+          `;
+        } else {
+          const rol = String($('producirEscritoRol')?.value || '').trim();
+          const tribunal = normalizeCourtLabel($('producirEscritoTribunal')?.value || '');
+          identity.innerHTML = `
+            <strong>Modo tolerante activo.</strong><br>
+            <strong>Rol ingresado:</strong> ${escapeHtml(rol || 'No informado (permitido)')}<br>
+            <strong>Tribunal ingresado:</strong> ${escapeHtml(tribunal || 'No informado (permitido)')}<br>
+            <strong>Nota:</strong> Falta identificación completa de causa. Se continuará con los antecedentes disponibles.
+          `;
+        }
       }
 
-      const antecedentes = listCauseAntecedentes(selectedCause);
+      const antecedentes = hasCause ? listCauseAntecedentes(selectedCause) : [];
       const prevSelected = new Set((state.produccionDraft.selectedAntecedentes || []).map((item) => String(item)));
       state.produccionDraft.selectedAntecedentes = (state.produccionDraft.selectedAntecedentes || []).filter((id) => antecedentes.some((a) => a.id === id));
       if (!state.produccionDraft.selectedAntecedentes.length && antecedentes.length) {
@@ -9087,7 +9097,9 @@
       const antNode = $('produccionAntecedentesList');
       if (antNode) {
         if (!antecedentes.length) {
-          antNode.innerHTML = 'La causa no tiene documentos/antecedentes cargados en Expedientes Digitales.';
+          antNode.innerHTML = hasCause
+            ? 'La causa no tiene documentos/antecedentes cargados en Expedientes Digitales. Se puede redactar igualmente.'
+            : 'Sin causa vinculada o sin antecedentes documentales. Puedes redactar y generar borrador con la información disponible.';
         } else {
           antNode.innerHTML = antecedentes.map((item) => {
             const checked = selectedSet.has(item.id) || prevSelected.has(item.id);
@@ -9149,7 +9161,7 @@
       const resultNode = $('producirEscritoResultado');
       if (resultNode) resultNode.textContent = 'Resultado pendiente. Se mantendrá el hilo abierto para iterar sobre el borrador.';
       const tbody = $('producirEscritoResultados');
-      if (tbody) tbody.innerHTML = '<tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr>';
+      if (tbody) tbody.innerHTML = '<tr><td colspan="5">Puedes buscar por Rol/Tribunal o continuar sin causa vinculada.</td></tr>';
       renderProduccionWorkspace();
     }
 
@@ -9162,13 +9174,15 @@
       const rol = String($('producirEscritoRol')?.value || '').trim();
       const tribunal = normalizeCourtLabel($('producirEscritoTribunal')?.value || '');
       if (!rol) {
-        setMessage('producirEscritoMsg', 'Rol obligatorio para buscar en Expedientes Digitales.', 'error');
+        setMessage('producirEscritoMsg', 'Búsqueda opcional: falta Rol. Puedes continuar redactando sin vincular causa.', 'warn');
         renderProduccionDraftMatches([]);
+        renderProduccionWorkspace();
         return;
       }
       if (!tribunal) {
-        setMessage('producirEscritoMsg', 'Tribunal obligatorio para buscar en Expedientes Digitales.', 'error');
+        setMessage('producirEscritoMsg', 'Búsqueda opcional: falta Tribunal. Puedes continuar redactando sin vincular causa.', 'warn');
         renderProduccionDraftMatches([]);
+        renderProduccionWorkspace();
         return;
       }
       const rolKey = normalizeRolSearchKey(rol);
@@ -9260,42 +9274,33 @@
     async function callProduccionChatGpt({ mode = 'generate' } = {}){
       console.log('ENTER_HANDLE_GENERATE_DRAFT');
       const selectedCaseId = state.produccionDraft.selectedCaseId || '';
-      if (!selectedCaseId) {
-        setMessage('producirEscritoMsg', 'Debes identificar y seleccionar una causa de Expedientes Digitales antes de generar.', 'error');
-        return;
-      }
-      const selectedCause = state.caseMap.get(selectedCaseId);
-      if (!selectedCause) {
-        setMessage('producirEscritoMsg', 'La causa seleccionada ya no está disponible.', 'error');
-        return;
-      }
+      const selectedCause = selectedCaseId ? state.caseMap.get(selectedCaseId) : null;
       const tipoEscrito = resolveTipoEscritoSeleccionado();
-      const tipoEscogido = String($('producirEscritoTipo')?.value || '').trim();
-      if (!tipoEscogido) {
-        setMessage('producirEscritoMsg', 'Debes indicar qué escrito redactar.', 'error');
-        return;
-      }
-      if (tipoEscogido === 'otro' && !tipoEscrito) {
-        setMessage('producirEscritoMsg', 'Debes especificar el tipo de escrito cuando eliges “Otro”.', 'error');
-        return;
-      }
-      const antecedentes = collectProduccionSelectedAntecedentes(selectedCause);
+      const tipoEscogido = String($('producirEscritoTipo')?.value || '').trim() || 'escrito libre';
+      const tipoEscritoResuelto = tipoEscrito || tipoEscogido || 'escrito libre';
+      const antecedentes = selectedCause ? collectProduccionSelectedAntecedentes(selectedCause) : [];
+      const fallbackRol = String($('producirEscritoRol')?.value || '').trim();
+      const fallbackTribunal = normalizeCourtLabel($('producirEscritoTribunal')?.value || '');
       const instrucciones = String($('producirEscritoInstrucciones')?.value || '').trim();
       const ajuste = String($('producirEscritoAjuste')?.value || '').trim();
       state.produccionDraft.isDraftLoading = true;
       state.produccionDraft.draftError = '';
-      setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
+      if (!selectedCause) {
+        setMessage('producirEscritoMsg', 'No hay causa vinculada. Se generará borrador con la información disponible.', 'warn');
+      } else {
+        setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
+      }
       renderProduccionWorkspace();
 
       const payload = {
         mode,
         sessionId: state.produccionDraft.sessionId || null,
-        cause_id: selectedCause.id,
-        rol: selectedCause.rol,
-        tribunal: normalizeCourtLabel(selectedCause.tribunal),
-        caratula: selectedCause.caratula,
-        tipoEscrito,
-        tipo_escrito: tipoEscrito,
+        cause_id: selectedCause?.id || null,
+        rol: selectedCause?.rol || fallbackRol || null,
+        tribunal: selectedCause ? normalizeCourtLabel(selectedCause.tribunal) : fallbackTribunal || null,
+        caratula: selectedCause?.caratula || null,
+        tipoEscrito: tipoEscritoResuelto,
+        tipo_escrito: tipoEscritoResuelto,
         instrucciones,
         instrucciones_usuario: instrucciones,
         ajuste,
@@ -9303,13 +9308,13 @@
         documentos_seleccionados: antecedentes,
         stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
         cause: {
-          id: selectedCause.id,
-          rol: selectedCause.rol,
-          tribunal: normalizeCourtLabel(selectedCause.tribunal),
-          caratula: selectedCause.caratula,
-          estado: selectedCause.estadoProcesal || selectedCause.estado,
-          materia: selectedCause.materia,
-          procedimiento: selectedCause.procedimiento,
+          id: selectedCause?.id || null,
+          rol: selectedCause?.rol || fallbackRol || null,
+          tribunal: selectedCause ? normalizeCourtLabel(selectedCause.tribunal) : fallbackTribunal || null,
+          caratula: selectedCause?.caratula || null,
+          estado: selectedCause?.estadoProcesal || selectedCause?.estado || null,
+          materia: selectedCause?.materia || null,
+          procedimiento: selectedCause?.procedimiento || null,
         },
         antecedentes,
         history: state.produccionDraft.chatHistory.slice(-10),
@@ -9345,7 +9350,7 @@
 
         await persistProduccionDraftVersion({
           selectedCause,
-          tipoEscrito,
+          tipoEscrito: tipoEscritoResuelto,
           status: 'en_revision',
           draftText: state.produccionDraft.draftResponse,
         });
@@ -9423,28 +9428,30 @@
     async function saveProduccionDraftVersionManually(){
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
       const tipoEscrito = resolveTipoEscritoSeleccionado();
-      if (!selectedCause || !tipoEscrito) {
-        setMessage('producirEscritoMsg', 'Para guardar una versión primero identifica causa y tipo de escrito.', 'error');
+      if (!selectedCause) {
+        setMessage('producirEscritoMsg', 'Sin causa vinculada no se puede guardar versión en historial, pero puedes seguir redactando y exportar Word.', 'warn');
         return;
       }
+      const tipoEscritoFinal = tipoEscrito || String($('producirEscritoTipo')?.value || '').trim() || 'escrito libre';
       const draftText = String($('produccionDraftEditor')?.value || '').trim();
       if (!draftText) {
         setMessage('producirEscritoMsg', 'No hay borrador para guardar.', 'error');
         return;
       }
-      await persistProduccionDraftVersion({ selectedCause, tipoEscrito, status: 'en_revision', draftText });
+      await persistProduccionDraftVersion({ selectedCause, tipoEscrito: tipoEscritoFinal, status: 'en_revision', draftText });
       setMessage('producirEscritoMsg', 'Versión guardada correctamente en revisión.', 'ok');
     }
 
     async function markProduccionDraftInReview(){
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
       const tipoEscrito = resolveTipoEscritoSeleccionado();
-      if (!selectedCause || !tipoEscrito) {
-        setMessage('producirEscritoMsg', 'Primero identifica causa y tipo de escrito.', 'error');
+      if (!selectedCause) {
+        setMessage('producirEscritoMsg', 'Sin causa vinculada no se puede persistir estado de revisión, pero puedes seguir redactando.', 'warn');
         return;
       }
+      const tipoEscritoFinal = tipoEscrito || String($('producirEscritoTipo')?.value || '').trim() || 'escrito libre';
       const draftText = String($('produccionDraftEditor')?.value || '').trim();
-      await persistProduccionDraftVersion({ selectedCause, tipoEscrito, status: 'en_revision', draftText });
+      await persistProduccionDraftVersion({ selectedCause, tipoEscrito: tipoEscritoFinal, status: 'en_revision', draftText });
       setMessage('producirEscritoMsg', 'Borrador dejado en revisión.', 'ok');
     }
 
@@ -9454,26 +9461,31 @@
 
     async function exportProduccionDraftWord(){
       const selectedCause = state.caseMap.get(state.produccionDraft.selectedCaseId || '');
-      const tipoEscrito = resolveTipoEscritoSeleccionado();
-      if (!selectedCause) {
-        setMessage('producirEscritoMsg', 'Debes identificar una causa antes de exportar.', 'error');
-        return;
-      }
-      if (!tipoEscrito) {
-        setMessage('producirEscritoMsg', 'Debes indicar el tipo de escrito antes de exportar.', 'error');
-        return;
-      }
+      const tipoEscrito = resolveTipoEscritoSeleccionado() || String($('producirEscritoTipo')?.value || '').trim() || 'escrito libre';
+      const fallbackCause = {
+        id: 'sin-causa-vinculada',
+        rol: String($('producirEscritoRol')?.value || '').trim() || '',
+        tribunal: normalizeCourtLabel($('producirEscritoTribunal')?.value || ''),
+        caratula: 'Sin carátula informada',
+      };
+      const causeForExport = selectedCause || fallbackCause;
       const draftText = String($('produccionDraftEditor')?.value || '').trim();
       if (!draftText) {
         setMessage('producirEscritoMsg', 'No existe borrador para exportar.', 'error');
         return;
       }
-      const fileName = `Borrador_${slugId(tipoEscrito || 'escrito')}_${slugId(selectedCause.rol || selectedCause.id)}.doc`;
-      const htmlWord = buildProduccionDraftWordHtml({ cause: selectedCause, tipoEscrito, draftText });
+      const fileName = `Borrador_${slugId(tipoEscrito || 'escrito')}_${slugId(causeForExport.rol || causeForExport.id)}.doc`;
+      const htmlWord = buildProduccionDraftWordHtml({ cause: causeForExport, tipoEscrito, draftText });
       downloadWordDraftFile(fileName, htmlWord);
       state.produccionDraft.wordGenerated = true;
-      setMessage('producirEscritoMsg', 'Word editable exportado correctamente.', 'ok');
-      await persistProduccionDraftVersion({ selectedCause, tipoEscrito, status: 'exportado_word', draftText });
+      if (!selectedCause) {
+        setMessage('producirEscritoMsg', 'Word editable exportado sin causa vinculada. Puedes continuar trabajando en modo tolerante.', 'ok');
+      } else {
+        setMessage('producirEscritoMsg', 'Word editable exportado correctamente.', 'ok');
+      }
+      if (selectedCause) {
+        await persistProduccionDraftVersion({ selectedCause, tipoEscrito, status: 'exportado_word', draftText });
+      }
       const resultNode = $('producirEscritoResultado');
       if (resultNode) resultNode.textContent = `Word generado correctamente (${fileName}). La causa se mantiene en Expedientes Digitales sin duplicación ni traslado.`;
     }

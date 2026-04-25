@@ -58,6 +58,7 @@ function buildPrompt(input: PromptInput) {
     `Estilo requerido: ${input?.stylePrompt || 'Jurídico chileno, tono forense técnico.'}`,
     `Contexto de causa: ${JSON.stringify(causeInfo, null, 2)}`,
     `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
+    'Si faltan acta de entrevista, jurisprudencia, doctrina, rol u otros insumos, continúa sin bloquear y redacta con lo disponible.',
     'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
   ].join('\n\n')
 }
@@ -98,12 +99,6 @@ serve(async (req) => {
   try {
     const payload: PromptInput = await req.json()
     const causeId = String(payload?.cause_id || payload?.cause?.id || '').trim()
-    if (!causeId) {
-      return new Response(JSON.stringify({ error: 'Falta cause_id para identificar la causa seleccionada.' }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
-    }
     const history: ChatEntry[] = Array.isArray(payload?.history) ? payload.history : []
     const messages = [
       {
@@ -166,6 +161,7 @@ serve(async (req) => {
 
     return new Response(JSON.stringify({
       sessionId: payload?.sessionId || crypto.randomUUID(),
+      causeId: causeId || null,
       draft,
       history: responseHistory.slice(-20),
       model: OPENAI_MODEL,
