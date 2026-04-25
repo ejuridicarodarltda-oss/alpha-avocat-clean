@@ -10921,11 +10921,36 @@
           ? `<pre style="margin:8px 0 0;white-space:pre-wrap;">${escapeHtml(firstRows.map((row, index) => `#${index + 1}: ${JSON.stringify(row)}`).join('\n'))}</pre>`
           : '<div style="margin-top:8px;">Primeras 5 filas leídas: sin datos.</div>';
         const warningsBlock = [...warnings, ...(store.parsed.headerWarnings || [])];
+        const fueroAudit = store.parsed.fueroAudit || null;
+        const fueroSummary = fueroAudit
+          ? [
+              `Auditoría por fuero: ${Object.entries(fueroAudit.statsByFuero || {}).map(([label, count]) => `${label}=${count}`).join(' · ') || 'sin clasificación'}`,
+              `Con Rol/RIT: ${Number(fueroAudit.counters?.withRol || 0)}`,
+              `Con Tribunal: ${Number(fueroAudit.counters?.withTribunal || 0)}`,
+              `Con Caratulado: ${Number(fueroAudit.counters?.withCaratula || 0)}`,
+              `Con Estado Causa: ${Number(fueroAudit.counters?.withEstadoCausa || 0)}`,
+              `Con Fecha Ingreso: ${Number(fueroAudit.counters?.withFechaIngreso || 0)}`,
+            ]
+          : [];
+        const byTribunalSummary = fueroAudit
+          ? Object.entries(fueroAudit.statsByTribunal || {}).slice(0, 20).map(([label, count]) => `${label}=${count}`).join(' · ')
+          : '';
+        const previewGroup = (rows = []) => rows.map((row) => `#${row.rowNumber || 's/n'} | ${row.rol || '—'} | ${row.tribunal || '—'} | ${row.caratula || '—'} | ${row.fechaIngreso || '—'} | ${row.estadoCausa || '—'} | ${row.institucion || '—'}`).join('\n');
+        const supremePreview = fueroAudit?.supremePreview?.length
+          ? `<div style="margin-top:6px;"><strong>Corte Suprema detectadas (${fueroAudit.supremeRows?.length || 0}):</strong><pre style="margin:6px 0 0;white-space:pre-wrap;">${escapeHtml(previewGroup(fueroAudit.supremePreview))}</pre></div>`
+          : '';
+        const appealsPreview = fueroAudit?.appealsPreview?.length
+          ? `<div style="margin-top:6px;"><strong>Cortes de Apelaciones detectadas (${fueroAudit.appealsRows?.length || 0}):</strong><pre style="margin:6px 0 0;white-space:pre-wrap;">${escapeHtml(previewGroup(fueroAudit.appealsPreview))}</pre></div>`
+          : '';
         validationNode.innerHTML = `${escapeHtml(validationSummary.join(' · '))}
           <div style="margin-top:8px;">${escapeHtml(diagnostics.join(' · '))}</div>
           ${warningsBlock.length ? `<div style="margin-top:6px;">Advertencias: ${escapeHtml(warningsBlock.join(' · '))}</div>` : ''}
+          ${fueroSummary.length ? `<div style="margin-top:6px;">${escapeHtml(fueroSummary.join(' · '))}</div>` : ''}
+          ${byTribunalSummary ? `<div style="margin-top:6px;">Total filas por tribunal: ${escapeHtml(byTribunalSummary)}</div>` : ''}
           <div style="margin-top:6px;">Primeras 5 filas leídas:</div>
-          ${firstRowsMarkup}`;
+          ${firstRowsMarkup}
+          ${supremePreview}
+          ${appealsPreview}`;
       }
       if (!rowsNode) return;
       if (!store.parsed.preview.length) {
@@ -11103,6 +11128,7 @@
       const rows = selectedSheet.rows;
       if (!rows.length) throw new Error(`La hoja "${sheetName}" no contiene filas de datos.`);
       const validRows = [];
+      const auditRows = [];
       let emptyRows = 0;
       let invalidRows = 0;
       const duplicatesRegistry = new Set();
@@ -11117,6 +11143,7 @@
           emptyRows += 1;
           return;
         }
+        auditRows.push({ ...parsed, rowNumber: index + headerRowIndex + 2, raw: rawRow });
         const duplicateKey = `${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}|${parsed.caratula.toLowerCase()}`;
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
@@ -11144,6 +11171,7 @@
       const workbookDataRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.dataRows || 0)), 0);
       const selectedDataRows = Number(selectedSheet.dataRows || 0);
       const warningSheetMismatch = workbookDataRows > 0 && selectedDataRows > 0 && selectedDataRows < Math.ceil(workbookDataRows * 0.6);
+      const fueroAudit = buildExcelFueroAudit(auditRows);
       return {
         sheetName,
         sheetHidden: hidden,
@@ -11175,6 +11203,7 @@
         duplicates,
         missingCritical,
         required,
+        fueroAudit,
         validRows,
         preview: validRows.slice(0, 20),
       };
@@ -11368,6 +11397,16 @@
         multiple: 0,
       };
       const listadoExamples = [];
+      const fueroAudit = store.parsed.fueroAudit || buildExcelFueroAudit(store.parsed.validRows || []);
+      const failureReport = {
+        filasSinTribunal: Number(fueroAudit.failures?.filasSinTribunal || 0),
+        filasSinCaratulado: Number(fueroAudit.failures?.filasSinCaratulado || 0),
+        filasTribunalNoClasificado: Number(fueroAudit.failures?.filasTribunalNoClasificado || 0),
+        filasClasificadasNoMaterializadas: 0,
+        filasMaterializadasSinCaratula: 0,
+        filasCorteSupremaNoCreadas: 0,
+        filasCortesApelacionesSinCaratula: Number((fueroAudit.appealsRows || []).filter((row) => !row.hasCaratula).length || 0),
+      };
       if (key === 'listado') {
         const allCases = getAllCases();
         const byExactKey = new Map();
@@ -11388,6 +11427,9 @@
         let processedRows = 0;
         for (const row of store.parsed.validRows) {
           if (state.excelUploads.listado.cancelRequested) break;
+          const classification = classifyTribunalFuero(row?.tribunal || '');
+          const rowHasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
+          const isClassified = ['corte_suprema', 'cortes_apelaciones'].includes(classification.fuero);
           const roleDebug = rebuildExcelRoleForComparison(row);
           const rolComparacion = roleDebug.rebuiltRole || String(row?.rol || '').trim();
           const exactKey = `${normalizePjudText(rolComparacion)}|${normalizePjudText(row?.tribunal || '')}`;
@@ -11417,6 +11459,9 @@
                 pjud_estado_causa: row?.estado || matchedCase?.pjud_estado_causa || null,
                 updated_at: new Date().toISOString(),
               };
+              if (rowHasCaratula && !String(payload.caratula || '').trim()) {
+                throw new Error('Caratulado leído pero no escrito en carpeta');
+              }
               const institucion = String(row?.institucion || '').trim();
               if (institucion) payload.pjud_institucion = institucion;
               const { error: updateError } = await supabase
@@ -11429,6 +11474,7 @@
               linkedRows += 1;
               if (resolvedMatchType === 'exacto') listadoMatchStats.exactUpdated += 1;
               if (resolvedMatchType === 'flexible') listadoMatchStats.flexibleUpdated += 1;
+              if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
               resultLabel = resolvedMatchType === 'exacto' ? 'actualizada (match exacto)' : 'actualizada (match flexible)';
             } else if (resolvedMatches.length > 1) {
               listadoMatchStats.multiple += 1;
@@ -11436,6 +11482,8 @@
             } else {
               listadoMatchStats.unmatched += 1;
             }
+            if (isClassified && !matchedCase) failureReport.filasClasificadasNoMaterializadas += 1;
+            if (classification.fuero === 'corte_suprema' && !matchedCase) failureReport.filasCorteSupremaNoCreadas += 1;
             processedRows += 1;
             if (listadoExamples.length < 10) {
               listadoExamples.push({
@@ -11545,6 +11593,8 @@
             emptyRows,
             processingErrors,
             errorCount,
+            fueroAudit,
+            failureReport,
           },
         })
         .eq('id', batch.id)
@@ -11571,6 +11621,8 @@
           flexibleUpdated: listadoMatchStats.flexibleUpdated,
           multipleMatches: listadoMatchStats.multiple,
           examples: listadoExamples,
+          fueroAudit,
+          failureReport,
           errors: errorCount,
         };
         persistListadoLastProcess(lastRecord);
@@ -11606,6 +11658,8 @@
         unmatchedRows: listadoMatchStats.unmatched,
         multipleMatches: listadoMatchStats.multiple,
         examples: listadoExamples,
+        fueroAudit,
+        failureReport,
         linkedRows,
         discardedCount,
         errors: errorCount,
@@ -12083,12 +12137,106 @@
       return key || null;
     }
 
+
     function normalizeCourtForFlexibleMatch(value = ''){
       return normalizePjudText(value)
+        .replace(/\bc\.?\s*a\.?\b/g, 'corte apelaciones')
+        .replace(/\bcorte de apelaciones\b/g, 'corte apelaciones')
         .replace(/[^\w\s]/g, ' ')
         .replace(/\bde\b/g, ' ')
         .replace(/\s+/g, ' ')
         .trim();
+    }
+
+    function classifyTribunalFuero(rawTribunal = ''){
+      const tribunal = String(rawTribunal || '').trim();
+      const normalized = normalizePjudText(tribunal);
+      if (!normalized) return { fuero: 'sin_tribunal', tribunalEspecifico: '', normalized };
+      if (normalized === 'corte suprema' || normalized.includes('excma corte suprema')) {
+        return { fuero: 'corte_suprema', tribunalEspecifico: 'Corte Suprema', normalized };
+      }
+      const isAppealsCourt = normalized.includes('corte de apelaciones')
+        || /\bc\.?\s*a\.?\b/.test(normalized)
+        || normalized.startsWith('ca ')
+        || normalized.startsWith('c a ');
+      if (isAppealsCourt) {
+        const cleaned = tribunal
+          .replace(/^\s*c\.?\s*a\.?\s*(de)?\s*/i, '')
+          .replace(/^\s*corte\s+de\s+apelaciones\s*(de)?\s*/i, '')
+          .trim();
+        const suffix = cleaned ? ` de ${cleaned}` : '';
+        return { fuero: 'cortes_apelaciones', tribunalEspecifico: `Corte de Apelaciones${suffix}`, normalized };
+      }
+      return { fuero: 'otros', tribunalEspecifico: tribunal, normalized };
+    }
+
+    function buildExcelFueroAudit(rows = []){
+      const statsByFuero = {};
+      const statsByTribunal = {};
+      const counters = {
+        totalRows: rows.length,
+        withRol: 0,
+        withTribunal: 0,
+        withCaratula: 0,
+        withEstadoCausa: 0,
+        withFechaIngreso: 0,
+      };
+      const failures = {
+        filasSinTribunal: 0,
+        filasSinCaratulado: 0,
+        filasTribunalNoClasificado: 0,
+      };
+      const supremeRows = [];
+      const appealsRows = [];
+      const rowAudits = [];
+      rows.forEach((row) => {
+        const classification = classifyTribunalFuero(row?.tribunal || '');
+        const hasRol = Boolean(String(row?.rol || '').trim());
+        const hasTribunal = Boolean(String(row?.tribunal || '').trim());
+        const hasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
+        const hasEstado = Boolean(String(row?.estado || '').trim());
+        const hasFecha = Boolean(String(row?.fecha || '').trim());
+        if (hasRol) counters.withRol += 1;
+        if (hasTribunal) counters.withTribunal += 1;
+        if (hasCaratula) counters.withCaratula += 1;
+        if (hasEstado) counters.withEstadoCausa += 1;
+        if (hasFecha) counters.withFechaIngreso += 1;
+        if (!hasTribunal) failures.filasSinTribunal += 1;
+        if (!hasCaratula) failures.filasSinCaratulado += 1;
+        if (classification.fuero === 'otros' && hasTribunal) failures.filasTribunalNoClasificado += 1;
+        const fueroLabel = classification.fuero === 'corte_suprema'
+          ? 'Corte Suprema'
+          : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Otros');
+        statsByFuero[fueroLabel] = (statsByFuero[fueroLabel] || 0) + 1;
+        const tribunalLabel = classification.tribunalEspecifico || 'Tribunal no informado';
+        statsByTribunal[tribunalLabel] = (statsByTribunal[tribunalLabel] || 0) + 1;
+        const compact = {
+          rowNumber: row?.rowNumber || null,
+          rol: row?.rol || '',
+          tribunal: row?.tribunal || '',
+          caratula: row?.caratula || '',
+          fechaIngreso: row?.fecha || '',
+          estadoCausa: row?.estado || '',
+          institucion: row?.institucion || '',
+          fuero: fueroLabel,
+          tribunalEspecifico: classification.tribunalEspecifico || '',
+          hasCaratula,
+        };
+        if (classification.fuero === 'corte_suprema') supremeRows.push(compact);
+        if (classification.fuero === 'cortes_apelaciones') appealsRows.push(compact);
+        rowAudits.push(compact);
+      });
+      return {
+        counters,
+        statsByFuero,
+        statsByTribunal,
+        failures,
+        rowAudits,
+        supremeRows,
+        appealsRows,
+        supremePreview: supremeRows.slice(0, 10),
+        appealsPreview: appealsRows.slice(0, 10),
+      };
     }
 
     function extractRoleNumberYear(value = ''){
@@ -15950,7 +16098,15 @@
           const examplesText = exampleRows.length
             ? ` Ejemplos: ${exampleRows.map((item) => `número leído=${item.numeroLeido || 's/n'} · año leído=${item.anioLeido || 's/a'} · rolExcelReconstruido=${item.rolExcelReconstruido || 's/rol'} · tribunal=${item.tribunalExcel || 's/tribunal'} · candidatas=${(item.carpetasCandidatasNumeroAnio || []).join(', ') || '—'} => ${item.rolCarpetaEncontrada || '—'} | ${item.tribunalCarpetaEncontrada || '—'} (${item.resultado || 'sin resultado'})`).join(' · ')}.`
             : '';
-          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Actualizadas match flexible: ${summary.updatedFlexibleMatches || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          const fueroAudit = summary.fueroAudit || {};
+          const failure = summary.failureReport || {};
+          const supremaCount = Number(fueroAudit.supremeRows?.length || 0);
+          const supremaConTribunal = Number((fueroAudit.supremeRows || []).filter((row) => String(row.tribunal || '').trim()).length || 0);
+          const supremaConCaratula = Number((fueroAudit.supremeRows || []).filter((row) => row.hasCaratula).length || 0);
+          const apelacionesCount = Number(fueroAudit.appealsRows?.length || 0);
+          const apelacionesConCaratula = Number((fueroAudit.appealsRows || []).filter((row) => row.hasCaratula).length || 0);
+          const diagnosticsText = ` Diagnóstico: Corte Suprema detectadas=${supremaCount}, con tribunal=${supremaConTribunal}, con carátula=${supremaConCaratula}, no creadas/actualizadas=${Number(failure.filasCorteSupremaNoCreadas || 0)}. Cortes de Apelaciones detectadas=${apelacionesCount}, con carátula=${apelacionesConCaratula}, sin carátula=${Number(failure.filasCortesApelacionesSinCaratula || 0)}, clasificadas pero no materializadas=${Number(failure.filasClasificadasNoMaterializadas || 0)}. Fallas: sin tribunal=${Number(failure.filasSinTribunal || 0)}, sin caratulado=${Number(failure.filasSinCaratulado || 0)}, tribunal no clasificado=${Number(failure.filasTribunalNoClasificado || 0)}, materializadas sin carátula=${Number(failure.filasMaterializadasSinCaratula || 0)}.`;
+          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Actualizadas match flexible: ${summary.updatedFlexibleMatches || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${diagnosticsText}${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
