@@ -366,8 +366,9 @@
       'medida-prejudicial': { label: 'Medida prejudicial', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
       'gestion-preparatoria': { label: 'Gestión preparatoria', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
       'escrito-posterior': { label: 'Escrito posterior', stage: 'posterior', mode: 'with-cause', status: 'Escrito posterior con causa existente' },
-      'otro-escrito': { label: 'Otro escrito', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
+      'otro-escrito': { label: 'Otro escrito', stage: 'posterior', mode: 'no-cause', status: 'Escrito sin presuma automática' },
     };
+    const PRESUMA_WRITING_TYPES = new Set(['demanda-nueva', 'medida-prejudicial', 'gestion-preparatoria']);
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -417,8 +418,8 @@
       }
     }
 
-    function buildStructuredDraftPrefix(stage = 'posterior'){
-      if (stage === 'primera') {
+    function buildStructuredDraftPrefix(stage = 'posterior', writingType = ''){
+      if (stage === 'primera' && PRESUMA_WRITING_TYPES.has(writingType)) {
         return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
       }
       return 'SUMA: [petición concreta del escrito posterior]\n\n';
@@ -448,7 +449,7 @@
       const config = syncWritingTypeToForm();
       const currentText = legalEditor.innerText || '';
       const stripped = currentText.replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '');
-      legalEditor.textContent = `${buildStructuredDraftPrefix(config.stage)}${stripped}`;
+      legalEditor.textContent = `${buildStructuredDraftPrefix(config.stage, productionWritingType?.value)}${stripped}`;
       renderDocxPreview();
     }
 
@@ -956,9 +957,9 @@ sup { vertical-align: super; font-size: 10pt; }
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
       if (acta) {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value, productionWritingType?.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
       } else {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
+        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value, productionWritingType?.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
       }
       renderDocxPreview();
     });
@@ -1205,7 +1206,7 @@ sup { vertical-align: super; font-size: 10pt; }
       activeSearch = normalize(productionSearchInput.value);
     }
     syncWritingTypeToForm();
-    legalEditor.textContent = buildStructuredDraftPrefix(getSelectedWritingTypeConfig().stage);
+    legalEditor.textContent = buildStructuredDraftPrefix(getSelectedWritingTypeConfig().stage, productionWritingType?.value);
     renderDocxPreview();
     renderExternalInputs();
     draftRequestForm.draftStage.addEventListener('change', rebuildEditorPrefix);
