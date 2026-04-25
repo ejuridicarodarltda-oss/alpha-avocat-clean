@@ -338,6 +338,7 @@
     let editorAttachments = [];
     let citationSequence = 0;
     let pendingFootnotes = [];
+    const interviewActaByCaseId = new Map();
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -454,6 +455,117 @@
         ...estrategia.map((item, index) => ({ id: `est-${index}`, label: item.hito || item.detalle || `Estrategia previa ${index + 1}`, kind: 'estrategia' })),
       ];
       return all.length ? all : [{ id: 'none', label: 'Sin antecedentes estructurados en la causa', kind: 'info', readonly: true }];
+    }
+
+    function stringifyInterviewActa(acta){
+      if (!acta) return '';
+      if (typeof acta === 'string') return acta;
+      const candidates = [
+        acta.content,
+        acta.text,
+        acta.body,
+        acta.description,
+        acta.acta,
+        acta.titulo,
+        acta.summary,
+        acta.notas,
+        acta.notes,
+      ].filter(Boolean);
+      return candidates.length ? candidates.join('\n') : JSON.stringify(acta);
+    }
+
+    function extractInterviewInsights(acta, selectedCase){
+      const raw = stringifyInterviewActa(acta);
+      const normalized = normalize(raw);
+      const lines = raw.split('\n').map((line) => line.trim()).filter(Boolean);
+      const findByKeyword = (keywords = []) => lines.find((line) => keywords.some((keyword) => normalize(line).includes(normalize(keyword)))) || '';
+      const intereses = findByKeyword(['interes', 'pretension', 'beneficio', 'busca']);
+      const objetivo = findByKeyword(['objetivo juridico', 'objetivo legal', 'peticion', 'accion principal']);
+      const hechos = findByKeyword(['hechos', 'antecedente', 'cronologia', 'sucedio']);
+      const conflicto = findByKeyword(['conflicto juridico', 'controversia', 'disputa', 'incumplimiento']);
+      const qualityFallback = selectedCase?.quality || selectedCase?.calidad || selectedCase?.client_role || selectedCase?.rol_cliente || '';
+      const qualityDetected = findByKeyword(['calidad procesal', 'demandante', 'demandado', 'querellante', 'querellado']) || qualityFallback || 'Por definir';
+      return {
+        raw,
+        intereses: intereses || (normalized.includes('interes') ? 'Detectado en acta (sin etiqueta explícita).' : 'No explicitado en acta.'),
+        objetivo: objetivo || (normalized.includes('objetivo') ? 'Detectado en acta (sin etiqueta explícita).' : 'No explicitado en acta.'),
+        hechos: hechos || (normalized.includes('hechos') ? 'Detectado en acta (sin etiqueta explícita).' : 'No explicitado en acta.'),
+        conflicto: conflicto || (normalized.includes('conflicto') || normalized.includes('controversia') ? 'Detectado en acta (sin etiqueta explícita).' : 'No explicitado en acta.'),
+        calidadProcesal: qualityDetected
+      };
+    }
+
+    async function findInterviewActaForCase(selectedCase){
+      if (!selectedCase?.id) return null;
+      const cacheKey = String(selectedCase.id);
+      if (interviewActaByCaseId.has(cacheKey)) {
+        return interviewActaByCaseId.get(cacheKey);
+      }
+      const embeddedActas = toList(selectedCase?.meetings || selectedCase?.actas || []);
+      if (embeddedActas.length) {
+        const firstEmbedded = {
+          source: 'cause',
+          title: embeddedActas[0]?.titulo || embeddedActas[0]?.name || 'Acta de entrevista',
+          content: stringifyInterviewActa(embeddedActas[0]),
+          payload: embeddedActas[0],
+        };
+        interviewActaByCaseId.set(cacheKey, firstEmbedded);
+        return firstEmbedded;
+      }
+      const { data: files, error } = await supabase
+        .from('case_files')
+        .select('id,file_name,title,description,folder_category,metadata,created_at')
+        .eq('case_id', selectedCase.id)
+        .order('created_at', { ascending: false });
+      if (error) {
+        console.warn('[PRODUCCIÓN] No fue posible leer case_files para detectar acta de entrevista.', error);
+        interviewActaByCaseId.set(cacheKey, null);
+        return null;
+      }
+      const match = (files || []).find((file) => {
+        const haystack = normalize([
+          file.file_name,
+          file.title,
+          file.description,
+          file.folder_category,
+          file.metadata?.label,
+          file.metadata?.tipo,
+          file.metadata?.category,
+          file.metadata?.document_type
+        ].filter(Boolean).join(' '));
+        return haystack.includes('acta') && (haystack.includes('entrevista') || haystack.includes('cliente'));
+      });
+      const found = match ? {
+        source: 'expediente',
+        title: match.title || match.file_name || 'Acta de entrevista',
+        content: stringifyInterviewActa(match.metadata?.content || match.metadata?.text || match.description || match.title || match.file_name),
+        payload: match
+      } : null;
+      interviewActaByCaseId.set(cacheKey, found);
+      return found;
+    }
+
+    async function loadInterviewActaIntoEditor({ silentWhenMissing = false } = {}){
+      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      if (!selectedCase) {
+        if (!silentWhenMissing) {
+          legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[Sin causa vinculada. El editor puede continuar sin acta.]`;
+          renderDocxPreview();
+        }
+        return null;
+      }
+      const acta = await findInterviewActaForCase(selectedCase);
+      if (!acta) {
+        if (!silentWhenMissing) {
+          legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
+          renderDocxPreview();
+        }
+        return null;
+      }
+      const insights = extractInterviewInsights(acta.content, selectedCase);
+      legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista prioritaria cargada automáticamente (${acta.source === 'expediente' ? 'expediente digital' : 'causa'}): ${acta.title}\n\nIntereses del cliente: ${insights.intereses}\nObjetivo jurídico: ${insights.objetivo}\nHechos relevantes: ${insights.hechos}\nConflicto jurídico: ${insights.conflicto}\nCalidad procesal: ${insights.calidadProcesal}\n\nExtracto del acta:\n${insights.raw}`;
+      renderDocxPreview();
+      return { acta, insights };
     }
 
     function downloadBlob(filename, content, mime){
@@ -787,7 +899,10 @@ sup { vertical-align: super; font-size: 10pt; }
       activeSearch = '';
       loadProduction();
     });
-    draftCause.addEventListener('change', renderCauseSourceOptions);
+    draftCause.addEventListener('change', async () => {
+      renderCauseSourceOptions();
+      await loadInterviewActaIntoEditor({ silentWhenMissing: true });
+    });
     manualFilesInput.addEventListener('change', (event) => {
       fileAttachmentCache = Array.from(event.target.files || []);
       manualFilesSummary.textContent = fileAttachmentCache.length
@@ -813,15 +928,8 @@ sup { vertical-align: super; font-size: 10pt; }
       pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
       renderDocxPreview();
     });
-    document.getElementById('btnAutoInterview')?.addEventListener('click', () => {
-      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
-      const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
-      if (acta) {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
-      } else {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
-      }
-      renderDocxPreview();
+    document.getElementById('btnAutoInterview')?.addEventListener('click', async () => {
+      await loadInterviewActaIntoEditor({ silentWhenMissing: false });
     });
 
     document.getElementById('btnCopyEditor')?.addEventListener('click', async () => {
@@ -912,6 +1020,8 @@ sup { vertical-align: super; font-size: 10pt; }
       }
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const interviewContext = selectedCase ? await findInterviewActaForCase(selectedCase) : null;
+      const interviewInsights = interviewContext ? extractInterviewInsights(interviewContext.content, selectedCase) : null;
       const draftStage = draftRequestForm.draftStage.value || 'posterior';
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
       const destination = draftRequestForm.draftDestination.value;
@@ -936,8 +1046,16 @@ sup { vertical-align: super; font-size: 10pt; }
         `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
         selectedCase ? `Causa: ${selectedCase.caratula || selectedCase.rol || selectedCase.id}` : '',
         `Insumos automáticos seleccionados: ${selectedInputs.length ? selectedInputs.join(', ') : 'Ninguno'}`,
+        `Acta prioritaria: ${interviewContext ? `Sí (${interviewContext.source === 'expediente' ? 'expediente digital' : 'causa'})` : 'No disponible'}`,
         `Insumos manuales: ${fileAttachmentCache.length ? fileAttachmentCache.map((file) => file.name).join(', ') : 'Ninguno'}`,
         ``,
+        interviewInsights ? `Base obligatoria desde acta de entrevista` : 'Base obligatoria desde acta de entrevista: No existe acta para esta causa.',
+        interviewInsights ? `Intereses del cliente: ${interviewInsights.intereses}` : '',
+        interviewInsights ? `Objetivo jurídico: ${interviewInsights.objetivo}` : '',
+        interviewInsights ? `Hechos relevantes: ${interviewInsights.hechos}` : '',
+        interviewInsights ? `Conflicto jurídico: ${interviewInsights.conflicto}` : '',
+        interviewInsights ? `Calidad procesal: ${interviewInsights.calidadProcesal}` : '',
+        interviewInsights ? '' : '',
         `Instrucciones adicionales`,
         draftRequestForm.extraInstructions.value.trim(),
         ``,
@@ -972,6 +1090,11 @@ sup { vertical-align: super; font-size: 10pt; }
         selectedCauseInputs: selectedInputs,
         manualFiles: fileAttachmentCache.map((file) => ({ name: file.name, size: file.size, type: file.type })),
         instructions: draftRequestForm.extraInstructions.value.trim(),
+        interviewActa: interviewContext ? {
+          source: interviewContext.source,
+          title: interviewContext.title,
+          insights: interviewInsights,
+        } : null,
         lawyerStyle: draftRequestForm.lawyerStyle.value.trim(),
         status: 'Borrador Word generado',
         wordFilename: `${requestId}.doc`,
