@@ -21,12 +21,14 @@ type PromptInput = {
   instrucciones_usuario?: string
   ajuste?: string
   stylePrompt?: string
+  citationRules?: string
   cause?: Record<string, unknown>
   antecedentes?: Array<Record<string, unknown>>
   documentosSeleccionados?: Array<Record<string, unknown>>
   documentos_seleccionados?: Array<Record<string, unknown>>
   history?: Array<ChatEntry>
   sessionId?: string
+  insumos_documentales?: Record<string, unknown>
 }
 
 function buildPrompt(input: PromptInput) {
@@ -42,6 +44,11 @@ function buildPrompt(input: PromptInput) {
     const snippet = String(item?.content || '').slice(0, 1800)
     return `${i + 1}. ${item?.name || 'Antecedente'} (${item?.category || 'Sin categoría'})\n${snippet}`
   }).join('\n\n')
+  const insumosDocumentales = input?.insumos_documentales && typeof input.insumos_documentales === 'object'
+    ? input.insumos_documentales
+    : {}
+  const citationRules = String(input?.citationRules || '').trim()
+  const esDemandaNueva = tipoEscrito.toLowerCase().includes('demanda')
 
   const causeInfo = {
     id: input?.cause_id || input?.cause?.id || null,
@@ -56,8 +63,15 @@ function buildPrompt(input: PromptInput) {
     `Instrucciones del usuario: ${instrucciones || 'Sin instrucciones adicionales'}`,
     `Ajuste de iteración: ${input?.ajuste || 'Sin ajuste'}`,
     `Estilo requerido: ${input?.stylePrompt || 'Jurídico chileno, tono forense técnico.'}`,
+    `Reglas de cita bibliográfica: ${citationRules || 'Aplica formato jurídico chileno con referencias abreviadas en nota al pie y bibliografía final cuando corresponda.'}`,
     `Contexto de causa: ${JSON.stringify(causeInfo, null, 2)}`,
+    `Insumos documentales agrupados: ${JSON.stringify(insumosDocumentales, null, 2)}`,
     `Antecedentes seleccionados:\n${antecedentesText || 'Sin antecedentes documentales seleccionados.'}`,
+    esDemandaNueva
+      ? 'Si el escrito es una demanda nueva, usa formularios base de demanda y borradores de demanda cargados como referencia, sin copiar íntegramente.'
+      : 'Si hay documentos de demandas/contestaciones/escritos judiciales/resoluciones/sentencias, úsalos como base argumentativa de forma sintética.',
+    'Debes integrar documentos, audios, videos y texto cuando existan. No ignores documentos cargados. Si falta algún insumo, continúa sin bloquear.',
+    'No copies textos completos de documentos; extrae y usa únicamente información útil y verificable.',
     'Entrega solo el borrador del escrito jurídico en español formal chileno. Si citas doctrina/jurisprudencia, déjalas marcadas para pie de página.',
   ].join('\n\n')
 }

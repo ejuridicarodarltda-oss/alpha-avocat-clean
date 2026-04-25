@@ -2950,6 +2950,7 @@
         matches: [],
         selectedCaseId: '',
         selectedAntecedentes: [],
+        mediaByCaseId: {},
         chatHistory: [],
         sessionId: '',
         draftText: '',
@@ -9038,22 +9039,97 @@
       }).join('');
     }
 
+    function buildAntecedenteFromItem(rawItem, { prefix = 'ant', index = 0, fallbackCategory = 'Antecedente', fallbackName = 'Antecedente' } = {}){
+      const item = rawItem && typeof rawItem === 'object' ? rawItem : {};
+      const contentParts = [
+        item.content,
+        item.text,
+        item.resumen,
+        item.observacion,
+        item.observaciones,
+        item.detalle,
+        item.descripcion,
+        item.glosa,
+        item.notes,
+      ].map((value) => String(value || '').trim()).filter(Boolean);
+      const sourceUrl = String(item.sourceUrl || item.sourcePageUrl || item.url || item.link || item.file_url || '').trim();
+      if (sourceUrl) contentParts.push(`Fuente: ${sourceUrl}`);
+      return {
+        id: String(item?.id || item?.documentId || `${prefix}-${index + 1}`),
+        name: String(item?.name || item?.nombre || item?.titulo || item?.file_name || `${fallbackName} ${index + 1}`),
+        category: String(item?.category || item?.categoria || item?.container || fallbackCategory),
+        content: contentParts.join('\n').slice(0, 5000),
+        sourceUrl,
+        mediaType: String(item?.media_type || ''),
+      };
+    }
+
+    function mapCollectionToAntecedentes(list = [], options = {}){
+      return list
+        .map((item, index) => buildAntecedenteFromItem(item, { ...options, index }))
+        .filter((item) => item.name);
+    }
+
+    function asArray(value){
+      return Array.isArray(value) ? value : [];
+    }
+
+    function buildCaseDocumentalGroups(cause){
+      return [
+        { list: [...asArray(cause.documents), ...asArray(cause.documentos), ...asArray(cause.importadosPjud)], prefix: 'doc', fallbackCategory: 'Documento de causa', fallbackName: 'Documento' },
+        { list: asArray(cause.escritos), prefix: 'escrito', fallbackCategory: 'Escrito judicial', fallbackName: 'Escrito' },
+        { list: asArray(cause.production_documents), prefix: 'prod-escrito', fallbackCategory: 'Escrito de producción', fallbackName: 'Escrito de producción' },
+        { list: asArray(cause.resoluciones), prefix: 'res', fallbackCategory: 'Resolución', fallbackName: 'Resolución' },
+        { list: asArray(cause.sentencias), prefix: 'sent', fallbackCategory: 'Sentencia', fallbackName: 'Sentencia' },
+        { list: asArray(cause.declaraciones), prefix: 'decl', fallbackCategory: 'Declaración', fallbackName: 'Declaración' },
+        { list: asArray(cause.planos), prefix: 'plano', fallbackCategory: 'Plano', fallbackName: 'Plano' },
+        { list: asArray(cause.documentos_notariales || cause.notariales), prefix: 'notarial', fallbackCategory: 'Documento notarial', fallbackName: 'Documento notarial' },
+        { list: asArray(cause.conservador_bienes_raices || cause.cbr), prefix: 'cbr', fallbackCategory: 'Conservador de Bienes Raíces', fallbackName: 'Documento CBR' },
+        { list: asArray(cause.documentos_organismos_publicos || cause.organismos_publicos), prefix: 'org-publico', fallbackCategory: 'Organismo público', fallbackName: 'Documento organismo público' },
+        { list: asArray(cause.demandas), prefix: 'demanda', fallbackCategory: 'Demanda', fallbackName: 'Demanda' },
+        { list: asArray(cause.contestaciones), prefix: 'contestacion', fallbackCategory: 'Contestación', fallbackName: 'Contestación' },
+        { list: asArray(cause.formularios_demanda_base), prefix: 'form-demanda', fallbackCategory: 'Formulario base de demanda', fallbackName: 'Formulario base' },
+        { list: asArray(cause.borradores_demanda), prefix: 'borr-demanda', fallbackCategory: 'Borrador de demanda', fallbackName: 'Borrador demanda' },
+      ];
+    }
+
     function listCauseAntecedentes(cause){
       if (!cause) return [];
-      const docs = [
-        ...(Array.isArray(cause.documents) ? cause.documents : []),
-        ...(Array.isArray(cause.documentos) ? cause.documentos : []),
-        ...(Array.isArray(cause.importadosPjud) ? cause.importadosPjud : []),
-      ];
-      return docs
-        .map((doc, index) => ({
-          id: String(doc?.id || doc?.documentId || `ant-${index + 1}`),
-          name: String(doc?.name || doc?.nombre || doc?.titulo || `Antecedente ${index + 1}`),
-          category: String(doc?.category || doc?.categoria || doc?.container || 'Antecedente'),
-          content: String(doc?.content || '').slice(0, 5000),
-          sourceUrl: String(doc?.sourceUrl || doc?.sourcePageUrl || ''),
-        }))
-        .filter((doc) => doc.name);
+      const groups = buildCaseDocumentalGroups(cause);
+      return groups.flatMap((group) => mapCollectionToAntecedentes(group.list, group));
+    }
+
+    async function loadCauseMediaAntecedentes(cause){
+      if (!cause?.id) return [];
+      const cacheKey = String(cause.id);
+      const existing = state.produccionDraft.mediaByCaseId?.[cacheKey];
+      if (Array.isArray(existing)) return existing;
+      try {
+        const byCaseId = await listMediaAssets({ caseId: cause.id });
+        const byCaseRef = await listMediaAssets({ caseRef: cause.id });
+        const merged = [...byCaseId, ...byCaseRef.filter((item) => !byCaseId.some((base) => base.id === item.id))];
+        const mediaAntecedentes = mapCollectionToAntecedentes(merged, {
+          prefix: 'media',
+          fallbackCategory: 'Multimedia',
+          fallbackName: 'Archivo multimedia',
+        }).map((item) => ({
+          ...item,
+          category: item.mediaType === 'audio'
+            ? 'Audio'
+            : item.mediaType === 'video'
+              ? 'Video'
+              : item.mediaType === 'av'
+                ? 'Audio + video'
+                : item.category,
+        }));
+        state.produccionDraft.mediaByCaseId = {
+          ...(state.produccionDraft.mediaByCaseId || {}),
+          [cacheKey]: mediaAntecedentes,
+        };
+        return mediaAntecedentes;
+      } catch (_error) {
+        return [];
+      }
     }
 
     function renderProduccionWorkspace(){
@@ -9076,7 +9152,10 @@
         `;
       }
 
-      const antecedentes = listCauseAntecedentes(selectedCause);
+      const antecedentes = [
+        ...listCauseAntecedentes(selectedCause),
+        ...(state.produccionDraft.mediaByCaseId?.[String(selectedCause.id)] || []),
+      ];
       const prevSelected = new Set((state.produccionDraft.selectedAntecedentes || []).map((item) => String(item)));
       state.produccionDraft.selectedAntecedentes = (state.produccionDraft.selectedAntecedentes || []).filter((id) => antecedentes.some((a) => a.id === id));
       if (!state.produccionDraft.selectedAntecedentes.length && antecedentes.length) {
@@ -9128,6 +9207,21 @@
       if (generateButton) generateButton.disabled = state.produccionDraft.isDraftLoading;
       const regenerateButton = $('btnRegenerarBorradorChatGPT');
       if (regenerateButton) regenerateButton.disabled = state.produccionDraft.isDraftLoading;
+
+      loadCauseMediaAntecedentes(selectedCause).then((mediaAntecedentes) => {
+        if (!Array.isArray(mediaAntecedentes) || !mediaAntecedentes.length) return;
+        if (String(state.produccionDraft.selectedCaseId || '') !== String(selectedCause.id || '')) return;
+        const selectedNow = new Set(state.produccionDraft.selectedAntecedentes || []);
+        const missingMediaIds = mediaAntecedentes
+          .map((item) => String(item.id || ''))
+          .filter(Boolean)
+          .filter((id) => !selectedNow.has(id));
+        if (!missingMediaIds.length) return;
+        state.produccionDraft.selectedAntecedentes = [
+          ...new Set([...(state.produccionDraft.selectedAntecedentes || []), ...missingMediaIds]),
+        ];
+        renderProduccionWorkspace();
+      }).catch(() => {});
     }
 
     function resetProducirEscritosModal(){
@@ -9244,8 +9338,11 @@
       URL.revokeObjectURL(url);
     }
 
-    function collectProduccionSelectedAntecedentes(cause){
-      const available = listCauseAntecedentes(cause);
+    async function collectProduccionSelectedAntecedentes(cause){
+      const available = [
+        ...listCauseAntecedentes(cause),
+        ...(await loadCauseMediaAntecedentes(cause)),
+      ];
       const selected = new Set(Array.from(document.querySelectorAll('.produccion-antecedente-check:checked')).map((node) => String(node.value || '')));
       state.produccionDraft.selectedAntecedentes = Array.from(selected);
       return available.filter((item) => selected.has(item.id)).map((item) => ({
@@ -9279,13 +9376,23 @@
         setMessage('producirEscritoMsg', 'Debes especificar el tipo de escrito cuando eliges “Otro”.', 'error');
         return;
       }
-      const antecedentes = collectProduccionSelectedAntecedentes(selectedCause);
+      const antecedentes = await collectProduccionSelectedAntecedentes(selectedCause);
       const instrucciones = String($('producirEscritoInstrucciones')?.value || '').trim();
       const ajuste = String($('producirEscritoAjuste')?.value || '').trim();
       state.produccionDraft.isDraftLoading = true;
       state.produccionDraft.draftError = '';
       setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
       renderProduccionWorkspace();
+
+      const insumosDocumentales = {
+        jurisprudencia: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('jurisprud')),
+        doctrina: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('doctrin')),
+        codigos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('codigo') || normalizeTextForMatch(item.category).includes('ley')),
+        leyesEspeciales: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('ley especial')),
+        documentos: antecedentes,
+        audios: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('audio')),
+        videos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('video')),
+      };
 
       const payload = {
         mode,
@@ -9301,6 +9408,8 @@
         ajuste,
         documentosSeleccionados: antecedentes,
         documentos_seleccionados: antecedentes,
+        insumos_documentales: insumosDocumentales,
+        citationRules: 'Aplicar norma de cita jurídica chilena: citas abreviadas en pie de página + bibliografía final, sin copiar textos extensos literalmente.',
         stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
         cause: {
           id: selectedCause.id,
@@ -9385,7 +9494,10 @@
       if (!selectedCause) return;
       const sessionId = state.produccionDraft.sessionId || crypto.randomUUID();
       state.produccionDraft.sessionId = sessionId;
-      const antecedentes = listCauseAntecedentes(selectedCause).filter((item) => (state.produccionDraft.selectedAntecedentes || []).includes(item.id));
+      const antecedentes = [
+        ...listCauseAntecedentes(selectedCause),
+        ...(state.produccionDraft.mediaByCaseId?.[String(selectedCause.id)] || []),
+      ].filter((item) => (state.produccionDraft.selectedAntecedentes || []).includes(item.id));
       const sessionPayload = {
         id: sessionId,
         cause_id: selectedCause.id,
