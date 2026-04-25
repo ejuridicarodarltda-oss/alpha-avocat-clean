@@ -66,6 +66,9 @@
     .editor-vscode{background:#0d1117;border:1px solid #2e3b4f;border-radius:14px;padding:12px;min-height:360px;color:#e6edf3;font-family:Consolas,"Liberation Mono",Menlo,monospace}
     .editor-vscode:focus{outline:2px solid #3b82f6;outline-offset:2px}
     .editor-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
+    .writing-type-shell{display:grid;gap:8px;margin-bottom:10px;background:#fff;border:1px solid #8ec7be;border-radius:12px;padding:10px}
+    .status-banner{font-size:13px;font-weight:700;color:#163A5F}
+    .status-banner strong{color:#7A1E2C}
     .editor-toolbar .btn{background:#162132;color:#e6edf3;border-color:#364863}
     .docx-preview{background:#fff;border:1px solid #8ec7be;border-radius:14px;padding:14px;min-height:360px}
     .docx-preview-header{font-size:12px;color:#496b66;margin-bottom:8px}
@@ -129,6 +132,19 @@
       <p class="subtitle">Capa 1: editor rápido tipo Visual Studio Code · Capa 2: salida obligatoria a Word (.docx) con formato jurídico completo.</p>
       <div class="editor-shell">
         <div>
+          <div class="writing-type-shell">
+            <label class="field">
+              <span class="label">Tipo de escrito en Producción</span>
+              <select id="productionWritingType">
+                <option value="demanda-nueva">Demanda nueva</option>
+                <option value="medida-prejudicial">Medida prejudicial</option>
+                <option value="gestion-preparatoria">Gestión preparatoria</option>
+                <option value="escrito-posterior">Escrito posterior</option>
+                <option value="otro-escrito">Otro escrito</option>
+              </select>
+            </label>
+            <div class="status-banner" id="writingModeStatus">Primera presentación sin ROL</div>
+          </div>
           <div class="editor-toolbar">
             <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
             <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
@@ -315,6 +331,8 @@
     const activeCitationNorm = document.getElementById('activeCitationNorm');
     const legalEditor = document.getElementById('legalEditor');
     const docxPreviewBody = document.getElementById('docxPreviewBody');
+    const productionWritingType = document.getElementById('productionWritingType');
+    const writingModeStatus = document.getElementById('writingModeStatus');
     const editorFileInput = document.getElementById('editorFileInput');
     const externalInputsList = document.getElementById('externalInputsList');
     const externalInputFile = document.getElementById('externalInputFile');
@@ -338,6 +356,13 @@
     let editorAttachments = [];
     let citationSequence = 0;
     let pendingFootnotes = [];
+    const WRITING_TYPES = {
+      'demanda-nueva': { label: 'Demanda nueva', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
+      'medida-prejudicial': { label: 'Medida prejudicial', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
+      'gestion-preparatoria': { label: 'Gestión preparatoria', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
+      'escrito-posterior': { label: 'Escrito posterior', stage: 'posterior', mode: 'with-cause', status: 'Escrito posterior con causa existente' },
+      'otro-escrito': { label: 'Otro escrito', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
+    };
 
     async function ensureAuth(){
       const { data } = await supabase.auth.getSession();
@@ -392,6 +417,34 @@
         return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
       }
       return 'SUMA: [petición concreta del escrito posterior]\n\n';
+    }
+
+    function getSelectedWritingTypeConfig(){
+      return WRITING_TYPES[productionWritingType?.value] || WRITING_TYPES['demanda-nueva'];
+    }
+
+    function syncWritingTypeToForm(){
+      const config = getSelectedWritingTypeConfig();
+      if (!draftRequestForm?.draftStage) return config;
+      draftRequestForm.draftStage.value = config.stage;
+      draftRequestForm.draftStage.disabled = true;
+      if (config.mode === 'with-cause') {
+        applyMode('with-cause');
+      } else {
+        applyMode('no-cause');
+      }
+      if (writingModeStatus) {
+        writingModeStatus.innerHTML = `${escapeHtml(config.status)} · <strong>${escapeHtml(config.label)}</strong>`;
+      }
+      return config;
+    }
+
+    function rebuildEditorPrefix(){
+      const config = syncWritingTypeToForm();
+      const currentText = legalEditor.innerText || '';
+      const stripped = currentText.replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '');
+      legalEditor.textContent = `${buildStructuredDraftPrefix(config.stage)}${stripped}`;
+      renderDocxPreview();
     }
 
     function extractRoleFromCase(selectedCase){
@@ -649,10 +702,16 @@ sup { vertical-align: super; font-size: 10pt; }
     }
 
     function applyMode(mode){
+      const writingType = getSelectedWritingTypeConfig();
+      if (writingType.mode === 'no-cause' && mode === 'with-cause') {
+        mode = 'no-cause';
+      }
       selectedMode = mode;
       const withCause = mode === 'with-cause';
       btnModeNoCause.classList.toggle('active', !withCause);
       btnModeWithCause.classList.toggle('active', withCause);
+      btnModeNoCause.disabled = writingType.mode === 'with-cause';
+      btnModeWithCause.disabled = writingType.mode === 'no-cause';
       causePickerField.classList.toggle('hidden', !withCause);
       causeSourcesField.classList.toggle('hidden', !withCause);
       if (!withCause) {
@@ -677,11 +736,12 @@ sup { vertical-align: super; font-size: 10pt; }
     }
 
     function openModal(){
-      applyMode('no-cause');
+      syncWritingTypeToForm();
       draftRequestForm.citationNorm.value = 'rchd-2025';
       modalBackdrop.classList.add('open');
       modalBackdrop.setAttribute('aria-hidden', 'false');
       hydrateFormDefaults();
+      document.getElementById('draftType').value = getSelectedWritingTypeConfig().label;
     }
 
     function closeModal(){
@@ -691,7 +751,7 @@ sup { vertical-align: super; font-size: 10pt; }
       fileAttachmentCache = [];
       manualFilesSummary.textContent = 'Sin archivos cargados manualmente.';
       draftRequestForm.citationNorm.value = 'rchd-2025';
-      applyMode('no-cause');
+      syncWritingTypeToForm();
     }
 
     function buildProductionCards(cases, clientsMap){
@@ -778,6 +838,10 @@ sup { vertical-align: super; font-size: 10pt; }
     });
     btnModeNoCause.addEventListener('click', () => applyMode('no-cause'));
     btnModeWithCause.addEventListener('click', () => applyMode('with-cause'));
+    productionWritingType?.addEventListener('change', () => {
+      document.getElementById('draftType').value = getSelectedWritingTypeConfig().label;
+      rebuildEditorPrefix();
+    });
     productionSearchInput.addEventListener('input', () => {
       activeSearch = normalize(productionSearchInput.value);
       loadProduction();
@@ -906,13 +970,20 @@ sup { vertical-align: super; font-size: 10pt; }
 
     draftRequestForm.addEventListener('submit', async (event) => {
       event.preventDefault();
+      const writingTypeConfig = getSelectedWritingTypeConfig();
+      const enforcedStage = writingTypeConfig.stage;
+      const enforcedMode = writingTypeConfig.mode;
+      if (enforcedMode === 'with-cause' && !draftCause.value) {
+        window.alert('Para escrito posterior debes asociar una causa existente (ROL/tribunal cuando estén disponibles).');
+        return;
+      }
       if (selectedMode === 'with-cause' && !draftCause.value) {
         window.alert('Debes seleccionar una causa preexistente o cambiar a "Redactar sin causa previa".');
         return;
       }
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
-      const draftStage = draftRequestForm.draftStage.value || 'posterior';
+      const draftStage = enforcedStage;
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
       const destination = draftRequestForm.draftDestination.value;
       if (destination === 'expediente' && !selectedCase) {
@@ -930,10 +1001,10 @@ sup { vertical-align: super; font-size: 10pt; }
       const plainBody = [
         `Solicitud de redacción jurídica`,
         `Norma de citas activa: ${(CITATION_NORMS[citationNorm] || CITATION_NORMS['rchd-2025']).label}`,
-        `Tipo de escrito: ${draftRequestForm.draftType.value.trim()}`,
+        `Tipo de escrito: ${writingTypeConfig.label}`,
         `Presentación: ${draftStage === 'primera' ? 'Primera presentación (presuma + suma)' : 'Escrito posterior (suma)'}`,
         `Cliente: ${selectedClient?.full_name || selectedClient?.name || 'No definido'}`,
-        `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
+        `Modo: ${enforcedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
         selectedCase ? `Causa: ${selectedCase.caratula || selectedCase.rol || selectedCase.id}` : '',
         `Insumos automáticos seleccionados: ${selectedInputs.length ? selectedInputs.join(', ') : 'Ninguno'}`,
         `Insumos manuales: ${fileAttachmentCache.length ? fileAttachmentCache.map((file) => file.name).join(', ') : 'Ninguno'}`,
@@ -955,13 +1026,13 @@ sup { vertical-align: super; font-size: 10pt; }
       ].filter(Boolean).join('\n');
       const newRequest = {
         id: requestId,
-        title: `${draftRequestForm.draftType.value.trim()} · ${selectedClient?.full_name || selectedClient?.name || 'Sin cliente'}`,
-        type: draftRequestForm.draftType.value.trim(),
+        title: `${writingTypeConfig.label} · ${selectedClient?.full_name || selectedClient?.name || 'Sin cliente'}`,
+        type: writingTypeConfig.label,
         stage: draftStage,
         clientId: selectedClient?.id || null,
         clientName: selectedClient?.full_name || selectedClient?.name || 'Sin cliente',
-        mode: selectedMode,
-        modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
+        mode: enforcedMode,
+        modeLabel: enforcedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
         destination,
         destinationLabel: destinationLabelMap[destination] || destinationLabelMap.produccion,
         citationNorm,
@@ -1011,10 +1082,13 @@ sup { vertical-align: super; font-size: 10pt; }
       }
       if (action === 'edit') {
         openModal();
-        document.getElementById('draftType').value = target.type;
+        const typeMatch = Object.entries(WRITING_TYPES).find(([, cfg]) => cfg.label === target.type);
+        if (typeMatch) {
+          productionWritingType.value = typeMatch[0];
+        }
+        document.getElementById('draftType').value = getSelectedWritingTypeConfig().label;
         draftClient.value = target.clientId || '';
-        draftRequestForm.draftStage.value = target.stage || 'posterior';
-        applyMode(target.mode || 'no-cause');
+        syncWritingTypeToForm();
         draftCause.value = target.caseId || '';
         draftRequestForm.draftDestination.value = target.destination || 'produccion';
         draftRequestForm.citationNorm.value = target.citationNorm || 'rchd-2025';
@@ -1059,13 +1133,11 @@ sup { vertical-align: super; font-size: 10pt; }
       productionSearchInput.value = prefillParts.join(' ');
       activeSearch = normalize(productionSearchInput.value);
     }
-    legalEditor.textContent = buildStructuredDraftPrefix('posterior');
+    syncWritingTypeToForm();
+    legalEditor.textContent = buildStructuredDraftPrefix(getSelectedWritingTypeConfig().stage);
     renderDocxPreview();
     renderExternalInputs();
-    draftRequestForm.draftStage.addEventListener('change', () => {
-      legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}${(legalEditor.innerText || '').replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '')}`;
-      renderDocxPreview();
-    });
+    draftRequestForm.draftStage.addEventListener('change', rebuildEditorPrefix);
 
     ensureAuth().then(loadProduction).catch((error) => {
       console.warn('[PRODUCCIÓN] Tolerancia total activa: se continúa operando con funciones locales.', error);
