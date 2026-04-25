@@ -483,13 +483,14 @@
         : 'Redactado sin causa previa asociada.';
       const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
       const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
+      const institutionalLogoDataUri = 'data:image/svg+xml;utf8,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 90 90%22%3E%3Cdefs%3E%3ClinearGradient id=%22a%22 x1=%220%22 x2=%221%22 y1=%220%22 y2=%221%22%3E%3Cstop offset=%220%25%22 stop-color=%22%236f1728%22/%3E%3Cstop offset=%22100%25%22 stop-color=%22%23163A5F%22/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width=%2290%22 height=%2290%22 rx=%2218%22 fill=%22url(%23a)%22/%3E%3Cpath d=%22M45 15 62 32h-9v23a8 8 0 1 1-16 0V32h-9Z%22 fill=%22%23fff%22 opacity=%220.95%22/%3E%3Cpath d=%22M23 63h44%22 stroke=%22%23fff%22 stroke-width=%226%22 stroke-linecap=%22round%22 opacity=%220.95%22/%3E%3C/svg%3E';
       return `<!doctype html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
 <title>${escapeHtml(request.title)}</title>
 <style>
-@page { size: 8.5in 13in; margin: 2.5cm 2cm 2.5cm 2.5cm; }
+@page { size: 8.5in 13in; margin: 3.2cm 2cm 2.5cm 2.5cm; }
 body { font-family: "DengXian", "Deng Xian", sans-serif; font-size: 14pt; line-height: 1.5; text-align: justify; color:#111; }
 h1,h2,h3 { margin: 0 0 12pt 0; }
 .meta { margin-bottom: 12pt; }
@@ -498,13 +499,23 @@ sup { vertical-align: super; font-size: 10pt; }
 .footnotes { margin-top: 18pt; border-top: 1px solid #888; padding-top: 10pt; }
 .footnotes ol { margin: 0; padding-left: 18pt; }
 .page-number { position: fixed; top: 0.2cm; right: 0.5cm; font-size: 10pt; color:#666; }
-.doc-header { position: fixed; top: 0.2cm; left: 0.5cm; font-size: 10pt; color:#666; }
+.doc-header { position: fixed; top: 0.35cm; left: 0.5cm; display:flex; align-items:center; gap:8pt; color:#5d6d6a; }
+.doc-header-logo { width: 22pt; height: 22pt; object-fit: contain; opacity: .9; }
+.doc-header-text { font-size: 8.8pt; line-height: 1.15; }
+.doc-header-text strong { display:block; font-size: 9.6pt; font-weight: 700; color:#445552; }
 .doc-footer { position: fixed; bottom: 0.3cm; left: 0.5cm; right: 0.5cm; font-size: 8.5pt; color:#888; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .extract-box { border-left: 4px solid #163A5F; background:#f2f8ff; padding: 8pt; margin: 10pt 0; }
 </style>
 </head>
 <body>
-  <div class="doc-header">Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo</div>
+  <div class="doc-header">
+    <img class="doc-header-logo" src="${institutionalLogoDataUri}" alt="Logo cargado">
+    <div class="doc-header-text">
+      <strong>Alpha Avocat</strong>
+      <div>Sistema de Gestión Jurídica Inteligente</div>
+      <div>Mario Javier Rodríguez Ardiles</div>
+    </div>
+  </div>
   <div class="page-number">Página <span style="mso-field-code:' PAGE '">1</span></div>
   <div class="doc-footer">Mario Javier Rodríguez Ardiles · Estudio Jurídico · Fijo (53) 2653783 · Móvil +56 9 71374351 · esjuridica.rodar.ltda@gmail.com · Calle Tangue 385, Ovalle · Fecha y hora: ${escapeHtml(footerDate)}</div>
   <h1>${escapeHtml(request.type)}</h1>
@@ -561,7 +572,7 @@ sup { vertical-align: super; font-size: 10pt; }
         ? pendingFootnotes.map((note, index) => `<li>${escapeHtml(note)}<sup>${index + 1}</sup></li>`).join('')
         : '<li>Sin notas al pie.</li>';
       docxPreviewBody.innerHTML = `
-        <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo.</div>
+        <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo cargado en esquina superior izquierda.</div>
         <div>${bodyWithParagraphs || '<p class="muted">Sin texto en editor.</p>'}</div>
         <div class="footnote-list"><strong>Notas al pie</strong><ol>${notes}</ol></div>
         <div class="small-gray">Pie: Mario Javier Rodríguez Ardiles · Estudio Jurídico · ... · Fecha/hora automática.</div>
