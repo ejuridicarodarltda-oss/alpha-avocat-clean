@@ -238,6 +238,22 @@
           </select>
         </div>
         <div class="field span-2">
+          <span class="label">Suma superior *</span>
+          <div class="small muted">Bloque editable obligatorio. EN LO PRINCIPAL y OTROSÍ se aplican en mayúscula y negrita al exportar a Word.</div>
+        </div>
+        <div class="field span-2" id="presumaField">
+          <label class="label" for="sumaPresuma">Presuma (solo primera presentación)</label>
+          <textarea id="sumaPresuma" name="sumaPresuma" placeholder="Ej.: comparece y deduce demanda ordinaria en procedimiento sumario."></textarea>
+        </div>
+        <div class="field span-2">
+          <label class="label" for="sumaPrincipal">EN LO PRINCIPAL *</label>
+          <textarea id="sumaPrincipal" name="sumaPrincipal" placeholder="Ej.: demanda de indemnización de perjuicios." required></textarea>
+        </div>
+        <div class="field span-2">
+          <label class="label" for="sumaOtrosies">OTROSÍ (opcional, uno por línea)</label>
+          <textarea id="sumaOtrosies" name="sumaOtrosies" placeholder="Ej.&#10;acompaña documentos.&#10;patrocinio y poder."></textarea>
+        </div>
+        <div class="field span-2">
           <span class="label">Modo de redacción *</span>
           <div class="mode-toggle">
             <button type="button" class="btn active" id="btnModeNoCause">Redactar sin causa previa</button>
@@ -306,6 +322,10 @@
     const causePickerField = document.getElementById('causePickerField');
     const causeSourcesField = document.getElementById('causeSourcesField');
     const causeSourcesList = document.getElementById('causeSourcesList');
+    const presumaField = document.getElementById('presumaField');
+    const sumaPresumaInput = document.getElementById('sumaPresuma');
+    const sumaPrincipalInput = document.getElementById('sumaPrincipal');
+    const sumaOtrosiesInput = document.getElementById('sumaOtrosies');
     const manualFilesInput = document.getElementById('manualFiles');
     const manualFilesSummary = document.getElementById('manualFilesSummary');
     const btnModeNoCause = document.getElementById('btnModeNoCause');
@@ -387,11 +407,49 @@
       }
     }
 
-    function buildStructuredDraftPrefix(stage = 'posterior'){
-      if (stage === 'primera') {
-        return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
+    function parseOtrosies(raw = ''){
+      return String(raw || '')
+        .split('\n')
+        .map((line) => line.trim())
+        .filter(Boolean);
+    }
+
+    function ordinalOtrosiLabel(index){
+      const labels = ['PRIMER', 'SEGUNDO', 'TERCER', 'CUARTO', 'QUINTO', 'SEXTO', 'SÉPTIMO', 'OCTAVO', 'NOVENO', 'DÉCIMO'];
+      return labels[index] || `${index + 1}°`;
+    }
+
+    function sanitizeInlineText(value = ''){
+      return escapeHtml(String(value || '').replace(/\s+/g, ' ').trim());
+    }
+
+    function readSumaSuperior(stage = 'posterior'){
+      return {
+        stage,
+        presuma: String(sumaPresumaInput?.value || '').trim(),
+        principal: String(sumaPrincipalInput?.value || '').trim(),
+        otrosies: parseOtrosies(sumaOtrosiesInput?.value || ''),
+      };
+    }
+
+    function buildSumaSuperiorHtml(sumaSuperior = {}){
+      const stage = sumaSuperior.stage || 'posterior';
+      const segments = [];
+      if (stage === 'primera' && sumaSuperior.presuma) {
+        segments.push(`<p><strong>PRESUMA:</strong> ${sanitizeInlineText(sumaSuperior.presuma)}</p>`);
       }
-      return 'SUMA: [petición concreta del escrito posterior]\n\n';
+      if (sumaSuperior.principal) {
+        segments.push(`<p><strong>EN LO PRINCIPAL:</strong> ${sanitizeInlineText(sumaSuperior.principal)}</p>`);
+      }
+      (sumaSuperior.otrosies || []).forEach((item, index) => {
+        segments.push(`<p><strong>${ordinalOtrosiLabel(index)} OTROSÍ:</strong> ${sanitizeInlineText(item)}</p>`);
+      });
+      return segments.join('');
+    }
+
+    function updateSumaFieldsVisibility(){
+      const stage = draftRequestForm?.draftStage?.value || 'posterior';
+      presumaField?.classList.toggle('hidden', stage !== 'primera');
     }
 
     function extractRoleFromCase(selectedCase){
@@ -483,6 +541,7 @@
         : 'Redactado sin causa previa asociada.';
       const noteItems = (request.footnotes || []).map((note, index) => `<li>${escapeHtml(note || `Nota ${index + 1}`)}</li>`).join('');
       const footerDate = new Date().toLocaleString('es-CL', { hour12: false });
+      const sumaSuperiorHtml = buildSumaSuperiorHtml(request.sumaSuperior || {});
       return `<!doctype html>
 <html lang="es">
 <head>
@@ -513,6 +572,7 @@ sup { vertical-align: super; font-size: 10pt; }
   <strong>Destino:</strong> ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}<br>
   <strong>Idioma:</strong> Español (Chile) · <strong>Formato:</strong> Oficio, interlineado 1,5, justificado</p>
   <p>${modeLine}</p>
+  <div>${sumaSuperiorHtml || '<p><strong>EN LO PRINCIPAL:</strong> [pendiente]</p>'}</div>
   <div>${request.docBodyHtml || '<p>Sin contenido de redacción.</p>'}</div>
   <p><strong>Instrucciones del abogado:</strong> ${escapeHtml(request.instructions || 'Sin instrucciones adicionales registradas')}</p>
   <p><strong>Uso referencial de práctica forense:</strong> principal = escritos del abogado; secundario = escritos externos (sin copia literal).</p>
@@ -557,11 +617,14 @@ sup { vertical-align: super; font-size: 10pt; }
     function renderDocxPreview(){
       const rawText = legalEditor.innerText || '';
       const bodyWithParagraphs = escapeHtml(rawText).split('\n').filter(Boolean).map((line) => `<p>${line}</p>`).join('');
+      const sumaSuperiorHtml = buildSumaSuperiorHtml(readSumaSuperior(draftRequestForm?.draftStage?.value || 'posterior'));
       const notes = pendingFootnotes.length
         ? pendingFootnotes.map((note, index) => `<li>${escapeHtml(note)}<sup>${index + 1}</sup></li>`).join('')
         : '<li>Sin notas al pie.</li>';
       docxPreviewBody.innerHTML = `
         <div class="subtle-header">Encabezado: Alpha Avocat · Sistema de Gestión Jurídica Inteligente · Mario Javier Rodríguez Ardiles · logo.</div>
+        <div><strong>Suma superior</strong></div>
+        <div>${sumaSuperiorHtml || '<p><strong>EN LO PRINCIPAL:</strong> [pendiente]</p>'}</div>
         <div>${bodyWithParagraphs || '<p class="muted">Sin texto en editor.</p>'}</div>
         <div class="footnote-list"><strong>Notas al pie</strong><ol>${notes}</ol></div>
         <div class="small-gray">Pie: Mario Javier Rodríguez Ardiles · Estudio Jurídico · ... · Fecha/hora automática.</div>
@@ -692,6 +755,7 @@ sup { vertical-align: super; font-size: 10pt; }
       manualFilesSummary.textContent = 'Sin archivos cargados manualmente.';
       draftRequestForm.citationNorm.value = 'rchd-2025';
       applyMode('no-cause');
+      updateSumaFieldsVisibility();
     }
 
     function buildProductionCards(cases, clientsMap){
@@ -788,6 +852,9 @@ sup { vertical-align: super; font-size: 10pt; }
       loadProduction();
     });
     draftCause.addEventListener('change', renderCauseSourceOptions);
+    sumaPresumaInput?.addEventListener('input', renderDocxPreview);
+    sumaPrincipalInput?.addEventListener('input', renderDocxPreview);
+    sumaOtrosiesInput?.addEventListener('input', renderDocxPreview);
     manualFilesInput.addEventListener('change', (event) => {
       fileAttachmentCache = Array.from(event.target.files || []);
       manualFilesSummary.textContent = fileAttachmentCache.length
@@ -817,9 +884,9 @@ sup { vertical-align: super; font-size: 10pt; }
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
       if (acta) {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
+        legalEditor.textContent = `Acta de entrevista cargada automáticamente:\n${acta.titulo || acta.acta || JSON.stringify(acta)}`;
       } else {
-        legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
+        legalEditor.textContent = '[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]';
       }
       renderDocxPreview();
     });
@@ -913,6 +980,12 @@ sup { vertical-align: super; font-size: 10pt; }
       const selectedClient = clientsCache.find((item) => String(item.id) === String(draftClient.value));
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const draftStage = draftRequestForm.draftStage.value || 'posterior';
+      const sumaSuperior = readSumaSuperior(draftStage);
+      if (!sumaSuperior.principal) {
+        window.alert('Todo escrito debe tener EN LO PRINCIPAL en la suma superior.');
+        sumaPrincipalInput?.focus();
+        return;
+      }
       const selectedInputs = Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value);
       const destination = draftRequestForm.draftDestination.value;
       if (destination === 'expediente' && !selectedCase) {
@@ -935,6 +1008,9 @@ sup { vertical-align: super; font-size: 10pt; }
         `Cliente: ${selectedClient?.full_name || selectedClient?.name || 'No definido'}`,
         `Modo: ${selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa'}`,
         selectedCase ? `Causa: ${selectedCase.caratula || selectedCase.rol || selectedCase.id}` : '',
+        draftStage === 'primera' && sumaSuperior.presuma ? `PRESUMA: ${sumaSuperior.presuma}` : '',
+        `EN LO PRINCIPAL: ${sumaSuperior.principal}`,
+        ...sumaSuperior.otrosies.map((item, index) => `${ordinalOtrosiLabel(index)} OTROSÍ: ${item}`),
         `Insumos automáticos seleccionados: ${selectedInputs.length ? selectedInputs.join(', ') : 'Ninguno'}`,
         `Insumos manuales: ${fileAttachmentCache.length ? fileAttachmentCache.map((file) => file.name).join(', ') : 'Ninguno'}`,
         ``,
@@ -977,8 +1053,9 @@ sup { vertical-align: super; font-size: 10pt; }
         wordFilename: `${requestId}.doc`,
         pdfFilename: null,
         body: plainBody,
+        sumaSuperior,
         footnotes: [...pendingFootnotes],
-        docBodyHtml: escapeHtml((buildStructuredDraftPrefix(draftStage) + (legalEditor.innerText || '')).trim())
+        docBodyHtml: escapeHtml((legalEditor.innerText || '').trim())
           .split('\n')
           .map((line) => `<p>${line}</p>`)
           .join(''),
@@ -1018,9 +1095,14 @@ sup { vertical-align: super; font-size: 10pt; }
         draftCause.value = target.caseId || '';
         draftRequestForm.draftDestination.value = target.destination || 'produccion';
         draftRequestForm.citationNorm.value = target.citationNorm || 'rchd-2025';
+        sumaPresumaInput.value = target.sumaSuperior?.presuma || '';
+        sumaPrincipalInput.value = target.sumaSuperior?.principal || '';
+        sumaOtrosiesInput.value = (target.sumaSuperior?.otrosies || []).join('\n');
+        updateSumaFieldsVisibility();
         renderCauseSourceOptions();
         document.getElementById('extraInstructions').value = target.instructions || '';
         document.getElementById('lawyerStyle').value = target.lawyerStyle || '';
+        renderDocxPreview();
       }
       if (action === 'pdf') {
         const pdfName = `${target.id}.pdf`;
@@ -1059,13 +1141,14 @@ sup { vertical-align: super; font-size: 10pt; }
       productionSearchInput.value = prefillParts.join(' ');
       activeSearch = normalize(productionSearchInput.value);
     }
-    legalEditor.textContent = buildStructuredDraftPrefix('posterior');
+    legalEditor.textContent = '';
     renderDocxPreview();
     renderExternalInputs();
     draftRequestForm.draftStage.addEventListener('change', () => {
-      legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value)}${(legalEditor.innerText || '').replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '')}`;
+      updateSumaFieldsVisibility();
       renderDocxPreview();
     });
+    updateSumaFieldsVisibility();
 
     ensureAuth().then(loadProduction).catch((error) => {
       console.warn('[PRODUCCIÓN] Tolerancia total activa: se continúa operando con funciones locales.', error);
