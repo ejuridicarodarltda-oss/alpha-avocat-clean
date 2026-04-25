@@ -794,6 +794,12 @@
       gap:10px;
     }
     .causas-page .kardex-card.open .kardex-body{ display:grid; }
+    .causas-page .kardex-controls{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      margin-top:4px;
+    }
 
     .causas-page .list-card{
       display:grid;
@@ -2069,18 +2075,21 @@
           </div>
 
 	          <div class="filter-actions">
-	          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
-	          <span class="muted" id="countLabel">0 causas</span>
-	        </div>
+		          <button id="btnLimpiarFiltros" class="btn">Limpiar filtros</button>
+		          <span class="muted" id="countLabel">0 causas</span>
+		        </div>
+            <div class="kardex-controls">
+              <button id="btnAbrirTodosKardex" class="btn" type="button">Abrir todos</button>
+              <button id="btnCerrarTodosKardex" class="btn" type="button">Cerrar todos</button>
+            </div>
 
-          <div class="visibility-diagnostics" id="visibilityDiagnostics">
-            <div class="timeline-meta" id="diagSupabaseTotal">Total causas cargadas: 0</div>
-            <div class="timeline-meta" id="diagVisibleTotal">Total causas visibles tras filtros: 0</div>
-            <div class="timeline-meta" id="diagBatchApplied">Batch aplicado: —</div>
-            <div class="timeline-meta" id="diagAutoSelectedCase">Primera causa seleccionada automáticamente: —</div>
-            <div class="timeline-meta" id="diagInteractiveAudit" hidden>Auditoría interactiva: —</div>
-            <div class="timeline-meta" id="diagCounterSources" hidden>Fuentes contadores: —</div>
-            <div class="timeline-meta" id="diagImportLifecycle" hidden>Ciclo importación: —</div>
+	          <div class="visibility-diagnostics" id="visibilityDiagnostics">
+	            <div class="timeline-meta" id="diagSupabaseTotal">Total causas cargadas: 0</div>
+	            <div class="timeline-meta" id="diagVisibleTotal">Total causas visibles tras filtros: 0</div>
+	            <div class="timeline-meta" id="diagBatchApplied">Batch aplicado: —</div>
+	            <div class="timeline-meta" id="diagInteractiveAudit" hidden>Auditoría interactiva: —</div>
+	            <div class="timeline-meta" id="diagCounterSources" hidden>Fuentes contadores: —</div>
+	            <div class="timeline-meta" id="diagImportLifecycle" hidden>Ciclo importación: —</div>
             <div class="diagnostic-actions">
               <button id="btnVerCausasLote" class="btn btn-primary" type="button" hidden>Ver causas del lote importado</button>
             </div>
@@ -3438,20 +3447,31 @@
       'Tribunales de Juicio Oral en lo Penal'
     ];
 
-    function inferKardexLabel(tribunal = ''){
-      const normalized = normalizeTextForMatch(tribunal);
-      if (normalized.includes('corte suprema')) return 'Corte Suprema';
-      if (normalized.includes('corte de apelaciones')) return 'Cortes de Apelaciones';
-      if (normalized.includes('juzgado de policia local')) return 'Juzgados de Policía Local';
-      if (normalized.includes('cobranza') || normalized.includes('previsional')) return 'Juzgados de Cobranza Laboral y Previsional';
-      if (normalized.includes('juicio oral') || normalized.includes('top')) return 'Tribunales de Juicio Oral en lo Penal';
-      if (normalized.includes('garantia')) return 'Juzgados de Garantía';
-      if (normalized.includes('familia')) return 'Juzgados de Familia';
-      if (normalized.includes('trabajo')) return 'Juzgados del Trabajo';
-      if (normalized.includes('letras') || normalized.includes('civil')) return 'Juzgados Civiles';
-      if (!normalized) return 'Tribunal no especificado';
-      return tribunal;
-    }
+	    function inferKardexLabel(tribunal = ''){
+	      const normalized = normalizeTextForMatch(tribunal);
+	      if (normalized.includes('corte suprema')) return 'Corte Suprema';
+	      if (
+	        normalized.includes('corte de apelaciones')
+	        || normalized.startsWith('c a de ')
+	        || normalized.startsWith('ca de ')
+	      ) return 'Cortes de Apelaciones';
+	      if (normalized.includes('juzgado de policia local')) return 'Juzgados de Policía Local';
+	      if (normalized.includes('cobranza') || normalized.includes('previsional')) return 'Juzgados de Cobranza Laboral y Previsional';
+	      if (normalized.includes('juicio oral') || normalized.includes('top')) return 'Tribunales de Juicio Oral en lo Penal';
+	      if (
+	        normalized.includes('garantia')
+	        || normalized.includes('medidas cautelares')
+	        || normalized.includes('l y g')
+	        || normalized.includes('l. y g')
+	        || normalized.includes('letras y garantia')
+	      ) return 'Juzgados de Garantía';
+	      if (normalized.includes('familia')) return 'Juzgados de Familia';
+	      if (normalized.includes('trabajo')) return 'Juzgados del Trabajo';
+	      if (normalized.includes('letras') || normalized.includes('civil')) return 'Juzgados Civiles';
+	      if (normalized.includes('policia local')) return 'Juzgados de Policía Local';
+	      if (!normalized) return 'Juzgados Civiles';
+	      return 'Juzgados Civiles';
+	    }
 
     try {
       const persistedExplorer = JSON.parse(sessionStorage.getItem(EXPLORER_EXPANDED_SESSION_KEY) || '[]');
@@ -5581,7 +5601,7 @@
       return matchedClient ? String(matchedClient[C.c_id]) : '';
     }
 
-    async function loadCases(){
+	    async function loadCases(){
       const { data, error } = await supabase
         .from(T_CASES)
         .select('*')
@@ -5601,11 +5621,8 @@
           return [caseId, merged];
         })
         .filter(Boolean));
-      if (!state.selectedId || !state.caseMap.has(state.selectedId)) {
-        const [firstCaseId] = state.caseMap.keys();
-        state.selectedId = firstCaseId || null;
-      }
-    }
+	      if (state.selectedId && !state.caseMap.has(state.selectedId)) state.selectedId = null;
+	    }
 
     function getAllCases(){
       return [...state.caseMap.values()];
@@ -6672,19 +6689,14 @@
       `).join('');
     }
 
-    function renderVisibilityDiagnostics(list = []){
-      const allCases = getAllCases();
-      const selected = list.find((item) => item.id === state.selectedId) || list[0] || null;
-      const selectedLabel = selected
-        ? `${selected.caratula || 'Sin carátula'} (${selected.id})`
-        : '—';
-      const batchLabel = state.visibilityDiagnostics.lastBatchId || state.filters.importBatch || '—';
-      if ($('diagSupabaseTotal')) $('diagSupabaseTotal').textContent = `Total causas cargadas desde Supabase: ${allCases.length}`;
-      if ($('diagVisibleTotal')) $('diagVisibleTotal').textContent = `Total causas visibles tras filtros: ${list.length}`;
-      if ($('diagBatchApplied')) $('diagBatchApplied').textContent = `Batch ID aplicado: ${batchLabel}`;
-      if ($('diagAutoSelectedCase')) $('diagAutoSelectedCase').textContent = `Primera causa seleccionada automáticamente: ${selectedLabel}`;
-      const batchButton = $('btnVerCausasLote');
-      if (batchButton) batchButton.hidden = !state.visibilityDiagnostics.lastBatchId;
+	    function renderVisibilityDiagnostics(list = []){
+	      const allCases = getAllCases();
+	      const batchLabel = state.visibilityDiagnostics.lastBatchId || state.filters.importBatch || '—';
+	      if ($('diagSupabaseTotal')) $('diagSupabaseTotal').textContent = `Total causas cargadas desde Supabase: ${allCases.length}`;
+	      if ($('diagVisibleTotal')) $('diagVisibleTotal').textContent = `Total causas visibles tras filtros: ${list.length}`;
+	      if ($('diagBatchApplied')) $('diagBatchApplied').textContent = `Batch ID aplicado: ${batchLabel}`;
+	      const batchButton = $('btnVerCausasLote');
+	      if (batchButton) batchButton.hidden = !state.visibilityDiagnostics.lastBatchId;
       if (!DIAGNOSTIC_MODE) return;
       const interactiveAudit = runInteractiveAudit();
       const lifecycle = computeImportLifecycleDiagnostics();
@@ -6703,9 +6715,9 @@
       }
     }
 
-    function renderList(){
-      const list = getVisibleCases();
-      renderVisibilityDiagnostics(list);
+	    function renderList(){
+	      const list = getVisibleCases();
+	      renderVisibilityDiagnostics(list);
       $('countLabel').textContent = `${list.length} causa(s)`;
       if (!list.length) {
         $('casesList').innerHTML = '<div class="empty-state">No hay causas que coincidan con los filtros aplicados.</div>';
@@ -6716,20 +6728,18 @@
         $('detailContent').innerHTML = '<div class="empty-state">No hay ficha para mostrar.</div>';
         return;
       }
-      if (!state.selectedId || !list.some(item => item.id === state.selectedId)) state.selectedId = list[0].id;
-      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
-      list.forEach((item) => {
-        const label = inferKardexLabel(item.tribunal);
-        if (!grouped.has(label)) grouped.set(label, []);
-        grouped.get(label).push(item);
-      });
-      const orderedGroups = [...KARDEX_GROUPS, ...Array.from(grouped.keys()).filter((label) => !KARDEX_GROUPS.includes(label))];
-      orderedGroups.forEach((label) => {
-        if (state.openKardexByTribunal[label] == null) state.openKardexByTribunal[label] = false;
-      });
-      const selectedCase = list.find((item) => item.id === state.selectedId);
-      if (selectedCase) state.openKardexByTribunal[inferKardexLabel(selectedCase.tribunal)] = true;
-      persistKardexExpandedState();
+	      if (state.selectedId && !list.some(item => item.id === state.selectedId)) state.selectedId = null;
+	      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
+	      list.forEach((item) => {
+	        const label = inferKardexLabel(item.tribunal);
+	        if (!grouped.has(label)) grouped.set(label, []);
+	        grouped.get(label).push(item);
+	      });
+	      const orderedGroups = [...KARDEX_GROUPS];
+	      orderedGroups.forEach((label) => {
+	        if (state.openKardexByTribunal[label] == null) state.openKardexByTribunal[label] = false;
+	      });
+	      persistKardexExpandedState();
 
       $('casesList').innerHTML = orderedGroups
         .filter((label) => (grouped.get(label) || []).length)
@@ -8748,16 +8758,19 @@
       `;
     }
 
-    function renderCurrentTab(){
-      const cause = state.caseMap.get(state.selectedId);
-      if (!cause) {
-        state.rectificationOpen = false;
-        state.rectificationValidation = null;
-        $('causeRectificationPanel').hidden = true;
-        const detailContent = $('detailContent');
-        if (detailContent) detailContent.innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
-        return;
-      }
+	    function renderCurrentTab(){
+	      const cause = state.caseMap.get(state.selectedId);
+	      if (!cause) {
+	        state.rectificationOpen = false;
+	        state.rectificationValidation = null;
+	        $('causeRectificationPanel').hidden = true;
+	        $('detailTitle').textContent = 'Sin causa seleccionada';
+	        $('detailMeta').textContent = 'Abre un KÁRDEX y selecciona una causa para ver su ficha interna.';
+	        $('detailActions').innerHTML = '';
+	        const detailContent = $('detailContent');
+	        if (detailContent) detailContent.innerHTML = '<div class="empty-state">Selecciona una causa para abrir su ficha interna.</div>';
+	        return;
+	      }
       if (!state.selectedAssociationClientId || !state.clients.some(client => String(client[C.c_id]) === String(state.selectedAssociationClientId))) {
         state.selectedAssociationClientId = cause.clientId || state.clients[0]?.[C.c_id] || null;
       }
@@ -8849,10 +8862,21 @@
       renderAll();
     }
 
-    function resetFilters(){
-      clearAllFilters();
-      renderAll();
-    }
+	    function resetFilters(){
+	      clearAllFilters();
+	      renderAll();
+	    }
+
+	    function setAllVisibleKardexCards(open = false){
+	      const list = getVisibleCases();
+	      const visibleGroupLabels = new Set();
+	      list.forEach((item) => visibleGroupLabels.add(inferKardexLabel(item.tribunal)));
+	      visibleGroupLabels.forEach((label) => {
+	        state.openKardexByTribunal[label] = Boolean(open);
+	      });
+	      persistKardexExpandedState();
+	      renderList();
+	    }
 
     const modal = $('modalCausa');
     const msg = $('caseMsg');
@@ -15504,11 +15528,13 @@
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
-      bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
+	      bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
       diagnoseBranchButton('btnQuickProduction', 'produccion');
-      bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
+	      bindEvent('btnLimpiarFiltros', 'click', () => resetFilters(), { scope: 'filtros' });
+	      bindEvent('btnAbrirTodosKardex', 'click', () => setAllVisibleKardexCards(true), { scope: 'filtros' });
+	      bindEvent('btnCerrarTodosKardex', 'click', () => setAllVisibleKardexCards(false), { scope: 'filtros' });
       bindEvent('formCausa', 'submit', createCase, { required: true, scope: 'form-causa' });
       bindEvent('formCargaExpedienteDigital', 'submit', submitManualExpedienteUpload, { required: true, scope: 'form-carga-expediente-digital' });
       bindEvent('formBuscarCausa', 'submit', submitCauseSearchByRol, { required: true, scope: 'form-buscar-causa' });
