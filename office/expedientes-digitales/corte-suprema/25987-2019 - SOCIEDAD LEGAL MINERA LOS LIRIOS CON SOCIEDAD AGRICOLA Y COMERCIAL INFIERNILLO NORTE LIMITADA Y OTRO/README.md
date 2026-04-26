@@ -1,0 +1,6 @@
+# 25987-2019
+
+- **Tribunal:** Corte Suprema
+- **Fecha ingreso:** 05-09-2019
+- **Carátula:** SOCIEDAD LEGAL MINERA LOS LIRIOS CON SOCIEDAD AGRICOLA Y COMERCIAL INFIERNILLO NORTE LIMITADA Y OTRO
+- **Estado:** Fallada

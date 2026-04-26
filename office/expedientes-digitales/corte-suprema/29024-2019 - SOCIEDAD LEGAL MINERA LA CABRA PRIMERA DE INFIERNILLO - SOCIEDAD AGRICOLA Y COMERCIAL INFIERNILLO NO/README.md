@@ -1,0 +1,6 @@
+# 29024-2019
+
+- **Tribunal:** Corte Suprema
+- **Fecha ingreso:** 11-10-2019
+- **Carátula:** SOCIEDAD LEGAL MINERA LA CABRA PRIMERA DE INFIERNILLO / SOCIEDAD AGRICOLA Y COMERCIAL INFIERNILLO NO
+- **Estado:** Fallada
