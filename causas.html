@@ -5162,7 +5162,9 @@
                 editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
                 causas:[
                   {
-                    nombre:`${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'}`,
+                    nombre: tribunalNombre === 'Corte Suprema' 
+  ? `${(rol || '').replace(/ERA/gi, '').replace(/^[A-Z]-/i, '').trim() || 'Sin rol'} · Corte Suprema`
+  : `${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'}`,
                     subcarpetas:[
                       'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
                       'Documentos',
