@@ -119,6 +119,13 @@
     .tribunal-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:10px}
     .tribunal-results-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
     .tribunal-empty{background:#fff7f7;border:1px solid #e7c6c6;border-radius:12px;padding:10px;color:#6f1728}
+    .tribunal-tools{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .tribunal-toolbox{margin-top:10px;background:#f8fffd;border:1px dashed #8ec7be;border-radius:12px;padding:10px;display:grid;gap:8px}
+    .tribunal-toolbox[hidden]{display:none}
+    .tribunal-toolbox textarea{width:100%;min-height:150px;border:1px solid #b9ddd6;border-radius:10px;padding:8px;background:#fff;resize:vertical}
+    .tribunal-toolbox-report{background:#fff;border:1px solid #b9ddd6;border-radius:10px;padding:10px;display:grid;gap:6px}
+    .tribunal-toolbox-report ul{margin:0;padding-left:18px}
+    .tribunal-toolbox-report[hidden]{display:none}
     .search-hit{background:#fff3a3;padding:0 2px;border-radius:4px}
     .role-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
     .manual-btn{appearance:none;border:1px solid #163A5F;background:#163A5F;color:#fff;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
@@ -266,6 +273,7 @@
       </div>
     </section>
   </main>
+  <datalist id="tribunalOptionsGlobal"></datalist>
 
   <section id="matterPanel" class="fullscreen-panel" hidden>
     <div class="panel-shell">
@@ -1540,7 +1548,7 @@
             <div class="role-inline-edit" data-inline-edit-shell="${escapeHtml(cause.id)}" hidden>
               <form class="role-inline-form" data-inline-edit-form="${escapeHtml(cause.id)}">
                 <label>Rol/RIT<input name="rol" value="${escapeHtml(cause.identificador || '')}" required /></label>
-                <label>Tribunal<input name="tribunal" value="${escapeHtml(cause.tribunal || '')}" required /></label>
+                <label>Tribunal<input name="tribunal" list="tribunalOptionsGlobal" value="${escapeHtml(cause.tribunal || '')}" required /></label>
                 <label class="span-full">Carátula<input name="caratula" value="${escapeHtml(cause.caratula || '')}" /></label>
                 <label class="span-full">Cliente<input name="cliente" value="${escapeHtml(cause.cliente || '')}" /></label>
                 <div class="span-full role-inline-actions">
@@ -1586,9 +1594,8 @@
           const causeId = btn.dataset.inlineDelete || '';
           const cause = currentTribunalRoles.find((item) => item.id === causeId);
           if (!cause) return;
-          if (!window.confirm(`¿Eliminar la causa ${cause.identificador}?\nLa causa se ocultará de Expedientes Digitales.`)) return;
-          const current = loadDeletedCausesRegistry();
-          if (!current.includes(causeId)) saveDeletedCausesRegistry([...current, causeId]);
+          const result = await deleteCaseRecord(cause);
+          if (!result.ok) return;
           await loadData();
           if (selectedMatter) openMatterPanel(selectedMatter);
           if (selectedTribunal) openTribunalPanel(selectedTribunal);
@@ -1778,6 +1785,66 @@
         return String(a || '').localeCompare(String(b || ''), 'es');
       });
     }
+    function renderGlobalTribunalOptions() {
+      const node = document.getElementById('tribunalOptionsGlobal');
+      if (!node) return;
+      const options = new Set(['Corte Suprema']);
+      currentMatterTribunalBuckets.forEach((bucket) => {
+        if (bucket?.displayName) options.add(String(bucket.displayName).trim());
+      });
+      allCases.forEach((item) => {
+        const tribunal = String(item?.[C.kTrib] || item?.[C.kCourt] || item?.tribunal || '').trim();
+        if (tribunal) options.add(normalizeTribunal(tribunal));
+      });
+      node.innerHTML = [...options]
+        .sort((a, b) => a.localeCompare(b, 'es'))
+        .map((label) => `<option value="${escapeHtml(label)}"></option>`)
+        .join('');
+    }
+    function normalizeBatchRole(raw = '') {
+      return String(raw || '').replace(/\//g, '-').replace(/\s+/g, '').toUpperCase();
+    }
+    function isValidBatchRole(raw = '') {
+      const role = normalizeBatchRole(raw);
+      if (!role || /[\r\n]/.test(role)) return false;
+      if (/^\d{1,8}-\d{4}$/.test(role)) return true;
+      return /^[A-Z]{1,4}-\d{1,8}-\d{4}$/.test(role);
+    }
+    function detectInvalidFolderRole(rawRole = '') {
+      const role = String(rawRole || '');
+      if (!role.trim()) return 'rol vacío';
+      if (/[\r\n]/.test(role)) return 'contiene saltos de línea';
+      if (role.length > 80) return 'es excesivamente largo';
+      const years = role.match(/\b(19|20)\d{2}\b/g) || [];
+      if (years.length > 1) return 'contiene varios años judiciales';
+      const roleMatches = role.toUpperCase().match(/[A-Z]{0,4}-?\d{1,8}[\/-]\d{4}/g) || [];
+      if (roleMatches.length > 1) return 'contiene más de un rol';
+      if (/[;,|]/.test(role) && role.split(/[;,|]/).filter((piece) => piece.trim()).length > 1) return 'contiene más de un rol';
+      if (/\b(ROL|RIT|RUC|TRIBUNAL|CARATULA|DEMANDANTE|DEMANDADO)\b/i.test(role) && role.length > 30) return 'contiene texto pegado masivo';
+      return '';
+    }
+    function renderTribunalToolReport(nodeId, report = {}) {
+      const node = document.getElementById(nodeId);
+      if (!node) return;
+      const lines = Array.isArray(report.lines) ? report.lines : [];
+      const created = Array.isArray(report.created) ? report.created : [];
+      const existing = Array.isArray(report.existing) ? report.existing : [];
+      const invalid = Array.isArray(report.invalid) ? report.invalid : [];
+      const errors = Array.isArray(report.errors) ? report.errors : [];
+      node.hidden = false;
+      node.innerHTML = `
+        <strong>Reporte final</strong>
+        <div>Roles pegados: <strong>${escapeHtml(String(lines.length))}</strong></div>
+        <div>Carpetas creadas: <strong>${escapeHtml(String(created.length))}</strong></div>
+        <div>Ya existentes: <strong>${escapeHtml(String(existing.length))}</strong></div>
+        <div>Inválidos: <strong>${escapeHtml(String(invalid.length))}</strong></div>
+        <div>Errores: <strong>${escapeHtml(String(errors.length))}</strong></div>
+        ${created.length ? `<div><strong>Creadas</strong><ul>${created.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+        ${existing.length ? `<div><strong>Ya existentes</strong><ul>${existing.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+        ${invalid.length ? `<div><strong>Líneas inválidas</strong><ul>${invalid.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+        ${errors.length ? `<div><strong>Errores</strong><ul>${errors.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
+      `;
+    }
 
     function renderMatterFolders() {
       const html = ORDERED_MATTERS.map((matter) => {
@@ -1876,12 +1943,28 @@
           <button id="tribunalSearchClear" class="btn" type="button">Limpiar</button>
         </div>
         <div class="muted">${escapeHtml(variantText ? variantText.slice(3) : 'Sin variantes detectadas para este tribunal.')}</div>
-        ${isCorteSupremaScope ? `
-          <div class="panel-actions" style="margin-top:8px;">
+        <div class="tribunal-tools">
+          <button id="btnCrearCarpetasMasivasPorRol" class="manual-btn" type="button">Crear carpetas masivas por rol</button>
+          <button id="btnLimpiarCarpetasInvalidas" class="btn" type="button">Limpiar carpetas inválidas</button>
+          ${isCorteSupremaScope ? `
             <button id="btnCrearCarpetaJuicioCorteSuprema" class="manual-btn" type="button">Crear carpeta de juicio</button>
             <button id="btnReplicarCarpetaJuicioCorteSuprema" class="btn" type="button">Replicar</button>
+          ` : ''}
+        </div>
+        <div class="tribunal-toolbox" id="tribunalMassCreateBox" hidden>
+          <div class="muted"><strong>Fuero fijo:</strong> ${escapeHtml(selectedMatter || 'Sin fuero')}</div>
+          <div class="muted"><strong>Tribunal fijo:</strong> ${escapeHtml(tribunalLabel)}</div>
+          <label>
+            <div class="muted"><strong>Pegue aquí un rol por línea</strong></div>
+            <textarea id="tribunalMassRolesInput" placeholder="5731-2026&#10;56552-2025&#10;40132-2025"></textarea>
+          </label>
+          <div class="panel-actions">
+            <button id="btnEjecutarCreacionMasiva" class="manual-btn" type="button">Crear carpetas</button>
+            <button id="btnCancelarCreacionMasiva" class="btn" type="button">Cancelar</button>
           </div>
-        ` : ''}
+          <div id="tribunalMassCreateReport" class="tribunal-toolbox-report" hidden></div>
+        </div>
+        <div id="tribunalInvalidCleanupReport" class="tribunal-toolbox-report" hidden></div>
         <div class="tribunal-results-meta">
           <div class="muted" id="tribunalResultsCount"></div>
         </div>
@@ -1900,22 +1983,79 @@
       });
       document.getElementById('btnCrearCarpetaJuicioCorteSuprema')?.addEventListener('click', () => createNewFolderFromTribunal());
       document.getElementById('btnReplicarCarpetaJuicioCorteSuprema')?.addEventListener('click', () => replicateFolderFromTribunal());
+      document.getElementById('btnCrearCarpetasMasivasPorRol')?.addEventListener('click', () => {
+        const box = document.getElementById('tribunalMassCreateBox');
+        if (box) box.hidden = false;
+      });
+      document.getElementById('btnCancelarCreacionMasiva')?.addEventListener('click', () => {
+        const box = document.getElementById('tribunalMassCreateBox');
+        if (box) box.hidden = true;
+      });
+      document.getElementById('btnEjecutarCreacionMasiva')?.addEventListener('click', async () => {
+        const input = document.getElementById('tribunalMassRolesInput');
+        const lines = String(input?.value || '').split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
+        if (!lines.length) {
+          window.alert('Debes pegar al menos un rol por línea.');
+          return;
+        }
+        const report = { lines, created: [], existing: [], invalid: [], errors: [] };
+        for (const line of lines) {
+          const normalizedRole = normalizeBatchRole(line);
+          if (!isValidBatchRole(normalizedRole)) {
+            report.invalid.push(`${line} · línea inválida`);
+            continue;
+          }
+          const result = await createCaseFolderRecord({ rol: normalizedRole, tribunal: currentTribunalDisplayName, notify: false });
+          if (result.status === 'created') report.created.push(normalizedRole);
+          else if (result.status === 'existing') report.existing.push(normalizedRole);
+          else if (result.status === 'invalid') report.invalid.push(`${line} · línea inválida`);
+          else report.errors.push(`${normalizedRole} · ${result.message || 'error inesperado'}`);
+        }
+        renderTribunalToolReport('tribunalMassCreateReport', report);
+        await loadData();
+        if (selectedMatter) openMatterPanel(selectedMatter);
+        if (selectedTribunal) openTribunalPanel(selectedTribunal);
+      });
+      document.getElementById('btnLimpiarCarpetasInvalidas')?.addEventListener('click', async () => {
+        const candidates = currentTribunalRoles.map((cause) => ({ cause, reason: detectInvalidFolderRole(cause.identificador) })).filter((item) => item.reason);
+        if (!candidates.length) {
+          renderTribunalToolReport('tribunalInvalidCleanupReport', { lines: [], created: [], existing: [], invalid: [], errors: ['No se detectaron carpetas inválidas en este tribunal.'] });
+          return;
+        }
+        const preview = candidates.slice(0, 15).map((item) => `${item.cause.identificador} (${item.reason})`).join('\n');
+        if (!window.confirm(`Se detectaron ${candidates.length} carpeta(s) inválida(s):\n${preview}\n\n¿Deseas eliminarlas?`)) return;
+        const cleanupReport = { lines: candidates.map((item) => item.cause.identificador), created: [], existing: [], invalid: [], errors: [] };
+        for (const candidate of candidates) {
+          const deletion = await deleteCaseRecord(candidate.cause, { silent: true });
+          if (deletion.ok) cleanupReport.created.push(`${candidate.cause.identificador} · eliminada (${candidate.reason})`);
+          else cleanupReport.errors.push(`${candidate.cause.identificador} · ${deletion.message || 'no se pudo eliminar'}`);
+        }
+        renderTribunalToolReport('tribunalInvalidCleanupReport', cleanupReport);
+        await loadData();
+        if (selectedMatter) openMatterPanel(selectedMatter);
+        if (selectedTribunal) openTribunalPanel(selectedTribunal);
+      });
+      renderGlobalTribunalOptions();
       applyTribunalFilter(tribunalKey);
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = false;
       document.getElementById('rolePanel').hidden = true;
       document.getElementById('manualPanel').hidden = true;
     }
-    async function createCaseFolderRecord({ rol = '', caratula = '', tribunal = '', sourceCause = null } = {}) {
-      const normalizedRol = String(rol || '').trim();
+    async function createCaseFolderRecord({ rol = '', caratula = '', tribunal = '', sourceCause = null, notify = true } = {}) {
+      const normalizedRol = normalizeBatchRole(rol);
       if (!normalizedRol) {
-        window.alert('Debes indicar un Rol/RIT para crear la carpeta.');
-        return;
+        if (notify) window.alert('Debes indicar un Rol/RIT para crear la carpeta.');
+        return { status: 'invalid', message: 'Rol/RIT vacío' };
+      }
+      if (!isValidBatchRole(normalizedRol)) {
+        if (notify) window.alert('El Rol/RIT ingresado no tiene formato válido.');
+        return { status: 'invalid', message: 'Formato inválido' };
       }
       const duplicate = currentTribunalRoles.find((item) => normalize(item.identificador) === normalize(normalizedRol));
       if (duplicate) {
-        window.alert(`Ya existe una carpeta con ese Rol/RIT en este tribunal: ${duplicate.identificador}.`);
-        return;
+        if (notify) window.alert(`Ya existe una carpeta con ese Rol/RIT en este tribunal: ${duplicate.identificador}.`);
+        return { status: 'existing', message: 'ya existente' };
       }
       const nowIso = new Date().toISOString();
       const { data: sessionData } = await supabase.auth.getSession();
@@ -1936,13 +2076,16 @@
       if (createdBy) payload.created_by = createdBy;
       const { error } = await supabase.from('cases').insert(payload);
       if (error) {
-        window.alert(`No fue posible crear la carpeta nueva: ${error.message || 'error de persistencia'}`);
-        return;
+        if (notify) window.alert(`No fue posible crear la carpeta nueva: ${error.message || 'error de persistencia'}`);
+        return { status: 'error', message: error.message || 'error de persistencia' };
       }
-      await loadData();
-      if (selectedMatter) openMatterPanel(selectedMatter);
-      if (selectedTribunal) openTribunalPanel(selectedTribunal);
-      window.alert(`Carpeta creada correctamente para ${normalizedRol}.`);
+      if (notify) {
+        await loadData();
+        if (selectedMatter) openMatterPanel(selectedMatter);
+        if (selectedTribunal) openTribunalPanel(selectedTribunal);
+        window.alert(`Carpeta creada correctamente para ${normalizedRol}.`);
+      }
+      return { status: 'created', message: 'creada' };
     }
     async function createNewFolderFromTribunal() {
       const rol = window.prompt('Ingrese el Rol/RIT para la nueva carpeta de juicio:');
@@ -1973,6 +2116,23 @@
         tribunal: currentTribunalDisplayName || sourceCause.tribunal || 'Corte Suprema',
         sourceCause,
       });
+    }
+    async function deleteCaseRecord(cause = {}, options = {}) {
+      const role = String(cause.identificador || cause[C.kRol] || '').trim() || 'Sin rol';
+      const tribunal = String(cause.tribunal || cause[C.kTrib] || cause[C.kCourt] || currentTribunalDisplayName || 'Sin tribunal').trim();
+      const caratula = String(cause.caratula || cause[C.kCaratula] || 'Carátula pendiente').trim();
+      if (!options.silent) {
+        const approved = window.confirm(`¿Eliminar causa?\nRol: ${role}\nTribunal: ${tribunal}\nCarátula: ${caratula}`);
+        if (!approved) return { ok: false, cancelled: true, message: 'cancelado por usuario' };
+      }
+      try {
+        await supabase.from('case_files').delete().eq('case_id', cause.id);
+      } catch {}
+      const { error } = await supabase.from('cases').delete().eq('id', cause.id);
+      if (error) return { ok: false, message: error.message || 'error al eliminar causa' };
+      const deletedRegistry = loadDeletedCausesRegistry().filter((id) => id !== cause.id);
+      saveDeletedCausesRegistry(deletedRegistry);
+      return { ok: true };
     }
 
     async function listCaseFilesForCause(cause = {}) {
@@ -2266,7 +2426,7 @@
       form.innerHTML = `
         <div class="span-full"><strong>A) Datos base de la causa</strong></div>
         <label>Rol<input name="rol" value="${escapeHtml(current.base?.rol || cause.rolReal || cause.identificador)}" required /></label>
-        <label>Tribunal<input name="tribunal" value="${escapeHtml(current.base?.tribunal || cause.tribunal || (currentMatterTribunalBuckets.find((item) => item.key === selectedTribunal)?.displayName || ''))}" required /></label>
+        <label>Tribunal<input name="tribunal" list="tribunalOptionsGlobal" value="${escapeHtml(current.base?.tribunal || cause.tribunal || (currentMatterTribunalBuckets.find((item) => item.key === selectedTribunal)?.displayName || ''))}" required /></label>
         <label class="span-full">Carátula<input name="caratula" value="${escapeHtml(current.base?.caratula || cause.caratula || '')}" /></label>
         <label>Procedimiento<input name="procedimiento" value="${escapeHtml(current.base?.procedimiento || '')}" /></label>
         <label>Materia<input name="materia" value="${escapeHtml(current.base?.materia || selectedMatter || '')}" /></label>
@@ -2583,6 +2743,7 @@
       ]);
       allCases = Array.isArray(cases) ? cases : [];
       allClients = Array.isArray(clients) ? clients : [];
+      renderGlobalTribunalOptions();
 
       const clientMap = new Map((clients || []).map(c => [c[C.cId], c[C.cName]]));
       const naturals = [];
