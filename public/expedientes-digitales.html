@@ -379,7 +379,7 @@
     const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['institucion'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
       rit: ['rit', 'rol'],
-      tribunal: ['tribunal', 'era', 'juzgado', 'tribunal de letras'],
+      tribunal: ['tribunal', 'juzgado', 'tribunal de letras'],
       caratulado: ['caratulado', 'carátula', 'caratula'],
       fecha_ingreso: ['fecha ingreso', 'fecha', 'ingreso'],
       estado_causa: ['estado', 'estado causa'],
@@ -670,6 +670,11 @@
       const cleaned = normalizeWhitespace(raw);
       const normalizedKey = normalize(cleaned);
       if (normalizedKey.includes('suprema')) return 'Corte Suprema';
+      const caMatch = normalizedKey.match(/\b(c\.?\s*a\.?|corte de apelaciones)\b\s*(de)?\s*(.+)?$/i);
+      if (caMatch) {
+        const city = normalizeWhitespace(caMatch[3] || '');
+        return city ? `Corte de Apelaciones de ${city}` : 'Corte de Apelaciones';
+      }
       const learnedRules = loadNormalizationRules().tribunalAliases || {};
       return learnedRules[normalizedKey] || COURT_NORMALIZATION_MAP[normalizedKey] || cleaned;
     }
@@ -752,21 +757,6 @@
         resolved[optionalKey] = canonicalToOriginal.get(normalizeExcelHeaderCanonical(matched));
       });
       return { resolved, missing, detectedHeaders };
-    }
-    function hasExcelDepuradoSixColumnShape(raw = {}) {
-      return Object.keys(raw || {}).length === 6;
-    }
-    function resolveExcelDepuradoRowByPosition(raw = {}) {
-      const headers = Object.keys(raw || {});
-      const values = headers.map((header) => raw?.[header]);
-      return {
-        rit: values[0] || '',
-        tribunal: values[1] || '',
-        caratulado: values[2] || '',
-        fecha_ingreso: values[3] || '',
-        estado_causa: values[4] || '',
-        institucion: values[5] || '',
-      };
     }
     function parseDateFromExcel(raw = '') {
       const value = String(raw || '').trim();
@@ -1180,6 +1170,7 @@
       if (source.includes('oral en lo penal') || source.includes('juicio oral')) return 'Tribunales de Juicio Oral en lo Penal';
       if (source.includes('policia local')) return 'Juzgados de Policía Local';
       if (source.includes('suprema')) return 'Corte Suprema';
+      if (/\bc\.?\s*a\.?\b/.test(source)) return 'Cortes de Apelaciones';
       if (source.includes('apelaciones')) return 'Cortes de Apelaciones';
       if (source.includes('civil') || source.includes('letras')) return 'Juzgados Civiles';
       return 'Juzgados Civiles';
@@ -1277,46 +1268,26 @@
         if (!rows.length) throw new Error('El Excel depurado no contiene filas.');
         const seen = new Set();
         let resolvedHeaders = null;
-        let usePositionalMapping = false;
-        let eraPositionWarningEmitted = false;
         for (let i = 0; i < rows.length; i += 1) {
           const raw = rows[i] || {};
-          if (!resolvedHeaders && !usePositionalMapping) {
-            if (hasExcelDepuradoSixColumnShape(raw)) {
-              usePositionalMapping = true;
-              const secondHeader = String(Object.keys(raw || {})[1] || '').trim();
-              if (normalizeExcelHeaderCanonical(secondHeader) === 'era') {
-                report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
-                eraPositionWarningEmitted = true;
-              }
-            } else {
-              const resolution = resolveExcelDepuradoHeaders(raw);
-              if (resolution.missing.length) {
-                const missingWithoutTribunal = resolution.missing.filter((key) => key !== 'tribunal');
-                if (missingWithoutTribunal.length) {
-                  const missingLabel = missingWithoutTribunal
-                    .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
-                    .join(', ');
-                  throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
-                }
-              }
-              resolvedHeaders = resolution.resolved;
+          if (!resolvedHeaders) {
+            const resolution = resolveExcelDepuradoHeaders(raw);
+            if (resolution.missing.length) {
+              const missingLabel = resolution.missing
+                .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
+                .join(', ');
+              throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
             }
+            resolvedHeaders = resolution.resolved;
           }
-          const source = usePositionalMapping
-            ? resolveExcelDepuradoRowByPosition(raw)
-            : {
-              rit: raw[resolvedHeaders.rit] || '',
-              tribunal: raw[resolvedHeaders.tribunal] || '',
-              caratulado: raw[resolvedHeaders.caratulado] || '',
-              fecha_ingreso: raw[resolvedHeaders.fecha_ingreso] || '',
-              estado_causa: raw[resolvedHeaders.estado_causa] || '',
-              institucion: raw[resolvedHeaders.institucion] || '',
-            };
-          if (!eraPositionWarningEmitted && normalizeExcelHeaderCanonical(String(resolvedHeaders?.tribunal || '')) === 'era') {
-            report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
-            eraPositionWarningEmitted = true;
-          }
+          const source = {
+            rit: raw[resolvedHeaders.rit] || '',
+            tribunal: raw[resolvedHeaders.tribunal] || '',
+            caratulado: raw[resolvedHeaders.caratulado] || '',
+            fecha_ingreso: raw[resolvedHeaders.fecha_ingreso] || '',
+            estado_causa: raw[resolvedHeaders.estado_causa] || '',
+            institucion: raw[resolvedHeaders.institucion] || '',
+          };
           const rawExcelRole = readRawExcelRole(source);
           const roleUsedForComparison = buildReconstructedRoleNumberYear(rawExcelRole);
           const rawTribunal = String(source.tribunal || '').trim();
