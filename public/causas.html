@@ -10741,13 +10741,12 @@
 
     function normalizeExcelHeaderLabel(label = ''){
       const normalized = normalizeExcelHeaderKey(label);
-      if (['rit', 'rol', 'rolrit', 'ritrol'].includes(normalized)) return 'rol';
-      if (['tribunal', 'juzgado'].includes(normalized)) return 'tribunal';
-      if (['caratulado', 'caratula', 'causa', 'nombrecausa'].includes(normalized)) return 'caratula';
-      if (['fechaingreso'].includes(normalized)) return 'fecha_ingreso';
-      if (['estadocausa'].includes(normalized)) return 'estado_causa';
-      if (['institucion', 'institucionresponsable'].includes(normalized)) return 'institucion';
-      if (normalized === 'era') return 'era';
+      if (normalized === 'rol') return 'rol';
+      if (normalized === 'tribunal') return 'tribunal';
+      if (normalized === 'caratulado') return 'caratula';
+      if (normalized === 'fechaingreso') return 'fecha_ingreso';
+      if (normalized === 'estadocausa') return 'estado_causa';
+      if (normalized === 'institucion') return 'institucion';
       return normalized;
     }
 
@@ -10762,31 +10761,17 @@
       }
     }
 
-    function detectExcelHeaderRow(XLSX, sheet){
+    function readStrictExcelHeaderRow(XLSX, sheet){
       const rows = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: '', blankrows: false, raw: false });
-      let eraDetected = false;
-      const candidates = [];
-      rows.forEach((row, index) => {
-        const normalizedHeaders = (Array.isArray(row) ? row : [])
-          .map((value) => normalizeExcelHeaderLabel(value))
-          .filter(Boolean);
-        const unique = [...new Set(normalizedHeaders)];
-        const hasRol = unique.includes('rol');
-        const hasTribunal = unique.includes('tribunal');
-        const hasCaratula = unique.includes('caratula');
-        const hasEra = unique.includes('era');
-        if (hasEra) eraDetected = true;
-        if (!(hasRol && hasCaratula)) return;
-        candidates.push({ rowIndex: index, headers: unique, hasTribunal, hasEra });
-      });
-      const preferred = candidates.find((candidate) => candidate.hasTribunal && !candidate.hasEra)
-        || candidates.find((candidate) => candidate.hasTribunal)
-        || null;
+      const headerRow = Array.isArray(rows[0]) ? rows[0] : [];
+      const normalizedHeaders = headerRow
+        .map((value) => normalizeExcelHeaderLabel(value))
+        .filter(Boolean);
+      const unique = [...new Set(normalizedHeaders)];
       return {
         rows,
-        headerRowIndex: preferred ? preferred.rowIndex : -1,
-        normalizedHeaders: preferred ? preferred.headers : [],
-        eraDetected,
+        headerRowIndex: 0,
+        normalizedHeaders: unique,
       };
     }
 
@@ -10820,54 +10805,17 @@
       });
       return {
         rol: pickRowValue(normalizedMap, ['rol']),
-        rolNumero: pickRowValue(normalizedMap, ['rolnumero', 'numero', 'numerorol', 'nrorol']),
-        rolAnio: pickRowValue(normalizedMap, ['rolanio', 'ano', 'anio', 'era']),
-        tribunal: pickRowValue(normalizedMap, ['tribunal', 'corte']),
-        tipoTribunal: pickRowValue(normalizedMap, ['tipotribunal', 'tribunaltipo', 'tipodejuzgado']),
+        rolNumero: '',
+        rolAnio: '',
+        tribunal: pickRowValue(normalizedMap, ['tribunal']),
+        tipoTribunal: '',
         caratula: pickRowValue(normalizedMap, ['caratula']),
-        partes: pickRowValue(normalizedMap, ['partes', 'demandante', 'demandado', 'intervinientes']),
-        estado: pickRowValue(normalizedMap, ['estado', 'estado_causa', 'estadoprocesal']),
-        fecha: pickRowValue(normalizedMap, ['fecha', 'fecha_ingreso', 'fechaestado', 'fecharesolucion', 'fechagestion']),
-        materia: pickRowValue(normalizedMap, ['materia', 'submateria']),
-        procedimiento: pickRowValue(normalizedMap, ['procedimiento']),
+        partes: '',
+        estado: pickRowValue(normalizedMap, ['estado_causa']),
+        fecha: pickRowValue(normalizedMap, ['fecha_ingreso']),
+        materia: '',
+        procedimiento: '',
         institucion: pickRowValue(normalizedMap, ['institucion']),
-      };
-    }
-
-    function parseExcelRoleNumberYearFromValue(value = ''){
-      const raw = String(value || '').trim();
-      if (!raw) return { roleNumber: '', roleYear: '' };
-      const normalized = normalizePjudText(raw);
-      const numbers = normalized.match(/\d{1,9}/g) || [];
-      if (!numbers.length) return { roleNumber: '', roleYear: '' };
-      const roleNumber = numbers[0] || '';
-      const yearCandidate = numbers.find((token) => /^(19\d{2}|20\d{2}|\d{2})$/.test(token)) || '';
-      const parsedYear = yearCandidate
-        ? String(yearCandidate).length === 2
-          ? `20${yearCandidate}`
-          : yearCandidate
-        : '';
-      return { roleNumber, roleYear: parsedYear };
-    }
-
-    function rebuildExcelRoleForComparison(row = {}){
-      const fromColumnsNumber = String(row?.rolNumero || '').trim();
-      const fromColumnsYear = String(row?.rolAnio || '').trim();
-      let roleNumber = fromColumnsNumber;
-      let roleYear = fromColumnsYear;
-      if (!roleNumber || !roleYear) {
-        const parsedFromRole = parseExcelRoleNumberYearFromValue(row?.rol || '');
-        if (!roleNumber) roleNumber = parsedFromRole.roleNumber;
-        if (!roleYear) roleYear = parsedFromRole.roleYear;
-      }
-      if (roleYear && String(roleYear).length === 2) roleYear = `20${roleYear}`;
-      const normalizedNumber = String(roleNumber || '').replace(/\D/g, '');
-      const normalizedYear = String(roleYear || '').replace(/\D/g, '');
-      const rebuiltRole = normalizedNumber && normalizedYear ? `${normalizedNumber}-${normalizedYear}` : '';
-      return {
-        roleNumberRead: normalizedNumber,
-        roleYearRead: normalizedYear,
-        rebuiltRole,
       };
     }
 
@@ -11050,7 +10998,7 @@
         return;
       }
       const withErrors = Number(record.errors || 0) > 0;
-      node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · exactas ${Number(record.exactUpdated || 0)} · flexibles ${Number(record.flexibleUpdated || 0)} · múltiples ${Number(record.multipleMatches || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
+      node.innerHTML = `<strong>Último proceso ejecutado:</strong> ${escapeHtml(record.finalStatus || 'Sin estado')} · ${escapeHtml(formatDateTimeLabel(record.finishedAt || record.startedAt || new Date().toISOString()))} · filas ${Number(record.totalRows || 0)} · exactas ${Number(record.exactUpdated || 0)} · creadas ${Number(record.createdCases || 0)} · múltiples ${Number(record.multipleMatches || 0)} · sin coincidencia ${Number(record.unmatchedRows || 0)} · errores ${Number(record.errors || 0)}${withErrors ? ' · revisar reporte y bitácora de errores.' : ''}`;
     }
 
     async function parseExcelUploadFile(type, file, options = {}){
@@ -11074,14 +11022,13 @@
             physicalRows: 0,
             headerRowIndex: -1,
             detectedHeaders: [],
-            eraDetected: false,
             dataRows: 0,
             rawRows: [],
             rows: [],
             invalidHeader: true,
           };
         }
-        const { headerRowIndex, normalizedHeaders, rows: rawRows, eraDetected } = detectExcelHeaderRow(xlsxModule, sheet);
+        const { headerRowIndex, normalizedHeaders, rows: rawRows } = readStrictExcelHeaderRow(xlsxModule, sheet);
         const parsedRows = headerRowIndex >= 0
           ? xlsxModule.utils.sheet_to_json(sheet, { defval: '', raw: false, range: headerRowIndex })
           : [];
@@ -11094,37 +11041,36 @@
           physicalRows: getSheetPhysicalRowCount(xlsxModule, sheet),
           headerRowIndex,
           detectedHeaders: normalizedHeaders,
-          eraDetected,
           dataRows,
           rawRows,
           rows: parsedRows,
           invalidHeader: headerRowIndex < 0,
         };
       });
-      const sheetsWithHeader = sheetAnalyses.filter((item) => !item.invalidHeader);
-      if (!sheetsWithHeader.length) {
-        throw new Error('No se detectó una fila de encabezados válida en ninguna hoja. Debe incluir al menos Rol/RIT, Tribunal y Caratulado/Carátula.');
-      }
-      const bestSheetByData = sheetsWithHeader
-        .slice()
-        .sort((a, b) => Number(b.dataRows || 0) - Number(a.dataRows || 0))[0];
       const forcedSheetName = String(options?.sheetName || '').trim();
       let selectedSheet = forcedSheetName
-        ? sheetsWithHeader.find((item) => item.sheetName === forcedSheetName)
-        : null;
-      if (!selectedSheet) selectedSheet = bestSheetByData;
+        ? sheetAnalyses.find((item) => item.sheetName === forcedSheetName)
+        : sheetAnalyses[0];
       if (!selectedSheet) throw new Error('No fue posible resolver la hoja a procesar.');
       const requiredCanonicalHeaders = ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
+      const canonicalToDisplay = {
+        rol: 'Rol',
+        tribunal: 'Tribunal',
+        caratula: 'Caratulado',
+        fecha_ingreso: 'Fecha Ingreso',
+        estado_causa: 'Estado Causa',
+        institucion: 'Institución',
+      };
       const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !(selectedSheet.detectedHeaders || []).includes(key));
       if (missingCanonicalHeaders.length) {
-        throw new Error(`Encabezados insuficientes en la hoja "${selectedSheet.sheetName}". Faltan: ${missingCanonicalHeaders.join(', ')}.`);
+        const firstMissing = canonicalToDisplay[missingCanonicalHeaders[0]] || missingCanonicalHeaders[0];
+        throw new Error(`Error: columna '${firstMissing}' no encontrada en Excel depurado`);
       }
       const sheetName = selectedSheet.sheetName;
       const hidden = selectedSheet.hidden;
       const headerRowIndex = selectedSheet.headerRowIndex;
       const normalizedHeaders = selectedSheet.detectedHeaders;
       const rawRows = selectedSheet.rawRows;
-      const eraDetected = selectedSheet.eraDetected;
       const rows = selectedSheet.rows;
       if (!rows.length) throw new Error(`La hoja "${sheetName}" no contiene filas de datos.`);
       const validRows = [];
@@ -11135,7 +11081,6 @@
       let duplicates = 0;
       const allCases = getAllCases();
       const indexedByRolTribunal = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)]));
-      const indexedByCaratula = new Map(allCases.map((cause) => [String(cause.caratula || '').trim().toLowerCase(), String(cause.id)]));
       rows.forEach((rawRow, index) => {
         const parsed = resolveExcelRowCanonical(rawRow);
         const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
@@ -11147,7 +11092,7 @@
         const duplicateKey = `${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}|${parsed.caratula.toLowerCase()}`;
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
-        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || indexedByCaratula.get(parsed.caratula.toLowerCase()) || null;
+        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || null;
         const minimalIdentityOk = type === 'listado'
           ? Boolean(parsed.rol && parsed.tribunal && parsed.caratula)
           : Boolean(parsed.rol || parsed.caratula || parsed.tribunal);
@@ -11170,7 +11115,6 @@
       const workbookPhysicalRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.physicalRows || 0)), 0);
       const workbookDataRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.dataRows || 0)), 0);
       const selectedDataRows = Number(selectedSheet.dataRows || 0);
-      const warningSheetMismatch = workbookDataRows > 0 && selectedDataRows > 0 && selectedDataRows < Math.ceil(workbookDataRows * 0.6);
       const fueroAudit = buildExcelFueroAudit(auditRows);
       return {
         sheetName,
@@ -11187,9 +11131,7 @@
         headerRowNumber: headerRowIndex + 1,
         detectedHeaders: normalizedHeaders,
         headerWarnings: [
-          ...(eraDetected ? ['Se detectó encabezado "Era". Se priorizó una fila que incluyera "Tribunal".'] : []),
-          ...(sheetNames.length > 1 && !options?.sheetName ? [`Se seleccionó automáticamente la hoja con más filas con datos: "${sheetName}".`] : []),
-          ...(warningSheetMismatch ? ['El sistema solo detectó 52 filas, pero el archivo aparenta contener más registros. Revise hoja/rango seleccionado.'] : []),
+          ...(sheetNames.length > 1 && !options?.sheetName ? [`Se usó la primera hoja del libro: "${sheetName}".`] : []),
         ],
         firstReadRows: rawRows.slice(headerRowIndex + 1, headerRowIndex + 6),
         totalRows: rows.length,
@@ -11300,13 +11242,6 @@
       if (!store.parsed.validRows.length) throw new Error('No hay filas válidas para procesar.');
       if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
       if (key === 'listado') {
-        const detectedRows = Number(store.parsed.totalRowsWithData || store.parsed.totalRows || 0);
-        const expectedRows = Number(store.parsed.workbookExpectedRows || detectedRows || 0);
-        if (expectedRows > 0 && detectedRows > 0 && detectedRows < expectedRows) {
-          throw new Error('El sistema solo detectó 52 filas, pero el archivo aparenta contener más registros. Revise hoja/rango seleccionado.');
-        }
-      }
-      if (key === 'listado') {
         state.excelUploads.listado.isProcessing = true;
         state.excelUploads.listado.cancelRequested = false;
         setListadoProgress({
@@ -11392,9 +11327,9 @@
       let processingErrors = 0;
       const listadoMatchStats = {
         exactUpdated: 0,
-        flexibleUpdated: 0,
         unmatched: 0,
         multiple: 0,
+        created: 0,
       };
       const listadoExamples = [];
       const fueroAudit = store.parsed.fueroAudit || buildExcelFueroAudit(store.parsed.validRows || []);
@@ -11410,7 +11345,6 @@
       if (key === 'listado') {
         const allCases = getAllCases();
         const byExactKey = new Map();
-        const byFlexibleKey = new Map();
         const pushCase = (map, keyName, cause) => {
           if (!keyName) return;
           if (!map.has(keyName)) map.set(keyName, []);
@@ -11418,10 +11352,7 @@
         };
         allCases.forEach((cause) => {
           const exactKey = `${normalizePjudText(cause?.rol || '')}|${normalizePjudText(cause?.tribunal || cause?.court || '')}`;
-          const flexibleRoleKey = buildExcelFlexibleMatchKey(cause?.rol || '');
-          const flexibleCourt = normalizeCourtForFlexibleMatch(cause?.tribunal || cause?.court || '');
           pushCase(byExactKey, exactKey, cause);
-          if (flexibleRoleKey && flexibleCourt) pushCase(byFlexibleKey, `${flexibleRoleKey}|${flexibleCourt}`, cause);
         });
         setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas tipo Office existentes.' });
         let processedRows = 0;
@@ -11430,25 +11361,14 @@
           const classification = classifyTribunalFuero(row?.tribunal || '');
           const rowHasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
           const isClassified = ['corte_suprema', 'cortes_apelaciones'].includes(classification.fuero);
-          const roleDebug = rebuildExcelRoleForComparison(row);
-          const rolComparacion = roleDebug.rebuiltRole || String(row?.rol || '').trim();
+          const rolComparacion = String(row?.rol || '').trim();
           const exactKey = `${normalizePjudText(rolComparacion)}|${normalizePjudText(row?.tribunal || '')}`;
           const exactMatches = byExactKey.get(exactKey) || [];
-          const flexibleRoleKey = buildExcelFlexibleMatchKey(rolComparacion || row?.rol || '');
-          const flexibleCourt = normalizeCourtForFlexibleMatch(row?.tribunal || '');
-          const flexibleMatches = exactMatches.length || !flexibleRoleKey || !flexibleCourt
-            ? []
-            : (byFlexibleKey.get(`${flexibleRoleKey}|${flexibleCourt}`) || []);
-          const candidateFoldersByNumberYear = [
-            ...new Set([
-              ...exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean),
-              ...flexibleMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean),
-            ]),
-          ];
-          const resolvedMatches = exactMatches.length ? exactMatches : flexibleMatches;
-          const resolvedMatchType = exactMatches.length ? 'exacto' : (flexibleMatches.length ? 'flexible' : 'sin_coincidencia');
+          const candidateFoldersByNumberYear = [...new Set(exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
+          const resolvedMatches = exactMatches;
           let resultLabel = 'sin carpeta existente';
           let matchedCase = null;
+          let createdCaseRecord = null;
           try {
             if (resolvedMatches.length === 1) {
               matchedCase = resolvedMatches[0];
@@ -11472,27 +11392,59 @@
               if (updateError) throw updateError;
               updatedCases += 1;
               linkedRows += 1;
-              if (resolvedMatchType === 'exacto') listadoMatchStats.exactUpdated += 1;
-              if (resolvedMatchType === 'flexible') listadoMatchStats.flexibleUpdated += 1;
+              listadoMatchStats.exactUpdated += 1;
               if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
-              resultLabel = resolvedMatchType === 'exacto' ? 'actualizada (match exacto)' : 'actualizada (match flexible)';
+              resultLabel = 'actualizada (match exacto)';
             } else if (resolvedMatches.length > 1) {
               listadoMatchStats.multiple += 1;
               resultLabel = 'coincidencia múltiple';
             } else {
-              listadoMatchStats.unmatched += 1;
+              const insertPayload = {
+                [C.k_client_id]: null,
+                [C.k_responsible]: null,
+                [C.k_court]: row?.tribunal || null,
+                [C.k_rol]: row?.rol || null,
+                [C.k_subject]: classification.fuero === 'corte_suprema' ? 'Corte Suprema' : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Materia por definir'),
+                [C.k_fee_total]: null,
+                [C.k_fee_type]: 'Mixto',
+                [C.k_payment]: 'Mixto',
+                [C.k_ppm]: null,
+                [C.k_withheld_by]: null,
+                [C.k_notes]: 'Creación automática desde Excel depurado (lectura estricta).',
+              };
+              const { data: createdCase, error: createError } = await supabase.from(T_CASES).insert(insertPayload).select('*').single();
+              if (createError) throw createError;
+              const createdId = String(createdCase?.[C.k_id] || '').trim();
+              if (!createdId) throw new Error('La causa creada desde Excel depurado no devolvió ID.');
+              const workspace = loadWorkspace();
+              workspace[createdId] = createSeedDetail({
+                id: createdId,
+                rol: row?.rol || '',
+                tribunal: row?.tribunal || '',
+                caratula: row?.caratula || '',
+                materia: classification.fuero === 'corte_suprema' ? 'Corte Suprema' : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Materia por definir'),
+                estadoProcesal: row?.estado || '',
+                pjudEstadoCausa: row?.estado || '',
+                pjudFechaIngreso: row?.fecha || '',
+                pjudInstitucion: row?.institucion || '',
+              });
+              saveWorkspace(workspace);
+              createdCases += 1;
+              createdCaseRecord = createdCase;
+              listadoMatchStats.created += 1;
+              resultLabel = 'creada (sin coincidencia exacta)';
             }
-            if (isClassified && !matchedCase) failureReport.filasClasificadasNoMaterializadas += 1;
-            if (classification.fuero === 'corte_suprema' && !matchedCase) failureReport.filasCorteSupremaNoCreadas += 1;
+            if (isClassified && !matchedCase && !createdCaseRecord) failureReport.filasClasificadasNoMaterializadas += 1;
+            if (classification.fuero === 'corte_suprema' && !matchedCase && !createdCaseRecord) failureReport.filasCorteSupremaNoCreadas += 1;
             processedRows += 1;
             if (listadoExamples.length < 10) {
               listadoExamples.push({
                 rolExcelReconstruido: rolComparacion || row?.rol || '',
-                numeroLeido: roleDebug.roleNumberRead || '',
-                anioLeido: roleDebug.roleYearRead || '',
+                numeroLeido: '',
+                anioLeido: '',
                 tribunalExcel: row?.tribunal || '',
-                rolCarpetaEncontrada: matchedCase?.rol || '',
-                tribunalCarpetaEncontrada: matchedCase?.tribunal || '',
+                rolCarpetaEncontrada: matchedCase?.rol || createdCaseRecord?.rol || '',
+                tribunalCarpetaEncontrada: matchedCase?.tribunal || createdCaseRecord?.tribunal || '',
                 carpetasCandidatasNumeroAnio: candidateFoldersByNumberYear,
                 resultado: resultLabel,
               });
@@ -11510,8 +11462,8 @@
             });
             console.debug('[CAUSAS][EXCEL-DEPURADO][DEBUG-MATCH]', {
               rowNumber: row?.rowNumber || null,
-              numeroLeido: roleDebug.roleNumberRead || null,
-              anioLeido: roleDebug.roleYearRead || null,
+              numeroLeido: null,
+              anioLeido: null,
               rolReconstruido: rolComparacion || null,
               tribunalExcel: row?.tribunal || null,
               carpetasCandidatasNumeroAnio: candidateFoldersByNumberYear,
@@ -11544,7 +11496,7 @@
         linkedRows = store.parsed.validRows.filter((row) => row.linkedCaseId).length;
       }
       const processedCount = key === 'listado'
-        ? (updatedCases + listadoMatchStats.unmatched + listadoMatchStats.multiple)
+        ? (updatedCases + createdCases + listadoMatchStats.unmatched + listadoMatchStats.multiple)
         : (createdCases + updatedCases);
       const discardedCount = Math.max(0, Number(store.parsed.totalRowsWithData || store.parsed.totalRows || 0) - Number(processedCount || 0));
       const structuralErrors = Number(store.parsed.invalidRows || 0);
@@ -11584,7 +11536,7 @@
             createdCases,
             updatedCases,
             exactUpdated: listadoMatchStats.exactUpdated,
-            flexibleUpdated: listadoMatchStats.flexibleUpdated,
+            flexibleUpdated: 0,
             unmatchedRows: listadoMatchStats.unmatched,
             multipleMatches: listadoMatchStats.multiple,
             examples: listadoExamples,
@@ -11618,7 +11570,8 @@
           updatedFolders: updatedCases,
           unmatchedRows: listadoMatchStats.unmatched,
           exactUpdated: listadoMatchStats.exactUpdated,
-          flexibleUpdated: listadoMatchStats.flexibleUpdated,
+          createdCases,
+          flexibleUpdated: 0,
           multipleMatches: listadoMatchStats.multiple,
           examples: listadoExamples,
           fueroAudit,
@@ -11654,7 +11607,7 @@
         createdCases,
         updatedCases,
         updatedExactMatches: listadoMatchStats.exactUpdated,
-        updatedFlexibleMatches: listadoMatchStats.flexibleUpdated,
+        updatedFlexibleMatches: 0,
         unmatchedRows: listadoMatchStats.unmatched,
         multipleMatches: listadoMatchStats.multiple,
         examples: listadoExamples,
@@ -16106,7 +16059,7 @@
           const apelacionesCount = Number(fueroAudit.appealsRows?.length || 0);
           const apelacionesConCaratula = Number((fueroAudit.appealsRows || []).filter((row) => row.hasCaratula).length || 0);
           const diagnosticsText = ` Diagnóstico: Corte Suprema detectadas=${supremaCount}, con tribunal=${supremaConTribunal}, con carátula=${supremaConCaratula}, no creadas/actualizadas=${Number(failure.filasCorteSupremaNoCreadas || 0)}. Cortes de Apelaciones detectadas=${apelacionesCount}, con carátula=${apelacionesConCaratula}, sin carátula=${Number(failure.filasCortesApelacionesSinCaratula || 0)}, clasificadas pero no materializadas=${Number(failure.filasClasificadasNoMaterializadas || 0)}. Fallas: sin tribunal=${Number(failure.filasSinTribunal || 0)}, sin caratulado=${Number(failure.filasSinCaratulado || 0)}, tribunal no clasificado=${Number(failure.filasTribunalNoClasificado || 0)}, materializadas sin carátula=${Number(failure.filasMaterializadasSinCaratula || 0)}.`;
-          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Actualizadas match flexible: ${summary.updatedFlexibleMatches || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${diagnosticsText}${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          setMessage('listadoCausasMsg', `Excel depurado procesado. Total filas: ${summary.totalRows}. Actualizadas match exacto: ${summary.updatedExactMatches || 0}. Causas creadas: ${summary.createdCases || 0}. Sin coincidencia: ${summary.unmatchedRows || 0}. Coincidencias múltiples: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.${diagnosticsText}${examplesText}`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al procesar Excel listado.', error);
