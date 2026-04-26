@@ -375,6 +375,7 @@
     let tribunalSearchDebounceTimer = null;
     let currentTribunalRoles = [];
     let currentMatterTribunalBuckets = [];
+    let currentTribunalDisplayName = '';
     let tribunalSearchTestsExecuted = false;
     let XLSX_MODULE = null;
     const manualDocumentsInMemory = new Map();
@@ -1860,9 +1861,11 @@
       const bucket = currentMatterTribunalBuckets.find((item) => item.key === tribunalKey) || null;
       currentTribunalRoles = orderedRoles(bucket?.roleMap || new Map());
       const tribunalLabel = bucket?.displayName || 'Tribunal sin clasificar';
+      currentTribunalDisplayName = tribunalLabel;
       const variantText = bucket?.variants?.size > 1
         ? ` · Variantes unificadas: ${[...bucket.variants].join(' · ')}`
         : '';
+      const isCorteSupremaScope = normalize(selectedMatter) === 'corte suprema' && normalize(tribunalLabel).includes('corte suprema');
       document.getElementById('tribunalPanelTitle').textContent = `${tribunalLabel} · Carpetas por rol`;
       document.getElementById('tribunalRolesList').innerHTML = `
         <div class="tribunal-search">
@@ -1873,6 +1876,12 @@
           <button id="tribunalSearchClear" class="btn" type="button">Limpiar</button>
         </div>
         <div class="muted">${escapeHtml(variantText ? variantText.slice(3) : 'Sin variantes detectadas para este tribunal.')}</div>
+        ${isCorteSupremaScope ? `
+          <div class="panel-actions" style="margin-top:8px;">
+            <button id="btnCrearCarpetaJuicioCorteSuprema" class="manual-btn" type="button">Crear carpeta de juicio</button>
+            <button id="btnReplicarCarpetaJuicioCorteSuprema" class="btn" type="button">Replicar</button>
+          </div>
+        ` : ''}
         <div class="tribunal-results-meta">
           <div class="muted" id="tribunalResultsCount"></div>
         </div>
@@ -1889,11 +1898,81 @@
         applyTribunalFilter(tribunalKey);
         input?.focus();
       });
+      document.getElementById('btnCrearCarpetaJuicioCorteSuprema')?.addEventListener('click', () => createNewFolderFromTribunal());
+      document.getElementById('btnReplicarCarpetaJuicioCorteSuprema')?.addEventListener('click', () => replicateFolderFromTribunal());
       applyTribunalFilter(tribunalKey);
       document.getElementById('matterPanel').hidden = true;
       document.getElementById('tribunalPanel').hidden = false;
       document.getElementById('rolePanel').hidden = true;
       document.getElementById('manualPanel').hidden = true;
+    }
+    async function createCaseFolderRecord({ rol = '', caratula = '', tribunal = '', sourceCause = null } = {}) {
+      const normalizedRol = String(rol || '').trim();
+      if (!normalizedRol) {
+        window.alert('Debes indicar un Rol/RIT para crear la carpeta.');
+        return;
+      }
+      const duplicate = currentTribunalRoles.find((item) => normalize(item.identificador) === normalize(normalizedRol));
+      if (duplicate) {
+        window.alert(`Ya existe una carpeta con ese Rol/RIT en este tribunal: ${duplicate.identificador}.`);
+        return;
+      }
+      const nowIso = new Date().toISOString();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const createdBy = sessionData?.session?.user?.id || null;
+      const payload = {
+        id: crypto.randomUUID(),
+        [C.kRol]: normalizedRol,
+        [C.kCourt]: tribunal || currentTribunalDisplayName || 'Corte Suprema',
+        [C.kCaratula]: String(caratula || '').trim() || 'Carátula pendiente',
+        [C.kMatter]: selectedMatter || 'Corte Suprema',
+        [C.kClientId]: sourceCause?.client_id || null,
+        [C.kRit]: sourceCause?.pjud_rit || null,
+        [C.kRuc]: sourceCause?.pjud_ruc || null,
+        [C.kTrib]: tribunal || currentTribunalDisplayName || sourceCause?.pjud_tribunal || 'Corte Suprema',
+        created_at: nowIso,
+        updated_at: nowIso,
+      };
+      if (createdBy) payload.created_by = createdBy;
+      const { error } = await supabase.from('cases').insert(payload);
+      if (error) {
+        window.alert(`No fue posible crear la carpeta nueva: ${error.message || 'error de persistencia'}`);
+        return;
+      }
+      await loadData();
+      if (selectedMatter) openMatterPanel(selectedMatter);
+      if (selectedTribunal) openTribunalPanel(selectedTribunal);
+      window.alert(`Carpeta creada correctamente para ${normalizedRol}.`);
+    }
+    async function createNewFolderFromTribunal() {
+      const rol = window.prompt('Ingrese el Rol/RIT para la nueva carpeta de juicio:');
+      if (!rol) return;
+      const caratula = window.prompt('Ingrese la carátula de la nueva carpeta (opcional):') || '';
+      await createCaseFolderRecord({ rol, caratula, tribunal: currentTribunalDisplayName });
+    }
+    async function replicateFolderFromTribunal() {
+      if (!currentTribunalRoles.length) {
+        window.alert('No hay carpetas disponibles para replicar en este tribunal.');
+        return;
+      }
+      const optionsPreview = currentTribunalRoles
+        .slice(0, 20)
+        .map((item, index) => `${index + 1}. ${item.identificador} · ${item.caratula}`)
+        .join('\n');
+      const selectedIndexRaw = window.prompt(`Selecciona el número de carpeta a replicar:\n${optionsPreview}`);
+      const selectedIndex = Number(selectedIndexRaw);
+      if (!Number.isFinite(selectedIndex) || selectedIndex < 1 || selectedIndex > Math.min(currentTribunalRoles.length, 20)) return;
+      const sourceCause = currentTribunalRoles[selectedIndex - 1];
+      if (!sourceCause) return;
+      const newRol = window.prompt(`Nuevo Rol/RIT para la carpeta replicada de ${sourceCause.identificador}:`);
+      if (!newRol) return;
+      const newCaratula = window.prompt('Carátula de la nueva carpeta replicada (opcional):', sourceCause.caratula || '') || '';
+      await createCaseFolderRecord({
+        rol: newRol,
+        caratula: newCaratula,
+        tribunal: currentTribunalDisplayName || sourceCause.tribunal || 'Corte Suprema',
+        sourceCause,
+      });
     }
 
     async function listCaseFilesForCause(cause = {}) {
