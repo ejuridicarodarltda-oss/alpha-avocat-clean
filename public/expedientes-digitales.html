@@ -106,6 +106,15 @@
     .role-item{background:#f8fffd;border:1px solid #b9ddd6;border-radius:12px;padding:12px;cursor:pointer}
     .role-item:hover{border-color:#163A5F}
     .role-item h4{margin:0 0 6px}
+    .role-inline-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .role-inline-btn{appearance:none;border:1px solid #163A5F;background:#fff;color:#163A5F;border-radius:10px;padding:6px 10px;font-weight:700;cursor:pointer}
+    .role-inline-btn.danger{border-color:#8b0000;color:#8b0000}
+    .role-inline-edit{margin-top:10px;padding:10px;border:1px dashed #8ec7be;border-radius:10px;background:#fff}
+    .role-inline-form{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+    .role-inline-form label{display:grid;gap:4px;font-size:13px;color:#1f3b37}
+    .role-inline-form input{width:100%;border:1px solid #b9ddd6;border-radius:10px;padding:8px;background:#fff}
+    .role-inline-form .span-full{grid-column:1 / -1}
+    .role-inline-status{font-size:13px;color:#355652}
     .role-content-title{margin:0;color:#163A5F}
     .tribunal-search{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:8px;align-items:end;margin-bottom:10px}
     .tribunal-results-meta{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;margin:6px 0 10px}
@@ -375,6 +384,7 @@
     const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
     const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
+    const DELETED_CAUSES_STORAGE_KEY = 'alpha-expedientes-deleted-causes-v1';
     const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa'];
     const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['institucion'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
@@ -482,6 +492,12 @@
     }
     function saveJsonStorage(key, payload) {
       window.localStorage.setItem(key, JSON.stringify(payload));
+    }
+    function loadDeletedCausesRegistry() {
+      return loadJsonStorage(DELETED_CAUSES_STORAGE_KEY, []);
+    }
+    function saveDeletedCausesRegistry(registry = []) {
+      saveJsonStorage(DELETED_CAUSES_STORAGE_KEY, registry);
     }
     function loadCaseFilesRegistry() {
       return loadJsonStorage(CASE_FILES_STORAGE_KEY, {});
@@ -1509,13 +1525,30 @@
           <div class="role-item" data-role="${escapeHtml(cause.identificador)}" data-cause-id="${escapeHtml(cause.id)}">
             <div class="role-head">
               <h4>📁 ${highlightText(cause.identificador, query)} · ${highlightText(cause.caratula, query)}</h4>
-              <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
+              <div class="role-inline-actions">
+                <button class="manual-btn" type="button" data-manual-id="${escapeHtml(cause.id)}" ${cause.hasRol ? '' : 'disabled'}>${cause.hasRol ? 'Poblar manualmente' : 'Sin rol'}</button>
+                <button class="role-inline-btn" type="button" data-inline-edit-toggle="${escapeHtml(cause.id)}">Editar carpeta</button>
+                <button class="role-inline-btn danger" type="button" data-inline-delete="${escapeHtml(cause.id)}">Eliminar causa</button>
+              </div>
             </div>
             <div class="muted"><strong>Rol:</strong> ${highlightText(cause.identificador, query)}</div>
             <div class="muted"><strong>Carátula:</strong> ${highlightText(cause.caratula, query)}</div>
             <div class="muted">Cliente: ${highlightText(cause.cliente, query)}</div>
             <div class="muted">Tribunal: ${highlightText(cause.tribunal, query)}</div>
             <div class="muted">Intervinientes: ${highlightText(flattenParties(cause.partes).join(' · ') || 'Sin intervinientes', query)}</div>
+            <div class="role-inline-edit" data-inline-edit-shell="${escapeHtml(cause.id)}" hidden>
+              <form class="role-inline-form" data-inline-edit-form="${escapeHtml(cause.id)}">
+                <label>Rol/RIT<input name="rol" value="${escapeHtml(cause.identificador || '')}" required /></label>
+                <label>Tribunal<input name="tribunal" value="${escapeHtml(cause.tribunal || '')}" required /></label>
+                <label class="span-full">Carátula<input name="caratula" value="${escapeHtml(cause.caratula || '')}" /></label>
+                <label class="span-full">Cliente<input name="cliente" value="${escapeHtml(cause.cliente || '')}" /></label>
+                <div class="span-full role-inline-actions">
+                  <button class="role-inline-btn" type="submit">Guardar edición</button>
+                  <button class="role-inline-btn" type="button" data-inline-edit-cancel="${escapeHtml(cause.id)}">Cancelar</button>
+                </div>
+                <div class="span-full role-inline-status" data-inline-status="${escapeHtml(cause.id)}"></div>
+              </form>
+            </div>
           </div>
         `).join('')
         : '<div class="tribunal-empty">No se encontraron causas en este tribunal para la búsqueda ingresada</div>';
@@ -1527,6 +1560,79 @@
           event.stopPropagation();
           const cause = currentTribunalRoles.find((item) => item.id === btn.dataset.manualId);
           if (cause) openManualPanel(cause);
+        });
+      });
+      document.querySelectorAll('[data-inline-edit-toggle]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const causeId = btn.dataset.inlineEditToggle || '';
+          const shell = document.querySelector(`[data-inline-edit-shell="${CSS.escape(causeId)}"]`);
+          if (!shell) return;
+          shell.hidden = !shell.hidden;
+        });
+      });
+      document.querySelectorAll('[data-inline-edit-cancel]').forEach((btn) => {
+        btn.addEventListener('click', (event) => {
+          event.stopPropagation();
+          const causeId = btn.dataset.inlineEditCancel || '';
+          const shell = document.querySelector(`[data-inline-edit-shell="${CSS.escape(causeId)}"]`);
+          if (shell) shell.hidden = true;
+        });
+      });
+      document.querySelectorAll('[data-inline-delete]').forEach((btn) => {
+        btn.addEventListener('click', async (event) => {
+          event.stopPropagation();
+          const causeId = btn.dataset.inlineDelete || '';
+          const cause = currentTribunalRoles.find((item) => item.id === causeId);
+          if (!cause) return;
+          if (!window.confirm(`¿Eliminar la causa ${cause.identificador}?\nLa causa se ocultará de Expedientes Digitales.`)) return;
+          const current = loadDeletedCausesRegistry();
+          if (!current.includes(causeId)) saveDeletedCausesRegistry([...current, causeId]);
+          await loadData();
+          if (selectedMatter) openMatterPanel(selectedMatter);
+          if (selectedTribunal) openTribunalPanel(selectedTribunal);
+        });
+      });
+      document.querySelectorAll('[data-inline-edit-form]').forEach((form) => {
+        form.addEventListener('click', (event) => event.stopPropagation());
+        form.addEventListener('submit', async (event) => {
+          event.preventDefault();
+          event.stopPropagation();
+          const causeId = form.dataset.inlineEditForm || '';
+          const cause = currentTribunalRoles.find((item) => item.id === causeId);
+          if (!cause) return;
+          const data = new FormData(form);
+          const rol = String(data.get('rol') || '').trim();
+          const tribunal = String(data.get('tribunal') || '').trim();
+          const caratula = String(data.get('caratula') || '').trim();
+          const cliente = String(data.get('cliente') || '').trim();
+          const statusNode = document.querySelector(`[data-inline-status="${CSS.escape(causeId)}"]`);
+          if (!rol || !tribunal) {
+            if (statusNode) statusNode.textContent = 'Rol y tribunal son obligatorios.';
+            return;
+          }
+          const registry = loadManualRegistry();
+          const currentManual = registry[causeId] || {};
+          registry[causeId] = {
+            ...currentManual,
+            base: {
+              ...(currentManual.base || {}),
+              rol,
+              tribunal,
+              caratula,
+              cliente,
+            },
+            registro: {
+              ...(currentManual.registro || {}),
+              cliente: cliente || (currentManual.registro?.cliente || ''),
+            },
+            updatedAt: new Date().toISOString(),
+          };
+          saveManualRegistry(registry);
+          if (statusNode) statusNode.textContent = 'Cambios guardados. Actualizando carpeta...';
+          await loadData();
+          if (selectedMatter) openMatterPanel(selectedMatter);
+          if (selectedTribunal) openTribunalPanel(selectedTribunal);
         });
       });
     }
@@ -1579,9 +1685,11 @@
       const matterMap = new Map();
       const tribunalRemovalReport = { removed: new Set() };
       const manualRegistry = loadManualRegistry();
+      const deletedCauses = new Set(loadDeletedCausesRegistry().map((item) => String(item)));
       const pjudGeneralIndexRegistry = loadPjudGeneralIndexRegistry();
       const operationalCaratulaIndex = buildOperationalCaratulaIndex(cases, manualRegistry, pjudGeneralIndexRegistry);
       for (const k of cases) {
+        if (deletedCauses.has(String(k[C.kId] || ''))) continue;
         const manualData = manualRegistry[String(k[C.kId] || '')] || null;
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
         const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
