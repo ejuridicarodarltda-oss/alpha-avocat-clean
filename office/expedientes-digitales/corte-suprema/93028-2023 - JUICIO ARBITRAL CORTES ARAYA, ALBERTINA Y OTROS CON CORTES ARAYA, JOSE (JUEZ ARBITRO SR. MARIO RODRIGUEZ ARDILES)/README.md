@@ -1,0 +1,6 @@
+# 93028-2023
+
+- **Tribunal:** Corte Suprema
+- **Fecha ingreso:** 25-05-2023
+- **Carátula:** JUICIO ARBITRAL CORTES ARAYA, ALBERTINA Y OTROS CON CORTES ARAYA, JOSE (JUEZ ARBITRO SR. MARIO RODRIGUEZ ARDILES)
+- **Estado:** Fallada

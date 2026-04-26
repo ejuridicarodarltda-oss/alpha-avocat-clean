@@ -1,0 +1,6 @@
+# 25175-2019
+
+- **Tribunal:** Corte Suprema
+- **Fecha ingreso:** 02-09-2019
+- **Carátula:** SOCIEDAD LEGAL MINERA LOS LIRIOS PRIMERA DE OVALLE Y OTRAS CON SOCIEDAD AGRICOLA Y COMERCIAL INFIERNILLO NORTE Y OTRA (S)
+- **Estado:** Fallada

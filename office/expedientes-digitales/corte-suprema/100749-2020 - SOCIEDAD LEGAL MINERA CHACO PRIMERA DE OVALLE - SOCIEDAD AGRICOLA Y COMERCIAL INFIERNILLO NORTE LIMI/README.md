@@ -1,0 +1,6 @@
+# 100749-2020
+
+- **Tribunal:** Corte Suprema
+- **Fecha ingreso:** 31-08-2020
+- **Carátula:** SOCIEDAD LEGAL MINERA CHACO PRIMERA DE OVALLE / SOCIEDAD AGRICOLA Y COMERCIAL INFIERNILLO NORTE LIMI
+- **Estado:** Fallada
