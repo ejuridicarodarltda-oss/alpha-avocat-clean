@@ -5158,8 +5158,19 @@
                 'Cortes de Apelaciones',
                 'Corte Suprema',
               ].map((tribunalNombre) => ({
-                tribunal:tribunalNombre,
+              tribunal:tribunalNombre,
                 editable:'Sí, el nombre del tribunal puede sobrescribirse o editarse.',
+                // Esto solo se activa si es exactamente "Corte Suprema"
+                htmlBoton: tribunalNombre === 'Corte Suprema' ? `
+                  <div style="margin: 10px 0; border-top: 1px dotted #ccc; padding-top: 10px;">
+                    <form action="/api/importar-suprema" method="POST" enctype="multipart/form-data">
+                      <label style="background: #2c5ba0; color: white; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 13px; display: inline-block;">
+                        🏛️ Cargar Excel Suprema
+                        <input type="file" name="excel_depurado" style="display: none;" onchange="this.form.submit()">
+                      </label>
+                    </form>
+                  </div>
+                ` : '', 
                 causas:[
                   {
                     nombre: tribunalNombre === 'Corte Suprema' 
