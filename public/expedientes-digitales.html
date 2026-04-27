@@ -865,6 +865,13 @@
       const yyyy = Number(match[3]) < 100 ? `20${String(match[3]).padStart(2, '0')}` : String(match[3]);
       return `${yyyy}-${mm}-${dd}`;
     }
+    function validateExcelDepuradoNormalizedRow(row = {}) {
+      const errors = [];
+      if (!String(row.rit || '').trim()) errors.push('Rol/RIT vacío.');
+      if (!String(row.tribunal || '').trim()) errors.push('Tribunal vacío.');
+      if (!String(row.caratulado || '').trim()) errors.push('Carátula vacía.');
+      return errors;
+    }
     function renderExcelDepuradoReport(report = null) {
       const node = document.getElementById('excelDepuradoReport');
       if (!node) return;
@@ -1386,13 +1393,10 @@
             } else {
               const resolution = resolveExcelDepuradoHeaders(raw);
               if (resolution.missing.length) {
-                const missingWithoutTribunal = resolution.missing.filter((key) => key !== 'tribunal');
-                if (missingWithoutTribunal.length) {
-                  const missingLabel = missingWithoutTribunal
-                    .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
-                    .join(', ');
-                  throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
-                }
+                const missingLabel = resolution.missing
+                  .map((key) => EXCEL_DEPURADO_COLUMN_LABELS[key] || key)
+                  .join(', ');
+                throw new Error(`Se detectaron columnas: ${resolution.detectedHeaders.join(', ') || 'ninguna'}.\nFalta columna: ${missingLabel}`);
               }
               resolvedHeaders = resolution.resolved;
             }
@@ -1429,16 +1433,9 @@
             `[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rolExcelReconstruido: ${roleUsedForComparison}`,
           );
           report.rowsRead += 1;
-          if (!roleUsedForComparison) {
-            report.formatErrors.push({ row: i + 2, error: 'Rol/RIT vacío.' });
-            continue;
-          }
-          if (!rawTribunal) {
-            report.formatErrors.push({ row: i + 2, error: 'Tribunal vacío.' });
-            continue;
-          }
-          if (!normalizedRow.caratulado) {
-            report.formatErrors.push({ row: i + 2, error: 'Carátula vacía.' });
+          const rowValidationErrors = validateExcelDepuradoNormalizedRow(normalizedRow);
+          if (rowValidationErrors.length) {
+            report.formatErrors.push({ row: i + 2, error: rowValidationErrors.join(' ') });
             continue;
           }
           report.rowsProcessed += 1;
