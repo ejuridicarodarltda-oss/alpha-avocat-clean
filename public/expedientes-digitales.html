@@ -395,8 +395,8 @@
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
     const EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY = 'alpha-expedientes-excel-depurado-civil-materialized-v1';
     const DELETED_CAUSES_STORAGE_KEY = 'alpha-expedientes-deleted-causes-v1';
-    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa'];
-    const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['institucion'];
+    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado'];
+    const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['fecha_ingreso', 'estado_causa', 'institucion'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
       rit: ['rit', 'rol'],
       tribunal: ['tribunal', 'era', 'juzgado', 'tribunal de letras'],
@@ -556,7 +556,7 @@
         caratula,
         fechaIngreso: String(row.fechaIngreso || '').trim(),
         estadoCausa: String(row.estadoCausa || '').trim(),
-        institucion: String(row.institucion || '').trim(),
+        institucion: String(row.institucion || '').trim() || 'Sin institución',
         fuente: 'Excel depurado',
         updatedAt: new Date().toISOString(),
       };
@@ -1304,20 +1304,25 @@
       const registry = loadManualRegistry();
       const current = registry[cause.id] || { base: {}, parties: [], registro: {}, documentos: [], documentosResumen: [] };
       const baseTribunalActual = String(current.base?.tribunal || cause.tribunal || '').trim();
+      const incomingCaratula = String(row.caratulado || '').trim();
+      const incomingFechaIngreso = String(row.fechaIngreso || '').trim();
+      const incomingEstadoCausa = String(row.estadoCausa || '').trim();
+      const incomingInstitucion = String(row.institucion || '').trim();
+      const currentInstitucion = String(current.excelDepurado?.institucion || '').trim();
       registry[cause.id] = {
         ...current,
         base: {
           ...current.base,
           rol: String(current.base?.rol || cause.rolReal || cause.identificador || '').trim(),
           tribunal: baseTribunalActual || String(row.tribunal || '').trim(),
-          caratula: String(row.caratulado || current.base?.caratula || cause.caratula || '').trim(),
-          fechaIngreso: String(row.fechaIngreso || current.base?.fechaIngreso || '').trim(),
+          caratula: incomingCaratula || String(current.base?.caratula || cause.caratula || '').trim(),
+          fechaIngreso: incomingFechaIngreso || String(current.base?.fechaIngreso || '').trim(),
           cliente: String(linkedClientName || current.base?.cliente || '').trim(),
         },
         excelDepurado: {
           rit: String(row.rit || '').trim(),
-          estadoCausa: String(row.estadoCausa || '').trim(),
-          institucion: String(row.institucion || '').trim(),
+          estadoCausa: incomingEstadoCausa || String(current.excelDepurado?.estadoCausa || '').trim(),
+          institucion: incomingInstitucion || currentInstitucion || 'Sin institución',
           clienteVinculado: String(linkedClientName || '').trim(),
           clienteEstadoVinculacion: String(clienteEstadoVinculacion || 'pendiente_vincular').trim(),
           clienteVinculacionNota: String(clienteVinculacionNota || '').trim(),
@@ -1430,6 +1435,10 @@
           }
           if (!rawTribunal) {
             report.formatErrors.push({ row: i + 2, error: 'Tribunal vacío.' });
+            continue;
+          }
+          if (!normalizedRow.caratulado) {
+            report.formatErrors.push({ row: i + 2, error: 'Carátula vacía.' });
             continue;
           }
           report.rowsProcessed += 1;
