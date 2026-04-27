@@ -416,12 +416,6 @@
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
     const CONFIDENCE_LABELS = { high: 'alta', medium: 'media', low: 'baja' };
     const EXTRACTION_FIELD_ORDER = ['rol', 'tribunal', 'rit', 'ruc', 'caratula', 'partes', 'materia', 'procedimiento', 'fechaRelevante', 'cliente', 'estadoDocumento'];
-    const TRIBUNAL_REMOVAL_EQUIVALENTS = new Set([
-      normalize('1° Civil Ovalle'),
-      normalize('1° Juzgado Civil de Ovalle'),
-      normalize('1° Juzgado de Letras Civil de Ovalle'),
-      normalize('Primer Juzgado de Letras Civil de Ovalle'),
-    ]);
     const COURT_NORMALIZATION_MAP = {
       '2 juzgado civil de santiago': '2° Juzgado Civil de Santiago',
       '2° juzgado civil de santiago': '2° Juzgado Civil de Santiago',
@@ -449,21 +443,41 @@
     function normalizeRol(value='') {
       return normalize(value).replace(/[^a-z0-9]/g, '');
     }
-    function normalizeTribunalForRemoval(value = '') {
-      return normalize(value).replace(/\bde letras\b/g, '').replace(/\s+/g, ' ').trim();
+    function isCivilCourtLabel(value = '') {
+      const normalizedValue = normalize(value);
+      return normalizedValue.includes('civil') || normalizedValue.includes('letras');
     }
-    function isRemovedOvalleCivilCourt(value = '') {
-      const normalized = normalizeTribunalForRemoval(value);
-      if (!normalized) return false;
-      if (TRIBUNAL_REMOVAL_EQUIVALENTS.has(normalized)) return true;
-      const isOvalleCivil = normalized.includes('civil') && normalized.includes('ovalle');
-      const isFirstCourt = /\b1\b/.test(normalized) || normalized.includes('primer');
-      return isOvalleCivil && isFirstCourt;
+    function toDisplayCase(value = '') {
+      return String(value || '')
+        .split(' ')
+        .filter(Boolean)
+        .map((token) => {
+          if (/^\d+$/.test(token)) return `${token}°`;
+          if (/^[ivxlcdm]+$/i.test(token)) return token.toUpperCase();
+          if (/^(de|del|la|las|los|y|en)$/i.test(token)) return token.toLowerCase();
+          return token.charAt(0).toUpperCase() + token.slice(1);
+        })
+        .join(' ')
+        .replace(/\bJuzgado De\b/g, 'Juzgado de')
+        .replace(/\bLetras De\b/g, 'Letras de');
     }
-    function reportTribunalRemovalDecisions(report = { removed: new Set() }) {
-      const removed = [...(report.removed || new Set())];
-      if (!removed.length) return;
-      console.info(`Tribunal removido del índice por regla de bloqueo: ${removed.join(' · ')}`);
+    function normalizeCivilTribunalName(raw = '') {
+      const normalizedBase = String(raw || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[̀-ͯ]/g, '')
+        .replace(/\./g, ' ')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .replace(/\bjgdo\b/g, 'juzgado')
+        .replace(/\bl\b/g, 'letras')
+        .replace(/\bg\b/g, 'garantia')
+        .replace(/\bjuzgado civil\b/g, 'juzgado de letras')
+        .replace(/\bcivil de\b/g, 'de')
+        .replace(/\s+/g, ' ')
+        .trim();
+      if (!normalizedBase) return '';
+      return toDisplayCase(normalizedBase);
     }
     function loadManualRegistry() {
       try {
@@ -696,7 +710,11 @@
       const normalizedKey = normalize(cleaned);
       if (normalizedKey.includes('suprema')) return 'Corte Suprema';
       const learnedRules = loadNormalizationRules().tribunalAliases || {};
-      return learnedRules[normalizedKey] || COURT_NORMALIZATION_MAP[normalizedKey] || cleaned;
+      const normalized = learnedRules[normalizedKey] || COURT_NORMALIZATION_MAP[normalizedKey] || cleaned;
+      if (isCivilCourtLabel(normalized)) {
+        return normalizeCivilTribunalName(normalized) || normalized;
+      }
+      return normalized;
     }
     function normalizeTribunalSpecificPanelKey(raw = '') {
       const normalizedSource = normalize(raw);
@@ -710,7 +728,12 @@
         .replace(/\bjdo\.?\b/g, 'juzgado')
         .replace(/\bjdos\.?\b/g, 'juzgados')
         .replace(/\bjuzg\.?\b/g, 'juzgado')
+        .replace(/\bjgdo\b/g, 'juzgado')
+        .replace(/\bl\.?\b/g, 'letras')
+        .replace(/\bg\.?\b/g, 'garantia')
         .replace(/\bgar\.?\b/g, 'garantia')
+        .replace(/\bjuzgado civil\b/g, 'juzgado de letras')
+        .replace(/\bcivil de\b/g, 'de')
         .replace(/\b(letras)\s*y\s*(gar|garantia)\b/g, 'letras y garantia')
         .replace(/\bletras y gar\b/g, 'letras y garantia')
         .replace(/\b(\d{1,3})\s*(?:°|º|o)\b/g, '$1')
@@ -1691,7 +1714,6 @@
 
     function buildJudicialTree(cases = [], clientMap = new Map()) {
       const matterMap = new Map();
-      const tribunalRemovalReport = { removed: new Set() };
       const manualRegistry = loadManualRegistry();
       const deletedCauses = new Set(loadDeletedCausesRegistry().map((item) => String(item)));
       const pjudGeneralIndexRegistry = loadPjudGeneralIndexRegistry();
@@ -1703,10 +1725,6 @@
         const role = roleRaw || String(manualData?.base?.rol || '').trim() || `ID-${k[C.kId]}`;
         const tribunalResolved = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
         const tribunal = normalizeTribunal(tribunalResolved) || 'Tribunal sin clasificar';
-        if (isRemovedOvalleCivilCourt(tribunal)) {
-          tribunalRemovalReport.removed.add(tribunal);
-          continue;
-        }
         const caratula = resolveVisibleCaratula(k, manualData, operationalCaratulaIndex);
         const cliente = resolveClienteVinculado(k, clientMap, manualData);
         const caseParties = Array.isArray(k.partes) ? k.partes : [];
@@ -1723,7 +1741,8 @@
         const searchable = normalize(`${role} ${normalizeRol(role)} ${cliente} ${caratula} ${tribunal} ${rit} ${ruc} ${materia} ${procedimiento} ${observaciones} ${partiesText} ${manualDataText}`);
         if (activeSearch && !searchable.includes(activeSearch)) continue;
         const matter = inferMatter(k, tribunalResolved, manualData);
-        const tribunalByMatter = matter === 'Corte Suprema' ? 'Corte Suprema' : tribunal;
+        const civilTribunal = matter === 'Juzgados Civiles' ? (normalizeCivilTribunalName(tribunal) || tribunal) : tribunal;
+        const tribunalByMatter = matter === 'Corte Suprema' ? 'Corte Suprema' : civilTribunal;
         const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunalByMatter)}`);
 
         if (!matterMap.has(matter)) matterMap.set(matter, new Map());
@@ -1746,7 +1765,7 @@
             procedimiento,
             observaciones,
             searchSource: {
-              tribunal,
+              tribunal: civilTribunal,
               rol: role,
               rit,
               ruc,
@@ -1762,7 +1781,6 @@
           });
         }
       }
-      reportTribunalRemovalDecisions(tribunalRemovalReport);
       return matterMap;
     }
 
