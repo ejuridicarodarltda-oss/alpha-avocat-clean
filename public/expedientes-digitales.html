@@ -393,6 +393,7 @@
     const EXTRACTION_FEEDBACK_STORAGE_KEY = 'alpha-expedientes-extraction-feedback-v1';
     const NORMALIZATION_RULES_STORAGE_KEY = 'alpha-expedientes-normalization-rules-v1';
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
+    const EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY = 'alpha-expedientes-excel-depurado-civil-materialized-v1';
     const DELETED_CAUSES_STORAGE_KEY = 'alpha-expedientes-deleted-causes-v1';
     const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'fecha_ingreso', 'estado_causa'];
     const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['institucion'];
@@ -527,6 +528,42 @@
     }
     function saveCaseFilesRegistry(registry = {}) {
       saveJsonStorage(CASE_FILES_STORAGE_KEY, registry);
+    }
+    function loadExcelDepuradoCivilMaterializedRegistry() {
+      return loadJsonStorage(EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY, []);
+    }
+    function saveExcelDepuradoCivilMaterializedRegistry(registry = []) {
+      saveJsonStorage(EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY, registry);
+    }
+    function upsertExcelDepuradoCivilMaterializedRow(row = {}) {
+      const rol = normalizeVisibleRol(row.rit || row.rolUsadoParaComparar || '');
+      const tribunal = normalizeTribunal(row.tribunal || '');
+      const caratula = String(row.caratulado || '').trim();
+      if (!rol || !tribunal || !caratula) return false;
+      if (!isCivilCourtLabel(tribunal)) return false;
+      const key = buildCauseIdentityKey({ rol, tribunal });
+      if (!key) return false;
+      const registry = loadExcelDepuradoCivilMaterializedRegistry();
+      const index = registry.findIndex((item) => buildCauseIdentityKey({
+        rol: item?.rol || item?.rit || '',
+        tribunal: item?.tribunal || '',
+      }) === key);
+      const next = {
+        id: (index >= 0 && registry[index]?.id) || `excel-civil-${key.replace(/[^a-z0-9]+/gi, '-')}`,
+        rol,
+        rit: rol,
+        tribunal,
+        caratula,
+        fechaIngreso: String(row.fechaIngreso || '').trim(),
+        estadoCausa: String(row.estadoCausa || '').trim(),
+        institucion: String(row.institucion || '').trim(),
+        fuente: 'Excel depurado',
+        updatedAt: new Date().toISOString(),
+      };
+      if (index >= 0) registry[index] = { ...registry[index], ...next };
+      else registry.push(next);
+      saveExcelDepuradoCivilMaterializedRegistry(registry);
+      return true;
     }
     function formatBytes(bytes = 0) {
       const size = Number(bytes || 0);
@@ -860,12 +897,14 @@
         <div>Match exacto: <strong>${escapeHtml(String(exact.length))}</strong></div>
         <div>Match por número+año+tribunal: <strong>${escapeHtml(String(numberYear.length))}</strong></div>
         <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
+        <div>Carpetas civiles materializadas desde Excel (sin borrar existentes): <strong>${escapeHtml(String(report.createdCivilFolders || 0))}</strong></div>
         <div>Coincidencias múltiples (no actualizadas): <strong>${escapeHtml(String(multiple.length))}</strong></div>
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
         <div>Errores reales por celdas vacías: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
         ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
         ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
         ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
+        ${Array.isArray(report.createdCivilFolderRows) && report.createdCivilFolderRows.length ? `<div><strong>Causas civiles materializadas (muestra):</strong><ul>${report.createdCivilFolderRows.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.caratulado || 'Sin carátula')}</li>`).join('')}</ul></div>` : ''}
         ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
@@ -1310,6 +1349,8 @@
         exactMatchRows: [],
         numberYearMatchRows: [],
         missingFolderRows: [],
+        createdCivilFolders: 0,
+        createdCivilFolderRows: [],
         multipleMatchesRows: [],
         pendingClientLinkingRows: [],
         duplicatesIgnored: 0,
@@ -1422,7 +1463,13 @@
             matchType = 'exact';
           }
           if (!candidateMatches.length) {
-            report.missingFolderRows.push(normalizedRow);
+            const wasMaterialized = upsertExcelDepuradoCivilMaterializedRow(normalizedRow);
+            if (wasMaterialized) {
+              report.createdCivilFolders += 1;
+              report.createdCivilFolderRows.push(normalizedRow);
+            } else {
+              report.missingFolderRows.push(normalizedRow);
+            }
             continue;
           }
           if (candidateMatches.length > 1) {
@@ -1481,7 +1528,7 @@
         renderExcelDepuradoReport(report);
         renderExcelDepuradoDebugPanel(report);
         statusNode.className = 'manual-status ok';
-        statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
+        statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Carpetas civiles materializadas: ${report.createdCivilFolders}. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
         await loadData();
       } catch (error) {
         statusNode.className = 'manual-status error';
@@ -1716,6 +1763,7 @@
       const matterMap = new Map();
       const manualRegistry = loadManualRegistry();
       const deletedCauses = new Set(loadDeletedCausesRegistry().map((item) => String(item)));
+      const excelMaterializedCivilRows = loadExcelDepuradoCivilMaterializedRegistry();
       const pjudGeneralIndexRegistry = loadPjudGeneralIndexRegistry();
       const operationalCaratulaIndex = buildOperationalCaratulaIndex(cases, manualRegistry, pjudGeneralIndexRegistry);
       for (const k of cases) {
@@ -1781,6 +1829,53 @@
           });
         }
       }
+      const addMaterializedCivilCase = (row = {}) => {
+        const role = normalizeVisibleRol(String(row.rol || row.rit || '').trim());
+        const tribunal = normalizeCivilTribunalName(String(row.tribunal || '').trim()) || normalizeTribunal(String(row.tribunal || '').trim());
+        const caratula = String(row.caratula || '').trim();
+        if (!role || !tribunal || !caratula) return;
+        if (!isCivilCourtLabel(tribunal)) return;
+        const matter = 'Juzgados Civiles';
+        if (!matterMap.has(matter)) matterMap.set(matter, new Map());
+        const tribunalMap = matterMap.get(matter);
+        if (!tribunalMap.has(tribunal)) tribunalMap.set(tribunal, new Map());
+        const roleMap = tribunalMap.get(tribunal);
+        const alreadyExists = [...roleMap.values()].some((entry) => (
+          normalizeCauseIdentityRol(entry?.identificador || entry?.rit || '') === normalizeCauseIdentityRol(role)
+          && normalizeCauseIdentityTribunal(entry?.tribunal || tribunal) === normalizeCauseIdentityTribunal(tribunal)
+        ));
+        if (alreadyExists) return;
+        const dedupeKey = String(row.id || `excel-civil-${buildCauseIdentityKey({ rol: role, tribunal })}`);
+        roleMap.set(dedupeKey, {
+          id: String(row.id || dedupeKey),
+          identificador: role,
+          rolReal: role,
+          caratula,
+          cliente: String(row.institucion || '').trim() || 'Cliente sin vínculo',
+          tribunal,
+          partes: [],
+          rit: role,
+          ruc: '',
+          materia: 'Civil',
+          procedimiento: '',
+          observaciones: 'Materializado desde Excel depurado (sin carpeta previa en base).',
+          searchSource: {
+            tribunal,
+            rol: role,
+            rit: role,
+            ruc: '',
+            caratula,
+            cliente: String(row.institucion || '').trim(),
+            partes: '',
+            materia: 'Civil',
+            procedimiento: '',
+            observaciones: 'Materializado desde Excel depurado',
+            manualData: '',
+          },
+          hasRol: true,
+        });
+      };
+      (Array.isArray(excelMaterializedCivilRows) ? excelMaterializedCivilRows : []).forEach(addMaterializedCivilCase);
       return matterMap;
     }
 
