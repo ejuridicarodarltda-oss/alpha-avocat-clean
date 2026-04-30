@@ -395,8 +395,8 @@
     const EXCEL_DEPURADO_REPORT_STORAGE_KEY = 'alpha-expedientes-excel-depurado-report-v1';
     const EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY = 'alpha-expedientes-excel-depurado-civil-materialized-v1';
     const DELETED_CAUSES_STORAGE_KEY = 'alpha-expedientes-deleted-causes-v1';
-    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado'];
-    const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['fecha_ingreso', 'estado_causa', 'institucion'];
+    const EXCEL_DEPURADO_REQUIRED_COLUMNS = ['rit', 'tribunal', 'caratulado', 'ruc', 'tipo_causa'];
+    const EXCEL_DEPURADO_OPTIONAL_COLUMNS = ['fecha_ingreso', 'estado_causa', 'institucion', 'numero'];
     const EXCEL_DEPURADO_COLUMN_EQUIVALENCES = {
       rit: ['rit', 'rol'],
       tribunal: ['tribunal', 'era', 'juzgado', 'tribunal de letras'],
@@ -404,6 +404,9 @@
       fecha_ingreso: ['fecha ingreso', 'fecha', 'ingreso'],
       estado_causa: ['estado', 'estado causa'],
       institucion: ['institución', 'institucion'],
+      tipo_causa: ['tipo causa', 'tipo de causa'],
+      ruc: ['ruc'],
+      numero: ['numero', 'número'],
     };
     const EXCEL_DEPURADO_COLUMN_LABELS = {
       rit: 'Rit',
@@ -412,6 +415,9 @@
       fecha_ingreso: 'Fecha Ingreso',
       estado_causa: 'Estado Causa',
       institucion: 'Institución',
+      tipo_causa: 'Tipo causa',
+      ruc: 'RUC',
+      numero: 'Numero',
     };
     const ALLOWED_UPLOAD_TYPES = '.pdf,.doc,.docx,.png,.jpg,.jpeg,.webp,.zip';
     const FILE_CATEGORIES = ['Sin clasificar','EBOOK','Documentos','Escritos','Borradores','Resoluciones','Prueba','Otros antecedentes'];
@@ -677,6 +683,8 @@
     function cleanRawRoleOnly(raw = '') {
       return String(raw || '')
         .trim()
+        .replace(/[º°]/g, '')
+        .replace(/\./g, '')
         .replace(/\s*·\s*/g, '-')
         .replace(/\s*-\s*/g, '-');
     }
@@ -781,6 +789,10 @@
     function normalizeCauseIdentityRol(raw = '') {
       const visible = normalizeVisibleRol(raw);
       return normalize(visible).replace(/[^a-z0-9]/g, '');
+    }
+    function areEquivalentRoleIdentity(left = '', right = '') {
+      if (rolesMatchExactly(left, right)) return true;
+      return normalizeCauseIdentityRol(left) === normalizeCauseIdentityRol(right);
     }
     function normalizeCauseIdentityTribunal(raw = '') {
       return normalizeTribunalSpecificPanelKey(normalizeTribunal(raw));
@@ -1298,6 +1310,8 @@
         fechaIngreso: String(manualData?.base?.fechaIngreso || source.fechaIngreso || '').trim(),
         estadoCausa: String(source.estadoCausa || '').trim(),
         institucion: String(source.institucion || '').trim(),
+        tipoCausa: String(source.tipoCausa || '').trim(),
+        ruc: String(source.ruc || '').trim(),
         fuente: source.fuente || '',
         updatedAt: source.updatedAt || '',
       };
@@ -1315,6 +1329,9 @@
       const incomingFechaIngreso = String(row.fechaIngreso || '').trim();
       const incomingEstadoCausa = String(row.estadoCausa || '').trim();
       const incomingInstitucion = String(row.institucion || '').trim();
+      const incomingTipoCausa = String(row.tipoCausa || '').trim();
+      const incomingRuc = String(row.ruc || '').trim();
+      const incomingNumero = String(row.numero || '').trim();
       const currentInstitucion = String(current.excelDepurado?.institucion || '').trim();
       registry[cause.id] = {
         ...current,
@@ -1330,6 +1347,9 @@
           rit: String(row.rit || '').trim(),
           estadoCausa: incomingEstadoCausa || String(current.excelDepurado?.estadoCausa || '').trim(),
           institucion: incomingInstitucion || currentInstitucion || 'Sin institución',
+          tipoCausa: incomingTipoCausa || String(current.excelDepurado?.tipoCausa || '').trim(),
+          ruc: incomingRuc || String(current.excelDepurado?.ruc || '').trim(),
+          numero: incomingNumero || String(current.excelDepurado?.numero || '').trim(),
           clienteVinculado: String(linkedClientName || '').trim(),
           clienteEstadoVinculacion: String(clienteEstadoVinculacion || 'pendiente_vincular').trim(),
           clienteVinculacionNota: String(clienteVinculacionNota || '').trim(),
@@ -1372,9 +1392,10 @@
       };
       try {
         const xlsx = await ensureXlsxModule();
-        const workbook = xlsx.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-        const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
-        const rows = xlsx.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
+      const workbook = xlsx.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+      const targetSheetName = workbook.SheetNames.find((name) => normalize(name) === normalize('Lista continua')) || workbook.SheetNames[0];
+      const firstSheet = workbook.Sheets[targetSheetName];
+      const rows = xlsx.utils.sheet_to_json(firstSheet, { defval: '', raw: false });
         if (!rows.length) throw new Error('El Excel depurado no contiene filas.');
         const seen = new Set();
         let resolvedHeaders = null;
@@ -1410,6 +1431,9 @@
               fecha_ingreso: raw[resolvedHeaders.fecha_ingreso] || '',
               estado_causa: raw[resolvedHeaders.estado_causa] || '',
               institucion: raw[resolvedHeaders.institucion] || '',
+              tipo_causa: raw[resolvedHeaders.tipo_causa] || '',
+              ruc: raw[resolvedHeaders.ruc] || '',
+              numero: raw[resolvedHeaders.numero] || '',
             };
           if (!eraPositionWarningEmitted && normalizeExcelHeaderCanonical(String(resolvedHeaders?.tribunal || '')) === 'era') {
             report.warnings.push('Encabezado ‘Era’ tratado como Tribunal por posición de columna.');
@@ -1428,6 +1452,9 @@
             fechaIngreso: parseDateFromExcel(source.fecha_ingreso || ''),
             estadoCausa: String(source.estado_causa || '').trim(),
             institucion: String(source.institucion || '').trim(),
+            tipoCausa: String(source.tipo_causa || '').trim(),
+            ruc: String(source.ruc || '').trim(),
+            numero: String(source.numero || '').trim(),
           };
           console.info(
             `[Excel depurado][fila ${i + 2}] rol original Excel="${rawExcelRole}" | rolExcelReconstruido: ${roleUsedForComparison}`,
@@ -1449,7 +1476,7 @@
           const exactMatches = allCases.filter((item) => {
             const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
             const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
-            return rolesMatchExactly(normalizedRow.rit, rolCandidate)
+            return areEquivalentRoleIdentity(normalizedRow.rit, rolCandidate)
               && normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey;
           });
           let matchType = '';
@@ -2373,6 +2400,8 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
             <div class="detected-item"><strong>Fecha ingreso</strong><span>${escapeHtml(metadata.fechaIngreso || 'Sin fecha')}</span></div>
             <div class="detected-item"><strong>Estado causa</strong><span>${escapeHtml(metadata.estadoCausa || 'Sin estado')}</span></div>
             <div class="detected-item"><strong>Institución</strong><span>${escapeHtml(metadata.institucion || 'Sin institución')}</span></div>
+            <div class="detected-item"><strong>Tipo causa</strong><span>${escapeHtml(metadata.tipoCausa || 'Sin tipo')}</span></div>
+            <div class="detected-item"><strong>RUC</strong><span>${escapeHtml(metadata.ruc || 'Sin RUC')}</span></div>
             <div class="detected-item"><strong>Fuente</strong><span>${escapeHtml(metadata.fuente || 'Registro operativo')}</span></div>
             <div class="detected-item"><strong>Fecha de actualización</strong><span>${escapeHtml(formatDateTime(metadata.updatedAt || ''))}</span></div>
           </div>
