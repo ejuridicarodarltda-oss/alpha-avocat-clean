@@ -1649,14 +1649,26 @@
         report.reviewed += 1;
         try {
           const key = buildCauseIdentityKey({ rol: cause.identificador || cause.rolReal || '', tribunal: currentTribunalDisplayName || cause.tribunal || '' });
-          const matches = Object.values(registry || {}).filter((entry = {}) => buildCauseIdentityKey({ rol: entry?.base?.rol || entry?.excelDepurado?.rit || '', tribunal: entry?.base?.tribunal || '' }) === key);
+          const allEntries = Object.values(registry || {});
+          let matches = allEntries.filter((entry = {}) => buildCauseIdentityKey({ rol: entry?.base?.rol || entry?.excelDepurado?.rit || '', tribunal: entry?.base?.tribunal || '' }) === key);
+          if (!matches.length) {
+            const causeRol = cause.identificador || cause.rolReal || '';
+            matches = allEntries.filter((entry = {}) => areEquivalentRoleIdentity(causeRol, entry?.base?.rol || entry?.excelDepurado?.rit || ''));
+          }
           if (duplicatesByKey.get(key) > 1 || matches.length > 1) report.duplicates += 1;
           if (!matches.length) {
-            upsertExcelDepuradoManualData(cause, { caratulado: 'Carátula pendiente', tribunal: currentTribunalDisplayName || cause.tribunal || '' }, { linkedClientName: '', clienteEstadoVinculacion: 'pendiente_vincular', clienteVinculacionNota: 'sin coincidencia en índice' });
             report.unmatched += 1;
             return;
           }
-          const source = matches[0];
+          const source = matches
+            .slice()
+            .sort((a, b) => {
+              const aCaratula = String(a?.base?.caratula || a?.lastSuggestions?.caratula?.value || '').trim();
+              const bCaratula = String(b?.base?.caratula || b?.lastSuggestions?.caratula?.value || '').trim();
+              const aScore = isPendingCaratula(aCaratula) ? 0 : aCaratula.length;
+              const bScore = isPendingCaratula(bCaratula) ? 0 : bCaratula.length;
+              return bScore - aScore;
+            })[0];
           upsertExcelDepuradoManualData(cause, {
             rit: source?.excelDepurado?.rit || source?.base?.rol || cause.identificador || '',
             tribunal: source?.base?.tribunal || currentTribunalDisplayName || cause.tribunal || '',
