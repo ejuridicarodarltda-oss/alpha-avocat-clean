@@ -1600,7 +1600,68 @@
       if (!normalizedQuery) return roles;
       return roles.filter((cause) => buildTribunalSearchIndex(cause).includes(normalizedQuery));
     }
-    function renderTribunalRolesList(filteredRoles = [], query = '') {
+    
+    function syncCurrentTribunalFromExcelDepurado() {
+      const registry = loadManualRegistry();
+      const report = {
+        reviewed: 0,
+        updated: 0,
+        unmatched: 0,
+        duplicates: 0,
+        errors: 0,
+        updatedAt: new Date().toISOString(),
+      };
+      const duplicatesByKey = new Map();
+      Object.values(registry || {}).forEach((entry = {}) => {
+        const key = buildCauseIdentityKey({ rol: entry?.base?.rol || entry?.excelDepurado?.rit || '', tribunal: entry?.base?.tribunal || '' });
+        if (!key) return;
+        duplicatesByKey.set(key, (duplicatesByKey.get(key) || 0) + 1);
+      });
+      const tribunalRoles = Array.isArray(currentTribunalRoles) ? currentTribunalRoles : [];
+      tribunalRoles.forEach((cause) => {
+        report.reviewed += 1;
+        try {
+          const key = buildCauseIdentityKey({ rol: cause.identificador || cause.rolReal || '', tribunal: currentTribunalDisplayName || cause.tribunal || '' });
+          const matches = Object.values(registry || {}).filter((entry = {}) => buildCauseIdentityKey({ rol: entry?.base?.rol || entry?.excelDepurado?.rit || '', tribunal: entry?.base?.tribunal || '' }) === key);
+          if (duplicatesByKey.get(key) > 1 || matches.length > 1) report.duplicates += 1;
+          if (!matches.length) {
+            upsertExcelDepuradoManualData(cause, { caratulado: 'Carátula pendiente', tribunal: currentTribunalDisplayName || cause.tribunal || '' }, { linkedClientName: '', clienteEstadoVinculacion: 'pendiente_vincular', clienteVinculacionNota: 'sin coincidencia en índice' });
+            report.unmatched += 1;
+            return;
+          }
+          const source = matches[0];
+          upsertExcelDepuradoManualData(cause, {
+            rit: source?.excelDepurado?.rit || source?.base?.rol || cause.identificador || '',
+            tribunal: source?.base?.tribunal || currentTribunalDisplayName || cause.tribunal || '',
+            caratulado: source?.base?.caratula || source?.lastSuggestions?.caratula?.value || '',
+            fechaIngreso: source?.base?.fechaIngreso || source?.excelDepurado?.fechaIngreso || '',
+            estadoCausa: source?.excelDepurado?.estadoCausa || '',
+            institucion: source?.excelDepurado?.institucion || '',
+          }, {
+            linkedClientName: source?.base?.cliente || '',
+            clienteEstadoVinculacion: source?.excelDepurado?.clienteEstadoVinculacion || 'pendiente_vincular',
+            clienteVinculacionNota: source?.excelDepurado?.clienteVinculacionNota || '',
+          });
+          report.updated += 1;
+        } catch {
+          report.errors += 1;
+        }
+      });
+      const node = document.getElementById('tribunalExcelSyncReport');
+      if (node) {
+        node.hidden = false;
+        node.innerHTML = `
+          <strong>Actualización desde Índice General PJUD</strong>
+          <div>Causas revisadas: <strong>${escapeHtml(String(report.reviewed))}</strong></div>
+          <div>Carátulas actualizadas: <strong>${escapeHtml(String(report.updated))}</strong></div>
+          <div>Causas sin coincidencia: <strong>${escapeHtml(String(report.unmatched))}</strong></div>
+          <div>Duplicados detectados: <strong>${escapeHtml(String(report.duplicates))}</strong></div>
+          <div>Errores: <strong>${escapeHtml(String(report.errors))}</strong></div>
+          <div>Fecha de actualización: <strong>${escapeHtml(new Date(report.updatedAt).toLocaleString('es-CL', { timeZone: 'UTC' }))}</strong></div>
+        `;
+      }
+    }
+function renderTribunalRolesList(filteredRoles = [], query = '') {
       const listNode = document.getElementById('tribunalRolesEntries');
       const countNode = document.getElementById('tribunalResultsCount');
       if (countNode) countNode.textContent = `${filteredRoles.length} resultado(s)`;
@@ -1618,6 +1679,7 @@
             </div>
             <div class="muted"><strong>Rol:</strong> ${highlightText(cause.identificador, query)}</div>
             <div class="muted"><strong>Carátula:</strong> ${highlightText(cause.caratula, query)}</div>
+            ${normalize(String(cause.excelMatchStatus || '')).includes('sin coincidencia') ? '<div class="warn">Sin coincidencia en índice</div>' : ''}
             <div class="muted">Cliente: ${highlightText(cause.cliente, query)}</div>
             <div class="muted">Tribunal: ${highlightText(cause.tribunal, query)}</div>
             <div class="muted">Intervinientes: ${highlightText(flattenParties(cause.partes).join(' · ') || 'Sin intervinientes', query)}</div>
@@ -1818,6 +1880,7 @@
             materia,
             procedimiento,
             observaciones,
+            excelMatchStatus: String(manualData?.excelDepurado?.clienteVinculacionNota || ''),
             searchSource: {
               tribunal: civilTribunal,
               rol: role,
@@ -2065,6 +2128,7 @@
         <div class="tribunal-tools">
           <button id="btnCrearCarpetasMasivasPorRol" class="manual-btn" type="button">Crear carpetas masivas por rol</button>
           <button id="btnLimpiarCarpetasInvalidas" class="btn" type="button">Limpiar carpetas inválidas</button>
+          <button id="btnActualizarCaratulasIndice" class="manual-btn" type="button">Actualizar carátulas desde Índice General PJUD</button>
           ${isCorteSupremaScope ? `
             <button id="btnCrearCarpetaJuicioCorteSuprema" class="manual-btn" type="button">Crear carpeta de juicio</button>
             <button id="btnReplicarCarpetaJuicioCorteSuprema" class="btn" type="button">Replicar</button>
@@ -2084,6 +2148,7 @@
           <div id="tribunalMassCreateReport" class="tribunal-toolbox-report" hidden></div>
         </div>
         <div id="tribunalInvalidCleanupReport" class="tribunal-toolbox-report" hidden></div>
+        <div id="tribunalExcelSyncReport" class="tribunal-toolbox-report" hidden></div>
         <div class="tribunal-results-meta">
           <div class="muted" id="tribunalResultsCount"></div>
         </div>
@@ -2131,6 +2196,12 @@
           else report.errors.push(`${normalizedRole} · ${result.message || 'error inesperado'}`);
         }
         renderTribunalToolReport('tribunalMassCreateReport', report);
+        await loadData();
+        if (selectedMatter) openMatterPanel(selectedMatter);
+        if (selectedTribunal) openTribunalPanel(selectedTribunal);
+      });
+      document.getElementById('btnActualizarCaratulasIndice')?.addEventListener('click', async () => {
+        syncCurrentTribunalFromExcelDepurado();
         await loadData();
         if (selectedMatter) openMatterPanel(selectedMatter);
         if (selectedTribunal) openTribunalPanel(selectedTribunal);
