@@ -2981,6 +2981,9 @@
     const PRODUCCION_DRAFT_SESSION_STORAGE_KEY = 'alpha-causas-produccion-draft-session-v1';
     const GENERAL_PJUD_EXCEL_SOURCE_TYPE = 'pjud_general_excel_panel';
     const GENERAL_PJUD_EXCEL_STORAGE_BUCKET = 'case-files';
+    const T_PJUD_INDEX_UPLOADS = 'pjud_index_uploads';
+    const T_PJUD_INDEX_ROWS = 'pjud_index_rows';
+    const T_PJUD_INDEX_PROCESSING_LOG = 'pjud_index_processing_log';
     const CASE_DOCUMENT_STORAGE_BUCKET = 'case-files';
 
     const TAB_CONFIG = [
@@ -7439,30 +7442,29 @@
       state.generalPjudExcel.workbookError = '';
       try {
         const { data, error } = await supabase
-          .from(T_CAUSE_UPLOAD_BATCHES)
-          .select('id,file_name,created_at,metadata,metadata_json,status,source_type,source_url')
+          .from(T_PJUD_INDEX_UPLOADS)
+          .select('id,file_name,storage_path,uploaded_at,uploaded_by,is_active,total_rows,valid_rows,invalid_rows,status,error_summary,metadata')
           .eq('owner_user_id', authenticatedUser.id)
-          .eq('source_type', GENERAL_PJUD_EXCEL_SOURCE_TYPE)
-          .in('status', ['completed', 'completed_with_warnings'])
-          .order('created_at', { ascending: false })
+          .order('uploaded_at', { ascending: false })
           .limit(20);
         if (error) throw buildCauseExcelInfrastructureError(error) || error;
         const rows = Array.isArray(data) ? data : [];
-        const selectedRow = rows.find((item) => {
-          const meta = item?.metadata || item?.metadata_json || {};
-          return Boolean(meta?.is_current_file);
-        }) || rows[0] || null;
-        const metadata = selectedRow?.metadata || selectedRow?.metadata_json || {};
+        const selectedRow = rows.find((item) => item?.is_active) || rows[0] || null;
+        const metadata = selectedRow?.metadata || {};
         state.generalPjudExcel.file = selectedRow ? {
           id: selectedRow.id,
-          name: selectedRow.file_name || metadata.file_name || 'archivo.xlsx',
+          name: selectedRow.file_name || 'archivo.xlsx',
           size: Number(metadata.file_size_bytes || 0),
           type: metadata.mime_type || 'application/vnd.ms-excel',
-          uploadedAt: selectedRow.created_at || null,
+          uploadedAt: selectedRow.uploaded_at || null,
           storageBucket: metadata.storage_bucket || GENERAL_PJUD_EXCEL_STORAGE_BUCKET,
-          storagePath: metadata.storage_path || null,
-          sourceType: selectedRow.source_type || GENERAL_PJUD_EXCEL_SOURCE_TYPE,
-          sourceUrl: selectedRow.source_url || metadata.public_url || metadata.file_url || null,
+          storagePath: selectedRow.storage_path || metadata.storage_path || null,
+          sourceUrl: metadata.public_url || metadata.file_url || null,
+          totalRows: Number(selectedRow.total_rows || 0),
+          validRows: Number(selectedRow.valid_rows || 0),
+          invalidRows: Number(selectedRow.invalid_rows || 0),
+          status: selectedRow.status || 'unknown',
+          uploadedBy: selectedRow.uploaded_by || null,
         } : null;
         await loadGeneralPjudExcelWorkbookSummary();
       } catch (error) {
@@ -7559,19 +7561,23 @@
         <section class="section-card" id="generalPjudExcelPanel">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Lista general de causas de PJUD excel</h4>
+              <h4 class="section-title">Índice General PJUD vigente</h4>
               <p class="section-copy">Aquí puede cargar el Excel general de causas de PJUD, depurado de duplicaciones. Si sube uno nuevo, reemplazará al anterior.</p>
             </div>
           </div>
           <div class="document-actions">
-            <button type="button" class="btn" data-general-pjud-excel-action="upload">Subir Excel de listado todos los tribunales</button>
+            <button type="button" class="btn" data-general-pjud-excel-action="upload">Reemplazar índice vigente</button>
+            <button type="button" class="btn" data-general-pjud-excel-action="history">Ver historial de cargas</button>
+            <button type="button" class="btn" data-general-pjud-excel-action="refresh-caratulas">Actualizar carátulas desde índice vigente</button>
+            <button type="button" class="btn" data-general-pjud-excel-action="reprocess">Reprocesar índice vigente</button>
             <input type="file" id="generalPjudExcelInput" class="hidden-input" accept=".xlsx,.xls,.xlsm,.csv,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet">
             <div class="general-pjud-excel-status ${statusMeta.hasFile ? 'is-loaded' : 'is-empty'}" role="status" aria-live="polite">
               <span class="general-pjud-excel-status-dot" aria-hidden="true"></span>
               <div class="general-pjud-excel-status-content">
                 <div><strong>Estado:</strong> ${statusMeta.stateLabel}</div>
-                <div><strong>Archivo actual:</strong> ${escapeHtml(statusMeta.fileName)}</div>
+                <div><strong>Archivo vigente:</strong> ${escapeHtml(statusMeta.fileName)}</div>
                 <div class="general-pjud-excel-status-meta">Carga: ${escapeHtml(statusMeta.uploadedAtLabel)} · Tamaño: ${escapeHtml(statusMeta.sizeLabel)}</div>
+                <div class="general-pjud-excel-status-meta">Filas totales: ${escapeHtml(String(state.generalPjudExcel.file?.totalRows ?? 0))} · válidas: ${escapeHtml(String(state.generalPjudExcel.file?.validRows ?? 0))} · inválidas: ${escapeHtml(String(state.generalPjudExcel.file?.invalidRows ?? 0))} · estado: ${escapeHtml(state.generalPjudExcel.file?.status || 'sin estado')} · usuario: ${escapeHtml(state.generalPjudExcel.file?.uploadedBy || 'sin sesión')}</div>
                 <div class="general-pjud-excel-status-meta">
                   <strong>Lectura real visor:</strong>
                   ${workbookSummary
@@ -7600,6 +7606,19 @@
           });
         if (uploadError) throw new Error(`No fue posible subir el archivo al storage: ${uploadError.message || 'error desconocido'}`);
 
+        const xlsxModule = await ensureXlsxModule();
+        const workbook = xlsxModule.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
+        const firstSheet = workbook.SheetNames?.[0];
+        const rows = firstSheet ? xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '', raw: false }) : [];
+        const required = ['rol','tribunal','fechaingreso','caratula'];
+        const headers = Object.keys(rows[0] || {}).map((h) => normalizeExcelHeaderKey(h));
+        const missing = required.filter((k) => !headers.includes(k));
+        if (missing.length) throw new Error(`Estructura inválida. Faltan columnas obligatorias: ${missing.join(', ')}`);
+        const normalizedRows = rows.map((row, idx) => {
+          const m = {};
+          Object.entries(row || {}).forEach(([k,v]) => { m[normalizeExcelHeaderLabel(k)] = String(v || '').trim(); });
+          return { row_number: idx + 2, rol: m.rol || '', tribunal: m.tribunal || '', tribunal_normalized: normalizeTribunalKey(m.tribunal || ''), fecha_ingreso: m.fecha_ingreso || '', caratula: m.caratula || '', estado_causa: m.estado_causa || '', institucion: m.institucion || '', tipo_causa: m.tipocausa || '', ruc: m.ruc || '' };
+        }).filter((r) => r.rol && r.tribunal);
         const metadata = {
           panel: 'general_pjud_excel',
           is_current_file: true,
@@ -7611,32 +7630,32 @@
           file_name: file.name || 'archivo.xlsx',
           uploaded_at: startedAt,
         };
-        const batch = await createCauseExcelUploadBatch({
+        await supabase.from(T_PJUD_INDEX_UPLOADS).update({ is_active: false }).eq('owner_user_id', authenticatedUser.id).eq('is_active', true);
+        const { data: uploadRow, error: uploadErr } = await supabase.from(T_PJUD_INDEX_UPLOADS).insert({
           owner_user_id: authenticatedUser.id,
           uploaded_by: authenticatedUser.id,
-          upload_type: 'listado',
-          source_type: GENERAL_PJUD_EXCEL_SOURCE_TYPE,
-          status: 'completed',
           file_name: file.name || 'archivo.xlsx',
-          original_filename: file.name || 'archivo.xlsx',
-          total_rows: 0,
-          valid_rows: 0,
-          empty_rows: 0,
-          structural_errors: 0,
-          duplicate_rows: 0,
-          processed_count: 0,
-          created_count: 0,
-          updated_count: 0,
-          linked_rows: 0,
-          discarded_count: 0,
-          raw_preview: [],
-          metadata_json: metadata,
+          storage_path: storagePath,
+          uploaded_at: startedAt,
+          is_active: true,
+          total_rows: rows.length,
+          valid_rows: normalizedRows.length,
+          invalid_rows: Math.max(0, rows.length - normalizedRows.length),
+          status: 'completed',
           metadata,
-        });
+        }).select('id,uploaded_at').single();
+        if (uploadErr) throw uploadErr;
+        const uploadId = uploadRow.id;
+        if (normalizedRows.length) {
+          const rowPayload = normalizedRows.map((r) => ({ owner_user_id: authenticatedUser.id, upload_id: uploadId, ...r, row_hash: `${r.rol}|${r.tribunal_normalized}|${r.row_number}` }));
+          const { error: rowsErr } = await supabase.from(T_PJUD_INDEX_ROWS).insert(rowPayload);
+          if (rowsErr) throw rowsErr;
+        }
+        await supabase.from(T_PJUD_INDEX_PROCESSING_LOG).insert({ owner_user_id: authenticatedUser.id, upload_id: uploadId, step: 'replace_index', status: 'completed', message: 'Índice vigente reemplazado y persistido en Supabase.', metadata: { total_rows: rows.length, valid_rows: normalizedRows.length } });
 
         await loadGeneralPjudExcelRecord();
         const persistedName = state.generalPjudExcel.file?.name || file.name || 'archivo.xlsx';
-        const persistedAt = state.generalPjudExcel.file?.uploadedAt || batch?.created_at || startedAt;
+        const persistedAt = state.generalPjudExcel.file?.uploadedAt || uploadRow?.uploaded_at || startedAt;
         setMessage('importMsg', `Archivo cargado y persistido correctamente. Archivo vigente: ${persistedName}. Fecha/hora de carga: ${formatDate(persistedAt)}.`, 'ok');
       } catch (error) {
         console.error('[CAUSAS][PJUD-EXCEL-GENERAL] Falló la carga real del archivo.', error);
@@ -16387,8 +16406,20 @@
 
         const generalExcelAction = event.target.closest('[data-general-pjud-excel-action]');
         if (generalExcelAction) {
-          if (generalExcelAction.dataset.generalPjudExcelAction === 'upload') {
+          const action = generalExcelAction.dataset.generalPjudExcelAction;
+          if (action === 'upload') {
             $('generalPjudExcelInput')?.click();
+            return;
+          }
+          if (action === 'history') {
+            const { data } = await supabase.from(T_PJUD_INDEX_UPLOADS).select('file_name,uploaded_at,status,total_rows,valid_rows').eq('owner_user_id', authenticatedUser.id).order('uploaded_at', { ascending: false }).limit(10);
+            const summary = (data || []).map((r) => `${r.file_name} · ${formatDate(r.uploaded_at)} · ${r.status} · filas ${r.valid_rows}/${r.total_rows}`).join('\n') || 'Sin historial disponible.';
+            window.alert(`Historial de cargas (últimas 10):\n${summary}`);
+            return;
+          }
+          if (action === 'refresh-caratulas' || action === 'reprocess') {
+            await loadGeneralPjudExcelRecord();
+            setMessage('importMsg', 'Se reprocesó la lectura del Índice General PJUD vigente.', 'ok');
             return;
           }
         }
