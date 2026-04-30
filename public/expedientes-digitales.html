@@ -544,7 +544,7 @@
     function upsertExcelDepuradoCivilMaterializedRow(row = {}) {
       const rol = normalizeVisibleRol(row.rit || row.rolUsadoParaComparar || '');
       const tribunal = normalizeTribunal(row.tribunal || '');
-      const caratula = String(row.caratulado || '').trim();
+      const caratula = String(row.caratula || row.caratulado || '').trim();
       if (!rol || !tribunal || !caratula) return false;
       if (!isCivilCourtLabel(tribunal)) return false;
       const key = buildCauseIdentityKey({ rol, tribunal });
@@ -1004,7 +1004,14 @@
       (Array.isArray(cases) ? cases : []).forEach((cause) => {
         const tribunal = cause[C.kTrib] || cause[C.kCourt] || cause.tribunal || cause.corte || '';
         const roles = [cause[C.kRol], cause[C.kRit], cause[C.kRuc], cause.rol, cause.rit, cause.ruc];
-        const caratulas = [cause[C.kCaratula], cause.caratulado, cause.subject, cause.metadata?.caratula];
+        const caratulas = [
+          cause[C.kCaratula],
+          cause.caratula,
+          cause.pjud_caratulado,
+          cause.caratulado,
+          cause.subject,
+          cause.metadata?.caratula,
+        ];
         roles.forEach((rol) => caratulas.forEach((caratula) => register({ rol, tribunal, caratula })));
       });
       Object.values(manualRegistry || {}).forEach((entry) => {
@@ -1023,6 +1030,8 @@
       const roles = [cause[C.kRol], cause[C.kRit], cause[C.kRuc], manualData?.base?.rol, manualData?.base?.rit, manualData?.base?.ruc];
       const candidates = [
         cause[C.kCaratula],
+        cause.caratula,
+        cause.pjud_caratulado,
         cause.caratulado,
         cause.subject,
         cause.metadata?.caratula,
@@ -1055,7 +1064,10 @@
       const bucketMap = new Map();
       tribunalMap.forEach((roleMap, tribunalName) => {
         const tribunalLabel = String(tribunalName || 'Tribunal sin clasificar').trim() || 'Tribunal sin clasificar';
-        const bucketKey = normalizeTribunalSpecificPanelKey(tribunalLabel) || normalize(tribunalLabel) || 'tribunal-sin-clasificar';
+        const bucketKey = normalizeCauseIdentityTribunal(tribunalLabel)
+          || normalizeTribunalSpecificPanelKey(tribunalLabel)
+          || normalize(tribunalLabel)
+          || 'tribunal-sin-clasificar';
         if (!bucketMap.has(bucketKey)) {
           bucketMap.set(bucketKey, {
             key: bucketKey,
@@ -1940,7 +1952,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
       const addMaterializedCivilCase = (row = {}) => {
         const role = normalizeVisibleRol(String(row.rol || row.rit || '').trim());
         const tribunal = normalizeCivilTribunalName(String(row.tribunal || '').trim()) || normalizeTribunal(String(row.tribunal || '').trim());
-        const caratula = String(row.caratula || '').trim();
+        const caratula = String(row.caratula || row.caratulado || '').trim();
         if (!role || !tribunal || !caratula) return;
         if (!isCivilCourtLabel(tribunal)) return;
         const matter = 'Juzgados Civiles';
