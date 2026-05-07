@@ -392,6 +392,10 @@ export function quickHash(value = '') {
   return `h${Math.abs(hash)}`
 }
 
+function matchesAnyPattern(source = '', patterns = []) {
+  return patterns.some((pattern) => pattern.test(source))
+}
+
 function inferTribunalMainBucket(cause = {}) {
   const source = normalizeForComparison([
     cause?.tribunal,
@@ -402,15 +406,29 @@ function inferTribunalMainBucket(cause = {}) {
     cause?.materia,
   ].filter(Boolean).join(' '))
   if (!source) return { key: 'tribunal_no_especificado', label: 'Tribunal no especificado' }
-  if (source.includes('corte suprema')) return { key: 'corte_suprema', label: 'Corte Suprema' }
-  if (source.includes('corte de apelaciones')) return { key: 'cortes_apelaciones', label: 'Cortes de Apelaciones' }
-  if (source.includes('juzgado de policia local')) return { key: 'policia_local', label: 'Juzgados de Policía Local' }
-  if (source.includes('cobranza') || source.includes('previsional')) return { key: 'cobranza_previsional', label: 'Juzgados de Cobranza Laboral y Previsional' }
-  if (source.includes('juicio oral') || source.includes('top')) return { key: 'top', label: 'Tribunales de Juicio Oral en lo Penal' }
+  if (/corte\s+suprema/.test(source) || /\bsuprema\b/.test(source)) return { key: 'corte_suprema', label: 'Corte Suprema' }
+  if (/corte\s+de\s+apelaciones/.test(source) || /apelaciones/.test(source)) return { key: 'cortes_apelaciones', label: 'Cortes de Apelaciones' }
+  if (/juzgado\s+de\s+policia\s+local/.test(source) || /policia\s+local/.test(source)) return { key: 'policia_local', label: 'Juzgados de Policía Local' }
+  if (matchesAnyPattern(source, [
+    /cobranza\s+laboral/,
+    /cobranza\s+previsional/,
+    /cobranza.*previsional/,
+    /juzgado.*cobranza.*laboral.*previsional/,
+    /\bcobranza\b/,
+    /\bprevisional\b/,
+  ])) return { key: 'cobranza_previsional', label: 'Juzgados de Cobranza Laboral y Previsional' }
+  if (source.includes('juicio oral') || source.includes('top') || source.includes('oral en lo penal')) return { key: 'top', label: 'Tribunales de Juicio Oral en lo Penal' }
   if (source.includes('garantia')) return { key: 'garantia', label: 'Juzgados de Garantía' }
   if (source.includes('familia')) return { key: 'familia', label: 'Juzgados de Familia' }
-  if (source.includes('trabajo')) return { key: 'trabajo', label: 'Juzgados del Trabajo' }
-  if (source.includes('civil') || source.includes('letras')) return { key: 'civil', label: 'Juzgados Civiles' }
+  if (matchesAnyPattern(source, [
+    /juzgado\s+de\s+letras\s+del\s+trabajo/,
+    /juzgado\s+del\s+trabajo/,
+    /juzgado\s+laboral/,
+    /tribunal\s+laboral/,
+    /\blaboral\b/,
+    /\btrabajo\b/,
+  ])) return { key: 'trabajo', label: 'Juzgados del Trabajo' }
+  if (source.includes('civil') || (/\bletras\b/.test(source) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(source))) return { key: 'civil', label: 'Juzgados Civiles' }
   return { key: `tribunal_${quickHash(source)}`, label: cause?.tribunal || cause?.court || cause?.corte || 'Tribunal no especificado' }
 }
 
@@ -1219,12 +1237,12 @@ const PROCEDURAL_ROLE_LABELS = {
 
 function canonicalSheetName(value = '') {
   const normalized = normalizeForComparison(value)
-  if (normalized.includes('corte suprema')) return 'Corte Suprema'
-  if (normalized.includes('corte apelaciones') || normalized.includes('corte de apelaciones')) return 'Corte Apelaciones'
-  if (normalized.includes('civil')) return 'Civil'
-  if (normalized.includes('laboral')) return 'Laboral'
+  if (normalized.includes('corte suprema') || /\bsuprema\b/.test(normalized)) return 'Corte Suprema'
+  if (normalized.includes('corte apelaciones') || normalized.includes('corte de apelaciones') || normalized.includes('apelaciones')) return 'Corte Apelaciones'
+  if (normalized.includes('cobranza') || normalized.includes('previsional')) return 'Cobranza'
+  if (normalized.includes('laboral') || normalized.includes('trabajo')) return 'Laboral'
+  if (normalized.includes('civil') || (/\bletras\b/.test(normalized) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(normalized))) return 'Civil'
   if (normalized.includes('penal')) return 'Penal'
-  if (normalized.includes('cobranza')) return 'Cobranza'
   if (normalized.includes('familia')) return 'Familia'
   return ''
 }
