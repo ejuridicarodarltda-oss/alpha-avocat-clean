@@ -6941,7 +6941,10 @@
       const fromCases = getAllCases()
         .map((item) => String(item?.tribunal || '').trim())
         .filter(Boolean);
-      const onlyCivil = [...fromIndex, ...fromCases].filter((name) => {
+      const fromLoadedExcel = (state.excelUploads?.listado?.parsed?.rows || [])
+        .map((row) => String(row?.tribunal || '').trim())
+        .filter(Boolean);
+      const onlyCivil = [...fromIndex, ...fromCases, ...fromLoadedExcel].filter((name) => {
         const normalized = normalizeTextForMatch(name);
         return normalized.includes('civil') || normalized.includes('letras');
       });
@@ -12331,9 +12334,14 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const resolvedCaratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '');
-      const hasCaratula = Boolean(resolvedCaratula) && normalizeTextForMatch(resolvedCaratula) !== 'sin caratula';
-      const folderName = `${rol} - ${hasCaratula ? resolvedCaratula : 'Carátula pendiente'}`;
+      const resolvedCaratula = normalizeCaratula(
+        rowPayload?.pjud_caratulado
+        || rowPayload?.caratula
+        || importData?.caratulado
+        || importData?.basic?.caratula
+        || ''
+      );
+      const folderName = `${rol} - ${resolvedCaratula || rol}`;
       const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
       return {
         tribunal,
