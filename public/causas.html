@@ -6323,7 +6323,7 @@
       const unique = new Map();
       let duplicatesRemoved = 0;
       getAllCases().forEach((item) => {
-        const materia = String(item.materia || item.pjud_materia || 'Materia sin clasificar').trim();
+        const materia = resolvePjudMatterLabelFromCase(item);
         const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
         const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
         const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
@@ -11423,7 +11423,7 @@
                 [C.k_responsible]: null,
                 [C.k_court]: row?.tribunal || null,
                 [C.k_rol]: row?.rol || null,
-                [C.k_subject]: classification.fuero === 'corte_suprema' ? 'Corte Suprema' : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Materia por definir'),
+                [C.k_subject]: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
                 [C.k_fee_total]: null,
                 [C.k_fee_type]: 'Mixto',
                 [C.k_payment]: 'Mixto',
@@ -11441,7 +11441,7 @@
                 rol: row?.rol || '',
                 tribunal: row?.tribunal || '',
                 caratula: row?.caratula || '',
-                materia: classification.fuero === 'corte_suprema' ? 'Corte Suprema' : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Materia por definir'),
+                materia: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
                 estadoProcesal: row?.estado || '',
                 pjudEstadoCausa: row?.estado || '',
                 pjudFechaIngreso: row?.fecha || '',
@@ -12139,7 +12139,35 @@
         const suffix = cleaned ? ` de ${cleaned}` : '';
         return { fuero: 'cortes_apelaciones', tribunalEspecifico: `Corte de Apelaciones${suffix}`, normalized };
       }
+      if (normalized.includes('cobranza laboral')
+        || normalized.includes('cobranza previsional')
+        || (normalized.includes('cobranza') && normalized.includes('previsional'))
+        || normalized.includes('juzgado de cobranza laboral y previsional')) {
+        return { fuero: 'cobranza_laboral_previsional', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('juzgado de letras del trabajo')
+        || normalized.includes('juzgado del trabajo')
+        || normalized.includes('tribunal laboral')
+        || normalized.includes('juzgado laboral')
+        || /\blaboral\b/.test(normalized)
+        || normalized.includes('trabajo')) {
+        return { fuero: 'laboral', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('civil') || (/\bletras\b/.test(normalized) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(normalized))) {
+        return { fuero: 'civil', tribunalEspecifico: tribunal, normalized };
+      }
       return { fuero: 'otros', tribunalEspecifico: tribunal, normalized };
+    }
+
+    function resolvePjudMatterLabelFromCase(item = {}){
+      const rawMatter = String(item.materia || item.pjud_materia || '').trim();
+      const classification = classifyTribunalFuero(item.tribunal || item.pjud_tribunal || item.court || '');
+      if (classification.fuero === 'cobranza_laboral_previsional') return 'Juzgados de Cobranza Laboral y Previsional';
+      if (classification.fuero === 'laboral') return 'Juzgados del Trabajo';
+      if (classification.fuero === 'civil') return 'Juzgados Civiles';
+      if (classification.fuero === 'corte_suprema') return 'Corte Suprema';
+      if (classification.fuero === 'cortes_apelaciones') return 'Cortes de Apelaciones';
+      return rawMatter || 'Materia sin clasificar';
     }
 
     function buildExcelFueroAudit(rows = []){
@@ -12178,7 +12206,11 @@
         if (classification.fuero === 'otros' && hasTribunal) failures.filasTribunalNoClasificado += 1;
         const fueroLabel = classification.fuero === 'corte_suprema'
           ? 'Corte Suprema'
-          : (classification.fuero === 'cortes_apelaciones' ? 'Cortes de Apelaciones' : 'Otros');
+          : (classification.fuero === 'cortes_apelaciones'
+            ? 'Cortes de Apelaciones'
+            : (classification.fuero === 'cobranza_laboral_previsional'
+              ? 'Juzgados de Cobranza Laboral y Previsional'
+              : (classification.fuero === 'laboral' ? 'Juzgados del Trabajo' : (classification.fuero === 'civil' ? 'Juzgados Civiles' : 'Otros'))));
         statsByFuero[fueroLabel] = (statsByFuero[fueroLabel] || 0) + 1;
         const tribunalLabel = classification.tribunalEspecifico || 'Tribunal no informado';
         statsByTribunal[tribunalLabel] = (statsByTribunal[tribunalLabel] || 0) + 1;

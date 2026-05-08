@@ -1450,7 +1450,9 @@ function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map(), op
   }
 
   if (forcePositionalMapping && Array.isArray(rowArray) && rowArray.length === 6) {
-    mapped.rol = normalizePjudRol(rowArray[0] || '')
+    mapped.rolOriginalExcel = sanitizeVisibleText(rowArray[0] || '')
+    mapped.rolVisual = normalizePjudRol(mapped.rolOriginalExcel)
+    mapped.rol = mapped.rolVisual
     mapped.tribunal = sanitizeVisibleText(rowArray[1] || '')
     mapped.caratulado = sanitizeVisibleText(rowArray[2] || '')
     mapped.fechaIngreso = parseFlexibleDate(rowArray[3] || '')
@@ -1475,7 +1477,10 @@ function mapPjudSheetRow(rawRow = {}, materia = '', headerLookup = new Map(), op
     if (/(juzgado|tribunal|corte|civil|familia|garantia|garantía)/i.test(mapped.era)) mapped.tribunal = mapped.era
   }
 
-  mapped.rol = normalizePjudRol(mapped.rol || mapped.rit || '')
+  mapped.rolOriginalExcel = sanitizeVisibleText(mapped.rolOriginalExcel || mapped.rol || mapped.rit || '')
+  mapped.rolVisual = normalizePjudRol(mapped.rolOriginalExcel)
+  mapped.rol = mapped.rolVisual
+  mapped.rolBusqueda = normalizePjudRol(mapped.rit || mapped.rolVisual || '')
   mapped.tribunal = mapped.tribunal || mapped.corte
   mapped.corte = mapped.corte || mapped.tribunal
   mapped.estado = mapped.estado || mapped.estadoProcesal || mapped.estadoCausa
@@ -1602,8 +1607,8 @@ export async function parsePjudMisCausasWorkbook(file, XLSX, options = {}) {
       conflictStates: [...entry.states],
       pjudCaseKey: entry.dedupeKey,
       basic: {
-        rol: primary.rol,
-        rit: primary.rit,
+        rol: primary.rolVisual || primary.rolOriginalExcel || primary.rol,
+        rit: primary.rit || primary.rolBusqueda || '',
         tribunal: primary.tribunal || primary.corte,
         procedimiento: primary.tipoCausa,
         materia: primary.materia,

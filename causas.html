@@ -5174,7 +5174,7 @@
                 causas:[
                   {
                     nombre: tribunalNombre === 'Corte Suprema' 
-  ? `${(rol || '').replace(/ERA/gi, '').replace(/^[A-Z]-/i, '').trim() || 'Sin rol'} · Corte Suprema`
+  ? `${rol || 'Sin rol'} · Corte Suprema`
   : `${rol || 'Sin rol'} / ${rit || 'Sin RIT'} / ${ruc || 'Sin RUC'}`,
                     subcarpetas:[
                       'Ebook primera instancia, expediente de Corte de Apelaciones, expediente Corte Suprema y exhortos de dicha causa',
@@ -5989,12 +5989,42 @@
       }
     }
 
+
+    function classifyTribunalFuero(rawTribunal = ''){
+      const tribunal = String(rawTribunal || '').trim();
+      const normalized = normalizeImportComparisonKey(tribunal).replace(/_/g, ' ');
+      if (!normalized) return { fuero: 'sin_tribunal', tribunalEspecifico: '', normalized };
+      if (normalized.includes('corte suprema')) return { fuero: 'corte_suprema', tribunalEspecifico: 'Corte Suprema', normalized };
+      if (normalized.includes('corte de apelaciones') || normalized.includes('corte apelaciones')) return { fuero: 'cortes_apelaciones', tribunalEspecifico: tribunal, normalized };
+      if (normalized.includes('cobranza laboral') || normalized.includes('cobranza previsional') || (normalized.includes('cobranza') && normalized.includes('previsional'))) {
+        return { fuero: 'cobranza_laboral_previsional', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('juzgado de letras del trabajo') || normalized.includes('juzgado del trabajo') || normalized.includes('tribunal laboral') || normalized.includes('juzgado laboral') || normalized.includes('trabajo') || normalized.includes('laboral')) {
+        return { fuero: 'laboral', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('civil') || (/\bletras\b/.test(normalized) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(normalized))) {
+        return { fuero: 'civil', tribunalEspecifico: tribunal, normalized };
+      }
+      return { fuero: 'otros', tribunalEspecifico: tribunal, normalized };
+    }
+
+    function resolvePjudMatterLabelFromCase(item = {}){
+      const rawMatter = String(item.materia || item.pjud_materia || '').trim();
+      const classification = classifyTribunalFuero(item.tribunal || item.pjud_tribunal || item.court || '');
+      if (classification.fuero === 'cobranza_laboral_previsional') return 'Juzgados de Cobranza Laboral y Previsional';
+      if (classification.fuero === 'laboral') return 'Juzgados del Trabajo';
+      if (classification.fuero === 'civil') return 'Juzgados Civiles';
+      if (classification.fuero === 'corte_suprema') return 'Corte Suprema';
+      if (classification.fuero === 'cortes_apelaciones') return 'Cortes de Apelaciones';
+      return rawMatter || 'Materia sin clasificar';
+    }
+
     function buildPjudIndexFromCases(){
       const buckets = {};
       const unique = new Map();
       let duplicatesRemoved = 0;
       getAllCases().forEach((item) => {
-        const materia = String(item.materia || item.pjud_materia || 'Materia sin clasificar').trim();
+        const materia = resolvePjudMatterLabelFromCase(item);
         const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
         const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
         const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
