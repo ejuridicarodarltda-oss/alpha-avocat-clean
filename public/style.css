@@ -2214,7 +2214,7 @@ text-decoration:underline;
   .monitoreo-grid{grid-template-columns:1fr;}
 }
 
-/* ===== Auditoría visual: descarga automática masiva desde PJUD ===== */
+/* ===== Auditoría visual histórica (flujo automático externo retirado) ===== */
 .massive-control__grid{
 display:grid;
 grid-template-columns:repeat(auto-fit,minmax(220px,1fr));
@@ -2391,3 +2391,10 @@ font-weight:700;
 .assisted-step--running .assisted-step__status{color:#135fb2;}
 .assisted-step--success .assisted-step__status{color:#1d7a35;}
 .assisted-step--error .assisted-step__status{color:#aa1f2d;}
+
+/* Carga manual: flujo operativo sin integración externa automática */
+.manual-flow-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px}
+.manual-flow-step{display:grid;grid-template-columns:auto 1fr;gap:12px;align-items:flex-start;border:1px solid #d7ece8;border-radius:16px;background:#f8fffd;padding:14px}
+.manual-flow-index{display:grid;place-items:center;width:34px;height:34px;border-radius:999px;background:#163A5F;color:#fff;font-weight:800}
+.manual-flow-step h3{margin:0 0 6px;color:#163A5F;font-size:16px}
+.manual-flow-step p{margin:0;color:#294542;font-size:13px;line-height:1.45}
