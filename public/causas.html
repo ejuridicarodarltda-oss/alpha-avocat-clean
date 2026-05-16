@@ -3706,6 +3706,7 @@
       button.removeAttribute('disabled');
       button.setAttribute('aria-disabled', 'false');
       if (button.style.pointerEvents === 'none') button.style.pointerEvents = 'auto';
+      state.buttonAuditCorrections = Number(state.buttonAuditCorrections || 0) + 1;
       console.info('[CAUSAS][BOTONES] Botón reactivado automáticamente.', {
         scope,
         id: button.id || null,
@@ -4058,8 +4059,8 @@
           <span>Se actualiza el visor de la causa y la trazabilidad de rectificaciones registra automáticamente cada cambio validado.</span>
         </div>
         <div class="rectification-validation-actions">
-          <button type="button" class="btn btn-secondary" id="btnEditarRectificacionValidada">Seguir editando</button>
-          <button type="button" class="btn btn-primary" id="btnConfirmarRectificacionCausa">Validar y guardar</button>
+          <button type="button" class="btn btn-secondary" id="btnEditarRectificacionValidada" data-rectification-validation-action="edit">Seguir editando</button>
+          <button type="button" class="btn btn-primary" id="btnConfirmarRectificacionCausa" data-rectification-validation-action="confirm">Validar y guardar</button>
         </div>
       `;
     }
@@ -6829,24 +6830,145 @@
       }
     }
 
-    function runInteractiveAudit(){
-      const interactiveSelector = 'button, a[href], [role="button"], [data-tab], [data-jump], [data-select], [data-doc-action], [data-general-pjud-excel-action], [data-explorer-node], [data-open-block], [data-doc-upload], [data-doc-create], [data-create-folder], [data-detail-action-trigger], [data-resolution-action], [data-tribunal-action]';
-      const interactiveNodes = Array.from(document.querySelectorAll(interactiveSelector))
-        .filter((node) => !node.closest('#modalCausa[aria-hidden="true"], #modalImportacion[aria-hidden="true"], #modalDescargaMasivaPjud[aria-hidden="true"], #modalDescargaManualPjud[aria-hidden="true"], #modalDocumento[aria-hidden="true"], #modalCargaExpedienteDigital[aria-hidden="true"], #modalSincronizacion[aria-hidden="true"], #modalProducirEscritos[aria-hidden="true"]'));
-      const deadNodes = interactiveNodes.filter((node) => {
-        if (node.closest('[disabled],[aria-disabled="true"]')) return false;
-        if (node.matches('[data-close],[data-modal-id]')) return false;
-        if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id)) return false;
-        if (node.matches('[data-tab],[data-jump],[data-select],[data-doc-action],[data-general-pjud-excel-action],[data-explorer-node],[data-open-block],[data-doc-upload],[data-doc-create],[data-create-folder],[data-detail-action-trigger],[data-resolution-action],[data-kardex-toggle],[data-explorer-toggle],[data-explorer-nav],[data-select-associated-client],[data-rectify-scope],[data-explorer-view],[data-import-summary-action],[data-detail-action],[data-tribunal-action]')) return false;
+    const CAUSAS_BUTTON_AUDIT_CODE_CORRECTIONS = 4;
+
+    const CAUSAS_BUTTON_AUDIT_SELECTOR = [
+      'button',
+      '[role="button"]',
+      '[data-tab]',
+      '[data-open-block]',
+      '[data-pillar-action]',
+      '[data-jump]',
+      '[data-select]',
+      '[data-kardex-toggle]',
+      '[data-tribunal-action]',
+      '[data-detail-action]',
+      '[data-detail-action-trigger]',
+      '[data-select-associated-client]',
+      '[data-rectify-scope]',
+      '[data-rectification-validation-action]',
+      '[data-explorer-toggle]',
+      '[data-explorer-node]',
+      '[data-explorer-nav]',
+      '[data-explorer-view]',
+      '[data-doc-action]',
+      '[data-doc-upload]',
+      '[data-doc-create]',
+      '[data-create-folder]',
+      '[data-resolution-action]',
+      '[data-general-pjud-excel-action]',
+      '[data-pjud-case-action]',
+      '[data-pjud-link-action]',
+      '[data-pjud-index-action]',
+      '[data-select-cause]',
+      '[data-open-cause]',
+      '[data-step-action]',
+      '[data-import-summary-action]',
+    ].join(',');
+
+    const CAUSAS_BUTTON_AUDIT_DELEGATED_SELECTORS = [
+      '[data-close]',
+      '[data-modal-id]',
+      '[data-tab]',
+      '[data-open-block]',
+      '[data-pillar-action]',
+      '[data-jump]',
+      '[data-select]',
+      '[data-kardex-toggle]',
+      '[data-tribunal-action]',
+      '[data-detail-action]',
+      '[data-detail-action-trigger]',
+      '[data-select-associated-client]',
+      '[data-rectify-scope]',
+      '[data-rectification-validation-action]',
+      '[data-explorer-toggle]',
+      '[data-explorer-node]',
+      '[data-explorer-nav]',
+      '[data-explorer-view]',
+      '[data-doc-action]',
+      '[data-doc-upload]',
+      '[data-doc-create]',
+      '[data-create-folder]',
+      '[data-resolution-action]',
+      '[data-general-pjud-excel-action]',
+      '[data-pjud-case-action]',
+      '[data-pjud-link-action]',
+      '[data-pjud-index-action]',
+      '[data-select-cause]',
+      '[data-open-cause]',
+      '[data-step-action]',
+      '[data-import-summary-action]',
+      '.compact-card-toggle',
+    ];
+
+    function describeButtonForAudit(node){
+      if (!node) return {};
+      return {
+        tag: node.tagName || '',
+        id: node.id || '',
+        text: (node.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 140),
+        type: node.getAttribute('type') || '',
+        classes: typeof node.className === 'string' ? node.className : '',
+        data: Object.keys(node.dataset || {}).reduce((acc, key) => { acc[key] = node.dataset[key]; return acc; }, {}),
+      };
+    }
+
+    function isCausasButtonWired(node){
+      if (!node) return false;
+      if (node.disabled || node.getAttribute('aria-disabled') === 'true' || node.closest('[disabled],[aria-disabled="true"]')) return true;
+      if (node.matches('button[type="submit"]') && node.closest('form')) return true;
+      if (node.id && EVENT_BINDING_REGISTRY.some((binding) => binding.elementId === node.id && binding.eventName === 'click')) return true;
+      if (node.dataset?.primaryBound_click === '1') return true;
+      if (node.hasAttribute('onclick')) return true;
+      if (CAUSAS_BUTTON_AUDIT_DELEGATED_SELECTORS.some((selector) => node.matches(selector) || node.closest(selector))) return true;
+      if (node.tagName === 'A') {
         const href = node.getAttribute('href');
-        if (node.tagName === 'A' && href && href !== '#' && href !== 'javascript:void(0)') return false;
+        if (href && href !== '#' && href !== 'javascript:void(0)') return true;
+      }
+      return false;
+    }
+
+    function runInteractiveAudit(){
+      const uniqueNodes = Array.from(new Set(Array.from(document.querySelectorAll(CAUSAS_BUTTON_AUDIT_SELECTOR))));
+      const reviewedNodes = uniqueNodes.filter((node) => {
+        if (!node) return false;
+        if (node.closest('template')) return false;
+        if (node.hidden || node.closest('[hidden]')) return false;
         return true;
       });
-      return {
-        totalInteractive: interactiveNodes.length,
-        correctlyWired: interactiveNodes.length - deadNodes.length,
+      const disabledNodes = reviewedNodes.filter((node) => node.disabled || node.getAttribute('aria-disabled') === 'true' || node.closest('[disabled],[aria-disabled="true"]'));
+      const deadNodes = reviewedNodes.filter((node) => !isCausasButtonWired(node));
+      const result = {
+        totalInteractive: reviewedNodes.length,
+        totalReviewed: reviewedNodes.length,
+        correctlyWired: reviewedNodes.length - deadNodes.length,
+        disabled: disabledNodes.length,
+        corrected: CAUSAS_BUTTON_AUDIT_CODE_CORRECTIONS + Number(state.buttonAuditCorrections || 0),
         dead: deadNodes.length,
+        deadNodes: deadNodes.map(describeButtonForAudit),
       };
+      const report = [
+        '[CAUSAS][BOTONES]',
+        `Total revisados: ${result.totalReviewed}`,
+        `Cableados: ${result.correctlyWired}`,
+        `Corregidos: ${result.corrected}`,
+        `Deshabilitados: ${result.disabled}`,
+        `Sin acción: ${result.dead}`,
+      ].join('\n');
+      if (result.dead > 0) {
+        console.error(report, result.deadNodes);
+      } else {
+        console.info(report);
+      }
+      return result;
+    }
+
+    function auditCausasButtons(scope = 'runtime'){
+      const result = runInteractiveAudit();
+      if (result.dead > 0) {
+        console.error(`[CAUSAS][BOTONES][${scope}] Auditoría fallida: existen botones sin acción.`, result.deadNodes);
+      }
+      return result;
     }
 
     function renderOfficeFolderSourceStatus(){
@@ -16183,17 +16305,19 @@
         }
       });
       $('causeRectificationPanel')?.addEventListener('click', (event) => {
-        if (event.target.closest('#btnEditarRectificacionValidada')) {
+        const validationAction = event.target.closest('[data-rectification-validation-action]');
+        if (!validationAction) return;
+        if (validationAction.dataset.rectificationValidationAction === 'edit') {
           resetCauseRectificationValidation({ clearMessage: false });
           setCauseRectificationMessage('Puedes seguir editando antes de confirmar la rectificación.');
           return;
         }
-        if (event.target.closest('#btnConfirmarRectificacionCausa')) {
+        if (validationAction.dataset.rectificationValidationAction === 'confirm') {
           finalizeCauseRectification();
         }
       });
-      $('btnCancelarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
-      $('btnDescartarRectificacionCausa')?.addEventListener('click', closeCauseRectification);
+      bindEvent('btnCancelarRectificacionCausa', 'click', closeCauseRectification, { scope: 'rectificacion-causa' });
+      bindEvent('btnDescartarRectificacionCausa', 'click', closeCauseRectification, { scope: 'rectificacion-causa' });
 
       [modal, $('modalImportacion'), $('modalDescargaMasivaPjud'), $('modalDescargaManualPjud'), $('modalDocumento'), $('modalCargaExpedienteDigital'), $('modalSincronizacion'), $('modalPjudLinking'), $('modalListadoCausas'), $('modalEstadoDiario'), $('modalBuscarCausa'), $('modalProducirEscritos'), $('workspaceModal')].forEach((modalNode) => {
         modalNode?.addEventListener('click', event => {
@@ -16584,7 +16708,7 @@
       });
       $('detailContent')?.addEventListener('keydown', (event) => {
         if (!['Enter', ' '].includes(event.key)) return;
-        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-general-pjud-excel-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-explorer-view]');
+        const actionable = event.target.closest('[data-explorer-node],[data-explorer-toggle],[data-doc-action],[data-detail-action-trigger],[data-resolution-action],[data-general-pjud-excel-action],[data-pjud-case-action],[data-select-associated-client],[data-rectify-scope],[data-rectification-validation-action],[data-explorer-view]');
         if (!actionable) return;
         event.preventDefault();
         actionable.click();
@@ -16612,6 +16736,7 @@
       const nonFatalTasks = [
         () => wireEvents(),
         () => renderAll(),
+        () => auditCausasButtons('init-non-fatal'),
       ];
       nonFatalTasks.forEach((task) => {
         try {
