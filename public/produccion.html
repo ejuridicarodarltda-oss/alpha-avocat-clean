@@ -6,55 +6,62 @@
   <title>Producción — Alpha Avocat</title>
   <link rel="stylesheet" href="./style.css" />
   <style>
+    :root{
+      --brand-burgundy:#7A1E2C;
+      --brand-blue:#163A5F;
+      --ink:#17211f;
+      --muted:#5b6f6b;
+      --line:#d8e4e1;
+      --paper:#fffdf8;
+      --surface:#f6f8f7;
+      --surface-strong:#eef5f2;
+      --teal:#2D7C74;
+    }
+    *{box-sizing:border-box}
     body{
       margin:0;
-      font-family:Arial,sans-serif;
-      background:linear-gradient(180deg,#245f59,#2D7C74);
-      color:#10211f;
+      font-family:Inter,Arial,sans-serif;
+      background:linear-gradient(180deg,#edf4f1 0%,#f8faf9 36%,#e7efed 100%);
+      color:var(--ink);
       overflow-x:auto;
       overflow-y:auto;
     }
-    .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#6f1728,#7A1E2C);}
-    .brand{color:#fff;font-weight:800;font-size:22px}
+    .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:10px 22px;background:rgba(255,255,255,.94);border-bottom:1px solid var(--line);box-shadow:0 10px 30px rgba(22,58,95,.08);backdrop-filter:blur(14px)}
+    .brand{color:var(--brand-burgundy);font-weight:900;font-size:21px;letter-spacing:-.02em}
     .actions{display:flex;gap:8px;flex-wrap:wrap}
-    .btn{appearance:none;border:1px solid rgba(255,255,255,.2);background:#fff;color:#10211f;border-radius:14px;padding:9px 12px;font-weight:700;cursor:pointer;text-decoration:none}
-    .shell{
-      padding:14px;
-      display:grid;
-      gap:12px;
-      max-width:none;
-      width:100%;
-      min-width:1280px;
-      margin:0 auto;
-    }
-    .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
+    .btn{appearance:none;border:1px solid #cfdcd9;background:#fff;color:#16302c;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(16,33,31,.04);transition:background .15s ease,border-color .15s ease,transform .15s ease,box-shadow .15s ease}
+    .btn:hover{background:#f5f9f8;border-color:#aebfbb;box-shadow:0 7px 18px rgba(22,58,95,.08)}
+    .btn:active{transform:translateY(1px)}
+    .shell{padding:18px 22px 28px;display:grid;gap:14px;max-width:1780px;width:100%;margin:0 auto}
+    .card{background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:0 18px 45px rgba(22,58,95,.08)}
     .hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
-    .btn-primary{background:#163A5F;color:#fff;border-color:#163A5F}
-    .title{margin:0;color:#1f5a53}
-    .subtitle{margin:6px 0 0;color:#1f3b37}
+    .btn-primary{background:var(--brand-blue);color:#fff;border-color:var(--brand-blue)}
+    .btn-primary:hover{background:#0f2e4e;border-color:#0f2e4e}
+    .title{margin:0;color:#1f5a53;letter-spacing:-.02em}
+    .subtitle{margin:6px 0 0;color:#415955;line-height:1.45}
     .grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
-    .item{background:#fff;border:1px solid #8ec7be;border-radius:16px;padding:12px}
-    .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:800;color:#1f5a53}
-    .muted{color:#355652;font-size:13px}
+    .item{background:#fff;border:1px solid #dbe7e4;border-radius:16px;padding:12px}
+    .kicker{font-size:11px;text-transform:uppercase;letter-spacing:.06em;font-weight:900;color:#1f5a53}
+    .muted{color:#526966;font-size:13px}
     .small{font-size:12px}
-    .empty{background:#fff;border:1px dashed #8ec7be;border-radius:16px;padding:16px}
+    .empty{background:#fff;border:1px dashed #b9ccc8;border-radius:16px;padding:16px}
     .alerts-shell{list-style:none;padding:0;margin:0;display:grid;gap:10px}
     .drafts-list{display:grid;gap:10px}
-    .draft-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
-    .pill{display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:11px;background:#e7f4f1;border:1px solid #8ec7be}
-    .modal-backdrop{position:fixed;inset:0;background:rgba(16,33,31,.5);display:none;align-items:center;justify-content:center;padding:12px;z-index:40}
+    .draft-actions{display:flex;gap:8px;flex-wrap:wrap}
+    .pill{display:inline-flex;align-items:center;padding:4px 10px;border-radius:999px;font-size:11px;background:#eef7f4;border:1px solid #cde2dd;font-weight:800;color:#234844}
+    .modal-backdrop{position:fixed;inset:0;background:rgba(16,33,31,.42);display:none;align-items:flex-start;justify-content:center;padding:28px;z-index:40;overflow:auto}
     .modal-backdrop.open{display:flex}
-    .modal{width:min(980px,100%);max-height:92vh;overflow:auto;background:#f4fffd;border-radius:18px;padding:16px;border:1px solid #8ec7be}
-    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+    .modal{width:min(1180px,100%);max-height:none;overflow:visible;background:#fbfdfc;border-radius:24px;padding:22px;border:1px solid #d8e4e1;box-shadow:0 30px 90px rgba(16,33,31,.25)}
+    .form-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
     .field{display:grid;gap:5px}
     .field.span-2{grid-column:1/-1}
-    .label{font-weight:700;color:#1f5a53;font-size:13px}
-    input,select,textarea{border:1px solid #8ec7be;border-radius:10px;padding:8px;font:inherit}
-    textarea{min-height:96px;resize:vertical}
+    .label{font-weight:800;color:#244f49;font-size:13px}
+    input,select,textarea{border:1px solid #cddfdb;border-radius:10px;padding:9px 10px;font:inherit;background:#fff;color:#17211f}
+    textarea{min-height:120px;resize:vertical;line-height:1.55}
     .mode-toggle{display:flex;gap:8px;flex-wrap:wrap}
-    .mode-toggle .btn.active{background:#163A5F;color:#fff;border-color:#163A5F}
-    .sources{background:#fff;border:1px solid #8ec7be;border-radius:12px;padding:10px;max-height:180px;overflow:auto}
-    .source-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed #c2e4de}
+    .mode-toggle .btn.active{background:var(--brand-blue);color:#fff;border-color:var(--brand-blue)}
+    .sources{background:#fff;border:1px solid #d8e4e1;border-radius:12px;padding:10px;max-height:180px;overflow:auto}
+    .source-row{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-bottom:1px dashed #cbded9}
     .source-row:last-child{border-bottom:none}
     .modal-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
     .hidden{display:none!important}
@@ -62,33 +69,47 @@
     .search-shell .field{margin:0}
     .citation-strip{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
     .citation-strip .label{margin:0}
-    .editor-shell{display:grid;grid-template-columns:minmax(320px,1fr) minmax(320px,1fr);gap:12px}
-    .editor-vscode{background:#0d1117;border:1px solid #2e3b4f;border-radius:14px;padding:12px;min-height:360px;color:#e6edf3;font-family:Consolas,"Liberation Mono",Menlo,monospace}
-    .editor-vscode:focus{outline:2px solid #3b82f6;outline-offset:2px}
-    .editor-toolbar{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:10px}
-    .writing-type-shell{display:grid;gap:8px;margin-bottom:10px;background:#fff;border:1px solid #8ec7be;border-radius:12px;padding:10px}
-    .status-banner{font-size:13px;font-weight:700;color:#163A5F}
-    .status-banner strong{color:#7A1E2C}
-    .editor-toolbar .btn{background:#162132;color:#e6edf3;border-color:#364863}
-    .docx-preview{background:#fff;border:1px solid #8ec7be;border-radius:14px;padding:14px;min-height:360px}
-    .docx-preview-header{font-size:12px;color:#496b66;margin-bottom:8px}
-    .extract-box{border-left:4px solid #163A5F;background:#f2f8ff;padding:8px 10px;margin:8px 0}
-    .legal-citation-box{border:1px solid #7ea6d9;border-left:4px solid #163A5F;background:#eef5ff;border-radius:8px;padding:10px 12px;margin:10px 0;color:#132538}
+    .production-workspace{padding:0;overflow:hidden;background:#f8fbfa}
+    .workspace-heading{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;padding:18px 20px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#fff,#f6fbf9)}
+    .workspace-heading .title{font-size:24px;color:#183b36}
+    .workspace-meta{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+    .workspace-ribbon{position:sticky;top:58px;z-index:15;display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;padding:10px 14px;border-bottom:1px solid var(--line);background:rgba(255,255,255,.96);backdrop-filter:blur(12px)}
+    .ribbon-group{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+    .ribbon-label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;font-weight:900;color:#60736f;margin-right:2px}
+    .editor-toolbar{display:flex;flex-wrap:wrap;gap:7px;margin:0}
+    .editor-toolbar .btn,.workspace-ribbon .btn{padding:8px 10px;border-radius:9px;background:#fff;color:#233b37;border-color:#d1dfdc;box-shadow:none}
+    .workspace-canvas{display:grid;grid-template-columns:minmax(250px,310px) minmax(720px,1fr) minmax(260px,340px);gap:0;min-height:calc(100vh - 190px)}
+    .legal-side-panel,.legal-context-panel{background:#f3f7f5;border-right:1px solid var(--line);padding:14px;display:grid;align-content:start;gap:12px;max-height:calc(100vh - 180px);overflow:auto}
+    .legal-context-panel{border-right:0;border-left:1px solid var(--line);background:#f7faf9}
+    .side-section{background:#fff;border:1px solid #dce8e5;border-radius:16px;padding:12px;box-shadow:0 10px 24px rgba(22,58,95,.04)}
+    .side-section h4{margin:0 0 7px;color:#214e48;font-size:13px;letter-spacing:.01em}
+    .side-section p{margin:0;color:#5c706c;font-size:12px;line-height:1.45}
+    .side-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;color:#3e5551;font-size:12px}
+    .side-list li{padding:7px 8px;border:1px solid #e2ece9;border-radius:10px;background:#fbfdfc}
+    .document-stage{padding:26px clamp(18px,3vw,46px);background:linear-gradient(180deg,#e9efed,#f5f7f6);overflow:auto}
+    .writing-type-shell{display:grid;grid-template-columns:minmax(220px,360px) auto;gap:12px;align-items:end;margin-bottom:14px;background:#fff;border:1px solid #d8e4e1;border-radius:14px;padding:12px;box-shadow:0 10px 26px rgba(22,58,95,.05)}
+    .status-banner{font-size:13px;font-weight:800;color:var(--brand-blue);align-self:center}
+    .status-banner strong{color:var(--brand-burgundy)}
+    .document-page{width:min(100%,940px);min-height:calc(100vh - 300px);margin:0 auto;background:var(--paper);border:1px solid #e1d8ca;box-shadow:0 24px 70px rgba(47,55,63,.18);padding:clamp(38px,5vw,74px);border-radius:3px}
+    .document-page-header{display:flex;justify-content:space-between;gap:12px;border-bottom:1px solid #eee5d8;padding-bottom:12px;margin-bottom:18px;color:#7d6f5f;font-size:12px;text-transform:uppercase;letter-spacing:.08em;font-weight:900}
+    .editor-document{background:transparent;border:0;border-radius:0;padding:0;min-height:72vh;color:#1d2524;font-family:Georgia,'Times New Roman',serif;font-size:17px;line-height:1.85;white-space:pre-wrap;outline:none}
+    .editor-document:focus{outline:2px solid rgba(22,58,95,.18);outline-offset:18px;border-radius:2px}
+    .docx-preview{background:#fff;border:1px solid #dce8e5;border-radius:16px;padding:12px;min-height:0;box-shadow:0 10px 24px rgba(22,58,95,.04)}
+    .docx-preview-header{font-size:12px;color:#506763;margin-bottom:8px;font-weight:800}
+    .extract-box{border-left:4px solid var(--brand-blue);background:#f2f8ff;padding:8px 10px;margin:8px 0}
+    .legal-citation-box{border:1px solid #7ea6d9;border-left:4px solid var(--brand-blue);background:#eef5ff;border-radius:8px;padding:10px 12px;margin:10px 0;color:#132538}
     .legal-citation-box p{margin:4px 0}
     .legal-citation-box .citation-meta{font-size:12px;color:#2a4f73}
     .legal-citation-box .citation-sup{text-align:right;margin-top:6px}
     .footnote-list{font-size:12px;color:#2f4f4b;border-top:1px solid #c2e4de;margin-top:10px;padding-top:8px}
-    .production-buttons{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
-    .subtle-header{font-size:12px;color:#4a6b67;margin-bottom:8px}
+    .production-buttons{display:flex;flex-wrap:wrap;gap:8px;margin:0}
+    .subtle-header{font-size:12px;color:#4a6b67;margin-bottom:8px;font-weight:800}
     .small-gray{font-size:11px;color:#6c7f7c}
     .insumos-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
     .insumos-list{display:grid;gap:8px}
-    .insumo-item{background:#fff;border:1px solid #8ec7be;border-radius:10px;padding:8px}
-    @media (max-width:900px){.grid{grid-template-columns:1fr}}
-    @media (max-width:900px){.form-grid{grid-template-columns:1fr}}
-    @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
-    @media (max-width:1050px){.editor-shell{grid-template-columns:1fr}}
-    @media (max-width:900px){.insumos-grid{grid-template-columns:1fr}}
+    .insumo-item{background:#fff;border:1px solid #d8e4e1;border-radius:10px;padding:8px}
+    @media (max-width:1280px){.workspace-canvas{grid-template-columns:240px minmax(620px,1fr)}.legal-context-panel{grid-column:1/-1;border-left:0;border-top:1px solid var(--line);max-height:none}.workspace-ribbon{top:54px}}
+    @media (max-width:900px){.grid,.form-grid,.insumos-grid{grid-template-columns:1fr}.search-shell{grid-template-columns:1fr}.workspace-canvas{grid-template-columns:1fr}.legal-side-panel,.legal-context-panel{max-height:none;border:0;border-top:1px solid var(--line)}.document-stage{padding:16px}.document-page{padding:28px;min-height:65vh}.writing-type-shell{grid-template-columns:1fr}.workspace-ribbon{position:static}.shell{padding:12px}.modal-backdrop{padding:12px}.modal{padding:16px}}
   </style>
 </head>
 <body>
@@ -111,7 +132,7 @@
         </div>
         <div class="draft-actions">
           <button id="btnOpenMonitoring" class="btn">Monitoreo</button>
-          <button id="btnOpenDraftModal" class="btn btn-primary">REDACTAR ESCRITO</button>
+          <a class="btn btn-primary" href="#legalEditor">Ir al editor</a>
         </div>
       </div>
     </section>
@@ -124,18 +145,96 @@
         <button id="productionSearchClear" type="button" class="btn">Limpiar</button>
       </div>
     </section>
-    <section class="card">
-      <div class="citation-strip">
-        <span class="label">Norma de citas</span>
-        <span class="pill" id="activeCitationNorm">Revista Chilena de Derecho 2025</span>
-        <span class="muted">Activa para superíndices, notas al pie abreviadas y referencias finales separadas.</span>
-      </div>
-    </section>
-    <section class="card">
-      <h3 class="title">Editor jurídico de Producción en curso</h3>
-      <p class="subtitle">Capa 1: editor rápido tipo Visual Studio Code · Capa 2: salida obligatoria a Word (.docx) con formato jurídico completo.</p>
-      <div class="editor-shell">
+    <section class="card production-workspace" aria-label="Editor jurídico de Producción">
+      <div class="workspace-heading">
         <div>
+          <h3 class="title">Editor jurídico de Producción en curso</h3>
+          <p class="subtitle">Espacio de redacción amplio, con hoja central tipo documento real y herramientas jurídicas compactas siempre visibles.</p>
+          <div class="workspace-meta">
+            <span class="pill">Vista hoja completa</span>
+            <span class="pill" id="activeCitationNorm">Revista Chilena de Derecho 2025</span>
+            <span class="pill">Word jurídico simplificado</span>
+          </div>
+        </div>
+        <div class="draft-actions">
+          <button id="btnOpenDraftModal" class="btn btn-primary" type="button">Generar borrador</button>
+          <button class="btn" type="button" aria-label="Regenerar borrador desde el flujo existente">Regenerar</button>
+          <button class="btn" type="button" aria-label="Guardar versión desde el flujo existente">Guardar versión</button>
+          <button class="btn" type="button" aria-label="Dejar documento en revisión desde el flujo existente">Dejar en revisión</button>
+        </div>
+      </div>
+
+      <div class="workspace-ribbon" aria-label="Barra de herramientas jurídica">
+        <div class="ribbon-group editor-toolbar">
+          <span class="ribbon-label">Herramientas jurídicas</span>
+          <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
+          <button class="btn" id="btnConvertCitationBox" type="button">Convertir referencia en recuadro</button>
+          <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
+          <button class="btn" id="btnInsertFootnote" type="button">Agregar nota al pie</button>
+          <button class="btn" id="btnAutoInterview" type="button">Cargar Acta automática</button>
+        </div>
+        <div class="ribbon-group production-buttons">
+          <span class="ribbon-label">Documento</span>
+          <button id="btnExportWord" class="btn btn-primary" type="button">Exportar Word</button>
+          <button id="btnConvertPdf" class="btn" type="button">Convertir PDF</button>
+          <button id="btnPrintDoc" class="btn" type="button">Imprimir</button>
+          <button id="btnCopyEditor" class="btn" type="button">Copiar</button>
+          <button id="btnPasteEditor" class="btn" type="button">Pegar</button>
+          <button id="btnLoadEditorDocs" class="btn" type="button">Cargar documentos</button>
+          <button id="btnOpenProvisionalContainer" class="btn" type="button">Contenedor de demandas</button>
+        </div>
+      </div>
+
+      <div class="workspace-canvas">
+        <aside class="legal-side-panel" aria-label="Panel lateral de Producción">
+          <section class="side-section">
+            <h4>Antecedentes</h4>
+            <p>Resumen visual de hechos, partes y antecedentes reutilizables para la redacción.</p>
+            <ul class="side-list">
+              <li>Actas y estrategia de causa</li>
+              <li>Hechos relevantes</li>
+              <li>Peticiones y suma sugerida</li>
+            </ul>
+          </section>
+          <section class="side-section">
+            <h4>Documentos</h4>
+            <p>Acceso de trabajo a documentos cargados sin modificar el flujo actual de almacenamiento.</p>
+            <ul class="side-list">
+              <li>Adjuntos del editor</li>
+              <li>Documentos de respaldo</li>
+              <li>Escritos previos</li>
+            </ul>
+          </section>
+          <section class="side-section">
+            <h4>IA jurídica</h4>
+            <p>Área de apoyo para generación y revisión, conservando los handlers existentes.</p>
+            <ul class="side-list">
+              <li>Generar borrador</li>
+              <li>Regenerar propuesta</li>
+              <li>Revisión de coherencia</li>
+            </ul>
+          </section>
+          <section class="side-section">
+            <h4>Jurisprudencia / doctrina</h4>
+            <p>Acceso visual a insumos externos y referencias normativas.</p>
+            <ul class="side-list">
+              <li>Jurisprudencia</li>
+              <li>Doctrina</li>
+              <li>Códigos y leyes especiales</li>
+            </ul>
+          </section>
+          <section class="side-section">
+            <h4>Versiones</h4>
+            <p>Seguimiento visual de borradores, versiones y estados de revisión.</p>
+            <ul class="side-list">
+              <li>Borrador en curso</li>
+              <li>Versión guardada</li>
+              <li>Documento en revisión</li>
+            </ul>
+          </section>
+        </aside>
+
+        <section class="document-stage" aria-label="Hoja de redacción jurídica">
           <div class="writing-type-shell">
             <label class="field">
               <span class="label">Tipo de escrito en Producción</span>
@@ -149,29 +248,30 @@
             </label>
             <div class="status-banner" id="writingModeStatus">Primera presentación sin ROL</div>
           </div>
-          <div class="editor-toolbar">
-            <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
-            <button class="btn" id="btnConvertCitationBox" type="button">Convertir referencia en recuadro</button>
-            <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
-            <button class="btn" id="btnInsertFootnote" type="button">Agregar nota al pie</button>
-            <button class="btn" id="btnAutoInterview" type="button">Cargar Acta automática</button>
-          </div>
-          <div id="legalEditor" class="editor-vscode" contenteditable="true" spellcheck="false"></div>
-          <div class="production-buttons">
-            <button id="btnExportWord" class="btn btn-primary" type="button">Exportar a Word</button>
-            <button id="btnConvertPdf" class="btn" type="button">Convertir a PDF</button>
-            <button id="btnPrintDoc" class="btn" type="button">Imprimir</button>
-            <button id="btnLoadEditorDocs" class="btn" type="button">Cargar documentos</button>
-            <button id="btnOpenProvisionalContainer" class="btn" type="button">Contenedor provisorio de demandas nuevas</button>
-            <button id="btnCopyEditor" class="btn" type="button">Copiar</button>
-            <button id="btnPasteEditor" class="btn" type="button">Pegar</button>
-          </div>
+          <article class="document-page">
+            <div class="document-page-header">
+              <span>Alpha Avocat · Producción</span>
+              <span>Documento editable</span>
+            </div>
+            <div id="legalEditor" class="editor-document" contenteditable="true" spellcheck="true"></div>
+          </article>
           <input id="editorFileInput" type="file" multiple class="hidden" />
-        </div>
-        <div class="docx-preview" id="docxPreview">
-          <div class="docx-preview-header">Vista de estructuración jurídica automática (Word): encabezado, cuerpo, recuadros, superíndices, notas al pie, pie y numeración.</div>
-          <div id="docxPreviewBody" class="muted">Sin contenido aún.</div>
-        </div>
+        </section>
+
+        <aside class="legal-context-panel" aria-label="Panel de vista y contexto">
+          <div class="docx-preview" id="docxPreview">
+            <div class="docx-preview-header">Vista de estructuración jurídica automática (Word): encabezado, cuerpo, recuadros, superíndices, notas al pie, pie y numeración.</div>
+            <div id="docxPreviewBody" class="muted">Sin contenido aún.</div>
+          </div>
+          <section class="side-section">
+            <h4>Búsqueda de causa</h4>
+            <p>La búsqueda transversal permanece disponible arriba para no alterar los listeners existentes.</p>
+          </section>
+          <section class="side-section">
+            <h4>Insumos externos</h4>
+            <p>Jurisprudencia, doctrina y documentos se mantienen en el módulo global inferior.</p>
+          </section>
+        </aside>
       </div>
     </section>
     <section class="card">
