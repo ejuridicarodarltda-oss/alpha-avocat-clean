@@ -32,6 +32,8 @@
     .btn{appearance:none;border:1px solid #cfdcd9;background:#fff;color:#16302c;border-radius:10px;padding:9px 12px;font-weight:800;cursor:pointer;text-decoration:none;box-shadow:0 1px 2px rgba(16,33,31,.04);transition:background .15s ease,border-color .15s ease,transform .15s ease,box-shadow .15s ease}
     .btn:hover{background:#f5f9f8;border-color:#aebfbb;box-shadow:0 7px 18px rgba(22,58,95,.08)}
     .btn:active{transform:translateY(1px)}
+    .btn:disabled,.btn[aria-disabled="true"]{cursor:not-allowed;opacity:.64;background:#eef3f1;color:#61726f;border-color:#d7e2df;box-shadow:none;transform:none}
+    .btn:disabled:hover,.btn[aria-disabled="true"]:hover{background:#eef3f1;border-color:#d7e2df;box-shadow:none}
     .shell{padding:18px 22px 28px;display:grid;gap:14px;max-width:1780px;width:100%;margin:0 auto}
     .card{background:rgba(255,255,255,.88);border:1px solid var(--line);border-radius:22px;padding:16px;box-shadow:0 18px 45px rgba(22,58,95,.08)}
     .hero{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap}
@@ -86,6 +88,10 @@
     .side-section p{margin:0;color:#5c706c;font-size:12px;line-height:1.45}
     .side-list{list-style:none;margin:8px 0 0;padding:0;display:grid;gap:6px;color:#3e5551;font-size:12px}
     .side-list li{padding:7px 8px;border:1px solid #e2ece9;border-radius:10px;background:#fbfdfc}
+    .advanced-toolbar{display:flex;flex-wrap:wrap;gap:7px;padding:10px 14px;border-bottom:1px solid var(--line);background:#f8fbfa}
+    .advanced-toolbar .btn{padding:7px 9px;border-radius:9px;font-size:12px;box-shadow:none}
+    .advanced-toolbar .ribbon-label{align-self:center}
+    .preparation-note{display:inline-flex;align-items:center;margin-left:4px;font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.04em;color:#7a4b15}
     .document-stage{padding:26px clamp(18px,3vw,46px);background:linear-gradient(180deg,#e9efed,#f5f7f6);overflow:auto}
     .writing-type-shell{display:grid;grid-template-columns:minmax(220px,360px) auto;gap:12px;align-items:end;margin-bottom:14px;background:#fff;border:1px solid #d8e4e1;border-radius:14px;padding:12px;box-shadow:0 10px 26px rgba(22,58,95,.05)}
     .status-banner{font-size:13px;font-weight:800;color:var(--brand-blue);align-self:center}
@@ -167,10 +173,10 @@
       <div class="workspace-ribbon" aria-label="Barra de herramientas jurídica">
         <div class="ribbon-group editor-toolbar">
           <span class="ribbon-label">Herramientas jurídicas</span>
-          <button class="btn" id="btnInsertTextCitation" type="button">Cita texto art/inciso</button>
-          <button class="btn" id="btnConvertCitationBox" type="button">Convertir referencia en recuadro</button>
-          <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro</button>
-          <button class="btn" id="btnInsertFootnote" type="button">Agregar nota al pie</button>
+          <button class="btn" id="btnInsertTextCitation" type="button">Insertar cita jurídica</button>
+          <button class="btn" id="btnConvertCitationBox" type="button">Insertar recuadro de norma</button>
+          <button class="btn" id="btnInsertExtractBox" type="button">Insertar recuadro base</button>
+          <button class="btn" id="btnInsertFootnote" type="button">Insertar nota al pie</button>
           <button class="btn" id="btnAutoInterview" type="button">Cargar Acta automática</button>
         </div>
         <div class="ribbon-group production-buttons">
@@ -186,10 +192,25 @@
         </div>
       </div>
 
+      <div class="advanced-toolbar" aria-label="Controles discretos para funciones jurídicas avanzadas">
+        <span class="ribbon-label">Preparación avanzada</span>
+        <button class="btn" id="btnInsertLegalCitation" type="button">Insertar cita jurídica</button>
+        <button class="btn" id="btnInsertNormBox" type="button">Insertar recuadro de norma</button>
+        <button class="btn" id="btnInsertJurisprudenceBox" type="button">Insertar recuadro de jurisprudencia</button>
+        <button class="btn" id="btnInsertDoctrineBox" type="button">Insertar recuadro de doctrina</button>
+        <button class="btn" id="btnInsertAdvancedFootnote" type="button">Insertar nota al pie</button>
+        <button class="btn" id="btnViewVersionHistory" type="button">Ver historial de versiones</button>
+        <button class="btn" id="btnCompareVersions" type="button" disabled aria-disabled="true">Comparar versiones <span class="preparation-note">Función en preparación</span></button>
+        <button class="btn" id="btnToggleAiSuggestions" type="button" disabled aria-disabled="true">Panel sugerencias IA <span class="preparation-note">Función en preparación</span></button>
+        <button class="btn" id="btnShowSelectedBackgrounds" type="button">Panel antecedentes seleccionados</button>
+        <button class="btn" id="btnPreviewFinalWord" type="button">Vista previa Word</button>
+        <button class="btn" id="btnPreviewFinalPdf" type="button" disabled aria-disabled="true">Vista previa PDF <span class="preparation-note">Función en preparación</span></button>
+      </div>
+
       <div class="workspace-canvas">
         <aside class="legal-side-panel" aria-label="Panel lateral de Producción">
-          <section class="side-section">
-            <h4>Antecedentes</h4>
+          <section class="side-section" id="selectedBackgroundsPanel">
+            <h4>Panel lateral de antecedentes seleccionados</h4>
             <p>Resumen visual de hechos, partes y antecedentes reutilizables para la redacción.</p>
             <ul class="side-list">
               <li>Actas y estrategia de causa</li>
@@ -206,9 +227,9 @@
               <li>Escritos previos</li>
             </ul>
           </section>
-          <section class="side-section">
-            <h4>IA jurídica</h4>
-            <p>Área de apoyo para generación y revisión, conservando los handlers existentes.</p>
+          <section class="side-section" id="aiSuggestionsPanel" aria-disabled="true">
+            <h4>Panel lateral de sugerencias IA</h4>
+            <p>Espacio reservado para sugerencias IA contextuales. <strong>Función en preparación</strong>; se conservan los handlers actuales de generación y revisión.</p>
             <ul class="side-list">
               <li>Generar borrador</li>
               <li>Regenerar propuesta</li>
@@ -224,7 +245,7 @@
               <li>Códigos y leyes especiales</li>
             </ul>
           </section>
-          <section class="side-section">
+          <section class="side-section" id="versionHistoryPanel">
             <h4>Versiones</h4>
             <p>Seguimiento visual de borradores, versiones y estados de revisión.</p>
             <ul class="side-list">
@@ -260,8 +281,8 @@
         </section>
 
         <aside class="legal-context-panel" aria-label="Panel de vista y contexto">
-          <div class="docx-preview" id="docxPreview">
-            <div class="docx-preview-header">Vista de estructuración jurídica automática (Word): encabezado, cuerpo, recuadros, superíndices, notas al pie, pie y numeración.</div>
+          <div class="docx-preview" id="docxPreview" aria-label="Vista previa de formato final Word">
+            <div class="docx-preview-header">Vista previa de formato final Word: encabezado, cuerpo, recuadros, superíndices, notas al pie, pie y numeración. Vista PDF: Función en preparación.</div>
             <div id="docxPreviewBody" class="muted">Sin contenido aún.</div>
           </div>
           <section class="side-section">
@@ -785,12 +806,66 @@ sup { vertical-align: super; font-size: 10pt; }
         doctrina: 'Doctrina',
         jurisprudencia: 'Jurisprudencia'
       };
+      const referenceLine = type === 'norma'
+        ? `<p><strong>Artículo e inciso:</strong> artículo ${escapeHtml(article)}, inciso ${escapeHtml(inciso)}.</p>`
+        : `<p><strong>Referencia:</strong> ${escapeHtml(referenceText || '[Completar referencia]')}</p>`;
       return `<div class="legal-citation-box extract-box" contenteditable="true" data-citation-kind="${escapeHtml(type)}">
   <p class="citation-meta"><strong>Tipo:</strong> ${escapeHtml(typeLabelMap[type] || 'Norma')}</p>
-  <p><strong>Artículo e inciso:</strong> artículo ${escapeHtml(article)}, inciso ${escapeHtml(inciso)}.</p>
+  ${referenceLine}
   <p><strong>Extracto pertinente:</strong> ${escapeHtml(extract || '[Completar extracto útil, sin bibliografía.]')}</p>
   <p class="citation-sup"><sup>${superscript}</sup></p>
 </div>`;
+    }
+
+    function insertLegalCitationPlaceholder(){
+      citationSequence += 1;
+      document.execCommand('insertText', false, `artículo [x], inciso [y]`);
+      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
+      pendingFootnotes.push(`Referencia jurídica pendiente: norma, jurisprudencia o doctrina; completar fuente, año, página y URL si aplica.`);
+      syncEditorState();
+      renderDocxPreview();
+    }
+
+    function insertCitationBoxByType(type = 'norma'){
+      const defaults = {
+        norma: 'artículo [x] inciso [y]',
+        jurisprudencia: 'sentencia [tribunal], rol [x], fecha [dd/mm/aaaa]',
+        doctrina: 'autor, obra, edición/año, página [x]'
+      };
+      citationSequence += 1;
+      document.execCommand('insertHTML', false, buildCitationBoxHtml({
+        referenceText: defaults[type] || defaults.norma,
+        type,
+        extract: '[Completar extracto útil]',
+        superscript: citationSequence
+      }));
+      syncEditorState();
+      renderDocxPreview();
+    }
+
+    function insertFootnotePlaceholder(){
+      citationSequence += 1;
+      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
+      pendingFootnotes.push(`Nota al pie pendiente: completar fuente, editorial o tribunal, año, página y URL si aplica.`);
+      syncEditorState();
+      renderDocxPreview();
+    }
+
+    function viewVersionHistory(){
+      const requests = readRequests().filter((item) => String(item.id || '').startsWith('live-') || String(item.title || '').includes('Editor Producción'));
+      const summary = requests.length
+        ? requests.map((item, index) => `${index + 1}. ${item.title || 'Versión sin título'} · ${item.status || 'Sin estado'} · ${new Date(item.createdAt || Date.now()).toLocaleString('es-CL')}`).join('\n')
+        : 'Sin versiones guardadas del editor de Producción.';
+      document.getElementById('versionHistoryPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.alert(summary);
+    }
+
+    function showSelectedBackgroundsPanel(){
+      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      const hierarchy = getHierarchyInputs(selectedCase);
+      const counts = Object.entries(hierarchy).map(([key, value]) => `${key}: ${Array.isArray(value) ? value.length : 0}`).join(' · ');
+      document.getElementById('selectedBackgroundsPanel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      window.alert(selectedCase ? `Antecedentes seleccionados para ${selectedCase.caratula || selectedCase.rol || selectedCase.id}:\n${counts}` : 'Selecciona una causa para consolidar antecedentes seleccionados.');
     }
 
     function insertCitationBoxFromSelection(){
@@ -968,9 +1043,12 @@ sup { vertical-align: super; font-size: 10pt; }
         'btnInsertTextCitation', 'btnConvertCitationBox', 'btnInsertExtractBox', 'btnInsertFootnote', 'btnAutoInterview',
         'btnExportWord', 'btnConvertPdf', 'btnPrintDoc', 'btnCopyEditor', 'btnPasteEditor', 'btnLoadEditorDocs',
         'btnOpenExternalInputs', 'btnOpenProvisionalContainer', 'btnSaveExternalInput', 'btnModeNoCause',
-        'btnModeWithCause', 'btnCancelDraft'
+        'btnModeWithCause', 'btnCancelDraft', 'btnInsertLegalCitation', 'btnInsertNormBox',
+        'btnInsertJurisprudenceBox', 'btnInsertDoctrineBox', 'btnInsertAdvancedFootnote',
+        'btnViewVersionHistory', 'btnShowSelectedBackgrounds', 'btnPreviewFinalWord'
       ]);
       const isWired = (control) => {
+        if (control.disabled || control.getAttribute('aria-disabled') === 'true') return control.textContent.includes('Función en preparación');
         if (control.tagName === 'A') return Boolean(control.getAttribute('href'));
         if (control.type === 'submit' && control.closest('form')) return true;
         if (control.dataset?.action) return true;
@@ -1162,36 +1240,21 @@ Sin acción: ${unwired.length}`);
       renderDocxPreview();
     });
 
-    document.getElementById('btnInsertTextCitation')?.addEventListener('click', () => {
-      citationSequence += 1;
-      document.execCommand('insertText', false, `artículo [x], inciso [y]`);
-      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
-      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
-      syncEditorState();
-      renderDocxPreview();
-    });
+    document.getElementById('btnInsertTextCitation')?.addEventListener('click', insertLegalCitationPlaceholder);
+    document.getElementById('btnInsertLegalCitation')?.addEventListener('click', insertLegalCitationPlaceholder);
     document.getElementById('btnConvertCitationBox')?.addEventListener('click', () => {
       insertCitationBoxFromSelection();
       syncEditorState();
     });
-    document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => {
-      citationSequence += 1;
-      document.execCommand('insertHTML', false, buildCitationBoxHtml({
-        referenceText: 'artículo [x] inciso [y]',
-        type: 'norma',
-        extract: '[EXTRACTO RELEVANTE]',
-        superscript: citationSequence
-      }));
-      syncEditorState();
-      renderDocxPreview();
-    });
-    document.getElementById('btnInsertFootnote')?.addEventListener('click', () => {
-      citationSequence += 1;
-      document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
-      pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
-      syncEditorState();
-      renderDocxPreview();
-    });
+    document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => insertCitationBoxByType('norma'));
+    document.getElementById('btnInsertNormBox')?.addEventListener('click', () => insertCitationBoxByType('norma'));
+    document.getElementById('btnInsertJurisprudenceBox')?.addEventListener('click', () => insertCitationBoxByType('jurisprudencia'));
+    document.getElementById('btnInsertDoctrineBox')?.addEventListener('click', () => insertCitationBoxByType('doctrina'));
+    document.getElementById('btnInsertFootnote')?.addEventListener('click', insertFootnotePlaceholder);
+    document.getElementById('btnInsertAdvancedFootnote')?.addEventListener('click', insertFootnotePlaceholder);
+    document.getElementById('btnViewVersionHistory')?.addEventListener('click', viewVersionHistory);
+    document.getElementById('btnShowSelectedBackgrounds')?.addEventListener('click', showSelectedBackgroundsPanel);
+    document.getElementById('btnPreviewFinalWord')?.addEventListener('click', () => document.getElementById('docxPreview')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     document.getElementById('btnAutoInterview')?.addEventListener('click', () => {
       const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
       const acta = toList(selectedCase?.meetings || selectedCase?.actas || [])[0];
