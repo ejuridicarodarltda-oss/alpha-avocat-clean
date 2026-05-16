@@ -158,9 +158,9 @@
         </div>
         <div class="draft-actions">
           <button id="btnOpenDraftModal" class="btn btn-primary" type="button">Generar borrador</button>
-          <button class="btn" type="button" aria-label="Regenerar borrador desde el flujo existente">Regenerar</button>
-          <button class="btn" type="button" aria-label="Guardar versión desde el flujo existente">Guardar versión</button>
-          <button class="btn" type="button" aria-label="Dejar documento en revisión desde el flujo existente">Dejar en revisión</button>
+          <button id="btnRegenerateDraft" class="btn" type="button" aria-label="Regenerar borrador desde el flujo existente">Regenerar</button>
+          <button id="btnSaveEditorVersion" class="btn" type="button" aria-label="Guardar versión desde el flujo existente">Guardar versión</button>
+          <button id="btnMarkEditorReview" class="btn" type="button" aria-label="Dejar documento en revisión desde el flujo existente">Dejar en revisión</button>
         </div>
       </div>
 
@@ -181,6 +181,7 @@
           <button id="btnCopyEditor" class="btn" type="button">Copiar</button>
           <button id="btnPasteEditor" class="btn" type="button">Pegar</button>
           <button id="btnLoadEditorDocs" class="btn" type="button">Cargar documentos</button>
+          <button id="btnOpenExternalInputs" class="btn" type="button">Abrir insumos externos</button>
           <button id="btnOpenProvisionalContainer" class="btn" type="button">Contenedor de demandas</button>
         </div>
       </div>
@@ -274,7 +275,7 @@
         </aside>
       </div>
     </section>
-    <section class="card">
+    <section id="externalInputsSection" class="card">
       <h3 class="title">Insumos externos (global)</h3>
       <p class="subtitle">Módulo global independiente de causas para cargar, clasificar, ver y eliminar insumos.</p>
       <div class="insumos-grid">
@@ -446,6 +447,7 @@
     const REQUESTS_KEY = 'alpha-avocat:production:draft-requests:v1';
     const PROVISIONAL_KEY = 'alpha-avocat:production:provisional-container:v1';
     const EXTERNAL_INPUTS_KEY = 'alpha-avocat:production:external-inputs:v1';
+    const EDITOR_SESSION_KEY = 'alpha-avocat:production:editor-state:v1';
     const CITATION_NORMS = {
       'rchd-2025': {
         id: 'rchd-2025',
@@ -461,6 +463,7 @@
     let editorAttachments = [];
     let citationSequence = 0;
     let pendingFootnotes = [];
+    const productionEditorState = { text: '', html: '', updatedAt: '', lastVersionId: '' };
     const WRITING_TYPES = {
       'demanda-nueva': { label: 'Demanda nueva', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
       'medida-prejudicial': { label: 'Medida prejudicial', stage: 'primera', mode: 'no-cause', status: 'Primera presentación sin ROL' },
@@ -518,6 +521,34 @@
       }
     }
 
+    function syncEditorState({ persist = true } = {}){
+      productionEditorState.text = legalEditor.innerText || legalEditor.textContent || '';
+      productionEditorState.html = (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>');
+      productionEditorState.updatedAt = new Date().toISOString();
+      if (persist) {
+        try {
+          window.sessionStorage.setItem(EDITOR_SESSION_KEY, JSON.stringify(productionEditorState));
+        } catch (error) {
+          console.warn('[PRODUCCIÓN] No se pudo sincronizar el editor con sessionStorage.', error);
+        }
+      }
+      return productionEditorState;
+    }
+
+    function hydrateEditorState(){
+      try {
+        const parsed = JSON.parse(window.sessionStorage.getItem(EDITOR_SESSION_KEY) || '{}');
+        if (parsed?.html || parsed?.text) {
+          legalEditor.innerHTML = parsed.html || escapeHtml(parsed.text).replace(/\n/g, '<br>');
+          syncEditorState({ persist: false });
+          return true;
+        }
+      } catch (error) {
+        console.warn('[PRODUCCIÓN] No se pudo restaurar el estado interno del editor.', error);
+      }
+      return false;
+    }
+
     function buildStructuredDraftPrefix(stage = 'posterior', writingType = ''){
       if (stage === 'primera' && PRESUMA_WRITING_TYPES.has(writingType)) {
         return 'PRESUMA: [indicar naturaleza y objeto de la acción]\nSUMA: [peticiones concretas al tribunal]\n\n';
@@ -550,6 +581,7 @@
       const currentText = legalEditor.innerText || '';
       const stripped = currentText.replace(/^PRESUMA:[\s\S]*?SUMA:\s*\[[^\]]+\]\n\n|^SUMA:\s*\[[^\]]+\]\n\n/, '');
       legalEditor.textContent = `${buildStructuredDraftPrefix(config.stage, productionWritingType?.value)}${stripped}`;
+      syncEditorState();
       renderDocxPreview();
     }
 
@@ -840,7 +872,7 @@ sup { vertical-align: super; font-size: 10pt; }
           <div class="muted">Modo: ${escapeHtml(request.modeLabel)}${request.caseTitle ? ` · Causa: ${escapeHtml(request.caseTitle)}` : ''}</div>
           <div class="muted">Destino: ${escapeHtml(request.destinationLabel || 'Mantener en Producción')}</div>
           <div class="muted">Citas jurídicas: ${escapeHtml((CITATION_NORMS[request.citationNorm] || CITATION_NORMS['rchd-2025']).label)}</div>
-          <div class="muted">Insumos: ${request.selectedCauseInputs.length} automáticos + ${request.manualFiles.length} manuales.</div>
+          <div class="muted">Insumos: ${(request.selectedCauseInputs || []).length} automáticos + ${(request.manualFiles || []).length} manuales.</div>
           <div class="muted small">Estado: <span class="pill">${escapeHtml(request.status)}</span> · ${new Date(request.createdAt).toLocaleString('es-CL')}</div>
           <div class="draft-actions">
             <button class="btn" data-action="word" data-id="${escapeHtml(request.id)}">Guardar borrador</button>
@@ -851,6 +883,105 @@ sup { vertical-align: super; font-size: 10pt; }
           </div>
         </article>
       `).join('');
+    }
+
+    function buildLiveEditorRequest(status = 'Versión guardada'){
+      const editorState = syncEditorState();
+      const config = getSelectedWritingTypeConfig();
+      const existingId = productionEditorState.lastVersionId || `live-${Date.now()}`;
+      productionEditorState.lastVersionId = existingId;
+      const selectedCase = casesCache.find((item) => String(item.id) === String(draftCause.value));
+      return {
+        id: existingId,
+        title: `${config.label} · Editor Producción`,
+        type: config.label,
+        stage: config.stage,
+        clientId: null,
+        clientName: 'Producción en curso',
+        mode: selectedMode,
+        modeLabel: selectedMode === 'with-cause' ? 'Vinculado a causa preexistente' : 'Sin causa previa',
+        destination: 'produccion',
+        destinationLabel: 'Mantener en Producción',
+        citationNorm: 'rchd-2025',
+        caseId: selectedCase?.id || null,
+        caseTitle: selectedCase ? (selectedCase.caratula || selectedCase.rol || `ID-${selectedCase.id}`) : '',
+        caseRol: extractRoleFromCase(selectedCase),
+        caseCourt: selectedCase?.pjud_tribunal || selectedCase?.court || selectedCase?.tribunal || '',
+        selectedCauseInputs: selectedCase ? Array.from(causeSourcesList.querySelectorAll('input[name="sourceInput"]:checked')).map((input) => input.value) : [],
+        manualFiles: editorAttachments.map((file) => ({ name: file.name, size: file.size, type: file.type })),
+        instructions: 'Documento editado directamente en el editor visual de Producción.',
+        lawyerStyle: '',
+        status,
+        wordFilename: `${existingId}.doc`,
+        pdfFilename: null,
+        body: editorState.text,
+        footnotes: [...pendingFootnotes],
+        docBodyHtml: editorState.html,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    function upsertLiveEditorRequest(status){
+      const request = buildLiveEditorRequest(status);
+      const requests = readRequests();
+      const index = requests.findIndex((item) => item.id === request.id);
+      if (index >= 0) requests[index] = { ...requests[index], ...request };
+      else requests.push(request);
+      writeRequests(requests);
+      renderRequests();
+      return request;
+    }
+
+    function regenerateLiveDraft(){
+      const config = getSelectedWritingTypeConfig();
+      const previousText = (legalEditor.innerText || '').trim();
+      const regeneratedAt = formatAutomaticDateTime();
+      const regeneratedBody = [
+        buildStructuredDraftPrefix(config.stage, productionWritingType?.value).trim(),
+        `Borrador regenerado automáticamente (${regeneratedAt}).`,
+        `Tipo de escrito: ${config.label}.`,
+        selectedMode === 'with-cause' ? 'Modo: vinculado a causa preexistente.' : 'Modo: redacción sin causa previa.',
+        previousText ? `Texto base preservado para edición:\n${previousText}` : 'Desarrollar hechos, derecho, peticiones y otrosíes según los antecedentes seleccionados.'
+      ].filter(Boolean).join('\n\n');
+      legalEditor.textContent = regeneratedBody;
+      syncEditorState();
+      renderDocxPreview();
+      window.alert('Borrador regenerado y sincronizado con el estado interno del editor.');
+    }
+
+    function saveLiveEditorVersion(){
+      const request = upsertLiveEditorRequest('Versión guardada');
+      window.alert(`Versión guardada en Producción: ${request.title}`);
+    }
+
+    function markLiveEditorInReview(){
+      const request = upsertLiveEditorRequest('En revisión');
+      window.alert(`Documento dejado en revisión: ${request.title}`);
+    }
+
+    function reportProductionButtonAudit(){
+      const visibleControls = Array.from(document.querySelectorAll('button, a.btn'))
+        .filter((control) => control.offsetParent !== null || control.closest('#draftModalBackdrop'));
+      const wiredIds = new Set([
+        'btnLogout', 'btnOpenMonitoring', 'productionSearchClear', 'btnOpenDraftModal',
+        'btnRegenerateDraft', 'btnSaveEditorVersion', 'btnMarkEditorReview',
+        'btnInsertTextCitation', 'btnConvertCitationBox', 'btnInsertExtractBox', 'btnInsertFootnote', 'btnAutoInterview',
+        'btnExportWord', 'btnConvertPdf', 'btnPrintDoc', 'btnCopyEditor', 'btnPasteEditor', 'btnLoadEditorDocs',
+        'btnOpenExternalInputs', 'btnOpenProvisionalContainer', 'btnSaveExternalInput', 'btnModeNoCause',
+        'btnModeWithCause', 'btnCancelDraft'
+      ]);
+      const isWired = (control) => {
+        if (control.tagName === 'A') return Boolean(control.getAttribute('href'));
+        if (control.type === 'submit' && control.closest('form')) return true;
+        if (control.dataset?.action) return true;
+        return Boolean(control.id && wiredIds.has(control.id));
+      };
+      const unwired = visibleControls.filter((control) => !isWired(control));
+      console.info(`[PRODUCCION][BOTONES]
+Total revisados: ${visibleControls.length}
+Cableados: ${visibleControls.length - unwired.length}
+Sin acción: ${unwired.length}`);
+      if (unwired.length) console.warn('[PRODUCCION][BOTONES][SIN_ACCION]', unwired.map((control) => control.id || control.textContent.trim()));
     }
 
     function renderCauseSourceOptions(){
@@ -995,6 +1126,7 @@ sup { vertical-align: super; font-size: 10pt; }
         showMeta: true
       });
       renderRequests();
+      reportProductionButtonAudit();
     }
 
     document.getElementById('btnOpenDraftModal').addEventListener('click', openModal);
@@ -1025,17 +1157,22 @@ sup { vertical-align: super; font-size: 10pt; }
         ? `${fileAttachmentCache.length} antecedente(s) listo(s): ${fileAttachmentCache.map((file) => file.name).join(', ')}`
         : 'Sin archivos cargados manualmente.';
     });
-    legalEditor.addEventListener('input', renderDocxPreview);
+    legalEditor.addEventListener('input', () => {
+      syncEditorState();
+      renderDocxPreview();
+    });
 
     document.getElementById('btnInsertTextCitation')?.addEventListener('click', () => {
       citationSequence += 1;
       document.execCommand('insertText', false, `artículo [x], inciso [y]`);
       document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
       pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
+      syncEditorState();
       renderDocxPreview();
     });
     document.getElementById('btnConvertCitationBox')?.addEventListener('click', () => {
       insertCitationBoxFromSelection();
+      syncEditorState();
     });
     document.getElementById('btnInsertExtractBox')?.addEventListener('click', () => {
       citationSequence += 1;
@@ -1045,12 +1182,14 @@ sup { vertical-align: super; font-size: 10pt; }
         extract: '[EXTRACTO RELEVANTE]',
         superscript: citationSequence
       }));
+      syncEditorState();
       renderDocxPreview();
     });
     document.getElementById('btnInsertFootnote')?.addEventListener('click', () => {
       citationSequence += 1;
       document.execCommand('insertHTML', false, `<sup>${citationSequence}</sup>`);
       pendingFootnotes.push(`Ley [indicar], editorial [indicar], año [indicar], página [indicar], URL [si aplica].`);
+      syncEditorState();
       renderDocxPreview();
     });
     document.getElementById('btnAutoInterview')?.addEventListener('click', () => {
@@ -1061,8 +1200,13 @@ sup { vertical-align: super; font-size: 10pt; }
       } else {
         legalEditor.textContent = `${buildStructuredDraftPrefix(draftRequestForm.draftStage.value, productionWritingType?.value)}[No existe acta de entrevista para esta causa. Continúa redacción sin bloqueo.]`;
       }
+      syncEditorState();
       renderDocxPreview();
     });
+
+    document.getElementById('btnRegenerateDraft')?.addEventListener('click', regenerateLiveDraft);
+    document.getElementById('btnSaveEditorVersion')?.addEventListener('click', saveLiveEditorVersion);
+    document.getElementById('btnMarkEditorReview')?.addEventListener('click', markLiveEditorInReview);
 
     document.getElementById('btnCopyEditor')?.addEventListener('click', async () => {
       try { await navigator.clipboard.writeText(legalEditor.innerText || ''); } catch (_error) {}
@@ -1072,6 +1216,7 @@ sup { vertical-align: super; font-size: 10pt; }
         const pasted = await navigator.clipboard.readText();
         legalEditor.textContent += `${legalEditor.textContent ? '\n' : ''}${pasted}`;
       } catch (_error) {}
+      syncEditorState();
       renderDocxPreview();
     });
     document.getElementById('btnLoadEditorDocs')?.addEventListener('click', () => editorFileInput.click());
@@ -1080,7 +1225,11 @@ sup { vertical-align: super; font-size: 10pt; }
       if (editorAttachments.length) {
         legalEditor.textContent += `\n\n[Documentos cargados al editor: ${editorAttachments.map((file) => file.name).join(', ')}]`;
       }
+      syncEditorState();
       renderDocxPreview();
+    });
+    document.getElementById('btnOpenExternalInputs')?.addEventListener('click', () => {
+      document.getElementById('externalInputsSection')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
     document.getElementById('btnOpenProvisionalContainer')?.addEventListener('click', () => {
       const provisional = readJsonStorage(PROVISIONAL_KEY);
@@ -1090,18 +1239,7 @@ sup { vertical-align: super; font-size: 10pt; }
       window.alert(summary);
     });
     document.getElementById('btnExportWord')?.addEventListener('click', () => {
-      const request = {
-        id: `live-${Date.now()}`,
-        title: 'Editor-Produccion-curso',
-        type: 'Escrito jurídico',
-        clientName: 'Producción en curso',
-        citationNorm: 'rchd-2025',
-        destinationLabel: 'Mantener en Producción',
-        mode: selectedMode,
-        instructions: 'Generado desde editor jurídico en curso.',
-        footnotes: pendingFootnotes,
-        docBodyHtml: (legalEditor.innerHTML || '').replaceAll('<div><br></div>', '<p></p>')
-      };
+      const request = buildLiveEditorRequest('Exportado a Word');
       downloadWordDocument(`produccion-en-curso-${Date.now()}.doc`, buildWordHtmlDocument(request));
     });
     document.getElementById('btnConvertPdf')?.addEventListener('click', () => window.print());
@@ -1306,15 +1444,20 @@ sup { vertical-align: super; font-size: 10pt; }
       activeSearch = normalize(productionSearchInput.value);
     }
     syncWritingTypeToForm();
-    legalEditor.textContent = buildStructuredDraftPrefix(getSelectedWritingTypeConfig().stage, productionWritingType?.value);
+    if (!hydrateEditorState()) {
+      legalEditor.textContent = buildStructuredDraftPrefix(getSelectedWritingTypeConfig().stage, productionWritingType?.value);
+      syncEditorState();
+    }
     renderDocxPreview();
     renderExternalInputs();
+    reportProductionButtonAudit();
     draftRequestForm.draftStage.addEventListener('change', rebuildEditorPrefix);
 
     ensureAuth().then(loadProduction).catch((error) => {
       console.warn('[PRODUCCIÓN] Tolerancia total activa: se continúa operando con funciones locales.', error);
       renderRequests();
       renderExternalInputs();
+      reportProductionButtonAudit();
     });
   </script>
 </body>
