@@ -573,10 +573,30 @@
       saveJsonStorage(EXCEL_DEPURADO_CIVIL_MATERIALIZED_STORAGE_KEY, registry);
     }
     function resolveVisualRolFromPjudRow(row = {}, fallback = '') {
-      return normalizeVisibleRol(row.rolOriginalExcel || row.rol_visual || row.rolOriginal || row.rol || row.rit || row.rolUsadoParaComparar || fallback || '');
+      return selectPreservedRolDisplay(
+        row.rolOriginalExcel,
+        row.rolOriginal,
+        row.rolVisual,
+        row.rol_visual,
+        row.rol,
+        row.rit,
+        row.rolBusqueda,
+        row.rol_busqueda,
+        row.rolUsadoParaComparar,
+        fallback,
+      );
     }
     function resolveSearchRolFromPjudRow(row = {}, fallback = '') {
       return normalizeVisibleRol(row.rol_key || row.rolUsadoParaComparar || row.rol_busqueda || row.rolNormalizado || row.rit || row.rol || fallback || '');
+    }
+    function reportCivilRolAudit({ rolExcelOriginal = '', rolVisibleEnTribunal = '', tribunal = '', matter = '' } = {}) {
+      if (!rolExcelOriginal || !rolVisibleEnTribunal) return;
+      const isCivilMatter = normalize(String(matter || tribunal || '')).includes('civil');
+      const conservaPrefijo = normalizeVisibleRol(rolExcelOriginal) === normalizeVisibleRol(rolVisibleEnTribunal) && hasRolPrefix(rolVisibleEnTribunal);
+      if (!isCivilMatter || !hasRolPrefix(rolExcelOriginal)) return;
+      console.info(
+        `[ROL][CIVIL]\nrol_excel_original = ${normalizeVisibleRol(rolExcelOriginal)}\nrol_visible_en_tribunal = ${normalizeVisibleRol(rolVisibleEnTribunal)}\nconserva_prefijo = ${conservaPrefijo}`,
+      );
     }
     function upsertExcelDepuradoMaterializedRow(row = {}) {
       const rolVisual = resolveVisualRolFromPjudRow(row);
@@ -599,7 +619,7 @@
         rolOriginal: rolVisual,
         rolVisual,
         rit: rolBusqueda,
-        rolBusqueda: rolVisual,
+        rolBusqueda,
         rol_key: rolBusqueda,
         rol_numero: String(row.rol_numero || parseRolComponents(rolVisual)?.numero || '').trim(),
         rol_anio: String(row.rol_anio || parseRolComponents(rolVisual)?.year || '').trim(),
@@ -1946,7 +1966,9 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
       const civilRolKeys = buildRolDisplayAndKeys('C-881-2025');
       const civilKeepsOriginal = civilRolKeys.rol_original === 'C-881-2025'
         && civilRolKeys.rol_key === '881-2025'
-        && selectPreservedRolDisplay('C-881-2025', '881-2025') === 'C-881-2025';
+        && selectPreservedRolDisplay('C-881-2025', '881-2025') === 'C-881-2025'
+        && resolveVisualRolFromPjudRow({ rol: '881-2025', rit: 'C-881-2025' }) === 'C-881-2025'
+        && resolveVisualRolFromPjudRow({ rol_key: '881-2025', rolUsadoParaComparar: '881-2025', rolOriginalExcel: 'C-881-2025' }) === 'C-881-2025';
       const failures = testCases.filter((test) => filterTribunalRoles(fixture, test.query).length !== 1);
       if (!civilKeepsOriginal) failures.push({ name: 'civil conserva letra inicial del ROL' });
       if (failures.length) {
@@ -1968,7 +1990,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         const manualData = manualRegistry[String(k[C.kId] || '')] || null;
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
         const preservedExcelRole = String(manualData?.excelDepurado?.rolOriginalExcel || manualData?.excelDepurado?.rolVisual || manualData?.excelDepurado?.rolBusqueda || '').trim();
-        const roleVisual = selectPreservedRolDisplay(preservedExcelRole, manualData?.base?.rol);
+        const roleVisual = selectPreservedRolDisplay(preservedExcelRole, manualData?.base?.rol, roleRaw);
         const role = roleVisual || roleRaw || `ID-${k[C.kId]}`;
         const tribunalResolved = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
         const tribunal = normalizeTribunal(tribunalResolved) || 'Tribunal sin clasificar';
@@ -1990,6 +2012,12 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         const matter = inferMatter(k, tribunalResolved, manualData);
         const civilTribunal = matter === 'Juzgados Civiles' ? (normalizeCivilTribunalName(tribunal) || tribunal) : tribunal;
         const tribunalByMatter = matter === 'Corte Suprema' ? 'Corte Suprema' : civilTribunal;
+        reportCivilRolAudit({
+          rolExcelOriginal: preservedExcelRole || roleRaw,
+          rolVisibleEnTribunal: role,
+          tribunal: tribunalByMatter,
+          matter,
+        });
         const dedupeKey = String(k[C.kId] || `${normalize(role)}::${normalize(tribunalByMatter)}`);
 
         if (!matterMap.has(matter)) matterMap.set(matter, new Map());
@@ -2031,8 +2059,8 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         }
       }
       const addMaterializedPjudCase = (row = {}) => {
-        const role = normalizeVisibleRol(String(row.rolOriginal || row.rolVisual || row.rol || row.rit || '').trim());
-        const roleBusqueda = normalizeVisibleRol(String(row.rolBusqueda || row.rit || row.rol || '').trim());
+        const role = resolveVisualRolFromPjudRow(row);
+        const roleBusqueda = resolveSearchRolFromPjudRow(row, role);
         const rawTribunal = String(row.tribunal || '').trim();
         const inferredMatter = row.materia || inferPjudMatterByPatterns(row.tipoCausa, rawTribunal) || 'Juzgados Civiles';
         const tribunal = inferredMatter === 'Juzgados Civiles'
@@ -2041,6 +2069,12 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         const caratula = String(row.caratula || '').trim();
         if (!role || !roleBusqueda || !tribunal || !caratula) return;
         const matter = inferredMatter;
+        reportCivilRolAudit({
+          rolExcelOriginal: resolveVisualRolFromPjudRow(row),
+          rolVisibleEnTribunal: role,
+          tribunal,
+          matter,
+        });
         if (!matterMap.has(matter)) matterMap.set(matter, new Map());
         const tribunalMap = matterMap.get(matter);
         if (!tribunalMap.has(tribunal)) tribunalMap.set(tribunal, new Map());
@@ -2055,13 +2089,13 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
           if (incomingVisualHasPrefix && !existingVisualHasPrefix) {
             existingEntry.identificador = role;
             existingEntry.rolReal = role;
-            existingEntry.rolBusqueda = role;
+            existingEntry.rolBusqueda = roleBusqueda;
             existingEntry.rol_key = roleBusqueda;
             existingEntry.rit = roleBusqueda;
             existingEntry.searchSource = {
               ...(existingEntry.searchSource || {}),
               rol: role,
-              rolBusqueda: role,
+              rolBusqueda: roleBusqueda,
               rol_key: roleBusqueda,
               rit: roleBusqueda,
             };
@@ -2073,7 +2107,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
           id: String(row.id || dedupeKey),
           identificador: role,
           rolReal: role,
-          rolBusqueda: role,
+          rolBusqueda: roleBusqueda,
           rol_key: roleBusqueda,
           caratula,
           cliente: String(row.institucion || '').trim() || 'Cliente sin vínculo',
@@ -2087,7 +2121,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
           searchSource: {
             tribunal,
             rol: role,
-            rolBusqueda: role,
+            rolBusqueda: roleBusqueda,
             rol_key: roleBusqueda,
             rit: roleBusqueda,
             ruc: '',
