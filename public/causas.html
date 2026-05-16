@@ -2042,11 +2042,11 @@
       <div class="screen-header">
         <div>
           <h2 class="screen-title">MÓDULO CAUSAS</h2>
-          <p class="screen-subtitle">Portada de acceso clara para Información base, Expedientes digitales y Producción en curso, sin desplegar contenido interno en scroll en esta vista inicial. La ruta operativa confirmada para causas con carátula bajo Índice General PJUD es: Índice General PJUD → Abrir índice general → Alpha Avocat · Expedientes Digitales → Fichero principal · Índice General PJUD.</p>
+          <p class="screen-subtitle">Portada de acceso clara para Información, Expedientes Digitales, Producción y Alertas. El flujo operativo vigente es manual: Excel descargado por el usuario, carga controlada, poblamiento por tribunal/rol y trabajo interno en Expedientes Digitales.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Información</button>
-          <button class="btn" id="btnQuickExpedientes">Índice General PJUD</button>
+          <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
           <button class="btn" id="btnQuickProduction">Producción</button>
           <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
@@ -2060,21 +2060,21 @@
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
-    <section class="pjud-index-priority compact-collapsible-card is-collapsed" aria-label="Índice General PJUD" data-collapsible-card>
+    <section class="pjud-index-priority compact-collapsible-card is-collapsed" aria-label="Índice General" data-collapsible-card>
       <button class="compact-card-toggle" type="button" id="btnToggleIndiceGeneralCard" aria-expanded="false" aria-controls="indiceGeneralCardContent">
         <span>
-          <span class="panel-title">Índice General PJUD</span>
-          <p class="compact-card-summary">Control del índice general de causas y acceso directo a la ruta operativa confirmada.</p>
+          <span class="panel-title">Índice General</span>
+          <p class="compact-card-summary">Control del índice general interno por tribunal y rol.</p>
         </span>
         <span class="compact-card-icon" aria-hidden="true">▸</span>
       </button>
       <div class="compact-card-content" id="indiceGeneralCardContent" hidden>
-        <p class="panel-subtitle">Control del índice general de causas. Usar la ruta confirmada sin puerta externa ni paneles paralelos: Índice General PJUD &gt; Abrir índice general &gt; Alpha Avocat · Expedientes Digitales &gt; Fichero principal · Índice General PJUD.</p>
+        <p class="panel-subtitle">Control del índice general de causas. Usar la ruta interna: Causas &gt; Expedientes Digitales &gt; Índice General &gt; Tribunal &gt; Rol.</p>
         <div class="pjud-index-actions">
           <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
-          <button id="btnIndiceUsarDescargas" class="btn" type="button">Usar índice para descargas</button>
+          
         </div>
-        <div class="helper-box">Dentro de Fichero principal · Índice General PJUD, trabajar en el listado general interno con filtros y KÁRDEX TRIBUNAL.</div>
+        <div class="helper-box">Dentro de Índice General, trabajar con el listado interno por tribunal y rol.</div>
         <div class="pjud-index-stats" id="pjudIndexStats"></div>
       </div>
     </section>
@@ -2130,12 +2130,12 @@
             <label for="filterPlazo">Plazo próximo</label>
             <select id="filterPlazo" class="input"></select>
           </div>
-          <div class="field">
-            <label for="filterImportBatch">Lote PJUD</label>
+          <div class="field" hidden>
+            <label for="filterImportBatch">Lote histórico</label>
             <select id="filterImportBatch" class="input"></select>
           </div>
-          <div class="field">
-            <label for="filterImportStatus">Estado importación PJUD</label>
+          <div class="field" hidden>
+            <label for="filterImportStatus">Estado de carga</label>
             <select id="filterImportStatus" class="input"></select>
           </div>
           <div class="field">
@@ -2146,7 +2146,7 @@
               <label for="sortBy">Orden</label>
               <select id="sortBy" class="input">
                 <option value="updated">Última gestión</option>
-                <option value="imported_desc">Fecha importación PJUD (desc)</option>
+                <option value="imported_desc">Fecha de carga (desc)</option>
                 <option value="deadline">Próximo plazo</option>
                 <option value="hearing">Próxima audiencia</option>
                 <option value="alert">Mayor alerta</option>
@@ -2167,12 +2167,12 @@
 	          <div class="visibility-diagnostics" id="visibilityDiagnostics">
 	            <div class="timeline-meta" id="diagSupabaseTotal">Total causas cargadas: 0</div>
 	            <div class="timeline-meta" id="diagVisibleTotal">Total causas visibles tras filtros: 0</div>
-	            <div class="timeline-meta" id="diagBatchApplied">Batch aplicado: —</div>
+	            <div class="timeline-meta" id="diagBatchApplied" hidden>Lote aplicado: —</div>
 	            <div class="timeline-meta" id="diagInteractiveAudit" hidden>Auditoría interactiva: —</div>
 	            <div class="timeline-meta" id="diagCounterSources" hidden>Fuentes contadores: —</div>
-	            <div class="timeline-meta" id="diagImportLifecycle" hidden>Ciclo importación: —</div>
+	            <div class="timeline-meta" id="diagImportLifecycle" hidden>Ciclo de carga: —</div>
             <div class="diagnostic-actions">
-              <button id="btnVerCausasLote" class="btn btn-primary" type="button" hidden>Ver causas del lote importado</button>
+              
             </div>
           </div>
 
@@ -2665,7 +2665,7 @@
               <option value="prueba">Prueba</option>
               <option value="antecedentes">Otros antecedentes</option>
               <option value="sinClasificar">Sin clasificar</option>
-              <option value="importadosPjud">Importadas del Poder Judicial</option>
+              <option value="importadosPjud">Carga histórica</option>
             </select>
           </div>
           <div class="field">
@@ -2714,7 +2714,7 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Actualizar causa</div>
+          <div class="modal-title">Actualización manual</div>
           <p class="panel-subtitle">Actualización manual o semiautomática: pega nuevos movimientos o documentos visibles para comparar y agregar solo las novedades.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalSincronizacion" aria-label="Cerrar">✕</button>
@@ -2722,8 +2722,8 @@
       <form id="formSincronizacion" class="form">
         <div class="grid-2">
           <div class="field">
-            <label for="sync_url">Link del Poder Judicial</label>
-            <input id="sync_url" class="input" placeholder="https://..." />
+            <label for="sync_url">Referencia interna o URL de respaldo</label>
+            <input id="sync_url" class="input" placeholder="Referencia o URL opcional" />
           </div>
           <div class="field">
             <label for="sync_note">Resumen</label>
@@ -2854,12 +2854,12 @@
 
   <input id="caseFileInput" class="hidden-input" type="file" multiple />
 
-  <div id="modalPjudLinking" class="modal" aria-hidden="true">
+  <div id="modalPjudLinking" class="modal" aria-hidden="true" hidden>
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Vinculación PJUD / Alpha</div>
-          <p class="muted">Panel exclusivo para vincular, revisar ambigüedades y gestionar enlaces PJUD.</p>
+          <div class="modal-title">Vinculación histórica deshabilitada</div>
+          <p class="muted">La vinculación externa fue retirada del flujo principal. Se conserva solo para no borrar datos históricos.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalPjudLinking" aria-label="Cerrar">✕</button>
       </div>
@@ -3147,7 +3147,7 @@
         processedCauses: 0,
         batchId: batchId || null,
         executionMode: 'modo_directo_pjud',
-        sourceLabel: 'Sesión activa PJUD',
+        sourceLabel: 'Carga manual Excel',
         accounting: null,
         percentage: 0,
         currentStepId: null,
@@ -3233,7 +3233,7 @@
       if (Number(discardedRows || 0) > 0) reasons.push(`${Number(discardedRows || 0)} descarte(s)`);
       if (Number(duplicatedRows || 0) > 0) reasons.push(`${Number(duplicatedRows || 0)} duplicado(s)`);
       if (Number(causesWithDownloadError || 0) > 0) reasons.push(`${Number(causesWithDownloadError || 0)} descarga(s)/guardado(s) con error`);
-      if (Number(routeUnresolvedCount || 0) > 0) reasons.push(`${Number(routeUnresolvedCount || 0)} ruta(s) PJUD sin resolver`);
+      if (Number(routeUnresolvedCount || 0) > 0) reasons.push(`${Number(routeUnresolvedCount || 0)} ruta(s) internas sin resolver`);
       const tribunalOrMateriaIssues = Number(fabocatValidation?.invalidTribunal || 0) + Number(fabocatValidation?.invalidMainMateria || 0) + Number(fabocatValidation?.incompatibleMateria || 0);
       if (tribunalOrMateriaIssues > 0) reasons.push(`${tribunalOrMateriaIssues} inconsistencia(s) de tribunal/materia`);
       const normalizedWarning = String(warning || '').trim();
@@ -3244,7 +3244,7 @@
     function configureMassiveExecutionMode(mode = 'modo_directo_pjud', sourceLabel = ''){
       if (!state.massiveAudit) state.massiveAudit = createDefaultMassiveAuditState();
       state.massiveAudit.executionMode = mode;
-      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'modo_manifiesto_excel' ? 'Modo manifiesto Excel (contingencia)' : 'Modo directo PJUD (sesión activa)');
+      state.massiveAudit.sourceLabel = sourceLabel || (mode === 'modo_manifiesto_excel' ? 'Modo manifiesto Excel (contingencia)' : 'Modo manual Excel');
       if (mode === 'modo_manifiesto_excel') {
         setMassiveAuditStep(1, 'skipped', 'Omitido por modo manifiesto (no requerido).');
         setMassiveAuditStep(2, 'skipped', 'No requerido: el índice de causas se resuelve por manifiesto auxiliar.');
@@ -6420,7 +6420,7 @@
       if (keepUntilStable && status === 'completed') {
         state.pjudCausesIndex.stableTimer = window.setTimeout(() => {
           if (state.pjudCausesIndex.progressStatus !== 'completed') return;
-          state.pjudCausesIndex.progressStage = 'Índice PJUD sincronizado correctamente.';
+          state.pjudCausesIndex.progressStage = 'Índice General actualizado correctamente.';
           renderPjudIndexSyncProgress();
         }, 3500);
       }
@@ -6518,11 +6518,11 @@
     async function syncCauseWithConnectedIndexes(cause, { reason = 'cambio manual en causa' } = {}){
       if (!cause || !cause.id) return;
       const snapshot = persistPjudGeneralIndexVersion({
-        processStatus: 'Sincronización puntual de causa',
-        processLog: `Causa ${cause.id} sincronizada con el Índice General PJUD (${reason}).`,
+        processStatus: 'Actualización manual de causa',
+        processLog: `Causa ${cause.id} actualizada con el Índice General (${reason}).`,
         createHistoricalVersion: false,
       });
-      state.pjudGeneralIndexControl.lastStatus = `Sincronización puntual · ${snapshot.totalCauses} causa(s)`;
+      state.pjudGeneralIndexControl.lastStatus = `Actualización manual · ${snapshot.totalCauses} causa(s)`;
       renderPjudGeneralIndexPanel();
 
       if (!authenticatedUser?.id) return;
@@ -6536,7 +6536,7 @@
         if (error) throw buildLoadError('la sincronización automática del índice PJUD', error);
         const syncedRow = Array.isArray(data) ? data[0] : data;
         if (syncedRow) mergeSyncedCauseIntoPjudIndexState(syncedRow);
-        renderPjudIndexSyncPanel();
+        // Panel externo deshabilitado fuera del flujo principal.
       } catch (error) {
         console.warn('[CAUSAS][PJUD-INDEX] Falló la sincronización automática de la causa hacia el índice.', { causeId: cause?.id || null, reason, error });
         setMessage('pjudIndexSyncMsg', `Advertencia: no se pudo sincronizar automáticamente la causa ${cause?.rol || cause?.id || ''} con el Índice PJUD.`, 'warn');
@@ -6680,7 +6680,7 @@
           const message = 'No fue posible inspeccionar Mis Causas porque Alpha no tiene una fuente PJUD disponible para lectura. Detalle: ventana no disponible, URL no informada o sin snapshot técnico.';
           setPjudIndexSyncProgress({ percent: 20, stage: 'Fuente PJUD no disponible para inspección', status: 'error' });
           setMessage('pjudIndexSyncMsg', message, 'error');
-          renderPjudIndexSyncPanel();
+          // Panel externo deshabilitado fuera del flujo principal.
           return;
         }
         setPjudIndexSyncProgress({ percent: 50, stage: 'Detectando tabla/listado de Mis Causas', status: 'in_progress' });
@@ -6692,7 +6692,7 @@
           if (normalizedError.includes('no se detectaron filas')) message = 'No se detectaron causas visibles para indexar en esta sesión.';
           setPjudIndexSyncProgress({ percent: 50, stage: message, status: 'error' });
           setMessage('pjudIndexSyncMsg', message, message.includes('No se detectaron causas visibles') ? 'warn' : 'error');
-          renderPjudIndexSyncPanel();
+          // Panel externo deshabilitado fuera del flujo principal.
           return;
         }
 
@@ -6702,7 +6702,7 @@
           const message = 'No se detectaron causas visibles para indexar en esta sesión.';
           setPjudIndexSyncProgress({ percent: 70, stage: message, status: 'error' });
           setMessage('pjudIndexSyncMsg', message, 'warn');
-          renderPjudIndexSyncPanel();
+          // Panel externo deshabilitado fuera del flujo principal.
           return;
         }
 
@@ -6711,8 +6711,8 @@
         await loadPjudCausesIndexRows();
         await ensureRealCasesForPjudIndexRows(state.pjudCausesIndex.items, { reason: 'pjud-index-sync' });
         setPjudIndexSyncProgress({ percent: 100, stage: 'Índice PJUD sincronizado', status: 'completed', keepUntilStable: true });
-        setMessage('pjudIndexSyncMsg', 'Índice PJUD sincronizado correctamente.', 'ok');
-        renderPjudIndexSyncPanel();
+        setMessage('pjudIndexSyncMsg', 'Índice General actualizado correctamente.', 'ok');
+        // Panel externo deshabilitado fuera del flujo principal.
       } catch (error) {
         const raw = String(error?.message || '').toLowerCase();
         const message = raw.includes('expir')
@@ -6720,7 +6720,7 @@
           : `No fue posible sincronizar el índice PJUD: ${error?.message || 'error desconocido'}`;
         setPjudIndexSyncProgress({ percent: Math.max(10, Number(state.pjudCausesIndex.progressPercent || 10)), stage: message, status: 'error' });
         setMessage('pjudIndexSyncMsg', message, 'error');
-        renderPjudIndexSyncPanel();
+        // Panel externo deshabilitado fuera del flujo principal.
       }
     }
 
@@ -6759,7 +6759,7 @@
 
       const extraction = safeExtractMisCausasRowsFromWindow(state.pjudMisCausasWindow);
       state.pendingPjudRouteDiagnostics = extraction?.diagnostics || null;
-      renderPjudIndexSyncPanel();
+      // Panel externo deshabilitado fuera del flujo principal.
     }
 
     async function retryPjudIndexInspection(){
@@ -6812,7 +6812,7 @@
           .eq('user_id', authenticatedUser.id);
         if (error) throw buildLoadError('la vinculación de la fila PJUD con Alpha', error);
         await loadPjudCausesIndexRows();
-        renderPjudIndexSyncPanel();
+        // Panel externo deshabilitado fuera del flujo principal.
         setMessage('pjudIndexSyncMsg', 'Fila PJUD vinculada con la causa interna seleccionada.', 'ok');
         return;
       }
@@ -6825,7 +6825,7 @@
           .eq('user_id', authenticatedUser.id);
         if (error) throw buildLoadError('la actualización de la fila indexada PJUD', error);
         await loadPjudCausesIndexRows();
-        renderPjudIndexSyncPanel();
+        // Panel externo deshabilitado fuera del flujo principal.
         setMessage('pjudIndexSyncMsg', 'Fila PJUD actualizada.', 'ok');
       }
     }
@@ -7683,7 +7683,7 @@
         <section class="section-card" id="generalPjudExcelPanel">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Índice General PJUD vigente</h4>
+              <h4 class="section-title">Índice General vigente</h4>
               <p class="section-copy">Aquí puede cargar el Excel general de causas de PJUD, depurado de duplicaciones. Si sube uno nuevo, reemplazará al anterior.</p>
             </div>
           </div>
@@ -8200,36 +8200,25 @@
     }
 
     function renderPjudLinkagePanel(cause){
-      const hasLink = Boolean(cause.pjudCaseId || cause.pjudUrl || cause.pjudNormalKey);
+      const hasHistoricalData = Boolean(cause.pjudCaseId || cause.pjudUrl || cause.pjudNormalKey || cause.pjudLastSyncAt || cause.pjudFilesDownloadedCount);
+      if (!hasHistoricalData) return '';
       return `
         <section class="section-card">
           <div class="section-head">
             <div>
-              <h4 class="section-title">Vinculación PJUD</h4>
-              <p class="section-copy">Vinculación directa entre causa PJUD y causa Alpha Avocat. Excel queda como respaldo opcional, no como eje del flujo.</p>
+              <h4 class="section-title">Datos históricos preservados</h4>
+              <p class="section-copy">La operación externa fue retirada del flujo principal. Estos campos se muestran solo como antecedente histórico y no habilitan sincronización, navegación, vinculación ni descarga automática.</p>
             </div>
             <div class="toolbar">
-              <span class="badge ${computeBadgeClass(hasLink ? 'active' : 'warning', formatPjudLinkStatus(cause.pjudLinkStatus))}">${escapeHtml(formatPjudLinkStatus(cause.pjudLinkStatus))}</span>
+              <span class="badge ${computeBadgeClass('warning', 'Histórico')}" >Histórico</span>
             </div>
           </div>
           ${buildKeyValueGrid([
-            ['Estado del vínculo', formatPjudLinkStatus(cause.pjudLinkStatus)],
-            ['Rol PJUD', buildPjudRoleDisplay(cause)],
-            ['Tribunal', cause.pjudTribunal || cause.tribunal || 'Sin tribunal'],
-            ['URL PJUD', cause.pjudUrl || 'Sin URL PJUD'],
-            ['Ebook', cause.pjudEbookUrl || 'Sin ebook'],
-            ['Última sincronización', formatDate(cause.pjudLastSyncAt)],
-            ['Archivos reales descargados', Number(cause.pjudFilesDownloadedCount || 0)],
-            ['Modo de origen', cause.pjudSourceMode || 'modo_directo_pjud'],
-            ['Último error', cause.pjudLastError || 'Sin error registrado'],
+            ['Rol registrado', buildPjudRoleDisplay(cause)],
+            ['Tribunal registrado', cause.pjudTribunal || cause.tribunal || 'Sin tribunal'],
+            ['Última marca histórica', formatDate(cause.pjudLastSyncAt)],
+            ['Archivos históricos registrados', Number(cause.pjudFilesDownloadedCount || 0)],
           ])}
-          <div class="toolbar">
-            <button class="btn btn-primary" data-pjud-case-action="link">Vincular</button>
-            <button class="btn" data-pjud-case-action="relink">Re-vincular</button>
-            <button class="btn" data-pjud-case-action="sync">Sincronizar</button>
-            <button class="btn" data-pjud-case-action="open">Abrir detalle PJUD</button>
-            <button class="btn btn-danger" data-pjud-case-action="unlink">Desvincular</button>
-          </div>
         </section>
       `;
     }
@@ -15347,8 +15336,8 @@
       const totalChunks = Math.max(1, Math.ceil(items.length / PJUD_IMPORT_CHUNK_SIZE));
       state.massiveAudit = createDefaultMassiveAuditState({ totalCauses: items.length, batchId: state.pendingPjudBatchId || null });
       setMassiveAuditStep(4, 'running', 'Recorriendo causas del lote');
-      setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo PJUD');
-      setMassiveAuditStep(6, 'running', 'Descargando contenido documental real desde PJUD');
+      setMassiveAuditStep(5, 'running', 'Detectando entidades de trabajo internas');
+      setMassiveAuditStep(6, 'running', 'Incorporando contenido documental manual');
       setMassiveAuditStep(7, 'running', 'Guardando en Expedientes Digitales');
       setMassiveAuditStep(8, 'running', 'Clasificando contenido');
       try {
@@ -15478,7 +15467,7 @@
         const warningMessages = [];
         if (suspiciousLow) warningMessages.push('La importación terminó incompleta o sospechosamente baja. Revisa deduplicación, persistencia y errores por fila.');
         if (Number(failures || 0) > 0) warningMessages.push(`${Number(failures || 0)} causa(s) con error durante transferencia/importación.`);
-        if (Number(documentsDownloadedTotal || 0) === 0) warningMessages.push('0 archivos reales descargados desde PJUD en Paso 6.');
+        if (Number(documentsDownloadedTotal || 0) === 0) warningMessages.push('0 archivos manuales incorporados en Paso 6.');
         if (Number(causesWithoutDetail || 0) > 0) warningMessages.push(`${Number(causesWithoutDetail || 0)} causa(s) sin apertura de detalle real.`);
         const diagnosticFailures = [...technicalFailureReasons.entries()].map(([reason, count]) => `${count}× ${reason}`).join(' · ');
         if (diagnosticFailures) warningMessages.push(`Diagnóstico técnico: ${diagnosticFailures}.`);
@@ -15512,7 +15501,7 @@
           documentsClassifiedTotal: documentsDownloadedTotal,
           accounting,
           executionMode: 'modo_directo_pjud',
-          sourceLabel: 'Sesión activa PJUD / Mis Causas',
+          sourceLabel: 'Carga manual Excel',
           errors: failures + downloadFailures,
           batchId: state.pendingPjudBatchId || null,
           warning,
@@ -15881,7 +15870,7 @@
         pjud_ultima_sincronizacion: nowIso,
         pjud_last_sync_at: nowIso,
       }).eq('owner_user_id', authenticatedUser.id).eq('id', current.id);
-      setMessage('syncMsg', 'Sincronización registrada. Se agregaron solo movimientos y documentos no duplicados.', 'ok');
+      setMessage('syncMsg', 'Actualización manual registrada. Se agregaron solo movimientos y documentos no duplicados.', 'ok');
       await loadCases();
       renderAll();
       closeManagedModal('modalSincronizacion');
@@ -15942,7 +15931,7 @@
       initializeCompactCollapsibleCards();
 
       const navigateToPjudGeneralIndex = () => {
-        window.location.href = './expedientes-digitales.html#indice-general-pjud';
+        window.location.href = './expedientes-digitales.html#indice-general';
       };
 
       bindEvent('btnLogout', 'click', async () => {
@@ -15953,15 +15942,7 @@
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
       bindEvent('btnListadoCausas', 'click', () => openExcelUploadModal('listado'), { required: true, scope: 'topbar' });
       bindEvent('btnEstadoDiario', 'click', () => openExcelUploadModal('estado'), { required: true, scope: 'topbar' });
-      bindEvent('btnPjudSyncIndex', 'click', () => syncPjudCausesIndex(), { scope: 'indice-pjud' });
-      bindEvent('btnPjudValidateSource', 'click', () => validatePjudAssistedSource(), { scope: 'indice-pjud' });
-      bindEvent('btnPjudRetryInspection', 'click', () => retryPjudIndexInspection(), { scope: 'indice-pjud' });
       bindEvent('btnIndiceAbrirGeneral', 'click', () => navigateToPjudGeneralIndex(), { scope: 'indice-general' });
-      bindEvent('btnIndiceUsarDescargas', 'click', () => {
-        state.pjudGeneralIndexControl.lastStatus = 'Índice general marcado como fuente de descargas';
-        setMessage('importMsg', 'El Índice General PJUD vigente se usará como referencia de descargas en el siguiente proceso.', 'ok');
-        renderPjudGeneralIndexPanel();
-      }, { scope: 'indice-general' });
       auditAndRepairAutomaticFlowButtons();
       $('pjudIndexSyncRows')?.addEventListener('click', async (event) => {
         const tribunalAction = event.target?.closest?.('[data-tribunal-action]');
@@ -16026,7 +16007,6 @@
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
-	      bindEvent('btnVerCausasLote', 'click', () => focusLastImportedBatch(), { scope: 'diagnostico' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
       diagnoseBranchButton('btnQuickProduction', 'produccion');
@@ -16575,7 +16555,7 @@
           }
           if (action === 'refresh-caratulas' || action === 'reprocess') {
             await loadGeneralPjudExcelRecord();
-            setMessage('importMsg', 'Se reprocesó la lectura del Índice General PJUD vigente.', 'ok');
+            setMessage('importMsg', 'Se reprocesó la lectura del Índice General vigente.', 'ok');
             return;
           }
         }
@@ -16590,7 +16570,7 @@
             return;
           }
           if (action === 'relink') {
-            setDetailStatus('Re-vinculación: selecciona la causa PJUD correcta y confirma el enlace.', 'warn');
+            setDetailStatus('Vinculación externa deshabilitada en el flujo principal.', 'warn');
             await openPjudLinkingPanel();
             return;
           }
@@ -16603,7 +16583,7 @@
             return;
           }
           if (action === 'unlink') {
-            const confirmed = window.confirm('Se desvinculará esta causa de PJUD. ¿Deseas continuar?');
+            const confirmed = window.confirm('Se limpiará una referencia externa histórica. ¿Deseas continuar?');
             if (!confirmed) return;
             await supabase.from(T_CASES).update({
               pjud_case_id: null,
@@ -16630,7 +16610,7 @@
             }
             await loadCases();
             renderAll();
-            setDetailStatus('Vinculación PJUD eliminada para esta causa.', 'ok');
+            setDetailStatus('Referencia externa histórica eliminada para esta causa.', 'ok');
             return;
           }
         }
@@ -16761,11 +16741,9 @@
       disableLandingMode();
       initNonFatalPhase();
       try {
-        await loadPjudCausesIndexRows();
-        await ensureRealCasesForPjudIndexRows(state.pjudCausesIndex.items, { reason: 'init-index-materialization' });
+        // Integración externa deshabilitada: el Índice General se alimenta por cargas manuales y datos internos.
       } catch (error) {
-        console.error('[Alpha Avocat][indice-pjud] No fue posible cargar el índice PJUD.', error);
-        setMessage('pjudIndexSyncMsg', `No fue posible cargar el índice PJUD. ${error?.message || 'Error desconocido'}`, 'warn');
+        console.warn('[Alpha Avocat][indice-general] Índice externo deshabilitado; se continúa con datos internos.', error);
       }
       try {
         await loadLatestExcelUploads();
@@ -16775,7 +16753,7 @@
       loadListadoLastProcessFromStorage();
       setListadoProgress({ percent: 0, stage: 'Esperando archivo', status: 'idle', subaction: 'Sin actividad en curso.' });
       renderListadoLastProcess();
-      renderPjudIndexSyncPanel();
+      // Panel externo deshabilitado fuera del flujo principal.
     }
 
     init();

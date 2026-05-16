@@ -201,7 +201,7 @@
     <section class="card">
       <h2 class="title">EXPEDIENTES DIGITALES</h2>
       <p class="subtitle">Pantalla exclusiva con visualización por iconos: Kárdex, archivadores, subarchivadores, carpetas y subcarpetas internas.</p>
-      <p class="muted">Fuentes integradas: Clientes, Agenda (actas/grabaciones) y Poder Judicial (OJV · Mis causas).</p>
+      <p class="muted">Fuentes integradas: Clientes, Agenda, carga manual Excel y documentos internos.</p>
       <div class="flow" aria-label="Estructura jerárquica de Causas">
         <span class="tag">Información de clientes, asesorías y causas</span>
         <span class="tag">Expedientes digitales</span>
@@ -210,7 +210,7 @@
         <span class="tag">Subarchivador por materia</span>
         <span class="tag">Subarchivador por tribunal</span>
         <span class="tag">Carpeta por rol</span>
-        <span class="tag">Importados de PJUD</span>
+        <span class="tag">Carga manual Excel</span>
       </div>
     </section>
 
@@ -224,9 +224,10 @@
       </div>
     </section>
 
-    <section class="card" id="indice-general-pjud">
-      <h2 class="title">Fichero principal · Índice General PJUD</h2>
+    <section class="card" id="indice-general">
+      <h2 class="title">Índice General</h2>
       <p class="subtitle">Contenedor principal del Access vigente y sus versiones históricas. Este índice general no pertenece a una causa individual.</p>
+      <div id="indice-general-pjud" hidden></div>
       <div id="pjudIndexMain" class="index-main-grid"></div>
       <div class="index-version-list" id="pjudIndexVersions"></div>
     </section>
@@ -357,7 +358,7 @@
       { key: 'resoluciones', label: 'Resoluciones', icon: '🏛️', purpose: 'Resoluciones judiciales de la causa.' },
       { key: 'notificaciones', label: 'Notificaciones', icon: '🔔', purpose: 'Cédulas, estados diarios, avisos y constancias.' },
       { key: 'trazabilidad', label: 'Trazabilidad', icon: '🧭', purpose: 'Bitácora de hitos, cambios y eventos relevantes.' },
-      { key: 'importados_pjud', label: 'Importados de PJUD', icon: '📥', purpose: 'Contenido importado exclusivamente desde Poder Judicial.' },
+      { key: 'importados_pjud', label: 'Carga histórica', icon: '📥', purpose: 'Contenido conservado desde cargas históricas o manuales.' },
     ];
     const CASE_FILES_BUCKET = 'case-files';
     const CASE_FILES_STORAGE_KEY = 'alpha-expedientes-case-files-v1';
@@ -961,14 +962,14 @@
         <div>Match exacto: <strong>${escapeHtml(String(exact.length))}</strong></div>
         <div>Match por número+año+tribunal: <strong>${escapeHtml(String(numberYear.length))}</strong></div>
         <div>Filas sin carpeta existente: <strong>${escapeHtml(String(missing.length))}</strong></div>
-        <div>Carpetas PJUD materializadas desde Excel (sin borrar existentes): <strong>${escapeHtml(String(report.createdCivilFolders || 0))}</strong></div>
+        <div>Carpetas materializadas desde Excel (sin borrar existentes): <strong>${escapeHtml(String(report.createdCivilFolders || 0))}</strong></div>
         <div>Coincidencias múltiples (no actualizadas): <strong>${escapeHtml(String(multiple.length))}</strong></div>
         <div>Duplicados ignorados: <strong>${escapeHtml(String(report.duplicatesIgnored || 0))}</strong></div>
         <div>Errores reales por celdas vacías: <strong>${escapeHtml(String(formatErrors.length))}</strong></div>
         ${warnings.length ? `<div><strong>Advertencias:</strong><ul>${warnings.slice(0, 20).map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div>` : ''}
         ${pendingClientLinking.length ? `<div><strong>Pendientes de vincular cliente:</strong><ul>${pendingClientLinking.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.reason || 'pendiente')}</li>`).join('')}</ul></div>` : ''}
         ${missing.length ? `<div><strong>Sin carpeta existente:</strong><ul>${missing.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')}</li>`).join('')}</ul></div>` : ''}
-        ${Array.isArray(report.createdCivilFolderRows) && report.createdCivilFolderRows.length ? `<div><strong>Causas PJUD materializadas (muestra):</strong><ul>${report.createdCivilFolderRows.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.caratulado || 'Sin carátula')}</li>`).join('')}</ul></div>` : ''}
+        ${Array.isArray(report.createdCivilFolderRows) && report.createdCivilFolderRows.length ? `<div><strong>Causas materializadas desde Excel (muestra):</strong><ul>${report.createdCivilFolderRows.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · ${escapeHtml(row.caratulado || 'Sin carátula')}</li>`).join('')}</ul></div>` : ''}
         ${multiple.length ? `<div><strong>Coincidencias múltiples (no se actualizó):</strong><ul>${multiple.slice(0, 50).map((row) => `<li>${escapeHtml(row.rolOriginalExcel || row.rit || 'Sin RIT')} → ${escapeHtml(formatComparableRole(row))} · ${escapeHtml(row.tribunal || 'Sin tribunal')} · candidatos: ${escapeHtml((row.candidates || []).join(', ') || 'sin detalle')}</li>`).join('')}</ul></div>` : ''}
         ${formatErrors.length ? `<div><strong>Errores detectados:</strong><ul>${formatErrors.slice(0, 50).map((item) => `<li>Fila ${escapeHtml(String(item.row || 0))}: ${escapeHtml(item.error || 'Error')}</li>`).join('')}</ul></div>` : ''}
         <div class="muted">Listado preliminar externo temporal: ${report.preliminaryHidden ? 'oculto tras actualización correcta' : 'visible para revisión manual'}</div>
@@ -1278,7 +1279,7 @@
       const versionsNode = document.getElementById('pjudIndexVersions');
       if (!mainNode || !versionsNode) return;
       if (!current) {
-        mainNode.innerHTML = '<div class="folder">No existe Access vigente todavía. Genéralo desde Inicio de Causas &gt; Índice General PJUD.</div>';
+        mainNode.innerHTML = '<div class="folder">No existe índice vigente todavía. Genéralo desde Causas &gt; Índice General.</div>';
         versionsNode.innerHTML = '';
         return;
       }
@@ -1611,7 +1612,7 @@
         renderExcelDepuradoReport(report);
         renderExcelDepuradoDebugPanel(report);
         statusNode.className = 'manual-status ok';
-        statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Carpetas PJUD materializadas: ${report.createdCivilFolders}. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
+        statusNode.textContent = `Carga completada. Filas leídas: ${report.rowsRead}. Filas procesadas: ${report.rowsProcessed}. ${report.updatedFolders} carpeta(s) actualizada(s): ${report.exactMatchRows.length} exacta(s), ${report.numberYearMatchRows.length} por número+año. Carpetas materializadas: ${report.createdCivilFolders}. Sin carpeta existente: ${report.missingFolderRows.length}. Múltiples: ${report.multipleMatchesRows.length}. Errores reales por celdas vacías: ${report.formatErrors.length}. Cliente vinculado: ${report.clientLinkedRows}. Pendiente de vincular: ${report.clientPendingRows} (sin dato de institución/cliente: ${report.missingInstitutionRows}).`;
         await loadData();
       } catch (error) {
         statusNode.className = 'manual-status error';
@@ -1740,7 +1741,7 @@
       if (node) {
         node.hidden = false;
         node.innerHTML = `
-          <strong>Actualización desde Índice General PJUD</strong>
+          <strong>Actualización desde Índice General</strong>
           <div>Causas revisadas: <strong>${escapeHtml(String(report.reviewed))}</strong></div>
           <div>Carátulas actualizadas: <strong>${escapeHtml(String(report.updated))}</strong></div>
           <div>Causas sin coincidencia: <strong>${escapeHtml(String(report.unmatched))}</strong></div>
@@ -2241,7 +2242,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         <div class="tribunal-tools">
           <button id="btnCrearCarpetasMasivasPorRol" class="manual-btn" type="button">Crear carpetas masivas por rol</button>
           <button id="btnLimpiarCarpetasInvalidas" class="btn" type="button">Limpiar carpetas inválidas</button>
-          <button id="btnActualizarCaratulasIndice" class="manual-btn" type="button">Actualizar carátulas desde Índice General PJUD</button>
+          <button id="btnActualizarCaratulasIndice" class="manual-btn" type="button">Actualizar carátulas desde Índice General</button>
           ${isCorteSupremaScope ? `
             <button id="btnCrearCarpetaJuicioCorteSuprema" class="manual-btn" type="button">Crear carpeta de juicio</button>
             <button id="btnReplicarCarpetaJuicioCorteSuprema" class="btn" type="button">Replicar</button>
