@@ -576,7 +576,7 @@
       return normalizeVisibleRol(row.rolOriginalExcel || row.rol_visual || row.rolOriginal || row.rol || row.rit || row.rolUsadoParaComparar || fallback || '');
     }
     function resolveSearchRolFromPjudRow(row = {}, fallback = '') {
-      return normalizeVisibleRol(row.rolUsadoParaComparar || row.rol_busqueda || row.rolNormalizado || row.rit || row.rol || fallback || '');
+      return normalizeVisibleRol(row.rol_key || row.rolUsadoParaComparar || row.rol_busqueda || row.rolNormalizado || row.rit || row.rol || fallback || '');
     }
     function upsertExcelDepuradoMaterializedRow(row = {}) {
       const rolVisual = resolveVisualRolFromPjudRow(row);
@@ -589,7 +589,7 @@
       if (!key) return false;
       const registry = loadExcelDepuradoCivilMaterializedRegistry();
       const index = registry.findIndex((item) => buildCauseIdentityKey({
-        rol: item?.rolBusqueda || item?.rol_busqueda || item?.rit || item?.rol || '',
+        rol: item?.rol_key || item?.rolUsadoParaComparar || item?.rolBusqueda || item?.rol_busqueda || item?.rit || item?.rol || '',
         tribunal: item?.tribunal || '',
       }) === key);
       const idPrefix = matter.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'pjud';
@@ -599,7 +599,11 @@
         rolOriginal: rolVisual,
         rolVisual,
         rit: rolBusqueda,
-        rolBusqueda,
+        rolBusqueda: rolVisual,
+        rol_key: rolBusqueda,
+        rol_numero: String(row.rol_numero || parseRolComponents(rolVisual)?.numero || '').trim(),
+        rol_anio: String(row.rol_anio || parseRolComponents(rolVisual)?.year || '').trim(),
+        rol_normalizado: String(row.rol_normalizado || normalizeCauseIdentityRol(rolVisual) || '').trim(),
         tribunal,
         caratula,
         materia: matter,
@@ -791,6 +795,24 @@
       if (!parsed) return cleaned;
       return `${parsed.number}-${parsed.year}`;
     }
+    function hasRolPrefix(raw = '') {
+      return /^[A-Z]{1,6}-/i.test(cleanRawRoleOnly(raw));
+    }
+    function buildRolDisplayAndKeys(raw = '') {
+      const rolOriginal = normalizeVisibleRol(raw);
+      const components = parseRolComponents(rolOriginal) || {};
+      return {
+        rol_original: rolOriginal,
+        rol_key: buildReconstructedRoleNumberYear(rolOriginal),
+        rol_numero: components.numero || '',
+        rol_anio: components.year || '',
+        rol_normalizado: normalize(rolOriginal).replace(/[^a-z0-9]/g, ''),
+      };
+    }
+    function selectPreservedRolDisplay(...candidates) {
+      const cleaned = candidates.map((candidate) => normalizeVisibleRol(candidate)).filter(Boolean);
+      return cleaned.find((candidate) => hasRolPrefix(candidate)) || cleaned[0] || '';
+    }
     function normalizeCaratula(raw = '') {
       const cleaned = normalizeWhitespace(raw).replace(/["'`]/g, '').replace(/\s{2,}/g, ' ');
       if (!cleaned) return '';
@@ -945,10 +967,7 @@
       const formatErrors = Array.isArray(report.formatErrors) ? report.formatErrors : [];
       const pendingClientLinking = Array.isArray(report.pendingClientLinkingRows) ? report.pendingClientLinkingRows : [];
       const warnings = Array.isArray(report.warnings) ? report.warnings : [];
-      const formatComparableRole = (row = {}) => buildReconstructedRoleNumberYear(
-        String(row.rolUsadoParaComparar || row.rit || 'Sin RIT')
-          .replace(/[·•∙⋅]/g, '-'),
-      );
+      const formatComparableRole = (row = {}) => normalizeVisibleRol(row.rolOriginalExcel || row.rolVisual || row.rit || 'Sin RIT');
       node.hidden = false;
       node.innerHTML = `
         <strong>Reporte final de carga Excel depurado</strong>
@@ -987,10 +1006,7 @@
       const numberYear = Array.isArray(report.numberYearMatchRows) ? report.numberYearMatchRows : [];
       const multiple = Array.isArray(report.multipleMatchesRows) ? report.multipleMatchesRows : [];
       const unmatched = Array.isArray(report.missingFolderRows) ? report.missingFolderRows : [];
-      const formatComparableRole = (row = {}) => buildReconstructedRoleNumberYear(
-        String(row.rolUsadoParaComparar || row.rit || 'Sin RIT')
-          .replace(/[·•∙⋅]/g, '-'),
-      );
+      const formatComparableRole = (row = {}) => normalizeVisibleRol(row.rolOriginalExcel || row.rolVisual || row.rit || 'Sin RIT');
       node.hidden = false;
       node.innerHTML = `
         <strong>Panel debug · Coincidencias Excel depurado</strong>
@@ -1380,7 +1396,7 @@
         ...current,
         base: {
           ...current.base,
-          rol: String(current.base?.rol || row.rolOriginalExcel || row.rolVisual || cause.rolReal || cause.identificador || '').trim(),
+          rol: selectPreservedRolDisplay(row.rolOriginalExcel, row.rolVisual, current.base?.rol, cause.rolReal, cause.identificador),
           tribunal: baseTribunalActual || String(row.tribunal || '').trim(),
           caratula: incomingCaratula || String(current.base?.caratula || cause.caratula || '').trim(),
           fechaIngreso: incomingFechaIngreso || String(current.base?.fechaIngreso || '').trim(),
@@ -1389,7 +1405,11 @@
         excelDepurado: {
           rit: String(row.rit || '').trim(),
           rolOriginalExcel: String(row.rolOriginalExcel || row.rolVisual || '').trim(),
-          rolBusqueda: String(row.rolBusqueda || row.rolUsadoParaComparar || row.rit || '').trim(),
+          rolBusqueda: String(row.rolBusqueda || row.rolOriginalExcel || row.rolVisual || row.rit || '').trim(),
+          rol_key: String(row.rol_key || row.rolUsadoParaComparar || '').trim(),
+          rol_numero: String(row.rol_numero || '').trim(),
+          rol_anio: String(row.rol_anio || '').trim(),
+          rol_normalizado: String(row.rol_normalizado || '').trim(),
           materia: String(row.materia || inferPjudMatterByPatterns(row.tipoCausa, row.tribunal) || '').trim(),
           estadoCausa: incomingEstadoCausa || String(current.excelDepurado?.estadoCausa || '').trim(),
           institucion: incomingInstitucion || currentInstitucion || 'Sin institución',
@@ -1487,15 +1507,21 @@
             eraPositionWarningEmitted = true;
           }
           const rawExcelRole = readRawExcelRole(source);
-          const roleUsedForComparison = buildReconstructedRoleNumberYear(rawExcelRole);
+          const rolKeys = buildRolDisplayAndKeys(rawExcelRole);
+          const rolOriginalExcel = rolKeys.rol_original;
+          const roleUsedForComparison = rolKeys.rol_key;
           const rawTribunal = String(source.tribunal || '').trim();
           const normalizedRow = {
-            rit: roleUsedForComparison,
-            rolOriginalExcel: rawExcelRole,
-            rolVisual: normalizeVisibleRol(rawExcelRole),
-            rolBusqueda: roleUsedForComparison,
+            rit: rolOriginalExcel,
+            rolOriginalExcel,
+            rolVisual: rolOriginalExcel,
+            rolBusqueda: rolOriginalExcel,
             rolUsadoParaComparar: roleUsedForComparison,
             rolExcelReconstruido: roleUsedForComparison,
+            rol_key: roleUsedForComparison,
+            rol_numero: rolKeys.rol_numero,
+            rol_anio: rolKeys.rol_anio,
+            rol_normalizado: rolKeys.rol_normalizado,
             materia: inferPjudMatterByPatterns(source.tipo_causa, rawTribunal),
             tribunal: normalizeTribunal(rawTribunal),
             caratulado: String(source.caratulado || '').trim(),
@@ -1517,7 +1543,7 @@
           }
           report.rowsProcessed += 1;
           const rowTribunalKey = normalizeCauseIdentityTribunal(normalizedRow.tribunal);
-          const key = `${normalizeVisibleRol(normalizedRow.rit)}::${rowTribunalKey}`;
+          const key = `${normalizeVisibleRol(normalizedRow.rol_key || normalizedRow.rit)}::${rowTribunalKey}`;
           if (seen.has(key)) {
             report.duplicatesIgnored += 1;
             continue;
@@ -1536,7 +1562,7 @@
               const rolCandidate = item[C.kRol] || item[C.kRit] || item[C.kRuc] || '';
               const tribunalCandidate = item[C.kTrib] || item[C.kCourt] || '';
               return normalizeCauseIdentityTribunal(tribunalCandidate) === rowTribunalKey
-                && rolesMatchByNumberYearOnly(normalizedRow.rit, rolCandidate);
+                && rolesMatchByNumberYearOnly(normalizedRow.rol_key || normalizedRow.rit, rolCandidate);
             });
             console.info(
               `[Excel depurado][fila ${i + 2}] rolExcelReconstruido: ${normalizedRow.rolExcelReconstruido} | candidatosCarpetaPorNumeroAnio: ${candidateMatches.length}`,
@@ -1662,6 +1688,8 @@
         source.tribunal,
         source.rol,
         normalizeRol(source.rol),
+        source.rol_key,
+        source.rolBusqueda,
         source.rit,
         source.ruc,
         source.caratula,
@@ -1722,6 +1750,12 @@
             })[0];
           upsertExcelDepuradoManualData(cause, {
             rit: source?.excelDepurado?.rit || source?.base?.rol || cause.identificador || '',
+            rolOriginalExcel: source?.excelDepurado?.rolOriginalExcel || source?.base?.rol || '',
+            rolVisual: source?.excelDepurado?.rolOriginalExcel || source?.excelDepurado?.rolBusqueda || source?.base?.rol || '',
+            rol_key: source?.excelDepurado?.rol_key || source?.excelDepurado?.rolUsadoParaComparar || '',
+            rol_numero: source?.excelDepurado?.rol_numero || '',
+            rol_anio: source?.excelDepurado?.rol_anio || '',
+            rol_normalizado: source?.excelDepurado?.rol_normalizado || '',
             tribunal: source?.base?.tribunal || currentTribunalDisplayName || cause.tribunal || '',
             caratulado: source?.base?.caratula || source?.lastSuggestions?.caratula?.value || '',
             fechaIngreso: source?.base?.fechaIngreso || source?.excelDepurado?.fechaIngreso || '',
@@ -1905,11 +1939,16 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         { name: 'rol completo', query: 'C-881-2025' },
         { name: 'número parcial', query: '881' },
         { name: 'interviniente', query: 'demandante' },
-        { name: 'tribunal', query: 'Ovalle' },
+        { name: 'tribunal', query: 'Santiago' },
         { name: 'cliente', query: 'Juan Pérez' },
         { name: 'carátula', query: 'Pérez con Rojas' },
       ];
+      const civilRolKeys = buildRolDisplayAndKeys('C-881-2025');
+      const civilKeepsOriginal = civilRolKeys.rol_original === 'C-881-2025'
+        && civilRolKeys.rol_key === '881-2025'
+        && selectPreservedRolDisplay('C-881-2025', '881-2025') === 'C-881-2025';
       const failures = testCases.filter((test) => filterTribunalRoles(fixture, test.query).length !== 1);
+      if (!civilKeepsOriginal) failures.push({ name: 'civil conserva letra inicial del ROL' });
       if (failures.length) {
         console.error('Pruebas funcionales del buscador del tribunal con fallas:', failures.map((item) => item.name).join(', '));
       } else {
@@ -1928,8 +1967,8 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         if (deletedCauses.has(String(k[C.kId] || ''))) continue;
         const manualData = manualRegistry[String(k[C.kId] || '')] || null;
         const roleRaw = String(k[C.kRol] || k[C.kRit] || k[C.kRuc] || '').trim();
-        const preservedExcelRole = String(manualData?.excelDepurado?.rolOriginalExcel || manualData?.excelDepurado?.rolVisual || '').trim();
-        const roleVisual = String(manualData?.base?.rol || preservedExcelRole || '').trim();
+        const preservedExcelRole = String(manualData?.excelDepurado?.rolOriginalExcel || manualData?.excelDepurado?.rolVisual || manualData?.excelDepurado?.rolBusqueda || '').trim();
+        const roleVisual = selectPreservedRolDisplay(preservedExcelRole, manualData?.base?.rol);
         const role = roleVisual || roleRaw || `ID-${k[C.kId]}`;
         const tribunalResolved = String(k[C.kTrib] || k[C.kCourt] || manualData?.base?.tribunal || 'Tribunal sin clasificar').trim();
         const tribunal = normalizeTribunal(tribunalResolved) || 'Tribunal sin clasificar';
@@ -1976,6 +2015,7 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
             searchSource: {
               tribunal: civilTribunal,
               rol: role,
+              rol_key: manualData?.excelDepurado?.rol_key || buildReconstructedRoleNumberYear(role),
               rit,
               ruc,
               caratula,
@@ -2006,21 +2046,23 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
         if (!tribunalMap.has(tribunal)) tribunalMap.set(tribunal, new Map());
         const roleMap = tribunalMap.get(tribunal);
         const existingEntry = [...roleMap.values()].find((entry) => (
-          normalizeCauseIdentityRol(entry?.rolBusqueda || entry?.rit || entry?.identificador || '') === normalizeCauseIdentityRol(roleBusqueda)
+          normalizeCauseIdentityRol(entry?.rol_key || entry?.rolBusqueda || entry?.rit || entry?.identificador || '') === normalizeCauseIdentityRol(roleBusqueda)
           && normalizeCauseIdentityTribunal(entry?.tribunal || tribunal) === normalizeCauseIdentityTribunal(tribunal)
         ));
         if (existingEntry) {
-          const existingVisualHasPrefix = /^[A-Z]{1,6}-/i.test(String(existingEntry.identificador || existingEntry.rolReal || ''));
-          const incomingVisualHasPrefix = /^[A-Z]{1,6}-/i.test(role);
+          const existingVisualHasPrefix = hasRolPrefix(String(existingEntry.identificador || existingEntry.rolReal || ''));
+          const incomingVisualHasPrefix = hasRolPrefix(role);
           if (incomingVisualHasPrefix && !existingVisualHasPrefix) {
             existingEntry.identificador = role;
             existingEntry.rolReal = role;
-            existingEntry.rolBusqueda = roleBusqueda;
+            existingEntry.rolBusqueda = role;
+            existingEntry.rol_key = roleBusqueda;
             existingEntry.rit = roleBusqueda;
             existingEntry.searchSource = {
               ...(existingEntry.searchSource || {}),
               rol: role,
-              rolBusqueda: roleBusqueda,
+              rolBusqueda: role,
+              rol_key: roleBusqueda,
               rit: roleBusqueda,
             };
           }
@@ -2031,7 +2073,8 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
           id: String(row.id || dedupeKey),
           identificador: role,
           rolReal: role,
-          rolBusqueda: roleBusqueda,
+          rolBusqueda: role,
+          rol_key: roleBusqueda,
           caratula,
           cliente: String(row.institucion || '').trim() || 'Cliente sin vínculo',
           tribunal,
@@ -2044,7 +2087,8 @@ function renderTribunalRolesList(filteredRoles = [], query = '') {
           searchSource: {
             tribunal,
             rol: role,
-            rolBusqueda: roleBusqueda,
+            rolBusqueda: role,
+            rol_key: roleBusqueda,
             rit: roleBusqueda,
             ruc: '',
             caratula,
