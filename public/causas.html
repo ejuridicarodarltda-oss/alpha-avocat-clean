@@ -7159,11 +7159,10 @@
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
         { id:'informacion', icon:'📘', title:'Información', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', actions:[{ label:'Abrir Información', primary:true, action:'open-branch' }] },
-        { id:'expedientes', icon:'🗂️', title:'ARCHIVADORES TRIBUNAL', copy:'Centraliza Expedientes Digitales de Juicio, Índice General y Listado General de Causas por tribunal y rol.', badge:'Archivadores tribunal', actions:[
+        { id:'expedientes', icon:'🗂️', title:'ARCHIVADORES TRIBUNAL', copy:'Centraliza Expedientes Digitales de Juicio y Listado General de Causas por tribunal y rol.', badge:'Archivadores tribunal', actions:[
           { label:'Abrir expedientes digitales', primary:true, action:'open-expedientes' },
           { label:'Cargar expedientes digitales', action:'manual-upload' },
           { label:'Cargar Excel depurado tribunal', action:'upload-tribunal-excel' },
-          { label:'Índice General', action:'open-general-index' },
           { label:'Listado General de Causas', action:'open-general-list' },
         ] },
         { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Abrir Producción', primary:true, action:'open-branch' }, { label:'ChatGPT para redactar escritos', action:'producir-escritos' }] },
