@@ -886,21 +886,42 @@
       background:linear-gradient(180deg,#f2d9ac 0%, #e8c894 100%);
       border-color:rgba(123,90,38,.28);
       box-shadow:0 10px 18px rgba(90,65,28,.16);
-      padding-top:24px;
+      padding:16px;
+      gap:14px;
     }
     .causas-page .archivador-tab{
-      position:absolute;
-      top:7px;
-      left:14px;
-      padding:4px 10px;
-      border-radius:8px 8px 0 0;
+      position:static;
+      justify-self:center;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      max-width:100%;
+      padding:7px 14px;
+      border-radius:999px;
       background:#d8b06f;
       border:1px solid rgba(123,90,38,.3);
-      border-bottom:none;
-      font-size:10px;
-      letter-spacing:.06em;
-      font-weight:800;
+      font-size:11px;
+      line-height:1.2;
+      letter-spacing:.08em;
+      font-weight:900;
+      text-align:center;
+      text-transform:uppercase;
       color:#4f3b1d;
+    }
+    .causas-page .archivador-card::after{
+      content:none;
+      display:none;
+    }
+    .causas-page .archivador-card .case-top,
+    .causas-page .archivador-card .detail-grid,
+    .causas-page .archivador-card .case-footer{
+      position:relative;
+      z-index:1;
+    }
+    .causas-page .archivador-card .case-footer{
+      align-items:center;
+      border-top:1px solid rgba(123,90,38,.18);
+      padding-top:12px;
     }
 
     .list-card::after,
@@ -7237,7 +7258,7 @@
                   const importStatus = inferCaseImportStatus(item);
                   return `
                     <article class="list-card archivador-card ${selected}" data-select="${item.id}">
-                      <div class="archivador-tab">ARCHIVADOR CAUSA</div>
+                      <div class="archivador-tab">FICHA GENERAL DE CAUSAS</div>
                       <div class="case-top">
                         <div>
                           <div class="case-kicker">${escapeHtml(identity.display)}${identity.secondary.length ? ` · ${escapeHtml(identity.secondary.join(' · '))}` : ''}</div>
