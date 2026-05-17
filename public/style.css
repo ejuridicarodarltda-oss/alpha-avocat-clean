@@ -152,12 +152,43 @@ position:relative;
 
 .ui-card--interactive::after{
 content:'↗';
-position:absolute;
-top:14px;
-right:14px;
+position:static;
+display:inline-flex;
+align-items:center;
+justify-content:center;
+align-self:flex-start;
+margin-top:auto;
+padding:6px 9px;
+border-radius:999px;
+border:1px solid rgba(22,58,95,.14);
+background:rgba(255,255,255,.72);
 font-size:14px;
 font-weight:800;
 color:rgba(22,58,95,.58);
+pointer-events:none;
+}
+
+.ui-card--interactive{
+display:flex;
+flex-direction:column;
+gap:12px;
+min-width:0;
+overflow-wrap:anywhere;
+}
+
+.ui-card-action-row{
+display:flex;
+flex-wrap:wrap;
+gap:10px;
+align-items:flex-start;
+margin-top:auto;
+padding-top:10px;
+border-top:1px solid rgba(15,23,42,.08);
+}
+
+.ui-card-action-row > *{
+max-width:100%;
+white-space:normal;
 }
 
 .ui-card--interactive:hover,
