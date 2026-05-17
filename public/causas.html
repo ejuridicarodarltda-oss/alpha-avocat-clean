@@ -908,14 +908,24 @@
     .folder-card::after,
     .causas-page .explorer-card::after{
       content:'Abrir ↗';
-      position:absolute;
-      top:14px;
-      right:14px;
+      position:static;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      justify-self:flex-start;
+      margin-top:auto;
+      padding:7px 10px;
+      min-height:30px;
+      border-radius:999px;
+      border:1px solid rgba(22,58,95,.18);
+      background:rgba(255,255,255,.58);
       font-size:10px;
       font-weight:800;
       letter-spacing:.04em;
+      line-height:1.1;
       text-transform:uppercase;
-      color:rgba(22,58,95,.62);
+      color:rgba(22,58,95,.72);
+      pointer-events:none;
     }
 
     .causas-page .list-card:hover{
@@ -1540,17 +1550,22 @@
     }
 
     .causas-page .explorer-portada{
-      position:absolute;
-      top:8px;
-      left:10px;
+      position:static;
+      display:inline-flex;
+      align-items:center;
+      justify-content:center;
+      justify-self:flex-start;
+      max-width:100%;
       font-size:10px;
       font-weight:800;
       letter-spacing:.06em;
+      line-height:1.15;
       color:#314d49;
       background:rgba(255,255,255,.66);
       border:1px solid rgba(95,159,151,.28);
       border-radius:999px;
       padding:4px 8px;
+      overflow-wrap:anywhere;
     }
 
     .causas-page .explorer-card.is-kardex{
@@ -1921,6 +1936,105 @@
       color:var(--causas-text-secondary);
     }
 
+
+
+    /* Layout anti-superposición para Causas: separa título, contenido y acciones. */
+    .causas-page .list-card,
+    .causas-page .pillar-card,
+    .causas-page .folder-card,
+    .causas-page .explorer-card,
+    .causas-page .info-card,
+    .causas-page .document-bucket,
+    .causas-page .timeline-item,
+    .causas-page .resolution-item,
+    .causas-page .deadline-item,
+    .causas-page .source-item{
+      min-width:0;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+
+    .causas-page .list-card,
+    .causas-page .pillar-card,
+    .causas-page .folder-card,
+    .causas-page .explorer-card{
+      grid-template-rows:auto auto 1fr auto;
+      align-items:start;
+      row-gap:14px;
+      min-height:210px;
+      overflow:visible;
+    }
+
+    .causas-page .case-top,
+    .causas-page .case-footer,
+    .causas-page .section-head,
+    .causas-page .segment-header,
+    .causas-page .toolbar,
+    .causas-page .card-action-wrap,
+    .causas-page .detail-actions,
+    .causas-page .actions-bar,
+    .causas-page .action-row,
+    .causas-page .action-group{
+      min-width:0;
+    }
+
+    .causas-page .case-top > *,
+    .causas-page .case-footer > *,
+    .causas-page .section-head > *,
+    .causas-page .segment-header > *,
+    .causas-page .explorer-card-body,
+    .causas-page .pillar-card > div:not(.card-action-wrap),
+    .causas-page .folder-card > div:not(.card-action-wrap){
+      min-width:0;
+      max-width:100%;
+    }
+
+    .causas-page .case-name,
+    .causas-page .segment-title,
+    .causas-page .section-title,
+    .causas-page .explorer-card-body strong,
+    .causas-page .case-kicker,
+    .causas-page .case-meta,
+    .causas-page .timeline-meta,
+    .causas-page .segment-copy,
+    .causas-page .section-copy,
+    .causas-page .badge,
+    .causas-page .tag{
+      max-width:100%;
+      overflow-wrap:anywhere;
+      white-space:normal;
+    }
+
+    .causas-page .card-action-wrap,
+    .causas-page .case-footer,
+    .causas-page .toolbar,
+    .causas-page .detail-actions,
+    .causas-page .actions-bar,
+    .causas-page .action-row,
+    .causas-page .action-group{
+      padding-top:10px;
+      margin-top:auto;
+      border-top:1px solid rgba(95,159,151,.20);
+      align-items:flex-start;
+    }
+
+    .causas-page .card-action-wrap .btn,
+    .causas-page .case-footer .btn,
+    .causas-page .toolbar .btn,
+    .causas-page .detail-actions .btn,
+    .causas-page .action-row .btn,
+    .causas-page .action-group .btn{
+      flex:0 1 auto;
+      max-width:100%;
+      white-space:normal;
+      overflow-wrap:anywhere;
+      text-align:center;
+    }
+
+    .causas-page .explorer-card-icon{
+      margin-top:0;
+    }
+
     @media (max-width: 1280px){
       .screen-grid{ grid-template-columns:1fr; }
       .list-wrap{ max-height:none; }
@@ -2001,6 +2115,33 @@
       .archive-grid,
       .explorer-shell,
       .action-grid{ grid-template-columns:1fr; }
+      .causas-page .btn,
+      .causas-page .chip-btn,
+      .causas-page .quick-btn,
+      .causas-page .tab-btn,
+      .causas-page .icon-btn{
+        white-space:normal;
+      }
+      .causas-page .case-footer,
+      .causas-page .card-action-wrap,
+      .causas-page .action-row,
+      .causas-page .toolbar,
+      .causas-page .action-group{
+        align-items:stretch;
+      }
+      .causas-page .case-footer .btn,
+      .causas-page .card-action-wrap .btn,
+      .causas-page .action-row .btn,
+      .causas-page .toolbar .btn,
+      .causas-page .action-group .btn{
+        flex:1 1 180px;
+      }
+      .causas-page .list-card,
+      .causas-page .pillar-card,
+      .causas-page .folder-card,
+      .causas-page .explorer-card{
+        min-height:0;
+      }
       .screen-title{ font-size:28px; }
       .detail-title{ font-size:24px; }
       .document-explorer-panel{ min-height:auto; }
@@ -7016,10 +7157,10 @@
             <h3 class="segment-title">${escapeHtml(card.title)}</h3>
             <p class="segment-copy">${escapeHtml(card.copy)}</p>
           </div>
-          <div class="card-action-wrap">
+          <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
+          <div class="card-action-wrap action-row">
             ${(card.actions || []).map(action => `<button class="btn ${action.primary && state.activeTab === card.id ? 'btn-primary' : ''}" type="button" data-pillar-action="${escapeHtml(action.action || 'open-branch')}" data-tab="${card.id}">${escapeHtml(action.label)}</button>`).join('')}
           </div>
-          <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
       `).join('');
     }
@@ -7111,7 +7252,7 @@
                         <div><span class="mini-label">Expediente digital</span><div class="case-meta">${escapeHtml(item.expediente)} · ${escapeHtml(item.estadoOperativoExpediente || 'expediente operativo')} · ${escapeHtml(item.estadoPoblacionExpediente || 'listo')}</div></div>
                         <div><span class="mini-label">Próxima actuación / plazo</span><div class="case-meta">${escapeHtml(formatDate(item.proximoPlazo))} · ${days == null ? '—' : `${days} día(s)`}</div></div>
                       </div>
-                      <div class="case-footer">
+                      <div class="case-footer action-row">
                         <div class="case-meta">Cliente: ${escapeHtml(item.cliente)} · Responsable: ${escapeHtml(item.responsable)}</div>
                         <button class="btn btn-primary" type="button" data-jump="informacion" data-case="${escapeHtml(item.id)}">Abrir</button>
                       </div>

@@ -11,7 +11,7 @@
       font-family:Arial,sans-serif;
       background:linear-gradient(180deg,#245f59,#2D7C74);
       color:#10211f;
-      overflow-x:auto;
+      overflow-x:hidden;
       overflow-y:auto;
     }
     .topbar{position:sticky;top:0;z-index:20;display:flex;justify-content:space-between;align-items:center;gap:12px;padding:12px 18px;background:linear-gradient(135deg,#6f1728,#7A1E2C);}
@@ -22,9 +22,9 @@
       padding:14px;
       display:grid;
       gap:12px;
-      max-width:none;
+      max-width:1440px;
       width:100%;
-      min-width:1280px;
+      min-width:0;
       margin:0 auto;
     }
     .card{background:#88c1b7;border:1px solid rgba(255,255,255,.18);border-radius:20px;padding:14px;box-shadow:0 12px 24px rgba(11,37,34,.16)}
@@ -178,12 +178,72 @@
     .index-main-grid{display:grid;grid-template-columns:1fr auto auto;gap:8px;align-items:center}
     .index-version-list{display:grid;gap:8px;margin-top:10px}
     .index-version-item{background:#fff;border:1px solid #b9ddd6;border-radius:12px;padding:10px}
+
+    /* Separación título/contenido/acciones para evitar botones superpuestos. */
+    .card,.icon-card,.panel-card,.folder,.matter-tile,.tribunal-calendar-cell,.role-item,.folder-nav-btn,.folder-file-item,.manual-doc-item,.index-version-item{
+      min-width:0;
+      overflow-wrap:anywhere;
+      word-break:break-word;
+    }
+    .icon-card,.folder,.tribunal-calendar-cell,.role-item,.folder-nav-btn,.folder-file-item{
+      display:flex;
+      flex-direction:column;
+      gap:10px;
+      align-items:stretch;
+      min-height:0;
+    }
+    .tribunal-calendar-cell{
+      min-height:156px;
+    }
+    .tribunal-calendar-name,.role-item h4,.folder h5,.matter-tile strong,.folder-nav-btn strong,.folder-file-top strong,.detected-item span,.muted,.tag{
+      max-width:100%;
+      white-space:normal;
+      overflow-wrap:anywhere;
+    }
+    .role-head,.folder-file-top,.folder-subheader,.panel-actions,.tribunal-calendar-actions,.role-inline-actions,.folder-file-actions,.folder-upload,.actions{
+      display:flex;
+      flex-wrap:wrap;
+      gap:10px;
+      align-items:flex-start;
+      min-width:0;
+    }
+    .role-head > div:first-child,.role-head > h4,.folder-subheader > div,.folder-file-top > strong{
+      min-width:0;
+      flex:1 1 260px;
+    }
+    .tribunal-calendar-actions,.role-inline-actions,.folder-file-actions,.panel-actions{
+      margin-top:auto;
+      padding-top:10px;
+      border-top:1px solid rgba(185,221,214,.72);
+    }
+    .btn,.manual-btn,.role-inline-btn,.toggle,.folder-nav-btn{
+      max-width:100%;
+      white-space:normal;
+      overflow-wrap:anywhere;
+      line-height:1.2;
+    }
+    .tribunal-calendar-actions > *,.role-inline-actions > *,.folder-file-actions > *,.panel-actions > *,.actions > *{
+      flex:0 1 auto;
+    }
+    .folder-nav-grid,.folder-file-meta,.detected-grid,.manual-grid,.role-inline-form,.subfolders,.matter-grid,.icon-grid{
+      min-width:0;
+    }
+
     @media (max-width:900px){.icon-grid,.subfolders{grid-template-columns:1fr}}
     @media (max-width:900px){.search-shell{grid-template-columns:1fr}}
     @media (max-width:900px){.matter-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.index-main-grid{grid-template-columns:1fr}}
     @media (max-width:900px){.folder-nav-grid,.folder-file-meta{grid-template-columns:1fr}}
     @media (max-width:700px){.tribunal-calendar-grid{grid-template-columns:1fr}}
+
+    @media (max-width:900px){
+      body{overflow-x:hidden;}
+      .shell{padding:12px;max-width:100%;}
+      .topbar{align-items:stretch;flex-direction:column;}
+      .actions,.panel-actions,.tribunal-calendar-actions,.role-inline-actions,.folder-file-actions,.folder-upload{align-items:stretch;}
+      .actions > *,.panel-actions > *,.tribunal-calendar-actions > *,.role-inline-actions > *,.folder-file-actions > *,.folder-upload > *{flex:1 1 180px;}
+      .folder-file-actions select{width:100%;}
+    }
   </style>
 </head>
 <body>
