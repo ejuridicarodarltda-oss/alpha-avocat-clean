@@ -446,6 +446,10 @@
       align-items:stretch;
     }
 
+    .causas-page .screen-grid[hidden]{
+      display:none !important;
+    }
+
     .causas-page.landing-mode .screen-grid{
       display:none;
     }
@@ -2029,7 +2033,6 @@
 
       <div class="causas-topbar-actions">
         <button id="btnNuevaCausa" class="btn btn-primary">Nueva causa</button>
-        <button id="btnListadoCausas" class="btn">Listado de causas</button>
         <button id="btnEstadoDiario" class="btn">Estado diario</button>
         <button id="btnCalendario" class="btn">Ver calendario judicial</button>
         <button id="btnLogout" class="btn btn-danger">Cerrar sesión</button>
@@ -2042,13 +2045,12 @@
       <div class="screen-header">
         <div>
           <h2 class="screen-title">MÓDULO CAUSAS</h2>
-          <p class="screen-subtitle">Portada de acceso clara para Información, Expedientes Digitales, Producción y Alertas. El flujo operativo vigente es manual: Excel descargado por el usuario, carga controlada, poblamiento por tribunal/rol y trabajo interno en Expedientes Digitales.</p>
+          <p class="screen-subtitle">Portada de acceso clara para Información, Archivadores Tribunal y Producción. El flujo operativo vigente es manual: Excel descargado por el usuario, carga controlada, poblamiento por tribunal/rol y trabajo interno en Expedientes Digitales.</p>
         </div>
         <div class="screen-actions">
           <button class="btn" id="btnQuickInfo">Información</button>
-          <button class="btn" id="btnQuickExpedientes">Expedientes Digitales</button>
+          <button class="btn" id="btnQuickExpedientes">ARCHIVADORES TRIBUNAL</button>
           <button class="btn" id="btnQuickProduction">Producción</button>
-          <button class="btn" id="btnQuickAlerts">Ver alertas y plazos</button>
         </div>
       </div>
     </section>
@@ -2060,26 +2062,7 @@
       <div class="pillar-grid" id="pillarGrid"></div>
     </section>
 
-    <section class="pjud-index-priority compact-collapsible-card is-collapsed" aria-label="Índice General" data-collapsible-card>
-      <button class="compact-card-toggle" type="button" id="btnToggleIndiceGeneralCard" aria-expanded="false" aria-controls="indiceGeneralCardContent">
-        <span>
-          <span class="panel-title">Índice General</span>
-          <p class="compact-card-summary">Control del índice general interno por tribunal y rol.</p>
-        </span>
-        <span class="compact-card-icon" aria-hidden="true">▸</span>
-      </button>
-      <div class="compact-card-content" id="indiceGeneralCardContent" hidden>
-        <p class="panel-subtitle">Control del índice general de causas. Usar la ruta interna: Causas &gt; Expedientes Digitales &gt; Índice General &gt; Tribunal &gt; Rol.</p>
-        <div class="pjud-index-actions">
-          <button id="btnIndiceAbrirGeneral" class="btn" type="button">Abrir índice general</button>
-          
-        </div>
-        <div class="helper-box">Dentro de Índice General, trabajar con el listado interno por tribunal y rol.</div>
-        <div class="pjud-index-stats" id="pjudIndexStats"></div>
-      </div>
-    </section>
-
-    <section class="screen-grid">
+    <section class="screen-grid" id="listadoGeneralCausasPanel" hidden aria-label="Listado General de Causas">
       <aside class="panel-card compact-collapsible-card is-collapsed" data-collapsible-card>
         <button class="compact-card-toggle" type="button" id="btnToggleListadoGeneralCard" aria-expanded="false" aria-controls="listadoGeneralCardContent">
           <span>
@@ -7013,9 +6996,15 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información de Clientes, Asesorías y Causas', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', button:'Abrir Información de Clientes, Asesorías y Causas' },
-        { id:'expedientes', icon:'🗂️', title:'Expedientes Digitales', copy:'Abre archivadores por tribunal con acceso a carpeta individual por causa y subcarpetas jurídicas.', badge:'Archivadores tribunal', button:'Abrir expedientes digitales', secondaryButton:'Cargar expedientes digitales', secondaryAction:'manual-upload', tertiaryButton:'Cargar Excel depurado tribunal', tertiaryAction:'upload-tribunal-excel' },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', button:'Abrir Producción', fullWidth:true, secondaryButton:'ChatGPT para redactar escritos', secondaryAction:'producir-escritos' },
+        { id:'informacion', icon:'📘', title:'Información', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', actions:[{ label:'Abrir Información', primary:true, action:'open-branch' }] },
+        { id:'expedientes', icon:'🗂️', title:'ARCHIVADORES TRIBUNAL', copy:'Centraliza Expedientes Digitales de Juicio, Índice General y Listado General de Causas por tribunal y rol.', badge:'Archivadores tribunal', actions:[
+          { label:'Abrir expedientes digitales', primary:true, action:'open-expedientes' },
+          { label:'Cargar expedientes digitales', action:'manual-upload' },
+          { label:'Cargar Excel depurado tribunal', action:'upload-tribunal-excel' },
+          { label:'Índice General', action:'open-general-index' },
+          { label:'Listado General de Causas', action:'open-general-list' },
+        ] },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Abrir Producción', primary:true, action:'open-branch' }, { label:'ChatGPT para redactar escritos', action:'producir-escritos' }] },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -7028,9 +7017,7 @@
             <p class="segment-copy">${escapeHtml(card.copy)}</p>
           </div>
           <div class="card-action-wrap">
-            <button class="btn ${state.activeTab === card.id ? 'btn-primary' : ''}" data-tab="${card.id}" data-open-block="true">${escapeHtml(card.button)}</button>
-            ${card.secondaryButton ? `<button class="btn" type="button" data-pillar-action="${escapeHtml(card.secondaryAction || '')}" data-tab="${card.id}">${escapeHtml(card.secondaryButton)}</button>` : ''}
-            ${card.tertiaryButton ? `<button class="btn" type="button" data-pillar-action="${escapeHtml(card.tertiaryAction || '')}" data-tab="${card.id}">${escapeHtml(card.tertiaryButton)}</button>` : ''}
+            ${(card.actions || []).map(action => `<button class="btn ${action.primary && state.activeTab === card.id ? 'btn-primary' : ''}" type="button" data-pillar-action="${escapeHtml(action.action || 'open-branch')}" data-tab="${card.id}">${escapeHtml(action.label)}</button>`).join('')}
           </div>
           <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
         </article>
@@ -15940,7 +15927,7 @@
       }, { required: true, scope: 'topbar' });
 
       bindEvent('btnNuevaCausa', 'click', () => openModal(), { required: true, scope: 'topbar' });
-      bindEvent('btnListadoCausas', 'click', () => openExcelUploadModal('listado'), { required: true, scope: 'topbar' });
+      bindEvent('btnListadoCausas', 'click', () => openExcelUploadModal('listado'), { scope: 'topbar' });
       bindEvent('btnEstadoDiario', 'click', () => openExcelUploadModal('estado'), { required: true, scope: 'topbar' });
       bindEvent('btnIndiceAbrirGeneral', 'click', () => navigateToPjudGeneralIndex(), { scope: 'indice-general' });
       auditAndRepairAutomaticFlowButtons();
@@ -16003,7 +15990,7 @@
       });
       bindEvent('btnCalendario', 'click', () => { window.location.href = './agenda.html'; }, { scope: 'topbar' });
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
-      bindEvent('btnQuickExpedientes', 'click', () => navigateToPjudGeneralIndex(), { scope: 'quick-nav' });
+      bindEvent('btnQuickExpedientes', 'click', () => { window.location.href = './expedientes-digitales.html'; }, { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
@@ -16384,30 +16371,48 @@
 
       $('pillarGrid')?.addEventListener('click', event => {
         const pillarAction = event.target.closest('[data-pillar-action]');
-        if (pillarAction?.dataset?.pillarAction === 'manual-upload') {
-          event.preventDefault();
-          event.stopPropagation();
+        const action = pillarAction?.dataset?.pillarAction || '';
+        if (!pillarAction) return;
+        event.preventDefault();
+        event.stopPropagation();
+        if (action === 'manual-upload') {
           openManualUploadModal();
           return;
         }
-        if (pillarAction?.dataset?.pillarAction === 'upload-tribunal-excel') {
-          event.preventDefault();
-          event.stopPropagation();
+        if (action === 'upload-tribunal-excel') {
           openExcelUploadModal('listado');
           return;
         }
-        if (pillarAction?.dataset?.pillarAction === 'producir-escritos') {
-          event.preventDefault();
-          event.stopPropagation();
+        if (action === 'open-general-index') {
+          navigateToPjudGeneralIndex();
+          return;
+        }
+        if (action === 'open-expedientes') {
+          window.location.href = './expedientes-digitales.html';
+          return;
+        }
+        if (action === 'open-general-list') {
+          const panel = $('listadoGeneralCausasPanel');
+          if (panel) {
+            panel.hidden = false;
+            const card = panel.querySelector('[data-collapsible-card]');
+            const content = $('listadoGeneralCardContent');
+            const toggle = $('btnToggleListadoGeneralCard');
+            card?.classList.remove('is-collapsed');
+            if (content) content.hidden = false;
+            if (toggle) toggle.setAttribute('aria-expanded', 'true');
+            disableLandingMode();
+            renderList();
+            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+          }
+          return;
+        }
+        if (action === 'producir-escritos') {
           openProducirEscritosModal();
           return;
         }
-        const tab = event.target.closest('[data-tab]');
+        const tab = pillarAction.closest('[data-tab]');
         if (!tab) return;
-        if (event.target.closest('[data-open-block]')) {
-          openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-open-button' });
-          return;
-        }
         openWorkspaceModal({ tabId: tab.dataset.tab, origin: 'pillar-card' });
       });
 
