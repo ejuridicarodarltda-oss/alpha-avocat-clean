@@ -925,7 +925,6 @@
     }
 
     .list-card::after,
-    .pillar-card::after,
     .folder-card::after,
     .causas-page .explorer-card::after{
       content:'Abrir ↗';
@@ -7158,7 +7157,7 @@
     function renderPillarCards(){
       const selected = state.caseMap.get(state.selectedId);
       const cards = [
-        { id:'informacion', icon:'📘', title:'Información', copy:'Abre la rama de identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', actions:[{ label:'Abrir Información', primary:true, action:'open-branch' }] },
+        { id:'informacion', icon:'📘', title:'Información', copy:'Contenedor visual para identificación jurídica, asesorías vinculadas y gestión operativa de la causa.', badge:'Información', actions:[] },
         { id:'expedientes', icon:'🗂️', title:'ARCHIVADORES TRIBUNAL', copy:'Centraliza Expedientes Digitales de Juicio, Índice General y Listado General de Causas por tribunal y rol.', badge:'Archivadores tribunal', actions:[
           { label:'Abrir expedientes digitales', primary:true, action:'open-expedientes' },
           { label:'Cargar expedientes digitales', action:'manual-upload' },
@@ -7166,10 +7165,10 @@
           { label:'Índice General', action:'open-general-index' },
           { label:'Listado General de Causas', action:'open-general-list' },
         ] },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Abrir Producción', primary:true, action:'open-branch' }, { label:'ChatGPT para redactar escritos', action:'producir-escritos' }] },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Contenedor visual de redacción jurídica conectado con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'ChatGPT para redactar escritos', primary:true, action:'producir-escritos' }] },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
-        <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
+        <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}">
           <div class="case-top">
             <div class="pillar-icon" aria-hidden="true">${card.icon}</div>
             <span class="badge ${state.activeTab === card.id ? 'badge-active' : 'badge-info'}">${escapeHtml(card.badge)}</span>
@@ -7178,10 +7177,10 @@
             <h3 class="segment-title">${escapeHtml(card.title)}</h3>
             <p class="segment-copy">${escapeHtml(card.copy)}</p>
           </div>
-          <div class="linked-note">Abrir este bloque mantiene la ficha jurídica dentro del mismo lenguaje visual del módulo CAUSAS.</div>
-          <div class="card-action-wrap action-row">
-            ${(card.actions || []).map(action => `<button class="btn ${action.primary && state.activeTab === card.id ? 'btn-primary' : ''}" type="button" data-pillar-action="${escapeHtml(action.action || 'open-branch')}" data-tab="${card.id}">${escapeHtml(action.label)}</button>`).join('')}
-          </div>
+          <div class="linked-note">Bloque visual del módulo CAUSAS; usa los botones internos disponibles para navegar.</div>
+          ${(card.actions || []).length ? `<div class="card-action-wrap action-row">
+            ${(card.actions || []).map(action => `<button class="btn ${action.primary && state.activeTab === card.id ? 'btn-primary' : ''}" type="button" data-pillar-action="${escapeHtml(action.action)}">${escapeHtml(action.label)}</button>`).join('')}
+          </div>` : ''}
         </article>
       `).join('');
     }
