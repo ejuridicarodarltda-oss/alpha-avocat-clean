@@ -2945,9 +2945,11 @@
         </div>
         <div id="listadoCausasLastUpload" class="helper-box">Última carga: sin registros.</div>
         <div id="listadoCausasLastProcess" class="helper-box">Último proceso ejecutado: sin registros.</div>
+        <div id="listadoCausasDebugPanel" class="helper-box">Panel debug real: sin eventos de reconstrucción o procesamiento.</div>
         <div class="modal-actions">
           <button type="button" class="btn" data-close="1" data-modal-id="modalListadoCausas">Cancelar</button>
           <button id="btnCancelarListadoCausasProceso" type="button" class="btn">Cancelar proceso</button>
+          <button id="btnLimpiarReconstruirMateria" type="button" class="btn btn-danger">Limpiar y reconstruir materia</button>
           <button id="btnConfirmarListadoCausas" type="submit" class="btn btn-primary">Procesar Excel depurado</button>
         </div>
         <div id="listadoCausasMsg" class="msg" aria-live="polite"></div>
@@ -3242,9 +3244,10 @@
         },
       },
       excelUploads: {
-        listado: { file: null, parsed: null, selectedSheetName: '', lastUpload: null, isProcessing: false, cancelRequested: false, progress: null, lastProcess: null },
+        listado: { file: null, parsed: null, selectedSheetName: '', lastUpload: null, isProcessing: false, cancelRequested: false, progress: null, lastProcess: null, debugEvents: [] },
         estado_diario: { file: null, parsed: null, selectedSheetName: '', lastUpload: null },
       },
+      structuralRebuild: { active: false, matterLabel: '', startedAt: null },
       produccionDraft: {
         matches: [],
         selectedCaseId: '',
@@ -3686,34 +3689,36 @@
       'Juzgados de Policía Local',
       'Tribunales de Juicio Oral en lo Penal',
       'Cortes de Apelaciones',
-      'Corte Suprema'
+      'Corte Suprema',
+      'Materia sin clasificar'
     ];
 
-	    function inferKardexLabel(tribunal = ''){
-	      const normalized = normalizeTextForMatch(tribunal);
-	      if (normalized.includes('corte suprema')) return 'Corte Suprema';
-	      if (
-	        normalized.includes('corte de apelaciones')
-	        || normalized.includes('corte apelaciones')
-	        || /\bc\.?\s*a\.?\b/.test(normalized)
-	        || normalized.startsWith('ca de ')
-	      ) return 'Cortes de Apelaciones';
-	      if (normalized.includes('cobranza') || normalized.includes('previsional')) return 'Juzgados de Cobranza Laboral y Previsional';
-	      if (normalized.includes('juicio oral') || /\btop\b/.test(normalized)) return 'Tribunales de Juicio Oral en lo Penal';
-	      if (normalized.includes('policia local')) return 'Juzgados de Policía Local';
-	      if (
-	        normalized.includes('garantia')
-	        || normalized.includes('medidas cautelares')
-	        || normalized.includes('l y g')
-	        || normalized.includes('l. y g')
-	        || normalized.includes('letras y garantia')
-	      ) return 'Juzgados de Garantía';
-	      if (normalized.includes('familia')) return 'Juzgados de Familia';
-	      if (normalized.includes('trabajo')) return 'Juzgados del Trabajo';
-	      if (normalized.includes('letras') || normalized.includes('civil')) return 'Juzgados Civiles';
-	      if (!normalized) return 'Juzgados Civiles';
-	      return 'Juzgados Civiles';
-	    }
+    function inferKardexLabel(tribunal = '', materia = ''){
+      const normalized = normalizeTextForMatch(tribunal);
+      const normalizedMateria = normalizeTextForMatch(materia);
+      const combined = `${normalized} ${normalizedMateria}`.trim();
+      if (combined.includes('corte suprema')) return 'Corte Suprema';
+      if (
+        combined.includes('corte de apelaciones')
+        || combined.includes('corte apelaciones')
+        || /\bc\.?\s*a\.?\b/.test(combined)
+        || combined.startsWith('ca de ')
+      ) return 'Cortes de Apelaciones';
+      if (combined.includes('cobranza laboral') || combined.includes('cobranza previsional') || (combined.includes('cobranza') && combined.includes('previsional'))) return 'Juzgados de Cobranza Laboral y Previsional';
+      if (combined.includes('juicio oral') || /\btop\b/.test(combined)) return 'Tribunales de Juicio Oral en lo Penal';
+      if (combined.includes('policia local')) return 'Juzgados de Policía Local';
+      if (
+        combined.includes('garantia')
+        || combined.includes('medidas cautelares')
+        || combined.includes('l y g')
+        || combined.includes('l. y g')
+        || combined.includes('letras y garantia')
+      ) return 'Juzgados de Garantía';
+      if (combined.includes('familia')) return 'Juzgados de Familia';
+      if (combined.includes('juzgado de letras del trabajo') || combined.includes('juzgado del trabajo') || combined.includes('tribunal laboral') || combined.includes('laboral') || combined.includes('trabajo')) return 'Juzgados del Trabajo';
+      if (combined.includes('civil')) return 'Juzgados Civiles';
+      return 'Materia sin clasificar';
+    }
 
     try {
       const persistedExplorer = JSON.parse(sessionStorage.getItem(EXPLORER_EXPANDED_SESSION_KEY) || '[]');
@@ -5856,7 +5861,7 @@
       if (!rol && !tribunal) return null;
       const caratula = normalizeOfficeFolderField(caseItem?.caratula || caseItem?.pjud_caratulado || '');
       const estado = normalizeOfficeFolderField(caseItem?.estadoProcesal || caseItem?.estadoCausa || caseItem?.pjud_estado_procesal || caseItem?.pjud_estado_causa || '');
-      const fuero = tribunal ? inferKardexLabel(tribunal) : '';
+      const fuero = tribunal ? inferKardexLabel(tribunal, caseItem?.materia || caseItem?.pjud_materia || '') : '';
       return {
         caseId,
         rol,
@@ -7225,7 +7230,7 @@
 	      if (state.selectedId && !list.some(item => item.id === state.selectedId)) state.selectedId = null;
 	      const grouped = new Map(KARDEX_GROUPS.map((label) => [label, []]));
 	      list.forEach((item) => {
-	        const label = inferKardexLabel(item.tribunal);
+	        const label = inferKardexLabel(item.tribunal, item.materia);
 	        if (!grouped.has(label)) grouped.set(label, []);
 	        grouped.get(label).push(item);
 	      });
@@ -10425,6 +10430,49 @@
       return getAllCases().find((item) => normalizeTribunalAndRolKey(item?.tribunal || '', item?.rol || '') === expectedKey) || null;
     }
 
+    function buildExcelRealUniqueCaseKey(row = {}){
+      return normalizeTribunalAndRolKey(row?.tribunal || row?.court || '', row?.rol || row?.rit || '');
+    }
+
+    function summarizeStack(error){
+      return String(error?.stack || error?.message || error || '').split(/\n/).slice(0, 4).join(' | ');
+    }
+
+    function pushListadoDebugEvent(event = {}){
+      const store = state.excelUploads?.listado;
+      if (!store) return;
+      if (!Array.isArray(store.debugEvents)) store.debugEvents = [];
+      store.debugEvents.unshift({
+        at: new Date().toISOString(),
+        rol: event.rol || '',
+        tribunal: event.tribunal || '',
+        action: event.action || 'sin acción',
+        error: event.error || '',
+        keyConflict: event.keyConflict || '',
+        duplicateDetected: Boolean(event.duplicateDetected),
+        stack: event.stack || '',
+      });
+      store.debugEvents = store.debugEvents.slice(0, 80);
+      renderListadoDebugPanel();
+    }
+
+    function renderListadoDebugPanel(){
+      const panel = $('listadoCausasDebugPanel');
+      if (!panel) return;
+      const events = state.excelUploads?.listado?.debugEvents || [];
+      if (!events.length) {
+        panel.innerHTML = 'Panel debug real: sin eventos de reconstrucción o procesamiento.';
+        return;
+      }
+      panel.innerHTML = `
+        <strong>Panel debug real · Excel depurado</strong>
+        <div class="timeline-meta">Últimos ${escapeHtml(String(events.length))} evento(s): ROL, Tribunal, acción, error exacto, conflicto de clave, duplicado y stack resumido.</div>
+        <div class="table-wrap"><table class="table"><thead><tr><th>Hora</th><th>ROL</th><th>Tribunal</th><th>Acción</th><th>Error exacto</th><th>Conflicto</th><th>Duplicado</th><th>Stack resumido</th></tr></thead><tbody>
+          ${events.slice(0, 30).map((item) => `<tr><td>${escapeHtml(formatDateTimeLabel(item.at))}</td><td>${escapeHtml(item.rol || '—')}</td><td>${escapeHtml(item.tribunal || '—')}</td><td>${escapeHtml(item.action || '—')}</td><td>${escapeHtml(item.error || '—')}</td><td>${escapeHtml(item.keyConflict || '—')}</td><td>${item.duplicateDetected ? 'Sí' : 'No'}</td><td>${escapeHtml(item.stack || '—')}</td></tr>`).join('')}
+        </tbody></table></div>
+      `;
+    }
+
     function buildAutoCreatedExpedienteFolderName({ rol = '', caratula = '' } = {}){
       const safeRol = String(rol || '').trim() || 'Rol pendiente';
       const safeCaratula = normalizeCaratula(String(caratula || '').trim()) || 'Carátula pendiente';
@@ -10433,6 +10481,15 @@
 
     async function ensureRealCaseForPjudIndexItem(indexItem = {}, { reason = 'index-render' } = {}){
       if (!indexItem || typeof indexItem !== 'object') return null;
+      if (state.structuralRebuild?.active) {
+        pushListadoDebugEvent({
+          rol: indexItem.rol || indexItem.rit || '',
+          tribunal: indexItem.court_name || '',
+          action: `índice PJUD bloqueado durante reconstrucción (${reason})`,
+          keyConflict: buildExcelRealUniqueCaseKey({ rol: indexItem.rol || indexItem.rit || '', tribunal: indexItem.court_name || '' }),
+        });
+        return null;
+      }
       const linkedCaseId = resolveCaseId(indexItem.alpha_case_id);
       if (linkedCaseId) return state.caseMap.get(linkedCaseId) || null;
 
@@ -10692,7 +10749,8 @@
           return;
         }
       }
-      const duplicate = findDuplicateCase(getAllCases(), {
+      const duplicateScope = getAllCases().filter((item) => !rolRaw || !tribunal || normalizeTribunalAndRolKey(item?.tribunal || '', rolRaw) === normalizeTribunalAndRolKey(tribunal, rolRaw));
+      const duplicate = findDuplicateCase(duplicateScope, {
         basic: {
           rol: rolRaw,
           rit: $('k_rit').value.trim(),
@@ -11358,7 +11416,7 @@
       const duplicatesRegistry = new Set();
       let duplicates = 0;
       const allCases = getAllCases();
-      const indexedByRolTribunal = new Map(allCases.map((cause) => [`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)]));
+      const indexedByRolTribunal = new Map(allCases.flatMap((cause) => [[`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)], [buildExcelRealUniqueCaseKey(cause), String(cause.id)]]));
       rows.forEach((rawRow, index) => {
         const parsed = resolveExcelRowCanonical(rawRow);
         const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
@@ -11367,10 +11425,10 @@
           return;
         }
         auditRows.push({ ...parsed, rowNumber: index + headerRowIndex + 2, raw: rawRow });
-        const duplicateKey = `${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}|${parsed.caratula.toLowerCase()}`;
+        const duplicateKey = buildExcelRealUniqueCaseKey(parsed);
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
-        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || null;
+        const linkedCaseId = indexedByRolTribunal.get(`${parsed.rol.toLowerCase()}|${parsed.tribunal.toLowerCase()}`) || indexedByRolTribunal.get(buildExcelRealUniqueCaseKey(parsed)) || null;
         const minimalIdentityOk = type === 'listado'
           ? Boolean(parsed.rol && parsed.tribunal && parsed.caratula)
           : Boolean(parsed.rol || parsed.caratula || parsed.tribunal);
@@ -11513,13 +11571,64 @@
       return { insertedRows, failedRows };
     }
 
-    async function processExcelUpload(type){
+    function resolveExcelMatterLabelForRebuild(rows = []){
+      const labels = [...new Set((rows || [])
+        .map((row) => resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }))
+        .filter(Boolean))];
+      if (!labels.length) throw new Error('No fue posible resolver la materia a limpiar desde el Excel depurado.');
+      if (labels.length > 1) throw new Error(`El Excel mezcla más de una materia (${labels.join(', ')}). Limpieza estructural cancelada.`);
+      return labels[0];
+    }
+
+    function caseBelongsToMatterLabel(cause = {}, matterLabel = ''){
+      const expected = normalizeTextForMatch(matterLabel);
+      if (!expected) return false;
+      const actualMatter = normalizeTextForMatch(cause?.materia || cause?.matter || '');
+      const inferred = normalizeTextForMatch(resolvePjudMatterLabelFromCase({ tribunal: cause?.tribunal || cause?.court, materia: cause?.materia || cause?.matter }));
+      return actualMatter === expected || inferred === expected;
+    }
+
+    async function cleanMaterializedMatterBeforeRebuild(matterLabel){
+      const targetCases = getAllCases().filter((cause) => caseBelongsToMatterLabel(cause, matterLabel));
+      const targetIds = targetCases.map((cause) => String(cause.id || '')).filter(Boolean);
+      pushListadoDebugEvent({ action: `inicio limpieza materia: ${matterLabel}`, keyConflict: `${targetIds.length} expediente(s) a eliminar` });
+      if (!targetIds.length) return { deletedCases: 0, unlinkedIndexRows: 0 };
+      try {
+        const { error: unlinkError } = await supabase
+          .from(T_PJUD_CAUSES_INDEX)
+          .update({ alpha_case_id: null, sync_status: 'indexed', updated_at: new Date().toISOString() })
+          .in('alpha_case_id', targetIds)
+          .eq('user_id', authenticatedUser.id);
+        if (unlinkError) {
+          pushListadoDebugEvent({ action: 'índice asociado no limpiado', error: unlinkError.message || String(unlinkError), stack: summarizeStack(unlinkError) });
+        }
+      } catch (error) {
+        pushListadoDebugEvent({ action: 'índice asociado no limpiado', error: error?.message || String(error), stack: summarizeStack(error) });
+      }
+      const { error: deleteError } = await supabase
+        .from(T_CASES)
+        .delete()
+        .eq('owner_user_id', authenticatedUser.id)
+        .in(C.k_id, targetIds);
+      if (deleteError) throw deleteError;
+      const workspace = loadWorkspace();
+      targetIds.forEach((id) => { delete workspace[id]; });
+      saveWorkspace(workspace);
+      if (targetIds.includes(String(state.selectedId || ''))) state.selectedId = null;
+      pushListadoDebugEvent({ action: `limpieza materia completada: ${matterLabel}`, keyConflict: `${targetIds.length} expediente(s) eliminados` });
+      return { deletedCases: targetIds.length, unlinkedIndexRows: targetIds.length };
+    }
+
+    async function processExcelUpload(type, options = {}){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
+      const rebuildMatter = Boolean(options?.rebuildMatter && key === 'listado');
       if (!store?.file || !store?.parsed) throw new Error('Primero debes cargar y analizar un archivo Excel válido.');
       if (!store.parsed.validRows.length) throw new Error('No hay filas válidas para procesar.');
       if (store.parsed.missingCritical?.length) throw new Error(`Faltan columnas críticas: ${store.parsed.missingCritical.join(', ')}.`);
       if (key === 'listado') {
+        state.excelUploads.listado.debugEvents = [];
+        renderListadoDebugPanel();
         state.excelUploads.listado.isProcessing = true;
         state.excelUploads.listado.cancelRequested = false;
         setListadoProgress({
@@ -11536,6 +11645,15 @@
         });
       }
       try {
+      if (rebuildMatter) {
+        const matterLabel = resolveExcelMatterLabelForRebuild(store.parsed.validRows);
+        state.structuralRebuild = { active: true, matterLabel, startedAt: new Date().toISOString() };
+        setListadoProgress({ percent: 18, stage: 'Limpiando materia', status: 'running', subaction: `Eliminando materialización, índice visual y árbol interno de ${matterLabel}.` });
+        await cleanMaterializedMatterBeforeRebuild(matterLabel);
+        await loadCases();
+        populateFilters();
+        renderAll();
+      }
       const batchPayload = {
         owner_user_id: authenticatedUser.id,
         uploaded_by: authenticatedUser.id,
@@ -11629,18 +11747,32 @@
           map.get(keyName).push(cause);
         };
         allCases.forEach((cause) => {
-          const exactKey = `${normalizePjudText(cause?.rol || '')}|${normalizePjudText(cause?.tribunal || cause?.court || '')}`;
+          const exactKey = buildExcelRealUniqueCaseKey({ rol: cause?.rol || '', tribunal: cause?.tribunal || cause?.court || '' });
           pushCase(byExactKey, exactKey, cause);
         });
         setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas tipo Office existentes.' });
         let processedRows = 0;
+        const processedUniqueKeys = new Set();
         for (const row of store.parsed.validRows) {
           if (state.excelUploads.listado.cancelRequested) break;
           const classification = classifyTribunalFuero(row?.tribunal || '');
           const rowHasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
           const isClassified = ['corte_suprema', 'cortes_apelaciones'].includes(classification.fuero);
           const rolComparacion = String(row?.rol || '').trim();
-          const exactKey = `${normalizePjudText(rolComparacion)}|${normalizePjudText(row?.tribunal || '')}`;
+          const exactKey = buildExcelRealUniqueCaseKey({ rol: rolComparacion, tribunal: row?.tribunal || '' });
+          if (processedUniqueKeys.has(exactKey)) {
+            listadoMatchStats.multiple += 1;
+            processedRows += 1;
+            pushListadoDebugEvent({
+              rol: row?.rol || '',
+              tribunal: row?.tribunal || '',
+              action: 'fila Excel omitida por duplicado real ROL + Tribunal',
+              keyConflict: exactKey,
+              duplicateDetected: true,
+            });
+            continue;
+          }
+          processedUniqueKeys.add(exactKey);
           const exactMatches = byExactKey.get(exactKey) || [];
           const candidateFoldersByNumberYear = [...new Set(exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
           const resolvedMatches = exactMatches;
@@ -11673,9 +11805,11 @@
               listadoMatchStats.exactUpdated += 1;
               if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
               resultLabel = 'actualizada (match exacto)';
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey });
             } else if (resolvedMatches.length > 1) {
               listadoMatchStats.multiple += 1;
               resultLabel = 'coincidencia múltiple';
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey, duplicateDetected: true });
             } else {
               const insertPayload = {
                 [C.k_client_id]: null,
@@ -11711,6 +11845,7 @@
               createdCaseRecord = createdCase;
               listadoMatchStats.created += 1;
               resultLabel = 'creada (sin coincidencia exacta)';
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey });
             }
             if (isClassified && !matchedCase && !createdCaseRecord) failureReport.filasClasificadasNoMaterializadas += 1;
             if (classification.fuero === 'corte_suprema' && !matchedCase && !createdCaseRecord) failureReport.filasCorteSupremaNoCreadas += 1;
@@ -11761,6 +11896,7 @@
               unmatchedRows: listadoMatchStats.unmatched,
               errors: Number(store.parsed.invalidRows || 0) + processingErrors,
             });
+            pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: 'error persistencia fila Excel', error: rowPersistenceError?.message || String(rowPersistenceError), keyConflict: exactKey, stack: summarizeStack(rowPersistenceError) });
             console.warn('[CAUSAS][EXCEL-DEPURADO] Fila omitida por error de persistencia de causa.', {
               batchId: batch.id,
               rowNumber: row?.rowNumber,
@@ -11896,6 +12032,7 @@
         errors: errorCount,
       };
       } finally {
+        if (rebuildMatter) state.structuralRebuild = { active: false, matterLabel: '', startedAt: null };
         if (key === 'listado') {
           state.excelUploads.listado.isProcessing = false;
           state.excelUploads.listado.cancelRequested = false;
@@ -12412,7 +12549,7 @@
         || normalized.includes('trabajo')) {
         return { fuero: 'laboral', tribunalEspecifico: tribunal, normalized };
       }
-      if (normalized.includes('civil') || (/\bletras\b/.test(normalized) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(normalized))) {
+      if (normalized.includes('civil')) {
         return { fuero: 'civil', tribunalEspecifico: tribunal, normalized };
       }
       return { fuero: 'otros', tribunalEspecifico: tribunal, normalized };
@@ -16374,6 +16511,28 @@
           setMessage('listadoCausasMsg', `Error al procesar Excel depurado: ${normalized?.message || 'Error desconocido'}`, 'error');
         }
       }, { required: true, scope: 'excel-listado' });
+      bindEvent('btnLimpiarReconstruirMateria', 'click', async () => {
+        if (state.excelUploads.listado.isProcessing) {
+          setMessage('listadoCausasMsg', 'Ya existe un proceso en ejecución. Espera a que termine o cancélalo.', 'warn');
+          return;
+        }
+        if (!state.excelUploads.listado.file || !state.excelUploads.listado.parsed) {
+          setMessage('listadoCausasMsg', 'Carga y valida primero el Excel depurado vigente antes de limpiar y reconstruir.', 'warn');
+          return;
+        }
+        try {
+          const matterLabel = resolveExcelMatterLabelForRebuild(state.excelUploads.listado.parsed.validRows || []);
+          const confirmed = window.confirm(`Esto eliminará la materialización interna actual de la materia "${matterLabel}" y la reconstruirá desde el Excel depurado vigente usando ROL + Tribunal. ¿Continuar?`);
+          if (!confirmed) return;
+          const summary = await processExcelUpload('listado', { rebuildMatter: true });
+          setMessage('listadoCausasMsg', `Materia reconstruida desde Excel depurado. Total filas: ${summary.totalRows}. Causas creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedExactMatches || 0}. Duplicados/Conflictos: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          renderExcelPreview('listado');
+        } catch (error) {
+          console.error('[CAUSAS][EXCEL-DEPURADO] Error al limpiar y reconstruir materia.', error);
+          pushListadoDebugEvent({ action: 'error reconstrucción materia', error: error?.message || String(error), stack: summarizeStack(error) });
+          setMessage('listadoCausasMsg', `Error al limpiar y reconstruir materia: ${error?.message || 'Error desconocido'}`, 'error');
+        }
+      }, { scope: 'excel-listado' });
       bindEvent('btnCancelarListadoCausasProceso', 'click', () => {
         if (!state.excelUploads.listado.isProcessing) {
           setMessage('listadoCausasMsg', 'No hay un proceso activo para cancelar.', 'warn');
