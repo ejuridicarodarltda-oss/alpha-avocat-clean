@@ -428,7 +428,7 @@ function inferTribunalMainBucket(cause = {}) {
     /\blaboral\b/,
     /\btrabajo\b/,
   ])) return { key: 'trabajo', label: 'Juzgados del Trabajo' }
-  if (source.includes('civil') || (/\bletras\b/.test(source) && !/(trabajo|laboral|cobranza|previsional|familia|garantia)/.test(source))) return { key: 'civil', label: 'Juzgados Civiles' }
+  if (source.includes('civil')) return { key: 'civil', label: 'Juzgados Civiles' }
   return { key: `tribunal_${quickHash(source)}`, label: cause?.tribunal || cause?.court || cause?.corte || 'Tribunal no especificado' }
 }
 
