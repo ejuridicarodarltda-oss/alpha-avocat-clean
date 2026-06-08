@@ -2863,7 +2863,7 @@
                 <label for="producirEscritoInstrucciones">Qué debe preparar</label>
                 <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, doctrina, jurisprudencia y antecedentes que debe considerar."></textarea>
               </div>
-              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense para estructura, sumas, otrosíes, petitorios y fórmulas útiles según la materia, sin copiar texto literal.</div>
+              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense y esquemas de procedimientos para estructura, etapas, sumas, otrosíes, petitorios y fórmulas útiles según la materia, sin copiar texto literal.</div>
               <div class="field">
                 <label for="producirEscritoAjuste">Ajuste rápido</label>
                 <input id="producirEscritoAjuste" class="input" placeholder="Ej: más técnico, agregar jurisprudencia, incluir otrosí" />
@@ -2925,7 +2925,7 @@
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalInsumosExternosProduccion" aria-label="Cerrar">✕</button>
       </div>
-      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense de Diego Barros Aldunate, tomos civiles I a IV, más formularios de contratos. Se usa como orientación transversal de técnica forense, estructura, sumas, otrosíes, petitorios y fórmulas útiles según la materia; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
+      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense de Diego Barros Aldunate y esquemas procedimentales para civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas. Se usa como orientación transversal de técnica forense, estructura, etapas, sumas, otrosíes, petitorios y fórmulas útiles según la materia; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
       <div class="modal-actions">
         <button type="button" class="btn" data-close="1" data-modal-id="modalInsumosExternosProduccion">Cerrar</button>
       </div>
@@ -10218,6 +10218,90 @@
       { titulo: 'Práctica Forense. Formularios de contratos, Tomo I', autor: 'Diego Barros Aldunate', alcance: 'Adjudicación a contrato de cesión de derechos' },
     ];
 
+    const PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY = [
+      {
+        materia: 'civil',
+        titulo: 'Esquemas de procedimiento civil y cumplimiento incidental',
+        uso: 'Estructura de juicio ordinario, ejecutivo, sumario, recursos, cumplimiento y etapas escritas.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Comunicación y cumplimiento de resoluciones judiciales', url: 'https://academiajudicial.cl/wp-content/uploads/2022/11/MD46-Comunicaciones-y-cumplimiento-de-resoluciones-judiciales.pdf', nota: 'Incluye figura/esquema de cumplimiento incidental.' },
+          { nombre: 'Código de Procedimiento Civil - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=22740', nota: 'Base normativa para validar etapas y plazos.' },
+        ],
+      },
+      {
+        materia: 'penal-garantia-oral',
+        titulo: 'Esquemas de procedimiento penal: garantía, etapa intermedia y juicio oral',
+        uso: 'Formalización, investigación, salidas alternativas, preparación de juicio oral, auto de apertura y audiencia de juicio oral.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Guía conducción audiencia de juicio oral', url: 'https://guias.academiajudicial.cl/guia_para_la_conduccion_de_la_audiencia_de_juicio_oral/', nota: 'Guía por etapas para juicio oral penal.' },
+          { nombre: 'Academia Judicial - Guías audiencias de término, control, investigación y ejecución', url: 'https://guias.academiajudicial.cl/guia-audiencias-de-termino-control-investigacion-y-ejecucion/', nota: 'Incluye esquemas de ejecución y audiencias penales.' },
+          { nombre: 'Código Procesal Penal - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=176595', nota: 'Base normativa para validar secuencia penal.' },
+        ],
+      },
+      {
+        materia: 'familia',
+        titulo: 'Esquemas de procedimiento ordinario y protección en tribunales de familia',
+        uso: 'Admisibilidad, audiencia preparatoria, audiencia de juicio, sentencia, medidas de protección y cumplimiento.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Curso habilitante Juez(a) de familia', url: 'https://academiajudicial.cl/wp-content/uploads/2021/10/10_Habilitante-Familia_Pub11.pdf', nota: 'Incluye sección 5.2 Esquema del procedimiento.' },
+          { nombre: 'Academia Judicial - Guía audiencias de familia procedimiento de protección', url: 'https://guias.academiajudicial.cl/guia_para_la_conduccion_de_las_audiencias_de_familia_procedimiento_de_proteccion/', nota: 'Guía por etapas para medidas de protección.' },
+        ],
+      },
+      {
+        materia: 'laboral',
+        titulo: 'Esquemas de procedimiento laboral',
+        uso: 'Procedimiento de aplicación general, audiencia preparatoria, juicio, monitorio, tutela y reclamaciones.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Manual de juicio del trabajo', url: 'https://academiajudicial.cl/wp-content/uploads/2021/11/Manual_juic_trabV2.pdf', nota: 'Base docente de procedimientos laborales.' },
+          { nombre: 'Academia Judicial - Guía audiencia preparatoria laboral', url: 'https://guias.academiajudicial.cl/guia-para-la-conduccion-de-la-audiencia-laborales-del-procedimiento-preparatorio/2-audiencia-preparatoria/', nota: 'Etapas para depuración de conflicto y prueba.' },
+        ],
+      },
+      {
+        materia: 'cobranza-laboral',
+        titulo: 'Esquemas de cobranza laboral y previsional',
+        uso: 'Títulos ejecutivos laborales, requerimiento, oposición, liquidación, apremios y ejecución previsional.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Manual de la cobranza ejecutiva laboral y previsional', url: 'https://academiajudicial.cl/wp-content/uploads/2021/11/Manual_cobV2.pdf', nota: 'Manual específico del procedimiento de cobranza.' },
+        ],
+      },
+      {
+        materia: 'policia-local',
+        titulo: 'Esquemas de procedimiento ante Juzgados de Policía Local',
+        uso: 'Denuncia/infracción, citación, comparendo, prueba, sentencia, pago anticipado, recursos y cumplimiento.',
+        fuentes: [
+          { nombre: 'Ley N° 18.287 - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=29705', nota: 'Procedimiento ante Juzgados de Policía Local.' },
+          { nombre: 'Academia Judicial - Plazos en Corte de Apelaciones por materia', url: 'https://guias.academiajudicial.cl/guia-para-la-conduccion-de-audiencias-en-corte-de-apelaciones/iv-plazos-para-dictar-sentencia-en-cortes-de-apelaciones/', nota: 'Referencia para plazos de sentencia y recursos en materias de Ley 18.287.' },
+        ],
+      },
+      {
+        materia: 'minero',
+        titulo: 'Esquemas de procedimientos mineros y administrativos SERNAGEOMIN',
+        uso: 'Tramitación y revisión de proyectos mineros, planes de cierre, admisibilidad, fondo, observaciones y resolución.',
+        fuentes: [
+          { nombre: 'SERNAGEOMIN - Guía planes de cierre procedimiento simplificado', url: 'https://catalogobiblioteca.sernageomin.cl/Archivos/14731revisar.pdf', nota: 'Incluye esquemas de tramitación y revisión de proyectos.' },
+          { nombre: 'SERNAGEOMIN - Normativa de seguridad minera', url: 'https://catalogobiblioteca.sernageomin.cl/Archivos/R_14844.pdf', nota: 'Incluye esquema del proceso de revisión de proyectos mineros.' },
+        ],
+      },
+      {
+        materia: 'aguas',
+        titulo: 'Esquemas de procedimientos de aguas',
+        uso: 'Derechos de aprovechamiento, catastro público, organizaciones de usuarios, DGA, regularización, fiscalización y sancionatorio.',
+        fuentes: [
+          { nombre: 'CNR - Asociaciones de empresas hidroeléctricas y Código de Aguas', url: 'https://www.cnr.gob.cl/wp-content/uploads/2022/07/AsocEmpresasHidro.pdf', nota: 'Incluye esquema de fases del procedimiento para inscripción/catastro.' },
+          { nombre: 'Código de Aguas - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=5605', nota: 'Base normativa para validar procedimientos de aguas.' },
+          { nombre: 'Scielo - procedimiento sancionador en materia de aguas', url: 'https://www.scielo.cl/scielo.php?pid=S0718-00122022000300202&script=sci_arttext', nota: 'Referencia doctrinal sobre fases del procedimiento sancionador DGA.' },
+        ],
+      },
+    ];
+
+    const PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT = [
+      'Usa la biblioteca de esquemas gráficos/procedimentales como mapa de etapas para preparar escritos.',
+      'Materias cubiertas: civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas.',
+      'Consulta primero la materia de la causa y el tipo de escrito; luego aplica solo los esquemas pertinentes.',
+      'Los esquemas sirven para ordenar etapa procesal, plazos, audiencia, recurso, prueba, cumplimiento, petitorio y otrosíes.',
+      'No copies imágenes ni texto de terceros; usa las fuentes como orientación y valida siempre con la norma vigente.',
+    ].join(' ');
+
     function normalizeProduccionTipoText(value = ''){
       return normalizeTextForMatch(String(value || ''));
     }
@@ -10470,6 +10554,7 @@
         codigos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('codigo') || normalizeTextForMatch(item.category).includes('ley')),
         leyesEspeciales: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('ley especial')),
         practicaForense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
+        esquemasProcedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
         documentos: antecedentes,
         audios: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('audio')),
         videos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('video')),
@@ -10494,7 +10579,9 @@
         structureRules: structurePrompt,
         practicaForenseRules: PRODUCCION_PRACTICA_FORENSE_PROMPT,
         practica_forense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
-        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt} ${PRODUCCION_PRACTICA_FORENSE_PROMPT}`,
+        proceduralSchemesRules: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT,
+        esquemas_procedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
+        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt} ${PRODUCCION_PRACTICA_FORENSE_PROMPT} ${PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT}`,
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
