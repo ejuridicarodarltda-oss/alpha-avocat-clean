@@ -2863,6 +2863,7 @@
                 <label for="producirEscritoInstrucciones">Qué debe preparar</label>
                 <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, doctrina, jurisprudencia y antecedentes que debe considerar."></textarea>
               </div>
+              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense Civil para estructura, sumas, otrosíes y petitorios, sin copiar texto literal.</div>
               <div class="field">
                 <label for="producirEscritoAjuste">Ajuste rápido</label>
                 <input id="producirEscritoAjuste" class="input" placeholder="Ej: más técnico, agregar jurisprudencia, incluir otrosí" />
@@ -2924,7 +2925,7 @@
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalInsumosExternosProduccion" aria-label="Cerrar">✕</button>
       </div>
-      <div class="helper-box">Función en preparación: aquí se conectarán APIs, documentos y referencias externas para apoyar la redacción.</div>
+      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense Civil de Diego Barros Aldunate, tomos I a IV, más formularios de contratos. Se usa como orientación de técnica forense, estructura, sumas, otrosíes y petitorios; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
       <div class="modal-actions">
         <button type="button" class="btn" data-close="1" data-modal-id="modalInsumosExternosProduccion">Cerrar</button>
       </div>
@@ -10200,6 +10201,22 @@
       'No inventes datos personales, RUT, domicilio ni personería; si faltan, deja el campo por completar.',
     ].join(' ');
 
+    const PRODUCCION_PRACTICA_FORENSE_PROMPT = [
+      'Usa como biblioteca guía de técnica forense civil la obra Práctica Forense Civil de Diego Barros Aldunate:',
+      'Tomo I, desde Abandono del procedimiento hasta Curador(es) y tutor(es); Tomo II, desde Cheque hasta Juzgados de Letras; Tomo III, desde Lanzamiento hasta Prueba, segunda instancia civil y testigos; Tomo IV, desde Queja disciplinaria hasta Vista de la causa; y formularios de contratos, tomo I.',
+      'Esta biblioteca se usa como insumo de orientación para escoger estructura, pre suma, suma, otrosíes, comparecencia, fundamentos, petitorios, documentos acompañados y fórmulas procesales.',
+      'No copies formularios ni pasajes literales extensos. Redacta un escrito original, actualizado, adaptado a la causa, a la ley vigente y a los antecedentes seleccionados.',
+      'Si se menciona la obra como apoyo doctrinal o bibliográfico, cita en nota al pie abreviada conforme a RChD y agrega referencia completa en Bibliografía citada.',
+    ].join(' ');
+
+    const PRODUCCION_PRACTICA_FORENSE_LIBRARY = [
+      { titulo: 'Práctica Forense Civil, Tomo I', autor: 'Diego Barros Aldunate', alcance: 'Abandono del procedimiento a Curador(es) y tutor(es)' },
+      { titulo: 'Práctica Forense Civil, Tomo II', autor: 'Diego Barros Aldunate', alcance: 'Cheque a Juzgados de Letras' },
+      { titulo: 'Práctica Forense Civil, Tomo III', autor: 'Diego Barros Aldunate', alcance: 'Lanzamiento a Prueba, segunda instancia civil y testigos' },
+      { titulo: 'Práctica Forense Civil, Tomo IV', autor: 'Diego Barros Aldunate', alcance: 'Queja disciplinaria a Vista de la causa' },
+      { titulo: 'Práctica Forense. Formularios de contratos, Tomo I', autor: 'Diego Barros Aldunate', alcance: 'Adjudicación a contrato de cesión de derechos' },
+    ];
+
     function normalizeProduccionTipoText(value = ''){
       return normalizeTextForMatch(String(value || ''));
     }
@@ -10451,6 +10468,7 @@
         doctrina: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('doctrin')),
         codigos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('codigo') || normalizeTextForMatch(item.category).includes('ley')),
         leyesEspeciales: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('ley especial')),
+        practicaForenseCivil: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
         documentos: antecedentes,
         audios: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('audio')),
         videos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('video')),
@@ -10473,7 +10491,9 @@
         insumos_documentales: insumosDocumentales,
         citationRules: PRODUCCION_WORD_FORMAT_PROMPT,
         structureRules: structurePrompt,
-        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt}`,
+        practicaForenseRules: PRODUCCION_PRACTICA_FORENSE_PROMPT,
+        practica_forense_civil: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
+        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt} ${PRODUCCION_PRACTICA_FORENSE_PROMPT}`,
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
