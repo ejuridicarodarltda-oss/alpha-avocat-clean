@@ -2863,7 +2863,7 @@
                 <label for="producirEscritoInstrucciones">Qué debe preparar</label>
                 <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, doctrina, jurisprudencia y antecedentes que debe considerar."></textarea>
               </div>
-              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense y esquemas de procedimientos para estructura, etapas, sumas, otrosíes, petitorios y fórmulas útiles según la materia, sin copiar texto literal.</div>
+              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense, esquemas de procedimientos y recursos procesales para estructura, etapas, impugnaciones, sumas, otrosíes, petitorios y fórmulas útiles según la materia, sin copiar texto literal.</div>
               <div class="field">
                 <label for="producirEscritoAjuste">Ajuste rápido</label>
                 <input id="producirEscritoAjuste" class="input" placeholder="Ej: más técnico, agregar jurisprudencia, incluir otrosí" />
@@ -2925,7 +2925,7 @@
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalInsumosExternosProduccion" aria-label="Cerrar">✕</button>
       </div>
-      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense de Diego Barros Aldunate y esquemas procedimentales para civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas. Se usa como orientación transversal de técnica forense, estructura, etapas, sumas, otrosíes, petitorios y fórmulas útiles según la materia; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
+      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense de Diego Barros Aldunate, esquemas procedimentales y recursos procesales para civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas. Se usa como orientación transversal de técnica forense, estructura, etapas, impugnaciones, sumas, otrosíes, petitorios y fórmulas útiles según la materia; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
       <div class="modal-actions">
         <button type="button" class="btn" data-close="1" data-modal-id="modalInsumosExternosProduccion">Cerrar</button>
       </div>
@@ -10292,13 +10292,29 @@
           { nombre: 'Scielo - procedimiento sancionador en materia de aguas', url: 'https://www.scielo.cl/scielo.php?pid=S0718-00122022000300202&script=sci_arttext', nota: 'Referencia doctrinal sobre fases del procedimiento sancionador DGA.' },
         ],
       },
+      {
+        materia: 'recursos-procesales',
+        titulo: 'Esquemas de recursos procesales e impugnaciones',
+        uso: 'Reposición, apelación, hecho, casación, nulidad penal, nulidad laboral, unificación de jurisprudencia, queja, protección, recursos de familia y recursos especiales por materia.',
+        fuentes: [
+          { nombre: 'Código de Procedimiento Civil - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=22740', nota: 'Base para reposición, apelación, hecho, casación, aclaración y recursos civiles.' },
+          { nombre: 'Código Procesal Penal - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=176595', nota: 'Base para reposición, apelación y nulidad penal.' },
+          { nombre: 'Academia Judicial - Recurso de nulidad penal y laboral', url: 'https://academiajudicial.cl/wp-content/uploads/2021/10/2043.pdf', nota: 'Material docente sobre nulidad penal y laboral.' },
+          { nombre: 'Academia Judicial - Recurso de nulidad en materia laboral y penal', url: 'https://academiajudicial.cl/wp-content/uploads/2026/02/025471_Ebook-segundo-envio.pdf', nota: 'Material actualizado sobre control formal, causales y fundamentación.' },
+          { nombre: 'Ley N° 19.968 Tribunales de Familia - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=229557', nota: 'Reglas especiales de impugnación en familia y remisión al CPC.' },
+          { nombre: 'Código del Trabajo - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=207436', nota: 'Base para nulidad laboral, unificación de jurisprudencia y recursos laborales.' },
+          { nombre: 'Ley N° 18.287 Juzgados de Policía Local - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=29705', nota: 'Reglas de apelación y limitaciones recursivas en policía local.' },
+          { nombre: 'Código de Aguas - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=5605', nota: 'Referencia para reclamaciones y recursos especiales en materia de aguas.' },
+        ],
+      },
     ];
 
     const PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT = [
       'Usa la biblioteca de esquemas gráficos/procedimentales como mapa de etapas para preparar escritos.',
-      'Materias cubiertas: civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas.',
+      'Materias cubiertas: civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero, aguas y recursos procesales.',
       'Consulta primero la materia de la causa y el tipo de escrito; luego aplica solo los esquemas pertinentes.',
       'Los esquemas sirven para ordenar etapa procesal, plazos, audiencia, recurso, prueba, cumplimiento, petitorio y otrosíes.',
+      'Si el escrito es un recurso procesal, identifica resolución impugnada, agravio, plazo, tribunal a quo/ad quem, causal, peticiones concretas y compatibilidad con recursos subsidiarios.',
       'No copies imágenes ni texto de terceros; usa las fuentes como orientación y valida siempre con la norma vigente.',
     ].join(' ');
 
