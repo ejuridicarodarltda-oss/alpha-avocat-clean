@@ -2383,7 +2383,7 @@
           </button>
           <button class="quick-action-card" type="button" data-quick-action="alertas">
             <strong>Alertas y plazos</strong>
-            <span>Revisa vencimientos y audiencias proximas en una vista dedicada.</span>
+            <span>Revisa vencimientos, audiencias y reglas de cómputo dentro de la causa.</span>
           </button>
           <button class="quick-action-card" type="button" data-quick-action="monitoreo">
             <strong>Monitoreo</strong>
@@ -4020,7 +4020,7 @@
         'listado-general': () => openGeneralListPanel(),
         'cargar-expediente': () => openManualUploadModal(),
         'excel-tribunal': () => openExcelUploadModal('listado'),
-        alertas: () => { window.location.href = './causas-alertas-plazos.html'; },
+        alertas: () => openBranchScreen('informacion', 'quick-alertas-plazos'),
         monitoreo: () => { window.location.href = './monitoreo.html'; },
       };
       const handler = actions[action];
@@ -4127,6 +4127,32 @@
       if (!target) return null;
       const date = new Date(target + 'T00:00:00Z');
       return Math.ceil((date.getTime() - TODAY.getTime()) / 86400000);
+    }
+
+    function addDaysIso(startIso, days = 0){
+      const base = new Date((isoDate(startIso) || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+      if (Number.isNaN(base.getTime())) return isoDate(startIso);
+      base.setUTCDate(base.getUTCDate() + Number(days || 0));
+      return base.toISOString().slice(0, 10);
+    }
+
+    function addJudicialBusinessDaysIso(startIso, days = 0){
+      const base = new Date((isoDate(startIso) || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+      if (Number.isNaN(base.getTime())) return isoDate(startIso);
+      let remaining = Number(days || 0);
+      while (remaining > 0) {
+        base.setUTCDate(base.getUTCDate() + 1);
+        const day = base.getUTCDay();
+        if (day !== 0 && day !== 6) remaining -= 1;
+      }
+      return base.toISOString().slice(0, 10);
+    }
+
+    function computeDeadlineFromRule(originIso, rule = {}){
+      const start = isoDate(originIso);
+      if (!start || !rule?.plazoDias) return null;
+      if (rule.computo === 'dias_corridos') return addDaysIso(start, rule.plazoDias);
+      return addJudicialBusinessDaysIso(start, rule.plazoDias);
     }
 
     function normalizeAlert(alert){
@@ -5712,8 +5738,8 @@
           { fecha:'2026-03-18', tipo:'Proveído', resumen:'Se tiene presente presentación y se solicita acompañar documento faltante.', impacto:'Requiere complemento documental.', plazo:'Acompañar antecedente', audiencia:'No fija', documento:'Proveído 18-03.pdf', revision:'Clasificada' },
         ],
         plazos:[
-          { origen:'2026-03-15', generador:'Resolución que confiere traslado', tipo:'Traslado', vencimiento:deadlineDate, alerta:normalizeAlert(alertLevel), escrito:'Contestación / evacuación de traslado', estado:'En redacción', responsable, prioridad:'Alta', observaciones:'Vinculado a resolución principal.' },
-          { origen:'2026-03-18', generador:'Requerimiento de acompañamiento', tipo:'Acompañamiento', vencimiento:'2026-04-02', alerta:'Normal', escrito:'Acompañamiento de documentos', estado:'No iniciado', responsable:'Paralegal documental', prioridad:'Media', observaciones:'Depende de recepción del cliente.' },
+          { origen:'2026-03-15', generador:'Resolución que confiere traslado', tipo:'Traslado', vencimiento:deadlineDate, alerta:normalizeAlert(alertLevel), escrito:'Contestación / evacuación de traslado', estado:'En redacción', responsable, prioridad:'Alta', computo:'dias_habiles_judiciales', reglaFuente:'Código de Procedimiento Civil', alertasDiasAntes:[3,1,0], observaciones:'Vinculado a resolución principal.' },
+          { origen:'2026-03-18', generador:'Requerimiento de acompañamiento', tipo:'Acompañamiento', vencimiento:'2026-04-02', alerta:'Normal', escrito:'Acompañamiento de documentos', estado:'No iniciado', responsable:'Paralegal documental', prioridad:'Media', computo:'manual', reglaFuente:'Resolución particular', alertasDiasAntes:[3,1,0], observaciones:'Depende de recepción del cliente.' },
         ],
         contenedor:{
           expediente:[
@@ -8907,7 +8933,8 @@
           ));
           if (!alreadyLinked) {
             const originDate = isoDate(reference.fecha) || isoDate(new Date().toISOString());
-            const dueDate = next.proximoPlazo || isoDate(new Date(Date.now() + 5 * 86400000).toISOString());
+            const deadlineRule = findProceduralDeadlineRuleForReference(next, reference, deadlineType);
+            const dueDate = computeDeadlineFromRule(originDate, deadlineRule) || next.proximoPlazo || isoDate(new Date(Date.now() + 5 * 86400000).toISOString());
             next.plazos = [
               {
                 origen: originDate,
@@ -8919,7 +8946,12 @@
                 estado: 'No iniciado',
                 responsable: next.responsable || 'Equipo jurídico',
                 prioridad: reference.plazo && reference.plazo !== 'No fija' ? 'Alta' : 'Media',
-                observaciones: `Plazo vinculado manualmente desde ${reference.tipo}.`,
+                computo: deadlineRule?.computo || 'pendiente_validacion',
+                reglaFuente: deadlineRule?.fuente || 'Sin regla automática',
+                alertasDiasAntes: deadlineRule?.alertasDiasAntes || [3, 1, 0],
+                observaciones: deadlineRule
+                  ? `Plazo sugerido por regla "${deadlineRule.acto}" desde ${reference.tipo}. Validar notificación, feriados y suspensión.`
+                  : `Plazo vinculado manualmente desde ${reference.tipo}. Requiere cómputo jurídico.`,
               },
               ...(next.plazos || []),
             ];
@@ -8947,13 +8979,85 @@
       }
     }
 
+    function getDeadlineRuleMatterTokens(cause = {}){
+      const raw = [
+        cause.materia,
+        cause.procedimiento,
+        cause.tipoCausa,
+        cause.tribunal,
+        cause.estadoProcesal,
+      ].map(normalizeTextForMatch).join(' ');
+      const tokens = [];
+      if (raw.includes('famil')) tokens.push('familia');
+      if (raw.includes('labor') || raw.includes('trabaj')) tokens.push('laboral');
+      if (raw.includes('cobranza')) tokens.push('cobranza-laboral', 'laboral');
+      if (raw.includes('penal') || raw.includes('garantia') || raw.includes('oral')) tokens.push('penal-garantia-oral');
+      if (raw.includes('policia') || raw.includes('local')) tokens.push('policia-local');
+      if (raw.includes('miner')) tokens.push('minero');
+      if (raw.includes('agua')) tokens.push('aguas');
+      if (raw.includes('civil') || raw.includes('letras') || !tokens.length) tokens.push('civil');
+      tokens.push('transversal');
+      return [...new Set(tokens)];
+    }
+
+    function getProceduralDeadlineRulesForCause(cause = {}){
+      const tokens = getDeadlineRuleMatterTokens(cause);
+      return PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY.filter((rule) => tokens.includes(rule.materia));
+    }
+
+    function findProceduralDeadlineRuleForReference(cause = {}, reference = {}, fallbackType = ''){
+      const rules = getProceduralDeadlineRulesForCause(cause);
+      const haystack = normalizeTextForMatch([
+        reference.tipo,
+        reference.resumen,
+        reference.impacto,
+        reference.plazo,
+        fallbackType,
+      ].filter(Boolean).join(' '));
+      const scored = rules.map((rule) => {
+        const ruleText = normalizeTextForMatch([rule.acto, rule.disparador, rule.escrito, rule.procedimiento].join(' '));
+        let score = 0;
+        ruleText.split(/\s+/).filter((token) => token.length > 4).forEach((token) => {
+          if (haystack.includes(token)) score += 1;
+        });
+        if (haystack.includes('traslado') && normalizeTextForMatch(rule.acto).includes('traslado')) score += 5;
+        if (haystack.includes('apel') && normalizeTextForMatch(rule.acto).includes('apel')) score += 5;
+        if (haystack.includes('nulidad') && normalizeTextForMatch(rule.acto).includes('nulidad')) score += 5;
+        if (haystack.includes('repos') && normalizeTextForMatch(rule.acto).includes('repos')) score += 5;
+        return { rule, score };
+      }).sort((a, b) => b.score - a.score);
+      return scored[0]?.score > 0 ? scored[0].rule : rules[0] || null;
+    }
+
+    function renderProceduralDeadlineRules(cause = {}){
+      const origin = isoDate(cause.fechaNotificacion || cause.ultimaGestion || cause.fechaInicio || new Date().toISOString());
+      const rules = getProceduralDeadlineRulesForCause(cause).slice(0, 6);
+      if (!rules.length) return '';
+      return `
+        <div class="source-grid">
+          ${rules.map((rule) => {
+            const suggestedDue = computeDeadlineFromRule(origin, rule);
+            return `
+              <div class="source-item">
+                <strong>${escapeHtml(rule.acto)}</strong>
+                <div class="case-meta">${escapeHtml(rule.disparador)}</div>
+                <div class="timeline-meta">Plazo base: ${escapeHtml(rule.plazoDias)} día(s) · Cómputo: ${escapeHtml(rule.computo)} · Vence aprox.: ${escapeHtml(formatDate(suggestedDue))}</div>
+                <div class="timeline-meta">Alertas: ${escapeHtml((rule.alertasDiasAntes || []).join(', '))} día(s) antes · Fuente: ${escapeHtml(rule.fuente)}</div>
+                <div class="case-meta">${escapeHtml(rule.validacion)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
     function renderPlazos(cause){
       return `
         <section class="section-card">
           <div class="section-head">
             <div>
               <h4 class="section-title">Plazos, alertas y escritos vinculados</h4>
-              <p class="section-copy">Lógica central del módulo: resolución o actuación → plazo → alerta → escrito asociado → presentación.</p>
+              <p class="section-copy">Lógica central del módulo: resolución o actuación → regla procedimental → plazo computado → alerta → escrito asociado → presentación.</p>
             </div>
           </div>
           <div class="deadline-list">${cause.plazos.map(item => `
@@ -8964,11 +9068,19 @@
               </div>
               <div class="deadline-meta">Fecha de origen: ${escapeHtml(formatDate(item.origen))} · Generador: ${escapeHtml(item.generador)}</div>
               <div class="deadline-meta">Vencimiento: ${escapeHtml(formatDate(item.vencimiento))} · Días restantes: ${escapeHtml(daysBetween(item.vencimiento))}</div>
+              <div class="deadline-meta">Cómputo: ${escapeHtml(item.computo || 'Manual / pendiente de validar')} · Fuente regla: ${escapeHtml(item.reglaFuente || 'No informada')}</div>
               <div class="deadline-meta">Escrito requerido: ${escapeHtml(item.escrito)} · Estado: ${escapeHtml(item.estado)}</div>
               <div class="deadline-meta">Responsable: ${escapeHtml(item.responsable)} · Prioridad: ${escapeHtml(item.prioridad)}</div>
               <div class="case-meta">${escapeHtml(item.observaciones)}</div>
             </article>
           `).join('')}</div>
+          <div class="section-head" style="margin-top:14px">
+            <div>
+              <h4 class="section-title">Reglas procedimentales para cómputo</h4>
+              <p class="section-copy">Insumos automáticos para proponer vencimientos y alertas. El cálculo excluye fines de semana; feriados, suspensión y reglas especiales requieren revisión jurídica.</p>
+            </div>
+          </div>
+          ${renderProceduralDeadlineRules(cause)}
           <div class="source-grid">
             <div class="source-item"><strong>Automatización</strong><div class="case-meta">Toda actuación generadora de plazo puede crear plazo, alerta, escrito vinculado, responsable y visualización global de vencimientos.</div></div>
             <div class="source-item"><strong>Estados del escrito</strong><div class="case-meta">No iniciado, en redacción, en revisión, listo para presentar, presentado o vencido sin presentación.</div></div>
@@ -10303,9 +10415,158 @@
           { nombre: 'Academia Judicial - Recurso de nulidad en materia laboral y penal', url: 'https://academiajudicial.cl/wp-content/uploads/2026/02/025471_Ebook-segundo-envio.pdf', nota: 'Material actualizado sobre control formal, causales y fundamentación.' },
           { nombre: 'Ley N° 19.968 Tribunales de Familia - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=229557', nota: 'Reglas especiales de impugnación en familia y remisión al CPC.' },
           { nombre: 'Código del Trabajo - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=207436', nota: 'Base para nulidad laboral, unificación de jurisprudencia y recursos laborales.' },
+          { nombre: 'Código Orgánico de Tribunales - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=25563', nota: 'Base para recurso de queja y competencia de tribunales superiores.' },
+          { nombre: 'Auto Acordado Recurso de Protección - Corte Suprema', url: 'https://www.sii.cl/pagina/jurisprudencia/judicial/2015/otras/jj4258.htm', nota: 'Referencia pública del texto refundido sobre tramitación y fallo del recurso de protección.' },
           { nombre: 'Ley N° 18.287 Juzgados de Policía Local - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=29705', nota: 'Reglas de apelación y limitaciones recursivas en policía local.' },
           { nombre: 'Código de Aguas - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=5605', nota: 'Referencia para reclamaciones y recursos especiales en materia de aguas.' },
         ],
+      },
+    ];
+
+    const PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY = [
+      {
+        materia: 'civil',
+        procedimiento: 'general',
+        acto: 'Traslado',
+        disparador: 'Resolución que confiere traslado o evacuar traslado',
+        plazoDias: 3,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [3, 1, 0],
+        escrito: 'Evacuar traslado / téngase presente',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Validar norma especial, fecha de notificación efectiva y eventuales feriados o suspensión.'
+      },
+      {
+        materia: 'civil',
+        procedimiento: 'recurso',
+        acto: 'Reposición',
+        disparador: 'Resolución susceptible de reposición',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de reposición, con apelación subsidiaria si procede',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Revisar si procede reposición ordinaria, extraordinaria o regla especial.'
+      },
+      {
+        materia: 'civil',
+        procedimiento: 'recurso',
+        acto: 'Apelación civil',
+        disparador: 'Sentencia definitiva o interlocutoria apelable',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Confirmar si la resolución tiene plazo especial, si es sentencia definitiva y si conviene subsidiar.'
+      },
+      {
+        materia: 'penal-garantia-oral',
+        procedimiento: 'recurso',
+        acto: 'Apelación penal',
+        disparador: 'Resolución penal apelable',
+        plazoDias: 5,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación penal',
+        fuente: 'Código Procesal Penal',
+        validacion: 'Validar procedencia expresa, tribunal competente y efecto del recurso.'
+      },
+      {
+        materia: 'penal-garantia-oral',
+        procedimiento: 'recurso',
+        acto: 'Nulidad penal',
+        disparador: 'Sentencia definitiva de juicio oral, simplificado o acción penal privada',
+        plazoDias: 10,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de nulidad penal',
+        fuente: 'Código Procesal Penal / Academia Judicial',
+        validacion: 'Validar causal, preparación del recurso, competencia y peticiones anulatorias.'
+      },
+      {
+        materia: 'familia',
+        procedimiento: 'recurso',
+        acto: 'Apelación familia',
+        disparador: 'Resolución impugnable en procedimiento de familia',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación en familia',
+        fuente: 'Ley N° 19.968 / Código de Procedimiento Civil',
+        validacion: 'Verificar compatibilidad con oralidad, reglas especiales y naturaleza de la resolución.'
+      },
+      {
+        materia: 'laboral',
+        procedimiento: 'recurso',
+        acto: 'Nulidad laboral',
+        disparador: 'Sentencia definitiva laboral',
+        plazoDias: 10,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de nulidad laboral',
+        fuente: 'Código del Trabajo / Academia Judicial',
+        validacion: 'Validar causal, preparación, infracción sustancial y peticiones de reemplazo o invalidación.'
+      },
+      {
+        materia: 'laboral',
+        procedimiento: 'recurso',
+        acto: 'Unificación de jurisprudencia',
+        disparador: 'Sentencia de Corte que falla nulidad laboral',
+        plazoDias: 15,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de unificación de jurisprudencia',
+        fuente: 'Código del Trabajo',
+        validacion: 'Verificar existencia de materia de derecho, sentencias de contraste y requisitos de admisibilidad.'
+      },
+      {
+        materia: 'policia-local',
+        procedimiento: 'recurso',
+        acto: 'Apelación policía local',
+        disparador: 'Sentencia o resolución apelable de Juzgado de Policía Local',
+        plazoDias: 5,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación policía local',
+        fuente: 'Ley N° 18.287',
+        validacion: 'Validar si la sentencia o resolución admite recurso y si existe regla especial.'
+      },
+      {
+        materia: 'aguas',
+        procedimiento: 'recurso',
+        acto: 'Reclamación aguas',
+        disparador: 'Resolución administrativa o actuación DGA reclamable',
+        plazoDias: 30,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [15, 10, 5, 3, 1, 0],
+        escrito: 'Reclamación o recurso especial en materia de aguas',
+        fuente: 'Código de Aguas',
+        validacion: 'Validar vía específica, tribunal competente, legitimación y notificación administrativa.'
+      },
+      {
+        materia: 'transversal',
+        procedimiento: 'recurso',
+        acto: 'Queja',
+        disparador: 'Falta o abuso grave en resolución jurisdiccional',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de queja',
+        fuente: 'Código Orgánico de Tribunales',
+        validacion: 'Confirmar procedencia excepcional, falta o abuso grave, resolución impugnada y recursos ordinarios.'
+      },
+      {
+        materia: 'transversal',
+        procedimiento: 'constitucional',
+        acto: 'Protección',
+        disparador: 'Acto u omisión arbitrario o ilegal que afecta garantías protegidas',
+        plazoDias: 30,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [15, 10, 5, 3, 1, 0],
+        escrito: 'Recurso de protección',
+        fuente: 'Auto Acordado Corte Suprema',
+        validacion: 'Validar fecha de conocimiento, garantía afectada, recurrido y Corte competente.'
       },
     ];
 
@@ -10315,6 +10576,7 @@
       'Consulta primero la materia de la causa y el tipo de escrito; luego aplica solo los esquemas pertinentes.',
       'Los esquemas sirven para ordenar etapa procesal, plazos, audiencia, recurso, prueba, cumplimiento, petitorio y otrosíes.',
       'Si el escrito es un recurso procesal, identifica resolución impugnada, agravio, plazo, tribunal a quo/ad quem, causal, peticiones concretas y compatibilidad con recursos subsidiarios.',
+      'Para alertas y plazos, usa PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY como insumo inicial de cómputo; siempre exige validación humana antes de presentar.',
       'No copies imágenes ni texto de terceros; usa las fuentes como orientación y valida siempre con la norma vigente.',
     ].join(' ');
 
@@ -10571,6 +10833,7 @@
         leyesEspeciales: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('ley especial')),
         practicaForense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
         esquemasProcedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
+        plazosProcedimentalesComputables: PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY,
         documentos: antecedentes,
         audios: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('audio')),
         videos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('video')),
@@ -10597,6 +10860,7 @@
         practica_forense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
         proceduralSchemesRules: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT,
         esquemas_procedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
+        plazos_procedimentales_computables: PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY,
         stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt} ${PRODUCCION_PRACTICA_FORENSE_PROMPT} ${PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT}`,
         cause: {
           id: selectedCause.id,
@@ -16902,7 +17166,7 @@
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
       bindEvent('btnQuickExpedientes', 'click', () => { window.location.href = './expedientes-digitales.html'; }, { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
-      bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => openBranchScreen('informacion', 'btnQuickAlerts'), { scope: 'quick-nav' });
       $('quickActionRail')?.addEventListener('click', (event) => {
         const actionButton = event.target.closest('[data-quick-action]');
         if (!actionButton) return;
