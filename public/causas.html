@@ -3072,16 +3072,16 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Cargar Excel depurado tribunal</div>
-          <p class="panel-subtitle">Suba aquí el Excel depurado correspondiente a un solo tribunal. Con este archivo el sistema creará las carpetas de expedientes con nombre ROL - CARÁTULA.</p>
+          <div class="modal-title">Cargar Excel depurado</div>
+          <p class="panel-subtitle">Suba aquí el Excel depurado por tribunal o libro multihoja por materia. Con este archivo el sistema creará o actualizará carpetas con nombre ROL/RIT - CARÁTULA.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalListadoCausas" aria-label="Cerrar">✕</button>
       </div>
       <form id="formListadoCausas" class="form">
         <div class="helper-box">Formato esperado: archivo Excel válido en formato <strong>.xlsx</strong> o <strong>.xls</strong>.</div>
-        <div class="helper-box">Este flujo es exclusivo para un solo tribunal por archivo. Si el Excel mezcla tribunales, depúralo antes de procesar.</div>
+        <div class="helper-box">Si el libro tiene varias hojas, la opción “Todas las hojas” procesa Civil, Familia, Penal/Garantía, Laboral, Cobranza, Cortes y Corte Suprema en una sola carga.</div>
         <div class="field">
-          <label for="listadoCausasFile">Archivo Excel depurado tribunal</label>
+          <label for="listadoCausasFile">Archivo Excel depurado</label>
           <input id="listadoCausasFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
         </div>
         <div class="field">
@@ -11940,10 +11940,17 @@
     function normalizeExcelHeaderLabel(label = ''){
       const normalized = normalizeExcelHeaderKey(label);
       if (normalized === 'rol') return 'rol';
+      if (normalized === 'rit') return 'rit';
+      if (normalized === 'ruc') return 'ruc';
+      if (normalized === 'era') return 'era';
+      if (normalized === 'corte') return 'corte';
       if (normalized === 'tribunal') return 'tribunal';
       if (normalized === 'caratulado') return 'caratula';
       if (normalized === 'fechaingreso') return 'fecha_ingreso';
+      if (normalized === 'fechaubicacion') return 'fecha_ubicacion';
       if (normalized === 'estadocausa') return 'estado_causa';
+      if (normalized === 'estadoprocesal') return 'estado_causa';
+      if (normalized === 'tipocausa') return 'tipo_causa';
       if (normalized === 'institucion') return 'institucion';
       return normalized;
     }
@@ -11986,7 +11993,10 @@
         return;
       }
       const selected = store?.parsed?.sheetName || store?.selectedSheetName || options[0]?.sheetName || '';
-      selectNode.innerHTML = options.map((sheet) => {
+      const allSheetsOption = isListado && options.length > 1
+        ? `<option value="__all__"${selected === '__all__' ? ' selected' : ''}>Todas las hojas · válidas ${escapeHtml(store.parsed.totalValidRows || 0)} / con datos ${escapeHtml(store.parsed.totalRowsWithData || 0)}</option>`
+        : '';
+      selectNode.innerHTML = allSheetsOption + options.map((sheet) => {
         const valid = Number(sheet.validRows || 0);
         const dataRows = Number(sheet.dataRows || 0);
         const suffix = sheet.sheetName === selected ? ' (seleccionada)' : '';
@@ -11996,24 +12006,56 @@
       selectNode.disabled = false;
     }
 
-    function resolveExcelRowCanonical(row = {}){
+    function resolveExcelSheetDefaults(sheetName = ''){
+      const normalized = normalizeTextForMatch(sheetName);
+      if (normalized.includes('suprema')) return { tribunal: 'Corte Suprema', materia: 'Corte Suprema' };
+      if (normalized.includes('apelacion')) return { tribunal: '', materia: 'Cortes de Apelaciones' };
+      if (normalized.includes('familia')) return { tribunal: '', materia: 'Juzgados de Familia' };
+      if (normalized.includes('penal') || normalized.includes('garantia')) return { tribunal: '', materia: 'Juzgados de Garantía' };
+      if (normalized.includes('cobranza')) return { tribunal: '', materia: 'Juzgados de Cobranza Laboral y Previsional' };
+      if (normalized.includes('laboral') || normalized.includes('trabajo')) return { tribunal: '', materia: 'Juzgados del Trabajo' };
+      if (normalized.includes('civil')) return { tribunal: '', materia: 'Juzgados Civiles' };
+      return { tribunal: '', materia: '' };
+    }
+
+    function buildRoleWithEra(rawRole = '', era = ''){
+      const role = String(rawRole || '').trim();
+      const year = String(era || '').trim();
+      if (!role) return '';
+      if (/-\d{2,4}$/.test(role)) return role;
+      return year ? `${role}-${year}` : role;
+    }
+
+    function resolveExcelRowCanonical(row = {}, context = {}){
       const normalizedMap = {};
       Object.entries(row || {}).forEach(([key, value]) => {
         normalizedMap[normalizeExcelHeaderLabel(key)] = value;
       });
+      const defaults = resolveExcelSheetDefaults(context.sheetName || '');
+      const rawRol = pickRowValue(normalizedMap, ['rol']);
+      const rit = pickRowValue(normalizedMap, ['rit']);
+      const ruc = pickRowValue(normalizedMap, ['ruc']);
+      const era = pickRowValue(normalizedMap, ['era']);
+      const corte = pickRowValue(normalizedMap, ['corte']);
+      const tribunal = pickRowValue(normalizedMap, ['tribunal']) || corte || defaults.tribunal;
+      const rol = buildRoleWithEra(rawRol || rit, era);
       return {
-        rol: pickRowValue(normalizedMap, ['rol']),
+        rol,
+        rit,
+        ruc,
+        era,
         rolNumero: '',
         rolAnio: '',
-        tribunal: pickRowValue(normalizedMap, ['tribunal']),
+        tribunal,
         tipoTribunal: '',
         caratula: pickRowValue(normalizedMap, ['caratula']),
         partes: '',
         estado: pickRowValue(normalizedMap, ['estado_causa']),
         fecha: pickRowValue(normalizedMap, ['fecha_ingreso']),
-        materia: '',
-        procedimiento: '',
+        materia: defaults.materia,
+        procedimiento: pickRowValue(normalizedMap, ['tipo_causa']),
         institucion: pickRowValue(normalizedMap, ['institucion']),
+        sheetName: context.sheetName || '',
       };
     }
 
@@ -12246,30 +12288,42 @@
         };
       });
       const forcedSheetName = String(options?.sheetName || '').trim();
-      let selectedSheet = forcedSheetName
-        ? sheetAnalyses.find((item) => item.sheetName === forcedSheetName)
-        : sheetAnalyses[0];
-      if (!selectedSheet) throw new Error('No fue posible resolver la hoja a procesar.');
-      const requiredCanonicalHeaders = ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
+      const useAllSheets = type === 'listado' && (!forcedSheetName || forcedSheetName === '__all__');
+      const selectedSheets = useAllSheets
+        ? sheetAnalyses.filter((item) => !item.invalidHeader && Number(item.dataRows || 0) > 0)
+        : [forcedSheetName ? sheetAnalyses.find((item) => item.sheetName === forcedSheetName) : sheetAnalyses[0]].filter(Boolean);
+      if (!selectedSheets.length) throw new Error('No fue posible resolver la hoja a procesar.');
+      const requiredCanonicalHeaders = type === 'listado'
+        ? ['caratula']
+        : ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
       const canonicalToDisplay = {
         rol: 'Rol',
+        rit: 'Rit',
+        ruc: 'Ruc',
         tribunal: 'Tribunal',
+        corte: 'Corte',
         caratula: 'Caratulado',
         fecha_ingreso: 'Fecha Ingreso',
         estado_causa: 'Estado Causa',
         institucion: 'Institución',
       };
-      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !(selectedSheet.detectedHeaders || []).includes(key));
+      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !selectedSheets.some((sheet) => (sheet.detectedHeaders || []).includes(key)));
       if (missingCanonicalHeaders.length) {
         const firstMissing = canonicalToDisplay[missingCanonicalHeaders[0]] || missingCanonicalHeaders[0];
         throw new Error(`Error: columna '${firstMissing}' no encontrada en Excel depurado`);
       }
-      const sheetName = selectedSheet.sheetName;
-      const hidden = selectedSheet.hidden;
+      const selectedSheet = selectedSheets[0];
+      const sheetName = useAllSheets ? '__all__' : selectedSheet.sheetName;
+      const hidden = selectedSheets.some((sheet) => sheet.hidden);
       const headerRowIndex = selectedSheet.headerRowIndex;
-      const normalizedHeaders = selectedSheet.detectedHeaders;
+      const normalizedHeaders = [...new Set(selectedSheets.flatMap((sheet) => sheet.detectedHeaders || []))];
       const rawRows = selectedSheet.rawRows;
-      const rows = selectedSheet.rows;
+      const rows = selectedSheets.flatMap((sheet) => (sheet.rows || []).map((row, rowIndex) => ({
+        rawRow: row,
+        sheetName: sheet.sheetName,
+        rowIndex,
+        headerRowIndex: sheet.headerRowIndex,
+      })));
       if (!rows.length) throw new Error(`La hoja "${sheetName}" no contiene filas de datos.`);
       const validRows = [];
       const auditRows = [];
@@ -12279,14 +12333,17 @@
       let duplicates = 0;
       const allCases = getAllCases();
       const indexedByRolTribunal = new Map(allCases.flatMap((cause) => [[`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)], [buildExcelRealUniqueCaseKey(cause), String(cause.id)]]));
-      rows.forEach((rawRow, index) => {
-        const parsed = resolveExcelRowCanonical(rawRow);
+      const validRowsBySheet = {};
+      rows.forEach((entry) => {
+        const rawRow = entry.rawRow || {};
+        const parsed = resolveExcelRowCanonical(rawRow, { sheetName: entry.sheetName });
+        const rowNumber = Number(entry.rowIndex || 0) + Number(entry.headerRowIndex || 0) + 2;
         const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
         if (!hasContent) {
           emptyRows += 1;
           return;
         }
-        auditRows.push({ ...parsed, rowNumber: index + headerRowIndex + 2, raw: rawRow });
+        auditRows.push({ ...parsed, rowNumber, raw: rawRow, sheetName: entry.sheetName });
         const duplicateKey = buildExcelRealUniqueCaseKey(parsed);
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
@@ -12298,7 +12355,8 @@
           invalidRows += 1;
           return;
         }
-        validRows.push({ ...parsed, linkedCaseId, rowNumber: index + headerRowIndex + 2, raw: rawRow });
+        validRowsBySheet[entry.sheetName] = Number(validRowsBySheet[entry.sheetName] || 0) + 1;
+        validRows.push({ ...parsed, linkedCaseId, rowNumber, raw: rawRow, sheetName: entry.sheetName });
       });
       const required = type === 'listado' ? ['rol', 'tribunal', 'caratula'] : ['rol|tribunal|caratula'];
       const missingCritical = [];
@@ -12310,9 +12368,9 @@
       } else if (!validRows.some((row) => row.rol || row.tribunal || row.caratula)) {
         missingCritical.push('identificador (rol / tribunal / carátula)');
       }
-      const workbookPhysicalRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.physicalRows || 0)), 0);
-      const workbookDataRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.dataRows || 0)), 0);
-      const selectedDataRows = Number(selectedSheet.dataRows || 0);
+      const workbookPhysicalRows = sheetAnalyses.reduce((sum, item) => sum + Number(item.physicalRows || 0), 0);
+      const workbookDataRows = sheetAnalyses.reduce((sum, item) => sum + Number(item.dataRows || 0), 0);
+      const selectedDataRows = selectedSheets.reduce((sum, item) => sum + Number(item.dataRows || 0), 0);
       const fueroAudit = buildExcelFueroAudit(auditRows);
       return {
         sheetName,
@@ -12323,13 +12381,13 @@
           hidden: item.hidden,
           physicalRows: item.physicalRows,
           dataRows: item.dataRows,
-          validRows: item.sheetName === sheetName ? validRows.length : 0,
+          validRows: Number(validRowsBySheet[item.sheetName] || 0),
           hasHeader: !item.invalidHeader,
         })),
         headerRowNumber: headerRowIndex + 1,
         detectedHeaders: normalizedHeaders,
         headerWarnings: [
-          ...(sheetNames.length > 1 && !options?.sheetName ? [`Se usó la primera hoja del libro: "${sheetName}".`] : []),
+          ...(useAllSheets && sheetNames.length > 1 ? [`Se procesarán todas las hojas válidas del libro (${selectedSheets.length}).`] : []),
         ],
         firstReadRows: rawRows.slice(headerRowIndex + 1, headerRowIndex + 6),
         totalRows: rows.length,
@@ -13411,6 +13469,15 @@
         const suffix = cleaned ? ` de ${cleaned}` : '';
         return { fuero: 'cortes_apelaciones', tribunalEspecifico: `Corte de Apelaciones${suffix}`, normalized };
       }
+      if (normalized.includes('familia')) {
+        return { fuero: 'familia', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('juicio oral') || /\btop\b/.test(normalized)) {
+        return { fuero: 'tribunal_oral_penal', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('garantia') || normalized.includes('juzgado de letras y garantia') || normalized.includes('juzgado de garantia')) {
+        return { fuero: 'garantia_penal', tribunalEspecifico: tribunal, normalized };
+      }
       if (normalized.includes('cobranza laboral')
         || normalized.includes('cobranza previsional')
         || (normalized.includes('cobranza') && normalized.includes('previsional'))
@@ -13433,10 +13500,22 @@
 
     function resolvePjudMatterLabelFromCase(item = {}){
       const rawMatter = String(item.materia || item.pjud_materia || '').trim();
+      const normalizedMatter = normalizePjudText(rawMatter);
+      if (normalizedMatter.includes('familia')) return 'Juzgados de Familia';
+      if (normalizedMatter.includes('cobranza')) return 'Juzgados de Cobranza Laboral y Previsional';
+      if (normalizedMatter.includes('trabajo') || normalizedMatter.includes('laboral')) return 'Juzgados del Trabajo';
+      if (normalizedMatter.includes('garantia') || normalizedMatter.includes('penal')) return 'Juzgados de Garantía';
+      if (normalizedMatter.includes('juicio oral')) return 'Tribunales de Juicio Oral en lo Penal';
+      if (normalizedMatter.includes('apelaciones')) return 'Cortes de Apelaciones';
+      if (normalizedMatter.includes('suprema')) return 'Corte Suprema';
+      if (normalizedMatter.includes('civil')) return 'Juzgados Civiles';
       const classification = classifyTribunalFuero(item.tribunal || item.pjud_tribunal || item.court || '');
       if (classification.fuero === 'cobranza_laboral_previsional') return 'Juzgados de Cobranza Laboral y Previsional';
       if (classification.fuero === 'laboral') return 'Juzgados del Trabajo';
       if (classification.fuero === 'civil') return 'Juzgados Civiles';
+      if (classification.fuero === 'familia') return 'Juzgados de Familia';
+      if (classification.fuero === 'garantia_penal') return 'Juzgados de Garantía';
+      if (classification.fuero === 'tribunal_oral_penal') return 'Tribunales de Juicio Oral en lo Penal';
       if (classification.fuero === 'corte_suprema') return 'Corte Suprema';
       if (classification.fuero === 'cortes_apelaciones') return 'Cortes de Apelaciones';
       return rawMatter || 'Materia sin clasificar';
@@ -13463,6 +13542,7 @@
       const rowAudits = [];
       rows.forEach((row) => {
         const classification = classifyTribunalFuero(row?.tribunal || '');
+        const matterLabel = resolvePjudMatterLabelFromCase(row);
         const hasRol = Boolean(String(row?.rol || '').trim());
         const hasTribunal = Boolean(String(row?.tribunal || '').trim());
         const hasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
@@ -13475,14 +13555,18 @@
         if (hasFecha) counters.withFechaIngreso += 1;
         if (!hasTribunal) failures.filasSinTribunal += 1;
         if (!hasCaratula) failures.filasSinCaratulado += 1;
-        if (classification.fuero === 'otros' && hasTribunal) failures.filasTribunalNoClasificado += 1;
-        const fueroLabel = classification.fuero === 'corte_suprema'
-          ? 'Corte Suprema'
-          : (classification.fuero === 'cortes_apelaciones'
-            ? 'Cortes de Apelaciones'
-            : (classification.fuero === 'cobranza_laboral_previsional'
-              ? 'Juzgados de Cobranza Laboral y Previsional'
-              : (classification.fuero === 'laboral' ? 'Juzgados del Trabajo' : (classification.fuero === 'civil' ? 'Juzgados Civiles' : 'Otros'))));
+        if (classification.fuero === 'otros' && hasTribunal && matterLabel === 'Materia sin clasificar') failures.filasTribunalNoClasificado += 1;
+        let fueroLabel = matterLabel && matterLabel !== 'Materia sin clasificar' ? matterLabel : 'Otros';
+        if (matterLabel === 'Materia sin clasificar') {
+          if (classification.fuero === 'corte_suprema') fueroLabel = 'Corte Suprema';
+          else if (classification.fuero === 'cortes_apelaciones') fueroLabel = 'Cortes de Apelaciones';
+          else if (classification.fuero === 'cobranza_laboral_previsional') fueroLabel = 'Juzgados de Cobranza Laboral y Previsional';
+          else if (classification.fuero === 'familia') fueroLabel = 'Juzgados de Familia';
+          else if (classification.fuero === 'garantia_penal') fueroLabel = 'Juzgados de Garantía';
+          else if (classification.fuero === 'tribunal_oral_penal') fueroLabel = 'Tribunales de Juicio Oral en lo Penal';
+          else if (classification.fuero === 'laboral') fueroLabel = 'Juzgados del Trabajo';
+          else if (classification.fuero === 'civil') fueroLabel = 'Juzgados Civiles';
+        }
         statsByFuero[fueroLabel] = (statsByFuero[fueroLabel] || 0) + 1;
         const tribunalLabel = classification.tribunalEspecifico || 'Tribunal no informado';
         statsByTribunal[tribunalLabel] = (statsByTribunal[tribunalLabel] || 0) + 1;
