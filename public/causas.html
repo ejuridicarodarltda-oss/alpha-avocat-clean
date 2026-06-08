@@ -12492,12 +12492,7 @@
     }
 
     function resolveExcelMatterLabelForRebuild(rows = []){
-      const labels = [...new Set((rows || [])
-        .map((row) => resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }))
-        .filter(Boolean))];
-      if (!labels.length) throw new Error('No fue posible resolver la materia a limpiar desde el Excel depurado.');
-      if (labels.length > 1) throw new Error(`El Excel mezcla más de una materia (${labels.join(', ')}). Limpieza estructural cancelada.`);
-      return labels[0];
+      return resolveExcelMatterLabelsForRebuild(rows).join(', ');
     }
 
     function caseBelongsToMatterLabel(cause = {}, matterLabel = ''){
@@ -12506,6 +12501,14 @@
       const actualMatter = normalizeTextForMatch(cause?.materia || cause?.matter || '');
       const inferred = normalizeTextForMatch(resolvePjudMatterLabelFromCase({ tribunal: cause?.tribunal || cause?.court, materia: cause?.materia || cause?.matter }));
       return actualMatter === expected || inferred === expected;
+    }
+
+    function resolveExcelMatterLabelsForRebuild(rows = []){
+      const labels = [...new Set((rows || [])
+        .map((row) => resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }))
+        .filter(Boolean))];
+      if (!labels.length) throw new Error('No fue posible resolver las materias a limpiar desde el Excel depurado.');
+      return labels;
     }
 
     async function cleanMaterializedMatterBeforeRebuild(matterLabel){
@@ -12539,6 +12542,18 @@
       return { deletedCases: targetIds.length, unlinkedIndexRows: targetIds.length };
     }
 
+    async function cleanMaterializedMattersBeforeRebuild(matterLabels = []){
+      const labels = [...new Set((matterLabels || []).map((item) => String(item || '').trim()).filter(Boolean))];
+      let deletedCases = 0;
+      let unlinkedIndexRows = 0;
+      for (const matterLabel of labels) {
+        const result = await cleanMaterializedMatterBeforeRebuild(matterLabel);
+        deletedCases += Number(result?.deletedCases || 0);
+        unlinkedIndexRows += Number(result?.unlinkedIndexRows || 0);
+      }
+      return { deletedCases, unlinkedIndexRows, matterLabels: labels };
+    }
+
     async function processExcelUpload(type, options = {}){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
@@ -12566,10 +12581,11 @@
       }
       try {
       if (rebuildMatter) {
-        const matterLabel = resolveExcelMatterLabelForRebuild(store.parsed.validRows);
+        const matterLabels = resolveExcelMatterLabelsForRebuild(store.parsed.validRows);
+        const matterLabel = matterLabels.join(', ');
         state.structuralRebuild = { active: true, matterLabel, startedAt: new Date().toISOString() };
-        setListadoProgress({ percent: 18, stage: 'Limpiando materia', status: 'running', subaction: `Eliminando materialización, índice visual y árbol interno de ${matterLabel}.` });
-        await cleanMaterializedMatterBeforeRebuild(matterLabel);
+        setListadoProgress({ percent: 18, stage: 'Limpiando materias', status: 'running', subaction: `Eliminando materialización, índice visual y árbol interno de ${matterLabel}.` });
+        await cleanMaterializedMattersBeforeRebuild(matterLabels);
         await loadCases();
         populateFilters();
         renderAll();
@@ -17486,11 +17502,12 @@
           return;
         }
         try {
-          const matterLabel = resolveExcelMatterLabelForRebuild(state.excelUploads.listado.parsed.validRows || []);
-          const confirmed = window.confirm(`Esto eliminará la materialización interna actual de la materia "${matterLabel}" y la reconstruirá desde el Excel depurado vigente usando ROL + Tribunal. ¿Continuar?`);
+          const matterLabels = resolveExcelMatterLabelsForRebuild(state.excelUploads.listado.parsed.validRows || []);
+          const matterLabel = matterLabels.join(', ');
+          const confirmed = window.confirm(`Esto eliminará la materialización interna actual de estas materias: ${matterLabel}. Luego reconstruirá desde el Excel depurado vigente usando ROL/RIT + Tribunal. ¿Continuar?`);
           if (!confirmed) return;
           const summary = await processExcelUpload('listado', { rebuildMatter: true });
-          setMessage('listadoCausasMsg', `Materia reconstruida desde Excel depurado. Total filas: ${summary.totalRows}. Causas creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedExactMatches || 0}. Duplicados/Conflictos: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          setMessage('listadoCausasMsg', `Materias reconstruidas desde Excel depurado. Total filas: ${summary.totalRows}. Causas creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedExactMatches || 0}. Duplicados/Conflictos: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al limpiar y reconstruir materia.', error);
