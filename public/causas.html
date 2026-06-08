@@ -1181,6 +1181,70 @@
       min-height:0;
     }
 
+    .causas-page .quick-action-rail{
+      display:grid;
+      gap:10px;
+      padding:12px;
+      border-radius:20px;
+      background:rgba(255,255,255,.56);
+      border:1px solid rgba(95,159,151,.28);
+      box-shadow:0 10px 22px rgba(24,78,72,.10);
+    }
+
+    .causas-page .quick-action-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .causas-page .quick-action-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .causas-page .quick-action-card{
+      appearance:none;
+      border:1px solid rgba(95,159,151,.28);
+      border-radius:16px;
+      background:linear-gradient(180deg,#f8fffd,#edf9f5);
+      color:var(--causas-text);
+      padding:12px;
+      min-height:112px;
+      display:grid;
+      gap:7px;
+      align-content:start;
+      text-align:left;
+      cursor:pointer;
+      box-shadow:var(--causas-card-shadow-static);
+      transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .causas-page .quick-action-card:hover{
+      transform:translateY(-2px);
+      border-color:var(--causas-active);
+      box-shadow:0 12px 24px rgba(22,58,95,.10);
+    }
+
+    .causas-page .quick-action-card:focus-visible{
+      outline:none;
+      box-shadow:0 0 0 3px rgba(255,255,255,.52), 0 0 0 6px rgba(22,58,95,.22), 0 12px 24px rgba(22,58,95,.10);
+    }
+
+    .causas-page .quick-action-card strong{
+      color:var(--causas-title-dark);
+      font-size:15px;
+      line-height:1.2;
+    }
+
+    .causas-page .quick-action-card span{
+      color:var(--causas-text-secondary);
+      font-size:12px;
+      line-height:1.35;
+    }
+
     .causas-page .panel-search{ margin-top:2px; }
     .causas-page .filters-block{ display:grid; gap:8px; }
 
@@ -2079,6 +2143,7 @@
       .micro-grid,
       .grid-4,
       .pillar-grid,
+      .quick-action-grid,
       .paired-grid,
       .folder-grid,
       .branch-grid,
@@ -2131,6 +2196,7 @@
       .micro-grid,
       .grid-4,
       .pillar-grid,
+      .quick-action-grid,
       .folder-grid,
       .branch-grid,
       .archive-grid,
@@ -2213,12 +2279,48 @@
           <button class="btn" id="btnQuickInfo">Información</button>
           <button class="btn" id="btnQuickExpedientes">ARCHIVADORES TRIBUNAL</button>
           <button class="btn" id="btnQuickProduction">Producción</button>
+          <button class="btn" id="btnQuickAlerts">Alertas y plazos</button>
         </div>
       </div>
     </section>
 
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
+      <section class="quick-action-rail" aria-labelledby="quickActionTitle">
+        <div class="quick-action-head">
+          <div>
+            <h3 id="quickActionTitle" class="segment-title">Acciones frecuentes</h3>
+            <p class="segment-copy">Entrada directa a busqueda, listado, carga documental y seguimiento diario.</p>
+          </div>
+          <span class="badge badge-info">Atajos operativos</span>
+        </div>
+        <div class="quick-action-grid" id="quickActionRail">
+          <button class="quick-action-card" type="button" data-quick-action="buscar-causa">
+            <strong>Buscar causa por rol</strong>
+            <span>Abre el buscador y permite saltar a la ficha sin recorrer todo el listado.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="listado-general">
+            <strong>Listado general</strong>
+            <span>Despliega filtros, grupos por tribunal y tarjetas operativas de causas.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="cargar-expediente">
+            <strong>Cargar expedientes</strong>
+            <span>Sube archivos por Tribunal + Rol hacia expedientes digitales existentes.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="excel-tribunal">
+            <strong>Excel depurado tribunal</strong>
+            <span>Procesa una planilla de un tribunal para crear o actualizar carpetas.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="alertas">
+            <strong>Alertas y plazos</strong>
+            <span>Revisa vencimientos y audiencias proximas en una vista dedicada.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="monitoreo">
+            <strong>Monitoreo</strong>
+            <span>Abre seguimiento operativo para controles y revision de actividad.</span>
+          </button>
+        </div>
+      </section>
       <div class="timeline-meta" id="officeSourceBanner"></div>
       <div class="timeline-meta" id="officeSourceDebug"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
@@ -3817,6 +3919,34 @@
         tabId,
       });
       openWorkspaceModal({ tabId, origin });
+    }
+
+    function openGeneralListPanel(){
+      const panel = $('listadoGeneralCausasPanel');
+      if (!panel) return;
+      panel.hidden = false;
+      const card = panel.querySelector('[data-collapsible-card]');
+      const content = $('listadoGeneralCardContent');
+      const toggle = $('btnToggleListadoGeneralCard');
+      card?.classList.remove('is-collapsed');
+      if (content) content.hidden = false;
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      disableLandingMode();
+      renderList();
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function handleQuickAction(action = ''){
+      const actions = {
+        'buscar-causa': () => openCauseSearchModal(),
+        'listado-general': () => openGeneralListPanel(),
+        'cargar-expediente': () => openManualUploadModal(),
+        'excel-tribunal': () => openExcelUploadModal('listado'),
+        alertas: () => { window.location.href = './causas-alertas-plazos.html'; },
+        monitoreo: () => { window.location.href = './monitoreo.html'; },
+      };
+      const handler = actions[action];
+      if (handler) handler();
     }
 
     function diagnoseBranchButton(buttonId, expectedBranch){
@@ -16291,6 +16421,11 @@
       bindEvent('btnQuickExpedientes', 'click', () => { window.location.href = './expedientes-digitales.html'; }, { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
       bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
+      $('quickActionRail')?.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-quick-action]');
+        if (!actionButton) return;
+        handleQuickAction(actionButton.dataset.quickAction || '');
+      });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
@@ -16712,19 +16847,7 @@
           return;
         }
         if (action === 'open-general-list') {
-          const panel = $('listadoGeneralCausasPanel');
-          if (panel) {
-            panel.hidden = false;
-            const card = panel.querySelector('[data-collapsible-card]');
-            const content = $('listadoGeneralCardContent');
-            const toggle = $('btnToggleListadoGeneralCard');
-            card?.classList.remove('is-collapsed');
-            if (content) content.hidden = false;
-            if (toggle) toggle.setAttribute('aria-expanded', 'true');
-            disableLandingMode();
-            renderList();
-            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          openGeneralListPanel();
           return;
         }
         if (action === 'producir-escritos') {
