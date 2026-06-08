@@ -2860,7 +2860,7 @@
               </div>
               <div class="field">
                 <label for="producirEscritoInstrucciones">Qué debe preparar</label>
-                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, tono y antecedentes que debe considerar."></textarea>
+                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, doctrina, jurisprudencia y antecedentes que debe considerar."></textarea>
               </div>
               <div class="field">
                 <label for="producirEscritoAjuste">Ajuste rápido</label>
@@ -10179,11 +10179,81 @@
       return detalle;
     }
 
+    const PRODUCCION_WORD_FORMAT_PROMPT = [
+      'Todos los escritos deben quedar preparados para exportar a Word con formato jurídico obligatorio:',
+      'letra Deng Xian tamaño 14, texto justificado, sangría izquierda, primera línea con sangría e interlineado de espacio y medio.',
+      'Cuando uses doctrina, escribe en el texto una frase natural como "Según el profesor [Autor]" seguida de superíndice numérico.',
+      'Cuando uses jurisprudencia, escribe en el texto una frase como "Según la jurisprudencia de la Corte Suprema" seguida de superíndice numérico.',
+      'Cada superíndice debe tener su nota al pie correlativa con norma de cita bibliográfica jurídica: autor o tribunal, obra o sentencia, rol si corresponde, fecha, editorial/fuente y página o considerando cuando exista.',
+      'Después de la frase doctrinal o jurisprudencial incluye un extracto breve de la cita dentro de un marco, sin copiar textos extensos.',
+      'Usa el formato de referencia [^1] en el cuerpo y al final agrega la nota como [^1]: referencia completa.',
+    ].join(' ');
+
+    function normalizeFootnoteReferenceToken(value){
+      return String(value || '').replace(/[^\d]/g, '');
+    }
+
+    function buildWordFootnoteReference(number){
+      const safeNumber = escapeHtml(number);
+      return `<a href="#_ftn${safeNumber}" name="_ftnref${safeNumber}" class="footnote-ref" style="mso-footnote-id:ftn${safeNumber};"><sup>${safeNumber}</sup></a>`;
+    }
+
+    function buildCitationBoxHtml(text){
+      const normalized = String(text || '').replace(/^\s*(?:extracto|cita)\s*[:.-]\s*/i, '').trim();
+      if (!normalized) return '';
+      return `<div class="citation-box">${escapeHtml(normalized)}</div>`;
+    }
+
+    function parseProduccionDraftForWord(draftText = ''){
+      const footnotes = [];
+      const bodyLines = [];
+      const rawLines = String(draftText || '').replace(/\r\n/g, '\n').split('\n');
+      rawLines.forEach((rawLine) => {
+        const line = String(rawLine || '').trim();
+        const footnoteMatch = line.match(/^(?:\[\^?(\d+)\]|(?:nota|cita)\s*(\d+))\s*[:.-]\s*(.+)$/i);
+        if (footnoteMatch) {
+          const number = normalizeFootnoteReferenceToken(footnoteMatch[1] || footnoteMatch[2]);
+          const text = String(footnoteMatch[3] || '').trim();
+          if (number && text) footnotes.push({ number, text });
+          return;
+        }
+        bodyLines.push(rawLine);
+      });
+
+      const bodyText = bodyLines.join('\n').trim();
+      const footnoteNumbers = new Set(footnotes.map((item) => item.number));
+      return {
+        bodyText,
+        footnotes,
+        replaceReferences(html = ''){
+          return String(html || '')
+            .replace(/\[\^(\d+)\]/g, (_match, number) => {
+              const normalized = normalizeFootnoteReferenceToken(number);
+              if (!normalized) return '';
+              if (!footnoteNumbers.has(normalized)) footnotes.push({ number: normalized, text: 'Completar referencia bibliográfica o jurisprudencial.' });
+              footnoteNumbers.add(normalized);
+              return buildWordFootnoteReference(normalized);
+            })
+            .replace(/\[(\d{1,3})\]/g, (_match, number) => {
+              const normalized = normalizeFootnoteReferenceToken(number);
+              if (!normalized) return '';
+              if (!footnoteNumbers.has(normalized)) footnotes.push({ number: normalized, text: 'Completar referencia bibliográfica o jurisprudencial.' });
+              footnoteNumbers.add(normalized);
+              return buildWordFootnoteReference(normalized);
+            });
+        },
+      };
+    }
+
     function buildProduccionDraftWordHtml({ cause, tipoEscrito, draftText }){
       const fecha = new Date().toISOString().slice(0, 10);
+      const parsedDraft = parseProduccionDraftForWord(draftText);
       const applyMandatoryLegalMarkers = (paragraphText = '') => {
         const normalized = String(paragraphText || '').trim();
         if (!normalized) return { html: '', className: '' };
+        if (/^(?:extracto|cita)\s*[:.-]/i.test(normalized)) {
+          return { html: buildCitationBoxHtml(normalized), className: 'citation-paragraph' };
+        }
         const escaped = escapeHtml(normalized);
         const isPorTanto = /^POR\s+TANTO\b[:.,;]?/i.test(normalized);
         if (isPorTanto) return { html: `<strong>${escaped}</strong>`, className: 'legal-center' };
@@ -10191,9 +10261,9 @@
           .replace(/\bEN\s+LO\s+PRINCIPAL\b/gi, '<strong>EN LO PRINCIPAL</strong>')
           .replace(/\bOTROS[ÍI]\b/gi, '<strong>OTROSÍ</strong>')
           .replace(/\bS\.S\.\b/gi, '<strong>S.S.</strong>');
-        return { html: highlighted, className: '' };
+        return { html: parsedDraft.replaceReferences(highlighted), className: '' };
       };
-      const bodyParagraphs = String(draftText || '')
+      const bodyParagraphs = String(parsedDraft.bodyText || '')
         .split(/\n{2,}/)
         .map((line) => line.trim())
         .filter(Boolean)
@@ -10203,6 +10273,17 @@
           return `<p${paragraphClass}>${formatted.html}</p>`;
         })
         .join('');
+      const footnotesHtml = parsedDraft.footnotes
+        .sort((a, b) => Number(a.number) - Number(b.number))
+        .map((item) => `
+          <div id="_ftn${escapeHtml(item.number)}" class="footnote-item" style="mso-element:footnote;">
+            <p class="footnote-text">
+              <a href="#_ftnref${escapeHtml(item.number)}" name="_ftn${escapeHtml(item.number)}" style="mso-footnote-id:ftn${escapeHtml(item.number)};"><sup>${escapeHtml(item.number)}</sup></a>
+              <span>${escapeHtml(item.text)}</span>
+            </p>
+          </div>
+        `)
+        .join('');
       return `<!doctype html>
 <html lang="es-CL" xml:lang="es-CL">
 <head>
@@ -10210,16 +10291,23 @@
   <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
   <style>
     @page { size: 8.5in 13in; margin: 2.5cm 2cm; }
-    body { font-family: "Deng Xian", "DengXian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; mso-ansi-language: ES-CL; mso-fareast-language: ES-CL; mso-bidi-language: ES-CL; }
-    p { margin: 0 0 14pt; text-align: justify; text-indent: 1.25cm; }
+    body { font-family: "Deng Xian", "DengXian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; mso-line-height-alt: 150%; mso-ansi-language: ES-CL; mso-fareast-language: ES-CL; mso-bidi-language: ES-CL; }
+    p { margin: 0 0 14pt 1cm; text-align: justify; text-indent: 1.25cm; line-height: 1.5; }
+    .document-meta { text-indent: 0; margin-left: 0; }
     .legal-center { text-align: center; text-indent: 0; }
-    .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
+    .citation-paragraph { text-indent: 0; margin-left: 1cm; }
+    .citation-box { border: 1.2pt solid #333; padding: 10pt 12pt; margin: 8pt 0 14pt 1cm; text-align: justify; line-height: 1.5; background: #fff; }
+    .footnote-ref { color: #000; text-decoration: none; font-size: 10pt; vertical-align: super; }
+    .footnotes { font-family: "Deng Xian", "DengXian", serif; font-size: 10pt; line-height: 1.15; margin-top: 22pt; border-top: 1px solid #777; padding-top: 8pt; page-break-inside: avoid; }
+    .footnote-item { margin: 0 0 6pt 0; text-align: justify; }
+    .footnote-text { font-size: 10pt; line-height: 1.15; text-indent: 0; margin: 0 0 6pt 0; }
+    .footnote-item a { color: #000; text-decoration: none; margin-right: 4pt; }
   </style>
 </head>
 <body>
-  <p style="text-indent:0;"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+  <p class="document-meta"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
   ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
-  <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
+  ${footnotesHtml ? `<div class="footnotes" style="mso-element:footnote-list;"><strong>Notas al pie</strong>${footnotesHtml}</div>` : ''}
 </body>
 </html>`;
     }
@@ -10307,8 +10395,8 @@
         documentosSeleccionados: antecedentes,
         documentos_seleccionados: antecedentes,
         insumos_documentales: insumosDocumentales,
-        citationRules: 'Aplicar norma de cita jurídica chilena: citas abreviadas en pie de página + bibliografía final, sin copiar textos extensos literalmente.',
-        stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
+        citationRules: PRODUCCION_WORD_FORMAT_PROMPT,
+        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT}`,
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
