@@ -1181,6 +1181,70 @@
       min-height:0;
     }
 
+    .causas-page .quick-action-rail{
+      display:grid;
+      gap:10px;
+      padding:12px;
+      border-radius:20px;
+      background:rgba(255,255,255,.56);
+      border:1px solid rgba(95,159,151,.28);
+      box-shadow:0 10px 22px rgba(24,78,72,.10);
+    }
+
+    .causas-page .quick-action-head{
+      display:flex;
+      align-items:flex-start;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+    }
+
+    .causas-page .quick-action-grid{
+      display:grid;
+      grid-template-columns:repeat(3,minmax(0,1fr));
+      gap:10px;
+    }
+
+    .causas-page .quick-action-card{
+      appearance:none;
+      border:1px solid rgba(95,159,151,.28);
+      border-radius:16px;
+      background:linear-gradient(180deg,#f8fffd,#edf9f5);
+      color:var(--causas-text);
+      padding:12px;
+      min-height:112px;
+      display:grid;
+      gap:7px;
+      align-content:start;
+      text-align:left;
+      cursor:pointer;
+      box-shadow:var(--causas-card-shadow-static);
+      transition:transform .18s ease, border-color .18s ease, box-shadow .18s ease;
+    }
+
+    .causas-page .quick-action-card:hover{
+      transform:translateY(-2px);
+      border-color:var(--causas-active);
+      box-shadow:0 12px 24px rgba(22,58,95,.10);
+    }
+
+    .causas-page .quick-action-card:focus-visible{
+      outline:none;
+      box-shadow:0 0 0 3px rgba(255,255,255,.52), 0 0 0 6px rgba(22,58,95,.22), 0 12px 24px rgba(22,58,95,.10);
+    }
+
+    .causas-page .quick-action-card strong{
+      color:var(--causas-title-dark);
+      font-size:15px;
+      line-height:1.2;
+    }
+
+    .causas-page .quick-action-card span{
+      color:var(--causas-text-secondary);
+      font-size:12px;
+      line-height:1.35;
+    }
+
     .causas-page .panel-search{ margin-top:2px; }
     .causas-page .filters-block{ display:grid; gap:8px; }
 
@@ -1878,6 +1942,76 @@
       color:var(--causas-text-secondary);
     }
 
+    .causas-page .produccion-flow{
+      display:grid;
+      gap:14px;
+    }
+
+    .causas-page .produccion-search-row{
+      display:grid;
+      grid-template-columns:minmax(180px,1fr) minmax(240px,1.3fr) auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .causas-page .produccion-context-strip{
+      display:grid;
+      grid-template-columns:minmax(220px,.9fr) minmax(260px,1.1fr);
+      gap:10px;
+      align-items:start;
+      margin-bottom:10px;
+    }
+
+    .causas-page .produccion-context-strip .case-meta{
+      max-height:150px;
+      overflow:auto;
+    }
+
+    .causas-page .produccion-work-grid{
+      display:grid;
+      grid-template-columns:minmax(280px,.82fr) minmax(360px,1.18fr);
+      gap:12px;
+      align-items:start;
+    }
+
+    .causas-page .produccion-actions{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    .causas-page .produccion-actions-group{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .causas-page .produccion-advanced{
+      margin-top:10px;
+      border:1px solid rgba(31,90,83,.16);
+      border-radius:14px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.72);
+    }
+
+    .causas-page .produccion-advanced summary{
+      cursor:pointer;
+      font-weight:700;
+      color:var(--causas-title-dark);
+    }
+
+    @media (max-width: 820px){
+      .causas-page .produccion-search-row,
+      .causas-page .produccion-context-strip,
+      .causas-page .produccion-work-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
     .causas-page .excel-progress-shell{
       border:1px solid rgba(31,90,83,.22);
       border-radius:14px;
@@ -2079,6 +2213,7 @@
       .micro-grid,
       .grid-4,
       .pillar-grid,
+      .quick-action-grid,
       .paired-grid,
       .folder-grid,
       .branch-grid,
@@ -2131,6 +2266,7 @@
       .micro-grid,
       .grid-4,
       .pillar-grid,
+      .quick-action-grid,
       .folder-grid,
       .branch-grid,
       .archive-grid,
@@ -2213,12 +2349,48 @@
           <button class="btn" id="btnQuickInfo">Información</button>
           <button class="btn" id="btnQuickExpedientes">ARCHIVADORES TRIBUNAL</button>
           <button class="btn" id="btnQuickProduction">Producción</button>
+          <button class="btn" id="btnQuickAlerts">Alertas y plazos</button>
         </div>
       </div>
     </section>
 
     <section class="screen-card top-overview">
       <div class="summary-metrics" id="summaryMetrics"></div>
+      <section class="quick-action-rail" aria-labelledby="quickActionTitle">
+        <div class="quick-action-head">
+          <div>
+            <h3 id="quickActionTitle" class="segment-title">Acciones frecuentes</h3>
+            <p class="segment-copy">Entrada directa a busqueda, listado, carga documental y seguimiento diario.</p>
+          </div>
+          <span class="badge badge-info">Atajos operativos</span>
+        </div>
+        <div class="quick-action-grid" id="quickActionRail">
+          <button class="quick-action-card" type="button" data-quick-action="buscar-causa">
+            <strong>Buscar causa por rol</strong>
+            <span>Abre el buscador y permite saltar a la ficha sin recorrer todo el listado.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="listado-general">
+            <strong>Listado general</strong>
+            <span>Despliega filtros, grupos por tribunal y tarjetas operativas de causas.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="cargar-expediente">
+            <strong>Cargar expedientes</strong>
+            <span>Sube archivos por Tribunal + Rol hacia expedientes digitales existentes.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="excel-tribunal">
+            <strong>Excel depurado tribunal</strong>
+            <span>Procesa una planilla de un tribunal para crear o actualizar carpetas.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="alertas">
+            <strong>Alertas y plazos</strong>
+            <span>Revisa vencimientos, audiencias y reglas de cómputo dentro de la causa.</span>
+          </button>
+          <button class="quick-action-card" type="button" data-quick-action="monitoreo">
+            <strong>Monitoreo</strong>
+            <span>Abre seguimiento operativo para controles y revision de actividad.</span>
+          </button>
+        </div>
+      </section>
       <div class="timeline-meta" id="officeSourceBanner"></div>
       <div class="timeline-meta" id="officeSourceDebug"></div>
       <div class="pillar-grid" id="pillarGrid"></div>
@@ -2621,65 +2793,64 @@
     <div class="modal-panel" style="max-width:min(1180px,96vw);">
       <div class="modal-header">
         <div>
-          <div class="modal-title">ChatGPT para redactar escritos</div>
-          <p class="panel-subtitle">Flujo real de Producción: identifica causa desde Expedientes Digitales, conversa con IA jurídica y genera borrador editable sin duplicar ni mover la causa.</p>
+          <div class="modal-title">Producción rápida de escritos</div>
+          <p class="panel-subtitle">Busca la causa, indica el escrito y trabaja el borrador editable en una sola pantalla.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalProducirEscritos" aria-label="Cerrar">✕</button>
       </div>
       <form id="formProducirEscritos" class="form">
-        <div class="helper-box">Paso 1 · Identificar causa en Expedientes Digitales (Rol y Tribunal obligatorios).</div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="producirEscritoRol">Rol de la causa *</label>
-            <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+        <div class="produccion-flow">
+          <div class="helper-box">Selecciona una causa de Expedientes Digitales. Si abriste Producción desde una ficha, la app intentará completar Rol y Tribunal automáticamente.</div>
+          <div class="produccion-search-row">
+            <div class="field">
+              <label for="producirEscritoRol">Rol de la causa *</label>
+              <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+            </div>
+            <div class="field">
+              <label for="producirEscritoTribunal">Tribunal *</label>
+              <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+            </div>
+            <button id="btnBuscarCausaProduccion" type="button" class="btn btn-primary">Buscar causa</button>
           </div>
-          <div class="field">
-            <label for="producirEscritoTribunal">Tribunal *</label>
-            <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+          <div id="producirEscritoMsg" class="msg" aria-live="polite"></div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="producirEscritoResultados"><tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
+            </table>
           </div>
-        </div>
-        <div class="modal-actions">
-          <button id="btnBuscarCausaProduccion" type="button" class="btn">Buscar en Expedientes Digitales</button>
-        </div>
-        <div id="producirEscritoMsg" class="msg" aria-live="polite"></div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Estado</th>
-              </tr>
-            </thead>
-            <tbody id="producirEscritoResultados"><tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
-          </table>
-        </div>
 
         <div id="produccionChatWorkspace" style="display:none; margin-top:12px;">
-          <div class="helper-box">Paso 2 · Asistente de redacción jurídica con iteraciones sobre la misma causa (sin crear ni duplicar causa).</div>
-          <div class="grid-2" style="align-items:start;">
-            <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">A. Identificación de la causa</h4>
+          <div class="produccion-context-strip">
+            <section class="helper-box">
+              <h4 class="section-title">Causa seleccionada</h4>
               <div id="produccionCauseIdentity" class="case-meta">Sin causa seleccionada.</div>
             </section>
-            <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">B. Antecedentes usados</h4>
+            <section class="helper-box">
+              <h4 class="section-title">Antecedentes para usar</h4>
               <div id="produccionAntecedentesList" class="case-meta">Sin antecedentes aún.</div>
             </section>
           </div>
 
-          <div class="grid-2" style="align-items:start; margin-top:10px;">
+          <div class="produccion-work-grid">
             <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">C. Instrucción al asistente</h4>
+              <h4 class="section-title">Instrucción</h4>
               <div class="field">
                 <label for="producirEscritoTipo">Tipo de escrito *</label>
                 <select id="producirEscritoTipo" class="input" required>
                   <option value="">Selecciona tipo</option>
+                  <option value="demanda nueva">Demanda nueva</option>
                   <option value="demanda">Demanda</option>
                   <option value="contestación">Contestación</option>
                   <option value="recurso">Recurso</option>
                   <option value="reposición">Reposición</option>
                   <option value="apelación">Apelación</option>
                   <option value="incidente">Incidente</option>
-                  <option value="escrito de trámite">Escrito de trámite</option>
+                  <option value="escrito de mero trámite">Escrito de mero trámite</option>
                   <option value="minuta">Minuta</option>
                   <option value="otro">Otro</option>
                 </select>
@@ -2689,49 +2860,58 @@
                 <input id="producirEscritoTipoLibre" class="input" placeholder="Ej: incidente de nulidad de notificación" />
               </div>
               <div class="field">
-                <label for="producirEscritoInstrucciones">Instrucciones específicas / teoría del caso</label>
-                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Qué quieres argumentar, hechos clave, jurisprudencia, doctrina, tono, peticiones, etc."></textarea>
+                <label for="producirEscritoInstrucciones">Qué debe preparar</label>
+                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, doctrina, jurisprudencia y antecedentes que debe considerar."></textarea>
               </div>
+              <div class="helper-box">Producción usará como guía interna la biblioteca de Práctica Forense, esquemas de procedimientos y recursos procesales para estructura, etapas, impugnaciones, sumas, otrosíes, petitorios y fórmulas útiles según la materia, sin copiar texto literal.</div>
               <div class="field">
-                <label for="producirEscritoAjuste">Ajuste de iteración (opcional)</label>
-                <input id="producirEscritoAjuste" class="input" placeholder="Ej: hazlo más técnico, agrega jurisprudencia y otrosí adicional" />
+                <label for="producirEscritoAjuste">Ajuste rápido</label>
+                <input id="producirEscritoAjuste" class="input" placeholder="Ej: más técnico, agregar jurisprudencia, incluir otrosí" />
+              </div>
+              <div class="produccion-actions-group">
+                <button id="btnGenerarBorradorChatGPT" type="submit" class="btn btn-primary">Generar borrador</button>
+                <button id="btnRegenerarBorradorChatGPT" type="button" class="btn">Regenerar</button>
               </div>
             </section>
             <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">D. Respuesta de ChatGPT</h4>
-              <div id="produccionDraftHistory" class="case-meta" style="max-height:140px; overflow:auto; margin-bottom:8px;">Sin iteraciones aún.</div>
-              <div class="modal-actions" style="justify-content:flex-start; margin-bottom:8px; gap:8px;">
+              <h4 class="section-title">Borrador editable</h4>
+              <div id="produccionDraftHistory" class="case-meta" style="max-height:96px; overflow:auto; margin-bottom:8px;">Sin iteraciones aún.</div>
+              <div class="produccion-actions-group" style="margin-bottom:8px;">
                 <button id="btnCopiarProduccionEditor" type="button" class="btn">Copiar</button>
                 <button id="btnPegarProduccionEditor" type="button" class="btn">Pegar</button>
               </div>
-              <textarea id="produccionDraftEditor" class="textarea" style="min-height:260px; background:#1e1e1e; color:#d4d4d4; border:1px solid #30363d; font-family:Consolas, 'Courier New', monospace; line-height:1.5; caret-color:#9cdcfe;" placeholder="Aquí aparecerá el borrador jurídico editable generado por ChatGPT."></textarea>
+              <textarea id="produccionDraftEditor" class="textarea" style="min-height:320px; background:#1e1e1e; color:#d4d4d4; border:1px solid #30363d; font-family:Consolas, 'Courier New', monospace; line-height:1.5; caret-color:#9cdcfe;" placeholder="Aquí aparecerá el borrador jurídico editable."></textarea>
             </section>
           </div>
 
           <section class="panel-card" style="padding:12px; margin-top:10px;">
-            <h4 class="section-title">E. Acciones finales</h4>
-            <div class="helper-box" style="margin-bottom:8px;">Barra de acciones del editor jurídico (Producción).</div>
-            <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap; margin-bottom:8px;">
-              <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
-              <button id="btnConvertirPdfProduccion" type="button" class="btn">Convertir a PDF</button>
-              <button id="btnImprimirProduccion" type="button" class="btn">Imprimir</button>
-              <button id="btnCargarDocumentosProduccion" type="button" class="btn">Cargar documentos</button>
-              <button id="btnInsumosExternosProduccion" type="button" class="btn">Insumos externos</button>
-              <button id="btnContenedorDemandasProduccion" type="button" class="btn">Contenedor provisorio de demandas nuevas</button>
-              <button id="btnCopiarProduccion" type="button" class="btn">Copiar</button>
-              <button id="btnPegarProduccion" type="button" class="btn">Pegar</button>
+            <div class="produccion-actions">
+              <div class="produccion-actions-group">
+                <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
+                <button id="btnGuardarVersionProduccion" type="button" class="btn">Guardar versión</button>
+                <button id="btnDejarRevisionProduccion" type="button" class="btn btn-secondary">Dejar en revisión</button>
+              </div>
+              <div class="produccion-actions-group">
+                <button id="btnCargarDocumentosProduccion" type="button" class="btn">Cargar documentos</button>
+                <button id="btnCopiarProduccion" type="button" class="btn">Copiar</button>
+                <button id="btnPegarProduccion" type="button" class="btn">Pegar</button>
+                <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cerrar</button>
+              </div>
             </div>
             <input id="produccionDocumentUploadInput" type="file" multiple accept=".pdf,.doc,.docx,image/*,audio/*,video/*" style="display:none;" />
-            <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap;">
-              <button id="btnGenerarBorradorChatGPT" type="submit" class="btn btn-primary">Generar borrador con ChatGPT</button>
-              <button id="btnRegenerarBorradorChatGPT" type="button" class="btn">Regenerar borrador</button>
-              <button id="btnGuardarVersionProduccion" type="button" class="btn">Guardar versión</button>
-              <button id="btnDejarRevisionProduccion" type="button" class="btn btn-secondary">Dejar en revisión</button>
-              <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cerrar</button>
-            </div>
+            <details class="produccion-advanced">
+              <summary>Opciones avanzadas</summary>
+              <div class="produccion-actions-group" style="margin-top:10px;">
+                <button id="btnConvertirPdfProduccion" type="button" class="btn">Convertir a PDF</button>
+                <button id="btnImprimirProduccion" type="button" class="btn">Imprimir</button>
+                <button id="btnInsumosExternosProduccion" type="button" class="btn">Insumos externos</button>
+                <button id="btnContenedorDemandasProduccion" type="button" class="btn">Contenedor de demandas nuevas</button>
+              </div>
+            </details>
           </section>
         </div>
-        <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. Se mantendrá el hilo abierto para iterar sobre el borrador.</div>
+        <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. El borrador quedará disponible para editar, guardar o exportar.</div>
+        </div>
       </form>
     </div>
   </div>
@@ -2745,7 +2925,7 @@
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalInsumosExternosProduccion" aria-label="Cerrar">✕</button>
       </div>
-      <div class="helper-box">Función en preparación: aquí se conectarán APIs, documentos y referencias externas para apoyar la redacción.</div>
+      <div class="helper-box">Biblioteca guía incorporada: Práctica Forense de Diego Barros Aldunate, esquemas procedimentales y recursos procesales para civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero y aguas. Se usa como orientación transversal de técnica forense, estructura, etapas, impugnaciones, sumas, otrosíes, petitorios y fórmulas útiles según la materia; los escritos deben redactarse de forma propia y ajustada a la causa.</div>
       <div class="modal-actions">
         <button type="button" class="btn" data-close="1" data-modal-id="modalInsumosExternosProduccion">Cerrar</button>
       </div>
@@ -2892,16 +3072,16 @@
     <div class="modal-panel">
       <div class="modal-header">
         <div>
-          <div class="modal-title">Cargar Excel depurado tribunal</div>
-          <p class="panel-subtitle">Suba aquí el Excel depurado correspondiente a un solo tribunal. Con este archivo el sistema creará las carpetas de expedientes con nombre ROL - CARÁTULA.</p>
+          <div class="modal-title">Cargar Excel depurado</div>
+          <p class="panel-subtitle">Suba aquí el Excel depurado por tribunal o libro multihoja por materia. Con este archivo el sistema creará o actualizará carpetas con nombre ROL/RIT - CARÁTULA.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalListadoCausas" aria-label="Cerrar">✕</button>
       </div>
       <form id="formListadoCausas" class="form">
         <div class="helper-box">Formato esperado: archivo Excel válido en formato <strong>.xlsx</strong> o <strong>.xls</strong>.</div>
-        <div class="helper-box">Este flujo es exclusivo para un solo tribunal por archivo. Si el Excel mezcla tribunales, depúralo antes de procesar.</div>
+        <div class="helper-box">Si el libro tiene varias hojas, la opción “Todas las hojas” procesa Civil, Familia, Penal/Garantía, Laboral, Cobranza, Cortes y Corte Suprema en una sola carga.</div>
         <div class="field">
-          <label for="listadoCausasFile">Archivo Excel depurado tribunal</label>
+          <label for="listadoCausasFile">Archivo Excel depurado</label>
           <input id="listadoCausasFile" class="input" type="file" accept=".xlsx,.xls,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" />
         </div>
         <div class="field">
@@ -3819,6 +3999,34 @@
       openWorkspaceModal({ tabId, origin });
     }
 
+    function openGeneralListPanel(){
+      const panel = $('listadoGeneralCausasPanel');
+      if (!panel) return;
+      panel.hidden = false;
+      const card = panel.querySelector('[data-collapsible-card]');
+      const content = $('listadoGeneralCardContent');
+      const toggle = $('btnToggleListadoGeneralCard');
+      card?.classList.remove('is-collapsed');
+      if (content) content.hidden = false;
+      if (toggle) toggle.setAttribute('aria-expanded', 'true');
+      disableLandingMode();
+      renderList();
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function handleQuickAction(action = ''){
+      const actions = {
+        'buscar-causa': () => openCauseSearchModal(),
+        'listado-general': () => openGeneralListPanel(),
+        'cargar-expediente': () => openManualUploadModal(),
+        'excel-tribunal': () => openExcelUploadModal('listado'),
+        alertas: () => openBranchScreen('informacion', 'quick-alertas-plazos'),
+        monitoreo: () => { window.location.href = './monitoreo.html'; },
+      };
+      const handler = actions[action];
+      if (handler) handler();
+    }
+
     function diagnoseBranchButton(buttonId, expectedBranch){
       const button = $(buttonId);
       if (!button) {
@@ -3919,6 +4127,32 @@
       if (!target) return null;
       const date = new Date(target + 'T00:00:00Z');
       return Math.ceil((date.getTime() - TODAY.getTime()) / 86400000);
+    }
+
+    function addDaysIso(startIso, days = 0){
+      const base = new Date((isoDate(startIso) || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+      if (Number.isNaN(base.getTime())) return isoDate(startIso);
+      base.setUTCDate(base.getUTCDate() + Number(days || 0));
+      return base.toISOString().slice(0, 10);
+    }
+
+    function addJudicialBusinessDaysIso(startIso, days = 0){
+      const base = new Date((isoDate(startIso) || new Date().toISOString().slice(0, 10)) + 'T00:00:00Z');
+      if (Number.isNaN(base.getTime())) return isoDate(startIso);
+      let remaining = Number(days || 0);
+      while (remaining > 0) {
+        base.setUTCDate(base.getUTCDate() + 1);
+        const day = base.getUTCDay();
+        if (day !== 0 && day !== 6) remaining -= 1;
+      }
+      return base.toISOString().slice(0, 10);
+    }
+
+    function computeDeadlineFromRule(originIso, rule = {}){
+      const start = isoDate(originIso);
+      if (!start || !rule?.plazoDias) return null;
+      if (rule.computo === 'dias_corridos') return addDaysIso(start, rule.plazoDias);
+      return addJudicialBusinessDaysIso(start, rule.plazoDias);
     }
 
     function normalizeAlert(alert){
@@ -5504,8 +5738,8 @@
           { fecha:'2026-03-18', tipo:'Proveído', resumen:'Se tiene presente presentación y se solicita acompañar documento faltante.', impacto:'Requiere complemento documental.', plazo:'Acompañar antecedente', audiencia:'No fija', documento:'Proveído 18-03.pdf', revision:'Clasificada' },
         ],
         plazos:[
-          { origen:'2026-03-15', generador:'Resolución que confiere traslado', tipo:'Traslado', vencimiento:deadlineDate, alerta:normalizeAlert(alertLevel), escrito:'Contestación / evacuación de traslado', estado:'En redacción', responsable, prioridad:'Alta', observaciones:'Vinculado a resolución principal.' },
-          { origen:'2026-03-18', generador:'Requerimiento de acompañamiento', tipo:'Acompañamiento', vencimiento:'2026-04-02', alerta:'Normal', escrito:'Acompañamiento de documentos', estado:'No iniciado', responsable:'Paralegal documental', prioridad:'Media', observaciones:'Depende de recepción del cliente.' },
+          { origen:'2026-03-15', generador:'Resolución que confiere traslado', tipo:'Traslado', vencimiento:deadlineDate, alerta:normalizeAlert(alertLevel), escrito:'Contestación / evacuación de traslado', estado:'En redacción', responsable, prioridad:'Alta', computo:'dias_habiles_judiciales', reglaFuente:'Código de Procedimiento Civil', alertasDiasAntes:[3,1,0], observaciones:'Vinculado a resolución principal.' },
+          { origen:'2026-03-18', generador:'Requerimiento de acompañamiento', tipo:'Acompañamiento', vencimiento:'2026-04-02', alerta:'Normal', escrito:'Acompañamiento de documentos', estado:'No iniciado', responsable:'Paralegal documental', prioridad:'Media', computo:'manual', reglaFuente:'Resolución particular', alertasDiasAntes:[3,1,0], observaciones:'Depende de recepción del cliente.' },
         ],
         contenedor:{
           expediente:[
@@ -6477,7 +6711,9 @@
         const materia = resolvePjudMatterLabelFromCase(item);
         const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
         const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
-        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
+        const flexibleRoleKey = buildExcelFlexibleUniqueCaseKey({ tribunal, rol });
+        const roleKey = flexibleRoleKey || normalizeImportComparisonKey(rol);
+        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${roleKey}`;
         if (unique.has(key)) {
           duplicatesRemoved += 1;
           return;
@@ -7170,7 +7406,7 @@
           { label:'Cargar Excel depurado tribunal', action:'upload-tribunal-excel' },
           { label:'Listado General de Causas', action:'open-general-list' },
         ] },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Abrir Producción', primary:true, action:'open-branch' }, { label:'ChatGPT para redactar escritos', action:'producir-escritos' }] },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Redacta escritos desde una causa existente, edita el borrador, guarda versión y exporta Word sin cambiar de pantalla.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Redactar escrito rápido', primary:true, action:'producir-escritos' }, { label:'Ver centro de producción', action:'open-branch' }] },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -7883,17 +8119,29 @@
 
         const xlsxModule = await ensureXlsxModule();
         const workbook = xlsxModule.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-        const firstSheet = workbook.SheetNames?.[0];
-        const rows = firstSheet ? xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '', raw: false }) : [];
-        const required = ['rol','tribunal','fechaingreso','caratula'];
-        const headers = Object.keys(rows[0] || {}).map((h) => normalizeExcelHeaderKey(h));
-        const missing = required.filter((k) => !headers.includes(k));
-        if (missing.length) throw new Error(`Estructura inválida. Faltan columnas obligatorias: ${missing.join(', ')}`);
-        const normalizedRows = rows.map((row, idx) => {
-          const m = {};
-          Object.entries(row || {}).forEach(([k,v]) => { m[normalizeExcelHeaderLabel(k)] = String(v || '').trim(); });
-          return { row_number: idx + 2, rol: m.rol || '', tribunal: m.tribunal || '', tribunal_normalized: normalizeTribunalKey(m.tribunal || ''), fecha_ingreso: m.fecha_ingreso || '', caratula: m.caratula || '', estado_causa: m.estado_causa || '', institucion: m.institucion || '', tipo_causa: m.tipocausa || '', ruc: m.ruc || '' };
-        }).filter((r) => r.rol && r.tribunal);
+        const sheetNames = workbook.SheetNames || [];
+        const rows = sheetNames.flatMap((sheetName) => {
+          const sheetRows = xlsxModule.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '', raw: false });
+          return sheetRows.map((row, idx) => ({ row, sheetName, rowIndex: idx + 2 }));
+        });
+        const normalizedRows = rows.map(({ row, sheetName, rowIndex }) => {
+          const canonical = resolveExcelRowCanonical(row, { sheetName });
+          const matterLabel = resolvePjudMatterLabelFromCase({ tribunal: canonical.tribunal, materia: canonical.materia });
+          const caratula = pickBestCaratula(canonical.caratula);
+          return {
+            row_number: rowIndex,
+            rol: canonical.rol || canonical.rit || canonical.ruc || '',
+            tribunal: canonical.tribunal || '',
+            tribunal_normalized: normalizeTribunalKey(canonical.tribunal || ''),
+            fecha_ingreso: canonical.fecha || '',
+            caratula,
+            estado_causa: canonical.estado || '',
+            institucion: canonical.institucion || '',
+            tipo_causa: canonical.procedimiento || matterLabel || '',
+            ruc: canonical.ruc || '',
+          };
+        }).filter((r) => (r.rol || r.ruc) && r.tribunal);
+        if (!normalizedRows.length) throw new Error('Estructura invalida. No se encontraron filas con Rol/RIT/RUC y Tribunal en las hojas del Excel.');
         const metadata = {
           panel: 'general_pjud_excel',
           is_current_file: true,
@@ -7922,7 +8170,7 @@
         if (uploadErr) throw uploadErr;
         const uploadId = uploadRow.id;
         if (normalizedRows.length) {
-          const rowPayload = normalizedRows.map((r) => ({ owner_user_id: authenticatedUser.id, upload_id: uploadId, ...r, row_hash: `${r.rol}|${r.tribunal_normalized}|${r.row_number}` }));
+          const rowPayload = normalizedRows.map((r) => ({ owner_user_id: authenticatedUser.id, upload_id: uploadId, ...r, row_hash: `${r.rol}|${r.tribunal_normalized}|${r.tipo_causa}|${r.row_number}` }));
           const { error: rowsErr } = await supabase.from(T_PJUD_INDEX_ROWS).insert(rowPayload);
           if (rowsErr) throw rowsErr;
         }
@@ -8699,7 +8947,8 @@
           ));
           if (!alreadyLinked) {
             const originDate = isoDate(reference.fecha) || isoDate(new Date().toISOString());
-            const dueDate = next.proximoPlazo || isoDate(new Date(Date.now() + 5 * 86400000).toISOString());
+            const deadlineRule = findProceduralDeadlineRuleForReference(next, reference, deadlineType);
+            const dueDate = computeDeadlineFromRule(originDate, deadlineRule) || next.proximoPlazo || isoDate(new Date(Date.now() + 5 * 86400000).toISOString());
             next.plazos = [
               {
                 origen: originDate,
@@ -8711,7 +8960,12 @@
                 estado: 'No iniciado',
                 responsable: next.responsable || 'Equipo jurídico',
                 prioridad: reference.plazo && reference.plazo !== 'No fija' ? 'Alta' : 'Media',
-                observaciones: `Plazo vinculado manualmente desde ${reference.tipo}.`,
+                computo: deadlineRule?.computo || 'pendiente_validacion',
+                reglaFuente: deadlineRule?.fuente || 'Sin regla automática',
+                alertasDiasAntes: deadlineRule?.alertasDiasAntes || [3, 1, 0],
+                observaciones: deadlineRule
+                  ? `Plazo sugerido por regla "${deadlineRule.acto}" desde ${reference.tipo}. Validar notificación, feriados y suspensión.`
+                  : `Plazo vinculado manualmente desde ${reference.tipo}. Requiere cómputo jurídico.`,
               },
               ...(next.plazos || []),
             ];
@@ -8739,13 +8993,85 @@
       }
     }
 
+    function getDeadlineRuleMatterTokens(cause = {}){
+      const raw = [
+        cause.materia,
+        cause.procedimiento,
+        cause.tipoCausa,
+        cause.tribunal,
+        cause.estadoProcesal,
+      ].map(normalizeTextForMatch).join(' ');
+      const tokens = [];
+      if (raw.includes('famil')) tokens.push('familia');
+      if (raw.includes('labor') || raw.includes('trabaj')) tokens.push('laboral');
+      if (raw.includes('cobranza')) tokens.push('cobranza-laboral', 'laboral');
+      if (raw.includes('penal') || raw.includes('garantia') || raw.includes('oral')) tokens.push('penal-garantia-oral');
+      if (raw.includes('policia') || raw.includes('local')) tokens.push('policia-local');
+      if (raw.includes('miner')) tokens.push('minero');
+      if (raw.includes('agua')) tokens.push('aguas');
+      if (raw.includes('civil') || raw.includes('letras') || !tokens.length) tokens.push('civil');
+      tokens.push('transversal');
+      return [...new Set(tokens)];
+    }
+
+    function getProceduralDeadlineRulesForCause(cause = {}){
+      const tokens = getDeadlineRuleMatterTokens(cause);
+      return PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY.filter((rule) => tokens.includes(rule.materia));
+    }
+
+    function findProceduralDeadlineRuleForReference(cause = {}, reference = {}, fallbackType = ''){
+      const rules = getProceduralDeadlineRulesForCause(cause);
+      const haystack = normalizeTextForMatch([
+        reference.tipo,
+        reference.resumen,
+        reference.impacto,
+        reference.plazo,
+        fallbackType,
+      ].filter(Boolean).join(' '));
+      const scored = rules.map((rule) => {
+        const ruleText = normalizeTextForMatch([rule.acto, rule.disparador, rule.escrito, rule.procedimiento].join(' '));
+        let score = 0;
+        ruleText.split(/\s+/).filter((token) => token.length > 4).forEach((token) => {
+          if (haystack.includes(token)) score += 1;
+        });
+        if (haystack.includes('traslado') && normalizeTextForMatch(rule.acto).includes('traslado')) score += 5;
+        if (haystack.includes('apel') && normalizeTextForMatch(rule.acto).includes('apel')) score += 5;
+        if (haystack.includes('nulidad') && normalizeTextForMatch(rule.acto).includes('nulidad')) score += 5;
+        if (haystack.includes('repos') && normalizeTextForMatch(rule.acto).includes('repos')) score += 5;
+        return { rule, score };
+      }).sort((a, b) => b.score - a.score);
+      return scored[0]?.score > 0 ? scored[0].rule : rules[0] || null;
+    }
+
+    function renderProceduralDeadlineRules(cause = {}){
+      const origin = isoDate(cause.fechaNotificacion || cause.ultimaGestion || cause.fechaInicio || new Date().toISOString());
+      const rules = getProceduralDeadlineRulesForCause(cause).slice(0, 6);
+      if (!rules.length) return '';
+      return `
+        <div class="source-grid">
+          ${rules.map((rule) => {
+            const suggestedDue = computeDeadlineFromRule(origin, rule);
+            return `
+              <div class="source-item">
+                <strong>${escapeHtml(rule.acto)}</strong>
+                <div class="case-meta">${escapeHtml(rule.disparador)}</div>
+                <div class="timeline-meta">Plazo base: ${escapeHtml(rule.plazoDias)} día(s) · Cómputo: ${escapeHtml(rule.computo)} · Vence aprox.: ${escapeHtml(formatDate(suggestedDue))}</div>
+                <div class="timeline-meta">Alertas: ${escapeHtml((rule.alertasDiasAntes || []).join(', '))} día(s) antes · Fuente: ${escapeHtml(rule.fuente)}</div>
+                <div class="case-meta">${escapeHtml(rule.validacion)}</div>
+              </div>
+            `;
+          }).join('')}
+        </div>
+      `;
+    }
+
     function renderPlazos(cause){
       return `
         <section class="section-card">
           <div class="section-head">
             <div>
               <h4 class="section-title">Plazos, alertas y escritos vinculados</h4>
-              <p class="section-copy">Lógica central del módulo: resolución o actuación → plazo → alerta → escrito asociado → presentación.</p>
+              <p class="section-copy">Lógica central del módulo: resolución o actuación → regla procedimental → plazo computado → alerta → escrito asociado → presentación.</p>
             </div>
           </div>
           <div class="deadline-list">${cause.plazos.map(item => `
@@ -8756,11 +9082,19 @@
               </div>
               <div class="deadline-meta">Fecha de origen: ${escapeHtml(formatDate(item.origen))} · Generador: ${escapeHtml(item.generador)}</div>
               <div class="deadline-meta">Vencimiento: ${escapeHtml(formatDate(item.vencimiento))} · Días restantes: ${escapeHtml(daysBetween(item.vencimiento))}</div>
+              <div class="deadline-meta">Cómputo: ${escapeHtml(item.computo || 'Manual / pendiente de validar')} · Fuente regla: ${escapeHtml(item.reglaFuente || 'No informada')}</div>
               <div class="deadline-meta">Escrito requerido: ${escapeHtml(item.escrito)} · Estado: ${escapeHtml(item.estado)}</div>
               <div class="deadline-meta">Responsable: ${escapeHtml(item.responsable)} · Prioridad: ${escapeHtml(item.prioridad)}</div>
               <div class="case-meta">${escapeHtml(item.observaciones)}</div>
             </article>
           `).join('')}</div>
+          <div class="section-head" style="margin-top:14px">
+            <div>
+              <h4 class="section-title">Reglas procedimentales para cómputo</h4>
+              <p class="section-copy">Insumos automáticos para proponer vencimientos y alertas. El cálculo excluye fines de semana; feriados, suspensión y reglas especiales requieren revisión jurídica.</p>
+            </div>
+          </div>
+          ${renderProceduralDeadlineRules(cause)}
           <div class="source-grid">
             <div class="source-item"><strong>Automatización</strong><div class="case-meta">Toda actuación generadora de plazo puede crear plazo, alerta, escrito vinculado, responsable y visualización global de vencimientos.</div></div>
             <div class="source-item"><strong>Estados del escrito</strong><div class="case-meta">No iniciado, en redacción, en revisión, listo para presentar, presentado o vencido sin presentación.</div></div>
@@ -9675,12 +10009,12 @@
         tbody.innerHTML = '<tr><td colspan="5">No se encontraron causas en Expedientes Digitales con ese Rol y Tribunal.</td></tr>';
         return;
       }
-      const selectedCaseId = state.produccionDraft.selectedCaseId || '';
+      const selectedCaseId = String(state.produccionDraft.selectedCaseId || '');
       tbody.innerHTML = results.map((item) => {
         const status = escapeHtml(item.estadoProcesal || item.estado || 'Sin estado');
         return `
         <tr>
-          <td><input type="radio" name="producirEscritoSeleccion" value="${escapeHtml(item.id)}" ${selectedCaseId === item.id ? 'checked' : ''} aria-label="Seleccionar causa ${escapeHtml(item.rol || item.id)}" /></td>
+          <td><input type="radio" name="producirEscritoSeleccion" value="${escapeHtml(item.id)}" ${selectedCaseId === String(item.id || '') ? 'checked' : ''} aria-label="Seleccionar causa ${escapeHtml(item.rol || item.id)}" /></td>
           <td>${escapeHtml(item.rol || '—')}</td>
           <td>${escapeHtml(item.tribunal || '—')}</td>
           <td>${escapeHtml(item.caratula || '—')}</td>
@@ -9900,8 +10234,27 @@
       renderProduccionWorkspace();
     }
 
+    function prefillProduccionDraftFromCurrentCause(){
+      const currentCause = getCurrentCause();
+      if (!currentCause?.id || !currentCause?.rol || !currentCause?.tribunal) return false;
+      const rolInput = $('producirEscritoRol');
+      const tribunalInput = $('producirEscritoTribunal');
+      const alreadySelected = String(state.produccionDraft.selectedCaseId || '') === String(currentCause.id || '');
+      const emptySearch = !String(rolInput?.value || '').trim() && !String(tribunalInput?.value || '').trim();
+      if (!alreadySelected && !emptySearch && state.produccionDraft.selectedCaseId) return false;
+      if (rolInput) rolInput.value = currentCause.rol || '';
+      if (tribunalInput) tribunalInput.value = normalizeCourtLabel(currentCause.tribunal || '');
+      state.produccionDraft.matches = [currentCause];
+      state.produccionDraft.selectedCaseId = String(currentCause.id || '');
+      persistProduccionDraftSession();
+      renderProduccionDraftMatches(state.produccionDraft.matches);
+      setMessage('producirEscritoMsg', 'Causa cargada desde la ficha activa. Puedes generar el borrador directamente.', 'ok');
+      return true;
+    }
+
     function openProducirEscritosModal(){
       hydrateProduccionDraftSession();
+      prefillProduccionDraftFromCurrentCause();
       if ((state.produccionDraft.matches || []).length) renderProduccionDraftMatches(state.produccionDraft.matches || []);
       renderProduccionWorkspace();
       openManagedModal('modalProducirEscritos');
@@ -9954,11 +10307,414 @@
       return detalle;
     }
 
+    const PRODUCCION_WORD_FORMAT_PROMPT = [
+      'Todos los escritos deben quedar preparados para exportar a Word con formato jurídico obligatorio:',
+      'letra Deng Xian tamaño 14, texto justificado, sangría izquierda, primera línea con sangría e interlineado de espacio y medio.',
+      'Aplica las Normas Editoriales de la Revista Chilena de Derecho 2025 para citas, notas al pie y bibliografía.',
+      'No incluyas referencias bibliográficas completas en el texto del escrito. En el texto solo puede ir una frase narrativa, por ejemplo "Según el profesor [Autor]" o "Según la jurisprudencia de la Corte Suprema", seguida del superíndice numérico.',
+      'El número de llamada debe ir inmediatamente antes del signo de puntuación. Ejemplo: argumento[^1]. Si hay cita textual, escribe "texto citado"[^1].',
+      'Las notas al pie deben contener referencias abreviadas: AUTOR (año) p. o pp.; tribunal, caso o fecha y considerando; país y norma para leyes o códigos.',
+      'Cuando uses doctrina o jurisprudencia relevante, agrega al final los listados que correspondan: Bibliografía citada, Normas citadas y Jurisprudencia citada, con referencias completas.',
+      'Para jurisprudencia chilena completa: tribunal, fecha, rol o RUC/RIT, tipo de procedimiento y nombre de caso si corresponde.',
+      'Si la cita textual supera cincuenta palabras, sepárala del párrafo, sin comillas, dentro de un marco o bloque destacado; si es breve, usa comillas.',
+      'Usa el formato de referencia [^1] en el cuerpo y al final agrega la nota como [^1]: referencia abreviada conforme a RChD.',
+    ].join(' ');
+
+    const PRODUCCION_SUMAS_FORMAT_PROMPT = [
+      'Regla de estructura procesal obligatoria:',
+      'si el tipo de escrito es demanda nueva, el borrador debe comenzar con PRE SUMA o pre suma, usando datos de procedimiento, materia, demandante, demandado, representantes, domicilios y patrocinante cuando estén disponibles; después debe incluir la SUMA del escrito, por ejemplo "EN LO PRINCIPAL: ...; PRIMER OTROSÍ: ...".',
+      'Si el tipo de escrito es de mero trámite, no debe llevar PRE SUMA ni ficha inicial; debe iniciar directamente con la suma, tribunal y cuerpo del escrito según corresponda.',
+      'No inventes datos personales, RUT, domicilio ni personería; si faltan, deja el campo por completar.',
+    ].join(' ');
+
+    const PRODUCCION_PRACTICA_FORENSE_PROMPT = [
+      'Usa como biblioteca guía transversal de técnica forense la obra Práctica Forense de Diego Barros Aldunate, especialmente cuando sus formularios o estructuras sirvan para el escrito solicitado:',
+      'Tomo I, desde Abandono del procedimiento hasta Curador(es) y tutor(es); Tomo II, desde Cheque hasta Juzgados de Letras; Tomo III, desde Lanzamiento hasta Prueba, segunda instancia civil y testigos; Tomo IV, desde Queja disciplinaria hasta Vista de la causa; y formularios de contratos, tomo I.',
+      'Esta biblioteca se usa como insumo de orientación para escoger estructura, pre suma, suma, otrosíes, comparecencia, fundamentos, petitorios, documentos acompañados y fórmulas procesales o contractuales que sean pertinentes.',
+      'No la limites a causas civiles: úsala en cualquier materia donde aporte técnica de redacción, orden del escrito, fórmula procesal, fórmula contractual o apoyo de estilo forense.',
+      'No fuerces su uso si no calza con la materia o etapa. No copies formularios ni pasajes literales extensos. Redacta un escrito original, actualizado, adaptado a la causa, a la ley vigente y a los antecedentes seleccionados.',
+      'Si se menciona la obra como apoyo doctrinal o bibliográfico, cita en nota al pie abreviada conforme a RChD y agrega referencia completa en Bibliografía citada.',
+    ].join(' ');
+
+    const PRODUCCION_PRACTICA_FORENSE_LIBRARY = [
+      { titulo: 'Práctica Forense Civil, Tomo I', autor: 'Diego Barros Aldunate', alcance: 'Abandono del procedimiento a Curador(es) y tutor(es)' },
+      { titulo: 'Práctica Forense Civil, Tomo II', autor: 'Diego Barros Aldunate', alcance: 'Cheque a Juzgados de Letras' },
+      { titulo: 'Práctica Forense Civil, Tomo III', autor: 'Diego Barros Aldunate', alcance: 'Lanzamiento a Prueba, segunda instancia civil y testigos' },
+      { titulo: 'Práctica Forense Civil, Tomo IV', autor: 'Diego Barros Aldunate', alcance: 'Queja disciplinaria a Vista de la causa' },
+      { titulo: 'Práctica Forense. Formularios de contratos, Tomo I', autor: 'Diego Barros Aldunate', alcance: 'Adjudicación a contrato de cesión de derechos' },
+    ];
+
+    const PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY = [
+      {
+        materia: 'civil',
+        titulo: 'Esquemas de procedimiento civil y cumplimiento incidental',
+        uso: 'Estructura de juicio ordinario, ejecutivo, sumario, recursos, cumplimiento y etapas escritas.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Comunicación y cumplimiento de resoluciones judiciales', url: 'https://academiajudicial.cl/wp-content/uploads/2022/11/MD46-Comunicaciones-y-cumplimiento-de-resoluciones-judiciales.pdf', nota: 'Incluye figura/esquema de cumplimiento incidental.' },
+          { nombre: 'Código de Procedimiento Civil - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=22740', nota: 'Base normativa para validar etapas y plazos.' },
+        ],
+      },
+      {
+        materia: 'penal-garantia-oral',
+        titulo: 'Esquemas de procedimiento penal: garantía, etapa intermedia y juicio oral',
+        uso: 'Formalización, investigación, salidas alternativas, preparación de juicio oral, auto de apertura y audiencia de juicio oral.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Guía conducción audiencia de juicio oral', url: 'https://guias.academiajudicial.cl/guia_para_la_conduccion_de_la_audiencia_de_juicio_oral/', nota: 'Guía por etapas para juicio oral penal.' },
+          { nombre: 'Academia Judicial - Guías audiencias de término, control, investigación y ejecución', url: 'https://guias.academiajudicial.cl/guia-audiencias-de-termino-control-investigacion-y-ejecucion/', nota: 'Incluye esquemas de ejecución y audiencias penales.' },
+          { nombre: 'Código Procesal Penal - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=176595', nota: 'Base normativa para validar secuencia penal.' },
+        ],
+      },
+      {
+        materia: 'familia',
+        titulo: 'Esquemas de procedimiento ordinario y protección en tribunales de familia',
+        uso: 'Admisibilidad, audiencia preparatoria, audiencia de juicio, sentencia, medidas de protección y cumplimiento.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Curso habilitante Juez(a) de familia', url: 'https://academiajudicial.cl/wp-content/uploads/2021/10/10_Habilitante-Familia_Pub11.pdf', nota: 'Incluye sección 5.2 Esquema del procedimiento.' },
+          { nombre: 'Academia Judicial - Guía audiencias de familia procedimiento de protección', url: 'https://guias.academiajudicial.cl/guia_para_la_conduccion_de_las_audiencias_de_familia_procedimiento_de_proteccion/', nota: 'Guía por etapas para medidas de protección.' },
+        ],
+      },
+      {
+        materia: 'laboral',
+        titulo: 'Esquemas de procedimiento laboral',
+        uso: 'Procedimiento de aplicación general, audiencia preparatoria, juicio, monitorio, tutela y reclamaciones.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Manual de juicio del trabajo', url: 'https://academiajudicial.cl/wp-content/uploads/2021/11/Manual_juic_trabV2.pdf', nota: 'Base docente de procedimientos laborales.' },
+          { nombre: 'Academia Judicial - Guía audiencia preparatoria laboral', url: 'https://guias.academiajudicial.cl/guia-para-la-conduccion-de-la-audiencia-laborales-del-procedimiento-preparatorio/2-audiencia-preparatoria/', nota: 'Etapas para depuración de conflicto y prueba.' },
+        ],
+      },
+      {
+        materia: 'cobranza-laboral',
+        titulo: 'Esquemas de cobranza laboral y previsional',
+        uso: 'Títulos ejecutivos laborales, requerimiento, oposición, liquidación, apremios y ejecución previsional.',
+        fuentes: [
+          { nombre: 'Academia Judicial - Manual de la cobranza ejecutiva laboral y previsional', url: 'https://academiajudicial.cl/wp-content/uploads/2021/11/Manual_cobV2.pdf', nota: 'Manual específico del procedimiento de cobranza.' },
+        ],
+      },
+      {
+        materia: 'policia-local',
+        titulo: 'Esquemas de procedimiento ante Juzgados de Policía Local',
+        uso: 'Denuncia/infracción, citación, comparendo, prueba, sentencia, pago anticipado, recursos y cumplimiento.',
+        fuentes: [
+          { nombre: 'Ley N° 18.287 - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=29705', nota: 'Procedimiento ante Juzgados de Policía Local.' },
+          { nombre: 'Academia Judicial - Plazos en Corte de Apelaciones por materia', url: 'https://guias.academiajudicial.cl/guia-para-la-conduccion-de-audiencias-en-corte-de-apelaciones/iv-plazos-para-dictar-sentencia-en-cortes-de-apelaciones/', nota: 'Referencia para plazos de sentencia y recursos en materias de Ley 18.287.' },
+        ],
+      },
+      {
+        materia: 'minero',
+        titulo: 'Esquemas de procedimientos mineros y administrativos SERNAGEOMIN',
+        uso: 'Tramitación y revisión de proyectos mineros, planes de cierre, admisibilidad, fondo, observaciones y resolución.',
+        fuentes: [
+          { nombre: 'SERNAGEOMIN - Guía planes de cierre procedimiento simplificado', url: 'https://catalogobiblioteca.sernageomin.cl/Archivos/14731revisar.pdf', nota: 'Incluye esquemas de tramitación y revisión de proyectos.' },
+          { nombre: 'SERNAGEOMIN - Normativa de seguridad minera', url: 'https://catalogobiblioteca.sernageomin.cl/Archivos/R_14844.pdf', nota: 'Incluye esquema del proceso de revisión de proyectos mineros.' },
+        ],
+      },
+      {
+        materia: 'aguas',
+        titulo: 'Esquemas de procedimientos de aguas',
+        uso: 'Derechos de aprovechamiento, catastro público, organizaciones de usuarios, DGA, regularización, fiscalización y sancionatorio.',
+        fuentes: [
+          { nombre: 'CNR - Asociaciones de empresas hidroeléctricas y Código de Aguas', url: 'https://www.cnr.gob.cl/wp-content/uploads/2022/07/AsocEmpresasHidro.pdf', nota: 'Incluye esquema de fases del procedimiento para inscripción/catastro.' },
+          { nombre: 'Código de Aguas - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=5605', nota: 'Base normativa para validar procedimientos de aguas.' },
+          { nombre: 'Scielo - procedimiento sancionador en materia de aguas', url: 'https://www.scielo.cl/scielo.php?pid=S0718-00122022000300202&script=sci_arttext', nota: 'Referencia doctrinal sobre fases del procedimiento sancionador DGA.' },
+        ],
+      },
+      {
+        materia: 'recursos-procesales',
+        titulo: 'Esquemas de recursos procesales e impugnaciones',
+        uso: 'Reposición, apelación, hecho, casación, nulidad penal, nulidad laboral, unificación de jurisprudencia, queja, protección, recursos de familia y recursos especiales por materia.',
+        fuentes: [
+          { nombre: 'Código de Procedimiento Civil - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=22740', nota: 'Base para reposición, apelación, hecho, casación, aclaración y recursos civiles.' },
+          { nombre: 'Código Procesal Penal - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=176595', nota: 'Base para reposición, apelación y nulidad penal.' },
+          { nombre: 'Academia Judicial - Recurso de nulidad penal y laboral', url: 'https://academiajudicial.cl/wp-content/uploads/2021/10/2043.pdf', nota: 'Material docente sobre nulidad penal y laboral.' },
+          { nombre: 'Academia Judicial - Recurso de nulidad en materia laboral y penal', url: 'https://academiajudicial.cl/wp-content/uploads/2026/02/025471_Ebook-segundo-envio.pdf', nota: 'Material actualizado sobre control formal, causales y fundamentación.' },
+          { nombre: 'Ley N° 19.968 Tribunales de Familia - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=229557', nota: 'Reglas especiales de impugnación en familia y remisión al CPC.' },
+          { nombre: 'Código del Trabajo - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=207436', nota: 'Base para nulidad laboral, unificación de jurisprudencia y recursos laborales.' },
+          { nombre: 'Código Orgánico de Tribunales - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=25563', nota: 'Base para recurso de queja y competencia de tribunales superiores.' },
+          { nombre: 'Auto Acordado Recurso de Protección - Corte Suprema', url: 'https://www.sii.cl/pagina/jurisprudencia/judicial/2015/otras/jj4258.htm', nota: 'Referencia pública del texto refundido sobre tramitación y fallo del recurso de protección.' },
+          { nombre: 'Ley N° 18.287 Juzgados de Policía Local - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=29705', nota: 'Reglas de apelación y limitaciones recursivas en policía local.' },
+          { nombre: 'Código de Aguas - BCN/Ley Chile', url: 'https://www.bcn.cl/leychile/navegar?idNorma=5605', nota: 'Referencia para reclamaciones y recursos especiales en materia de aguas.' },
+        ],
+      },
+    ];
+
+    const PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY = [
+      {
+        materia: 'civil',
+        procedimiento: 'general',
+        acto: 'Traslado',
+        disparador: 'Resolución que confiere traslado o evacuar traslado',
+        plazoDias: 3,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [3, 1, 0],
+        escrito: 'Evacuar traslado / téngase presente',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Validar norma especial, fecha de notificación efectiva y eventuales feriados o suspensión.'
+      },
+      {
+        materia: 'civil',
+        procedimiento: 'recurso',
+        acto: 'Reposición',
+        disparador: 'Resolución susceptible de reposición',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de reposición, con apelación subsidiaria si procede',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Revisar si procede reposición ordinaria, extraordinaria o regla especial.'
+      },
+      {
+        materia: 'civil',
+        procedimiento: 'recurso',
+        acto: 'Apelación civil',
+        disparador: 'Sentencia definitiva o interlocutoria apelable',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación',
+        fuente: 'Código de Procedimiento Civil',
+        validacion: 'Confirmar si la resolución tiene plazo especial, si es sentencia definitiva y si conviene subsidiar.'
+      },
+      {
+        materia: 'penal-garantia-oral',
+        procedimiento: 'recurso',
+        acto: 'Apelación penal',
+        disparador: 'Resolución penal apelable',
+        plazoDias: 5,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación penal',
+        fuente: 'Código Procesal Penal',
+        validacion: 'Validar procedencia expresa, tribunal competente y efecto del recurso.'
+      },
+      {
+        materia: 'penal-garantia-oral',
+        procedimiento: 'recurso',
+        acto: 'Nulidad penal',
+        disparador: 'Sentencia definitiva de juicio oral, simplificado o acción penal privada',
+        plazoDias: 10,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de nulidad penal',
+        fuente: 'Código Procesal Penal / Academia Judicial',
+        validacion: 'Validar causal, preparación del recurso, competencia y peticiones anulatorias.'
+      },
+      {
+        materia: 'familia',
+        procedimiento: 'recurso',
+        acto: 'Apelación familia',
+        disparador: 'Resolución impugnable en procedimiento de familia',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación en familia',
+        fuente: 'Ley N° 19.968 / Código de Procedimiento Civil',
+        validacion: 'Verificar compatibilidad con oralidad, reglas especiales y naturaleza de la resolución.'
+      },
+      {
+        materia: 'laboral',
+        procedimiento: 'recurso',
+        acto: 'Nulidad laboral',
+        disparador: 'Sentencia definitiva laboral',
+        plazoDias: 10,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de nulidad laboral',
+        fuente: 'Código del Trabajo / Academia Judicial',
+        validacion: 'Validar causal, preparación, infracción sustancial y peticiones de reemplazo o invalidación.'
+      },
+      {
+        materia: 'laboral',
+        procedimiento: 'recurso',
+        acto: 'Unificación de jurisprudencia',
+        disparador: 'Sentencia de Corte que falla nulidad laboral',
+        plazoDias: 15,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [10, 5, 3, 1, 0],
+        escrito: 'Recurso de unificación de jurisprudencia',
+        fuente: 'Código del Trabajo',
+        validacion: 'Verificar existencia de materia de derecho, sentencias de contraste y requisitos de admisibilidad.'
+      },
+      {
+        materia: 'policia-local',
+        procedimiento: 'recurso',
+        acto: 'Apelación policía local',
+        disparador: 'Sentencia o resolución apelable de Juzgado de Policía Local',
+        plazoDias: 5,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de apelación policía local',
+        fuente: 'Ley N° 18.287',
+        validacion: 'Validar si la sentencia o resolución admite recurso y si existe regla especial.'
+      },
+      {
+        materia: 'aguas',
+        procedimiento: 'recurso',
+        acto: 'Reclamación aguas',
+        disparador: 'Resolución administrativa o actuación DGA reclamable',
+        plazoDias: 30,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [15, 10, 5, 3, 1, 0],
+        escrito: 'Reclamación o recurso especial en materia de aguas',
+        fuente: 'Código de Aguas',
+        validacion: 'Validar vía específica, tribunal competente, legitimación y notificación administrativa.'
+      },
+      {
+        materia: 'transversal',
+        procedimiento: 'recurso',
+        acto: 'Queja',
+        disparador: 'Falta o abuso grave en resolución jurisdiccional',
+        plazoDias: 5,
+        computo: 'dias_habiles_judiciales',
+        alertasDiasAntes: [5, 3, 1, 0],
+        escrito: 'Recurso de queja',
+        fuente: 'Código Orgánico de Tribunales',
+        validacion: 'Confirmar procedencia excepcional, falta o abuso grave, resolución impugnada y recursos ordinarios.'
+      },
+      {
+        materia: 'transversal',
+        procedimiento: 'constitucional',
+        acto: 'Protección',
+        disparador: 'Acto u omisión arbitrario o ilegal que afecta garantías protegidas',
+        plazoDias: 30,
+        computo: 'dias_corridos',
+        alertasDiasAntes: [15, 10, 5, 3, 1, 0],
+        escrito: 'Recurso de protección',
+        fuente: 'Auto Acordado Corte Suprema',
+        validacion: 'Validar fecha de conocimiento, garantía afectada, recurrido y Corte competente.'
+      },
+    ];
+
+    const PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT = [
+      'Usa la biblioteca de esquemas gráficos/procedimentales como mapa de etapas para preparar escritos.',
+      'Materias cubiertas: civil, garantía y juicio oral penal, familia, laboral, cobranza laboral, policía local, minero, aguas y recursos procesales.',
+      'Consulta primero la materia de la causa y el tipo de escrito; luego aplica solo los esquemas pertinentes.',
+      'Los esquemas sirven para ordenar etapa procesal, plazos, audiencia, recurso, prueba, cumplimiento, petitorio y otrosíes.',
+      'Si el escrito es un recurso procesal, identifica resolución impugnada, agravio, plazo, tribunal a quo/ad quem, causal, peticiones concretas y compatibilidad con recursos subsidiarios.',
+      'Para alertas y plazos, usa PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY como insumo inicial de cómputo; siempre exige validación humana antes de presentar.',
+      'No copies imágenes ni texto de terceros; usa las fuentes como orientación y valida siempre con la norma vigente.',
+    ].join(' ');
+
+    function normalizeProduccionTipoText(value = ''){
+      return normalizeTextForMatch(String(value || ''));
+    }
+
+    function isProduccionDemandaNueva(tipoEscrito = ''){
+      const normalized = normalizeProduccionTipoText(tipoEscrito);
+      return normalized.includes('demanda nueva') || normalized === 'demanda' || normalized.includes('gestion preparatoria') || normalized.includes('medida prejudicial');
+    }
+
+    function isProduccionMeroTramite(tipoEscrito = ''){
+      const normalized = normalizeProduccionTipoText(tipoEscrito);
+      return normalized.includes('mero tramite') || normalized === 'escrito de tramite' || normalized === 'tramite';
+    }
+
+    function hasProduccionPreSuma(text = ''){
+      return /(^|\n)\s*(pre[\s-]*suma|procedimiento\s*:|materia\s*:|demandante\s*:|solicitante\s*:)/i.test(String(text || '').slice(0, 1600));
+    }
+
+    function stripProduccionPreSumaForMeroTramite(text = ''){
+      const source = String(text || '').trim();
+      if (!hasProduccionPreSuma(source)) return source;
+      const sumaStart = source.search(/(^|\n)\s*(en\s+lo\s+principal\s*:|suma\s*:|señor\s+juez|s\.\s*j\.\s*l\.|s\.\s+s\.)/i);
+      if (sumaStart <= 0) return source;
+      return source.slice(sumaStart).trim();
+    }
+
+    function getProduccionPartyByRole(cause, rolePattern){
+      const parties = asArray(cause?.partes || cause?.parties);
+      const match = parties.find((party) => rolePattern.test(String(party?.rol || party?.role || '')));
+      return String(match?.nombre || match?.name || '').trim();
+    }
+
+    function buildProduccionPreSumaHtml(cause){
+      const demandante = getProduccionPartyByRole(cause, /demandante|solicitante|ejecutante|actor/i) || cause?.cliente || cause?.clientePrincipal || 'Por completar';
+      const demandado = getProduccionPartyByRole(cause, /demandado|requerido|ejecutado|contraparte/i) || 'Por completar';
+      const representante = getProduccionPartyByRole(cause, /representante/i) || 'Por completar';
+      const patrocinante = cause?.responsable || cause?.abogadoResponsable || 'Por completar';
+      const rows = [
+        ['PROCEDIMIENTO', cause?.procedimiento || 'Por completar'],
+        ['MATERIA', cause?.materia || 'Por completar'],
+        ['DEMANDANTE', demandante],
+        ['REPRESENTANTE', representante],
+        ['DEMANDADO', demandado],
+        ['PATROCINANTE', patrocinante],
+      ];
+      return `
+        <div class="pre-suma-block">
+          <p class="pre-suma-title"><strong>PRE SUMA</strong></p>
+          ${rows.map(([label, value]) => `<p class="pre-suma-line"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value || 'Por completar')}</p>`).join('')}
+        </div>
+      `;
+    }
+
+    function normalizeFootnoteReferenceToken(value){
+      return String(value || '').replace(/[^\d]/g, '');
+    }
+
+    function buildWordFootnoteReference(number){
+      const safeNumber = escapeHtml(number);
+      return `<a href="#_ftn${safeNumber}" name="_ftnref${safeNumber}" class="footnote-ref" style="mso-footnote-id:ftn${safeNumber};"><sup>${safeNumber}</sup></a>`;
+    }
+
+    function buildCitationBoxHtml(text){
+      const normalized = String(text || '').replace(/^\s*(?:extracto|cita)\s*[:.-]\s*/i, '').trim();
+      if (!normalized) return '';
+      return `<div class="citation-box">${escapeHtml(normalized)}</div>`;
+    }
+
+    function parseProduccionDraftForWord(draftText = ''){
+      const footnotes = [];
+      const bodyLines = [];
+      const rawLines = String(draftText || '').replace(/\r\n/g, '\n').split('\n');
+      rawLines.forEach((rawLine) => {
+        const line = String(rawLine || '').trim();
+        const footnoteMatch = line.match(/^(?:\[\^?(\d+)\]|(?:nota|cita)\s*(\d+))\s*[:.-]\s*(.+)$/i);
+        if (footnoteMatch) {
+          const number = normalizeFootnoteReferenceToken(footnoteMatch[1] || footnoteMatch[2]);
+          const text = String(footnoteMatch[3] || '').trim();
+          if (number && text) footnotes.push({ number, text });
+          return;
+        }
+        bodyLines.push(rawLine);
+      });
+
+      const bodyText = bodyLines.join('\n').trim();
+      const footnoteNumbers = new Set(footnotes.map((item) => item.number));
+      return {
+        bodyText,
+        footnotes,
+        replaceReferences(html = ''){
+          return String(html || '')
+            .replace(/\[\^(\d+)\]/g, (_match, number) => {
+              const normalized = normalizeFootnoteReferenceToken(number);
+              if (!normalized) return '';
+              if (!footnoteNumbers.has(normalized)) footnotes.push({ number: normalized, text: 'Completar referencia bibliográfica o jurisprudencial.' });
+              footnoteNumbers.add(normalized);
+              return buildWordFootnoteReference(normalized);
+            })
+            .replace(/\[(\d{1,3})\]/g, (_match, number) => {
+              const normalized = normalizeFootnoteReferenceToken(number);
+              if (!normalized) return '';
+              if (!footnoteNumbers.has(normalized)) footnotes.push({ number: normalized, text: 'Completar referencia bibliográfica o jurisprudencial.' });
+              footnoteNumbers.add(normalized);
+              return buildWordFootnoteReference(normalized);
+            });
+        },
+      };
+    }
+
     function buildProduccionDraftWordHtml({ cause, tipoEscrito, draftText }){
       const fecha = new Date().toISOString().slice(0, 10);
+      const parsedDraft = parseProduccionDraftForWord(draftText);
+      const isMeroTramite = isProduccionMeroTramite(tipoEscrito);
+      const bodyTextForWord = isMeroTramite ? stripProduccionPreSumaForMeroTramite(parsedDraft.bodyText) : parsedDraft.bodyText;
+      const shouldAddPreSuma = isProduccionDemandaNueva(tipoEscrito) && !hasProduccionPreSuma(bodyTextForWord);
       const applyMandatoryLegalMarkers = (paragraphText = '') => {
         const normalized = String(paragraphText || '').trim();
         if (!normalized) return { html: '', className: '' };
+        if (/^(?:extracto|cita)\s*[:.-]/i.test(normalized)) {
+          return { html: buildCitationBoxHtml(normalized), className: 'citation-paragraph' };
+        }
         const escaped = escapeHtml(normalized);
         const isPorTanto = /^POR\s+TANTO\b[:.,;]?/i.test(normalized);
         if (isPorTanto) return { html: `<strong>${escaped}</strong>`, className: 'legal-center' };
@@ -9966,9 +10722,9 @@
           .replace(/\bEN\s+LO\s+PRINCIPAL\b/gi, '<strong>EN LO PRINCIPAL</strong>')
           .replace(/\bOTROS[ÍI]\b/gi, '<strong>OTROSÍ</strong>')
           .replace(/\bS\.S\.\b/gi, '<strong>S.S.</strong>');
-        return { html: highlighted, className: '' };
+        return { html: parsedDraft.replaceReferences(highlighted), className: '' };
       };
-      const bodyParagraphs = String(draftText || '')
+      const bodyParagraphs = String(bodyTextForWord || '')
         .split(/\n{2,}/)
         .map((line) => line.trim())
         .filter(Boolean)
@@ -9978,6 +10734,17 @@
           return `<p${paragraphClass}>${formatted.html}</p>`;
         })
         .join('');
+      const footnotesHtml = parsedDraft.footnotes
+        .sort((a, b) => Number(a.number) - Number(b.number))
+        .map((item) => `
+          <div id="_ftn${escapeHtml(item.number)}" class="footnote-item" style="mso-element:footnote;">
+            <p class="footnote-text">
+              <a href="#_ftnref${escapeHtml(item.number)}" name="_ftn${escapeHtml(item.number)}" style="mso-footnote-id:ftn${escapeHtml(item.number)};"><sup>${escapeHtml(item.number)}</sup></a>
+              <span>${escapeHtml(item.text)}</span>
+            </p>
+          </div>
+        `)
+        .join('');
       return `<!doctype html>
 <html lang="es-CL" xml:lang="es-CL">
 <head>
@@ -9985,16 +10752,27 @@
   <title>Borrador ${escapeHtml(tipoEscrito)} - ${escapeHtml(cause.rol || cause.id)}</title>
   <style>
     @page { size: 8.5in 13in; margin: 2.5cm 2cm; }
-    body { font-family: "Deng Xian", "DengXian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; mso-ansi-language: ES-CL; mso-fareast-language: ES-CL; mso-bidi-language: ES-CL; }
-    p { margin: 0 0 14pt; text-align: justify; text-indent: 1.25cm; }
+    body { font-family: "Deng Xian", "DengXian", serif; font-size: 14pt; line-height: 1.5; text-align: justify; mso-line-height-alt: 150%; mso-ansi-language: ES-CL; mso-fareast-language: ES-CL; mso-bidi-language: ES-CL; }
+    p { margin: 0 0 14pt 1cm; text-align: justify; text-indent: 1.25cm; line-height: 1.5; }
+    .document-meta { text-indent: 0; margin-left: 0; }
     .legal-center { text-align: center; text-indent: 0; }
-    .footnote-body { font-size: 11pt; margin-top: 22pt; border-top: 1px solid #777; padding-top: 10pt; }
+    .pre-suma-block { margin: 0 0 18pt 0; }
+    .pre-suma-title { text-indent: 0; margin-left: 0; text-align: center; }
+    .pre-suma-line { text-indent: 0; margin: 0 0 8pt 0; text-align: left; line-height: 1.5; }
+    .citation-paragraph { text-indent: 0; margin-left: 1cm; }
+    .citation-box { border: 1.2pt solid #333; padding: 10pt 12pt; margin: 8pt 0 14pt 1cm; text-align: justify; line-height: 1.5; background: #fff; }
+    .footnote-ref { color: #000; text-decoration: none; font-size: 10pt; vertical-align: super; }
+    .footnotes { font-family: "Times New Roman", serif; font-size: 10pt; line-height: 1; margin-top: 22pt; border-top: 1px solid #777; padding-top: 8pt; page-break-inside: avoid; mso-line-height-alt: 100%; }
+    .footnote-item { margin: 0 0 6pt 0; text-align: justify; }
+    .footnote-text { font-family: "Times New Roman", serif; font-size: 10pt; line-height: 1; text-indent: 0; margin: 0; mso-line-height-alt: 100%; }
+    .footnote-item a { color: #000; text-decoration: none; margin-right: 4pt; }
   </style>
 </head>
 <body>
-  <p style="text-indent:0;"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+  <p class="document-meta"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+  ${shouldAddPreSuma ? buildProduccionPreSumaHtml(cause) : ''}
   ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
-  <div class="footnote-body">Notas y citas quedan preparadas como referencias de pie de página para edición en Word.</div>
+  ${footnotesHtml ? `<div class="footnotes" style="mso-element:footnote-list;"><strong>Notas al pie</strong>${footnotesHtml}</div>` : ''}
 </body>
 </html>`;
     }
@@ -10052,6 +10830,11 @@
       const antecedentes = await collectProduccionSelectedAntecedentes(selectedCause);
       const instrucciones = String($('producirEscritoInstrucciones')?.value || '').trim();
       const ajuste = String($('producirEscritoAjuste')?.value || '').trim();
+      const structurePrompt = isProduccionDemandaNueva(tipoEscrito)
+        ? `${PRODUCCION_SUMAS_FORMAT_PROMPT} Este escrito fue clasificado como demanda nueva: debe iniciar con PRE SUMA y luego SUMA.`
+        : isProduccionMeroTramite(tipoEscrito)
+          ? `${PRODUCCION_SUMAS_FORMAT_PROMPT} Este escrito fue clasificado como mero trámite: está prohibido incluir PRE SUMA.`
+          : PRODUCCION_SUMAS_FORMAT_PROMPT;
       state.produccionDraft.isDraftLoading = true;
       state.produccionDraft.draftError = '';
       setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
@@ -10062,6 +10845,9 @@
         doctrina: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('doctrin')),
         codigos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('codigo') || normalizeTextForMatch(item.category).includes('ley')),
         leyesEspeciales: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('ley especial')),
+        practicaForense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
+        esquemasProcedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
+        plazosProcedimentalesComputables: PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY,
         documentos: antecedentes,
         audios: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('audio')),
         videos: antecedentes.filter((item) => normalizeTextForMatch(item.category).includes('video')),
@@ -10082,8 +10868,14 @@
         documentosSeleccionados: antecedentes,
         documentos_seleccionados: antecedentes,
         insumos_documentales: insumosDocumentales,
-        citationRules: 'Aplicar norma de cita jurídica chilena: citas abreviadas en pie de página + bibliografía final, sin copiar textos extensos literalmente.',
-        stylePrompt: 'Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros y citas preparadas para pie de página.',
+        citationRules: PRODUCCION_WORD_FORMAT_PROMPT,
+        structureRules: structurePrompt,
+        practicaForenseRules: PRODUCCION_PRACTICA_FORENSE_PROMPT,
+        practica_forense: PRODUCCION_PRACTICA_FORENSE_LIBRARY,
+        proceduralSchemesRules: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT,
+        esquemas_procedimientos: PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_LIBRARY,
+        plazos_procedimentales_computables: PLAZOS_PROCEDIMENTALES_COMPUTABLES_LIBRARY,
+        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt} ${PRODUCCION_PRACTICA_FORENSE_PROMPT} ${PRODUCCION_ESQUEMAS_PROCEDIMIENTOS_PROMPT}`,
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
@@ -10424,6 +11216,102 @@
       return `${tribunalKey}|${rolKey}`;
     }
 
+    function isDateLikeText(value = ''){
+      const text = String(value || '').trim();
+      if (!text) return false;
+      if (/^\d{1,2}[/-]\d{1,2}[/-](?:19|20)?\d{2}$/.test(text)) return true;
+      if (/^(?:19|20)\d{2}[/-]\d{1,2}[/-]\d{1,2}$/.test(text)) return true;
+      const parsed = new Date(text);
+      return /^\d/.test(text) && !Number.isNaN(parsed.getTime()) && !/[a-záéíóúñ]/i.test(text);
+    }
+
+    function hasMeaningfulCaratula(value = ''){
+      const normalized = normalizeCaratula(String(value || '').trim());
+      if (!normalized) return false;
+      if (normalizeTextForMatch(normalized) === 'sin caratula') return false;
+      return !isDateLikeText(normalized);
+    }
+
+    function pickBestCaratula(...values){
+      return values.map((value) => normalizeCaratula(String(value || '').trim())).find(hasMeaningfulCaratula) || '';
+    }
+
+    function scoreExcelCaseMatch(row = {}, cause = {}){
+      const rowRole = parsePjudStructuredRole(row?.rol || row?.rit || '');
+      const causeRole = parsePjudStructuredRole(cause?.rol || cause?.rit || '');
+      let score = 0;
+      if (hasMeaningfulCaratula(cause?.caratula || cause?.pjud_caratulado)) score += 100;
+      if (causeRole.roleLetter) score += 30;
+      if (rowRole.roleLetter && causeRole.roleLetter === rowRole.roleLetter) score += 40;
+      if (String(cause?.cliente || '').trim() && !/sin\s+(institucion|vinculo)/i.test(String(cause?.cliente || ''))) score += 10;
+      if (String(cause?.id || '').trim()) score += 1;
+      return score;
+    }
+
+    function chooseBestExcelCaseMatch(row = {}, matches = []){
+      return [...(matches || [])]
+        .filter(Boolean)
+        .sort((a, b) => scoreExcelCaseMatch(row, b) - scoreExcelCaseMatch(row, a))[0] || null;
+    }
+
+    function resolveExcelCivilRol(row = {}, matchedCase = null){
+      const rowRol = normalizeIdentifierValue(row?.rol || row?.rit || '');
+      const matchedRol = normalizeIdentifierValue(matchedCase?.rol || matchedCase?.rit || '');
+      const rowRole = parsePjudStructuredRole(rowRol);
+      const matchedRole = parsePjudStructuredRole(matchedRol);
+      const sameNumberYear = Number.isFinite(rowRole.roleNumber)
+        && Number.isFinite(rowRole.roleYear)
+        && rowRole.roleNumber === matchedRole.roleNumber
+        && rowRole.roleYear === matchedRole.roleYear;
+      if (!sameNumberYear) return rowRol || matchedRol;
+      if (rowRole.roleLetter && (!matchedRole.roleLetter || matchedRol.length <= rowRol.length)) return rowRol;
+      return matchedRol || rowRol;
+    }
+
+    function preferExcelRol(current = '', candidate = ''){
+      const currentRol = normalizeIdentifierValue(current);
+      const candidateRol = normalizeIdentifierValue(candidate);
+      if (!currentRol) return candidateRol;
+      if (!candidateRol) return currentRol;
+      const currentRole = parsePjudStructuredRole(currentRol);
+      const candidateRole = parsePjudStructuredRole(candidateRol);
+      const sameNumberYear = Number.isFinite(currentRole.roleNumber)
+        && Number.isFinite(currentRole.roleYear)
+        && currentRole.roleNumber === candidateRole.roleNumber
+        && currentRole.roleYear === candidateRole.roleYear;
+      if (sameNumberYear && candidateRole.roleLetter && !currentRole.roleLetter) return candidateRol;
+      if (sameNumberYear && candidateRole.roleLetter && candidateRol.length > currentRol.length) return candidateRol;
+      return currentRol;
+    }
+
+    function mergeExcelCaseRows(primary = {}, candidate = {}){
+      return {
+        ...primary,
+        ...candidate,
+        rol: preferExcelRol(primary?.rol, candidate?.rol),
+        tribunal: primary?.tribunal || candidate?.tribunal || '',
+        caratula: pickBestCaratula(primary?.caratula, candidate?.caratula) || primary?.caratula || candidate?.caratula || '',
+        estado: candidate?.estado || primary?.estado || '',
+        fecha: candidate?.fecha || primary?.fecha || '',
+        institucion: candidate?.institucion || primary?.institucion || '',
+        raw: { ...(primary?.raw || {}), ...(candidate?.raw || {}) },
+      };
+    }
+
+    function consolidateExcelRowsByFlexibleCase(rows = []){
+      const grouped = new Map();
+      const passthrough = [];
+      rows.forEach((row) => {
+        const key = buildExcelFlexibleUniqueCaseKey(row);
+        if (!key) {
+          passthrough.push(row);
+          return;
+        }
+        grouped.set(key, grouped.has(key) ? mergeExcelCaseRows(grouped.get(key), row) : row);
+      });
+      return [...grouped.values(), ...passthrough];
+    }
+
     function findCaseByTribunalAndRol(tribunal = '', rol = ''){
       const expectedKey = normalizeTribunalAndRolKey(tribunal, rol);
       if (!expectedKey || expectedKey === '|') return null;
@@ -10432,6 +11320,23 @@
 
     function buildExcelRealUniqueCaseKey(row = {}){
       return normalizeTribunalAndRolKey(row?.tribunal || row?.court || '', row?.rol || row?.rit || '');
+    }
+
+    function buildExcelFlexibleUniqueCaseKey(row = {}){
+      const tribunal = normalizeCourtForFlexibleMatch(row?.tribunal || row?.court || '');
+      const roleKey = buildExcelFlexibleMatchKey(row?.rol || row?.rit || '');
+      return tribunal && roleKey ? `${tribunal}|${roleKey}` : '';
+    }
+
+    function buildCanonicalJudicialCaseKey({ materia = '', tribunal = '', rol = '', rit = '', ruc = '', fallback = '' } = {}){
+      const matterKey = normalizePjudText(resolvePjudMatterLabelFromCase({ tribunal, materia })).replace(/[^a-z0-9]+/g, '_');
+      const flexibleKey = buildExcelFlexibleUniqueCaseKey({ tribunal, rol: rol || rit });
+      if (matterKey && flexibleKey) return `${matterKey}|${flexibleKey}`;
+      const rucKey = normalizePjudKey(ruc);
+      const courtKey = normalizeCourtForFlexibleMatch(tribunal);
+      if (matterKey && courtKey && rucKey) return `${matterKey}|${courtKey}|ruc|${rucKey}`;
+      const fallbackKey = normalizePjudKey(fallback);
+      return fallbackKey ? `${matterKey || 'materia'}|${courtKey || 'tribunal'}|${fallbackKey}` : '';
     }
 
     function summarizeStack(error){
@@ -11078,10 +11983,17 @@
     function normalizeExcelHeaderLabel(label = ''){
       const normalized = normalizeExcelHeaderKey(label);
       if (normalized === 'rol') return 'rol';
+      if (normalized === 'rit') return 'rit';
+      if (normalized === 'ruc') return 'ruc';
+      if (normalized === 'era') return 'era';
+      if (normalized === 'corte') return 'corte';
       if (normalized === 'tribunal') return 'tribunal';
       if (normalized === 'caratulado') return 'caratula';
       if (normalized === 'fechaingreso') return 'fecha_ingreso';
+      if (normalized === 'fechaubicacion') return 'fecha_ubicacion';
       if (normalized === 'estadocausa') return 'estado_causa';
+      if (normalized === 'estadoprocesal') return 'estado_causa';
+      if (normalized === 'tipocausa') return 'tipo_causa';
       if (normalized === 'institucion') return 'institucion';
       return normalized;
     }
@@ -11124,7 +12036,10 @@
         return;
       }
       const selected = store?.parsed?.sheetName || store?.selectedSheetName || options[0]?.sheetName || '';
-      selectNode.innerHTML = options.map((sheet) => {
+      const allSheetsOption = isListado && options.length > 1
+        ? `<option value="__all__"${selected === '__all__' ? ' selected' : ''}>Todas las hojas · válidas ${escapeHtml(store.parsed.totalValidRows || 0)} / con datos ${escapeHtml(store.parsed.totalRowsWithData || 0)}</option>`
+        : '';
+      selectNode.innerHTML = allSheetsOption + options.map((sheet) => {
         const valid = Number(sheet.validRows || 0);
         const dataRows = Number(sheet.dataRows || 0);
         const suffix = sheet.sheetName === selected ? ' (seleccionada)' : '';
@@ -11134,24 +12049,56 @@
       selectNode.disabled = false;
     }
 
-    function resolveExcelRowCanonical(row = {}){
+    function resolveExcelSheetDefaults(sheetName = ''){
+      const normalized = normalizeTextForMatch(sheetName);
+      if (normalized.includes('suprema')) return { tribunal: 'Corte Suprema', materia: 'Corte Suprema' };
+      if (normalized.includes('apelacion')) return { tribunal: '', materia: 'Cortes de Apelaciones' };
+      if (normalized.includes('familia')) return { tribunal: '', materia: 'Juzgados de Familia' };
+      if (normalized.includes('penal') || normalized.includes('garantia')) return { tribunal: '', materia: 'Juzgados de Garantía' };
+      if (normalized.includes('cobranza')) return { tribunal: '', materia: 'Juzgados de Cobranza Laboral y Previsional' };
+      if (normalized.includes('laboral') || normalized.includes('trabajo')) return { tribunal: '', materia: 'Juzgados del Trabajo' };
+      if (normalized.includes('civil')) return { tribunal: '', materia: 'Juzgados Civiles' };
+      return { tribunal: '', materia: '' };
+    }
+
+    function buildRoleWithEra(rawRole = '', era = ''){
+      const role = String(rawRole || '').trim();
+      const year = String(era || '').trim();
+      if (!role) return '';
+      if (/-\d{2,4}$/.test(role)) return role;
+      return year ? `${role}-${year}` : role;
+    }
+
+    function resolveExcelRowCanonical(row = {}, context = {}){
       const normalizedMap = {};
       Object.entries(row || {}).forEach(([key, value]) => {
         normalizedMap[normalizeExcelHeaderLabel(key)] = value;
       });
+      const defaults = resolveExcelSheetDefaults(context.sheetName || '');
+      const rawRol = pickRowValue(normalizedMap, ['rol']);
+      const rit = pickRowValue(normalizedMap, ['rit']);
+      const ruc = pickRowValue(normalizedMap, ['ruc']);
+      const era = pickRowValue(normalizedMap, ['era']);
+      const corte = pickRowValue(normalizedMap, ['corte']);
+      const tribunal = pickRowValue(normalizedMap, ['tribunal']) || corte || defaults.tribunal;
+      const rol = buildRoleWithEra(rawRol || rit, era);
       return {
-        rol: pickRowValue(normalizedMap, ['rol']),
+        rol,
+        rit,
+        ruc,
+        era,
         rolNumero: '',
         rolAnio: '',
-        tribunal: pickRowValue(normalizedMap, ['tribunal']),
+        tribunal,
         tipoTribunal: '',
         caratula: pickRowValue(normalizedMap, ['caratula']),
         partes: '',
         estado: pickRowValue(normalizedMap, ['estado_causa']),
         fecha: pickRowValue(normalizedMap, ['fecha_ingreso']),
-        materia: '',
-        procedimiento: '',
+        materia: defaults.materia,
+        procedimiento: pickRowValue(normalizedMap, ['tipo_causa']),
         institucion: pickRowValue(normalizedMap, ['institucion']),
+        sheetName: context.sheetName || '',
       };
     }
 
@@ -11384,30 +12331,42 @@
         };
       });
       const forcedSheetName = String(options?.sheetName || '').trim();
-      let selectedSheet = forcedSheetName
-        ? sheetAnalyses.find((item) => item.sheetName === forcedSheetName)
-        : sheetAnalyses[0];
-      if (!selectedSheet) throw new Error('No fue posible resolver la hoja a procesar.');
-      const requiredCanonicalHeaders = ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
+      const useAllSheets = type === 'listado' && (!forcedSheetName || forcedSheetName === '__all__');
+      const selectedSheets = useAllSheets
+        ? sheetAnalyses.filter((item) => !item.invalidHeader && Number(item.dataRows || 0) > 0)
+        : [forcedSheetName ? sheetAnalyses.find((item) => item.sheetName === forcedSheetName) : sheetAnalyses[0]].filter(Boolean);
+      if (!selectedSheets.length) throw new Error('No fue posible resolver la hoja a procesar.');
+      const requiredCanonicalHeaders = type === 'listado'
+        ? ['caratula']
+        : ['rol', 'tribunal', 'caratula', 'fecha_ingreso', 'estado_causa', 'institucion'];
       const canonicalToDisplay = {
         rol: 'Rol',
+        rit: 'Rit',
+        ruc: 'Ruc',
         tribunal: 'Tribunal',
+        corte: 'Corte',
         caratula: 'Caratulado',
         fecha_ingreso: 'Fecha Ingreso',
         estado_causa: 'Estado Causa',
         institucion: 'Institución',
       };
-      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !(selectedSheet.detectedHeaders || []).includes(key));
+      const missingCanonicalHeaders = requiredCanonicalHeaders.filter((key) => !selectedSheets.some((sheet) => (sheet.detectedHeaders || []).includes(key)));
       if (missingCanonicalHeaders.length) {
         const firstMissing = canonicalToDisplay[missingCanonicalHeaders[0]] || missingCanonicalHeaders[0];
         throw new Error(`Error: columna '${firstMissing}' no encontrada en Excel depurado`);
       }
-      const sheetName = selectedSheet.sheetName;
-      const hidden = selectedSheet.hidden;
+      const selectedSheet = selectedSheets[0];
+      const sheetName = useAllSheets ? '__all__' : selectedSheet.sheetName;
+      const hidden = selectedSheets.some((sheet) => sheet.hidden);
       const headerRowIndex = selectedSheet.headerRowIndex;
-      const normalizedHeaders = selectedSheet.detectedHeaders;
+      const normalizedHeaders = [...new Set(selectedSheets.flatMap((sheet) => sheet.detectedHeaders || []))];
       const rawRows = selectedSheet.rawRows;
-      const rows = selectedSheet.rows;
+      const rows = selectedSheets.flatMap((sheet) => (sheet.rows || []).map((row, rowIndex) => ({
+        rawRow: row,
+        sheetName: sheet.sheetName,
+        rowIndex,
+        headerRowIndex: sheet.headerRowIndex,
+      })));
       if (!rows.length) throw new Error(`La hoja "${sheetName}" no contiene filas de datos.`);
       const validRows = [];
       const auditRows = [];
@@ -11417,14 +12376,17 @@
       let duplicates = 0;
       const allCases = getAllCases();
       const indexedByRolTribunal = new Map(allCases.flatMap((cause) => [[`${String(cause.rol || '').trim().toLowerCase()}|${String(cause.tribunal || '').trim().toLowerCase()}`, String(cause.id)], [buildExcelRealUniqueCaseKey(cause), String(cause.id)]]));
-      rows.forEach((rawRow, index) => {
-        const parsed = resolveExcelRowCanonical(rawRow);
+      const validRowsBySheet = {};
+      rows.forEach((entry) => {
+        const rawRow = entry.rawRow || {};
+        const parsed = resolveExcelRowCanonical(rawRow, { sheetName: entry.sheetName });
+        const rowNumber = Number(entry.rowIndex || 0) + Number(entry.headerRowIndex || 0) + 2;
         const hasContent = Object.values(parsed).some((value) => String(value || '').trim());
         if (!hasContent) {
           emptyRows += 1;
           return;
         }
-        auditRows.push({ ...parsed, rowNumber: index + headerRowIndex + 2, raw: rawRow });
+        auditRows.push({ ...parsed, rowNumber, raw: rawRow, sheetName: entry.sheetName });
         const duplicateKey = buildExcelRealUniqueCaseKey(parsed);
         if (duplicatesRegistry.has(duplicateKey)) duplicates += 1;
         duplicatesRegistry.add(duplicateKey);
@@ -11436,7 +12398,8 @@
           invalidRows += 1;
           return;
         }
-        validRows.push({ ...parsed, linkedCaseId, rowNumber: index + headerRowIndex + 2, raw: rawRow });
+        validRowsBySheet[entry.sheetName] = Number(validRowsBySheet[entry.sheetName] || 0) + 1;
+        validRows.push({ ...parsed, linkedCaseId, rowNumber, raw: rawRow, sheetName: entry.sheetName });
       });
       const required = type === 'listado' ? ['rol', 'tribunal', 'caratula'] : ['rol|tribunal|caratula'];
       const missingCritical = [];
@@ -11448,9 +12411,9 @@
       } else if (!validRows.some((row) => row.rol || row.tribunal || row.caratula)) {
         missingCritical.push('identificador (rol / tribunal / carátula)');
       }
-      const workbookPhysicalRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.physicalRows || 0)), 0);
-      const workbookDataRows = sheetAnalyses.reduce((max, item) => Math.max(max, Number(item.dataRows || 0)), 0);
-      const selectedDataRows = Number(selectedSheet.dataRows || 0);
+      const workbookPhysicalRows = sheetAnalyses.reduce((sum, item) => sum + Number(item.physicalRows || 0), 0);
+      const workbookDataRows = sheetAnalyses.reduce((sum, item) => sum + Number(item.dataRows || 0), 0);
+      const selectedDataRows = selectedSheets.reduce((sum, item) => sum + Number(item.dataRows || 0), 0);
       const fueroAudit = buildExcelFueroAudit(auditRows);
       return {
         sheetName,
@@ -11461,13 +12424,13 @@
           hidden: item.hidden,
           physicalRows: item.physicalRows,
           dataRows: item.dataRows,
-          validRows: item.sheetName === sheetName ? validRows.length : 0,
+          validRows: Number(validRowsBySheet[item.sheetName] || 0),
           hasHeader: !item.invalidHeader,
         })),
         headerRowNumber: headerRowIndex + 1,
         detectedHeaders: normalizedHeaders,
         headerWarnings: [
-          ...(sheetNames.length > 1 && !options?.sheetName ? [`Se usó la primera hoja del libro: "${sheetName}".`] : []),
+          ...(useAllSheets && sheetNames.length > 1 ? [`Se procesarán todas las hojas válidas del libro (${selectedSheets.length}).`] : []),
         ],
         firstReadRows: rawRows.slice(headerRowIndex + 1, headerRowIndex + 6),
         totalRows: rows.length,
@@ -11572,12 +12535,7 @@
     }
 
     function resolveExcelMatterLabelForRebuild(rows = []){
-      const labels = [...new Set((rows || [])
-        .map((row) => resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }))
-        .filter(Boolean))];
-      if (!labels.length) throw new Error('No fue posible resolver la materia a limpiar desde el Excel depurado.');
-      if (labels.length > 1) throw new Error(`El Excel mezcla más de una materia (${labels.join(', ')}). Limpieza estructural cancelada.`);
-      return labels[0];
+      return resolveExcelMatterLabelsForRebuild(rows).join(', ');
     }
 
     function caseBelongsToMatterLabel(cause = {}, matterLabel = ''){
@@ -11586,6 +12544,14 @@
       const actualMatter = normalizeTextForMatch(cause?.materia || cause?.matter || '');
       const inferred = normalizeTextForMatch(resolvePjudMatterLabelFromCase({ tribunal: cause?.tribunal || cause?.court, materia: cause?.materia || cause?.matter }));
       return actualMatter === expected || inferred === expected;
+    }
+
+    function resolveExcelMatterLabelsForRebuild(rows = []){
+      const labels = [...new Set((rows || [])
+        .map((row) => resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }))
+        .filter(Boolean))];
+      if (!labels.length) throw new Error('No fue posible resolver las materias a limpiar desde el Excel depurado.');
+      return labels;
     }
 
     async function cleanMaterializedMatterBeforeRebuild(matterLabel){
@@ -11619,6 +12585,34 @@
       return { deletedCases: targetIds.length, unlinkedIndexRows: targetIds.length };
     }
 
+    async function cleanMaterializedMattersBeforeRebuild(matterLabels = []){
+      const labels = [...new Set((matterLabels || []).map((item) => String(item || '').trim()).filter(Boolean))];
+      let deletedCases = 0;
+      let unlinkedIndexRows = 0;
+      for (const matterLabel of labels) {
+        const result = await cleanMaterializedMatterBeforeRebuild(matterLabel);
+        deletedCases += Number(result?.deletedCases || 0);
+        unlinkedIndexRows += Number(result?.unlinkedIndexRows || 0);
+      }
+      return { deletedCases, unlinkedIndexRows, matterLabels: labels };
+    }
+
+    async function deleteDuplicateExcelMatchedCases(duplicates = []){
+      const duplicateIds = [...new Set((duplicates || []).map((item) => String(item?.id || '').trim()).filter(Boolean))];
+      if (!duplicateIds.length) return 0;
+      const { error: deleteError } = await supabase
+        .from(T_CASES)
+        .delete()
+        .eq('owner_user_id', authenticatedUser.id)
+        .in(C.k_id, duplicateIds);
+      if (deleteError) throw deleteError;
+      const workspace = loadWorkspace();
+      duplicateIds.forEach((id) => { delete workspace[id]; });
+      saveWorkspace(workspace);
+      if (duplicateIds.includes(String(state.selectedId || ''))) state.selectedId = null;
+      return duplicateIds.length;
+    }
+
     async function processExcelUpload(type, options = {}){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
@@ -11646,10 +12640,11 @@
       }
       try {
       if (rebuildMatter) {
-        const matterLabel = resolveExcelMatterLabelForRebuild(store.parsed.validRows);
+        const matterLabels = resolveExcelMatterLabelsForRebuild(store.parsed.validRows);
+        const matterLabel = matterLabels.join(', ');
         state.structuralRebuild = { active: true, matterLabel, startedAt: new Date().toISOString() };
-        setListadoProgress({ percent: 18, stage: 'Limpiando materia', status: 'running', subaction: `Eliminando materialización, índice visual y árbol interno de ${matterLabel}.` });
-        await cleanMaterializedMatterBeforeRebuild(matterLabel);
+        setListadoProgress({ percent: 18, stage: 'Limpiando materias', status: 'running', subaction: `Eliminando materialización, índice visual y árbol interno de ${matterLabel}.` });
+        await cleanMaterializedMattersBeforeRebuild(matterLabels);
         await loadCases();
         populateFilters();
         renderAll();
@@ -11740,7 +12735,9 @@
       };
       if (key === 'listado') {
         const allCases = getAllCases();
+        const listadoRowsToProcess = consolidateExcelRowsByFlexibleCase(store.parsed.validRows);
         const byExactKey = new Map();
+        const byFlexibleKey = new Map();
         const pushCase = (map, keyName, cause) => {
           if (!keyName) return;
           if (!map.has(keyName)) map.set(keyName, []);
@@ -11749,47 +12746,66 @@
         allCases.forEach((cause) => {
           const exactKey = buildExcelRealUniqueCaseKey({ rol: cause?.rol || '', tribunal: cause?.tribunal || cause?.court || '' });
           pushCase(byExactKey, exactKey, cause);
+          const flexibleKey = buildExcelFlexibleUniqueCaseKey({ rol: cause?.rol || '', tribunal: cause?.tribunal || cause?.court || '' });
+          pushCase(byFlexibleKey, flexibleKey, cause);
         });
         setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas tipo Office existentes.' });
         let processedRows = 0;
         const processedUniqueKeys = new Set();
-        for (const row of store.parsed.validRows) {
+        for (const row of listadoRowsToProcess) {
           if (state.excelUploads.listado.cancelRequested) break;
           const classification = classifyTribunalFuero(row?.tribunal || '');
           const rowHasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
           const isClassified = ['corte_suprema', 'cortes_apelaciones'].includes(classification.fuero);
           const rolComparacion = String(row?.rol || '').trim();
           const exactKey = buildExcelRealUniqueCaseKey({ rol: rolComparacion, tribunal: row?.tribunal || '' });
-          if (processedUniqueKeys.has(exactKey)) {
+          const flexibleKey = buildExcelFlexibleUniqueCaseKey({ rol: rolComparacion, tribunal: row?.tribunal || '' });
+          const processingKey = flexibleKey || exactKey;
+          if (processedUniqueKeys.has(processingKey)) {
             listadoMatchStats.multiple += 1;
             processedRows += 1;
             pushListadoDebugEvent({
               rol: row?.rol || '',
               tribunal: row?.tribunal || '',
-              action: 'fila Excel omitida por duplicado real ROL + Tribunal',
-              keyConflict: exactKey,
+              action: 'fila Excel omitida por duplicado real numero+anio+tribunal',
+              keyConflict: processingKey,
               duplicateDetected: true,
             });
             continue;
           }
-          processedUniqueKeys.add(exactKey);
+          processedUniqueKeys.add(processingKey);
           const exactMatches = byExactKey.get(exactKey) || [];
-          const candidateFoldersByNumberYear = [...new Set(exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
-          const resolvedMatches = exactMatches;
+          const flexibleMatches = flexibleKey ? (byFlexibleKey.get(flexibleKey) || []) : [];
+          const resolvedMatches = exactMatches.length ? exactMatches : flexibleMatches;
+          const usedFlexibleMatch = !exactMatches.length && flexibleMatches.length > 0;
+          const candidateFoldersByNumberYear = [...new Set(resolvedMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
           let resultLabel = 'sin carpeta existente';
           let matchedCase = null;
           let createdCaseRecord = null;
           try {
-            if (resolvedMatches.length === 1) {
-              matchedCase = resolvedMatches[0];
+            if (resolvedMatches.length >= 1) {
+              matchedCase = chooseBestExcelCaseMatch(row, resolvedMatches);
+              if (!matchedCase) throw new Error('No fue posible escoger carpeta candidata para actualizar.');
+              const duplicateMatchesToMerge = resolvedMatches.filter((item) => String(item?.id || '') && String(item?.id || '') !== String(matchedCase?.id || ''));
+              const resolvedCaratula = pickBestCaratula(row?.caratula, matchedCase?.caratula, matchedCase?.pjud_caratulado);
+              const resolvedRol = resolveExcelCivilRol(row, matchedCase);
+              const resolvedMatter = resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia });
+              const resolvedRoleParts = parsePjudStructuredRole(resolvedRol || row?.rol || '');
               const payload = {
-                caratula: row?.caratula || matchedCase?.caratula || null,
-                pjud_caratulado: row?.caratula || matchedCase?.pjud_caratulado || null,
+                [C.k_rol]: resolvedRol || matchedCase?.rol || row?.rol || null,
+                caratula: resolvedCaratula || matchedCase?.caratula || null,
+                pjud_caratulado: resolvedCaratula || matchedCase?.pjud_caratulado || null,
+                [C.k_subject]: resolvedMatter || matchedCase?.materia || null,
+                pjud_materia: resolvedMatter || null,
+                pjud_rol_tipo: resolvedRoleParts.roleType || null,
+                pjud_rol_letra: resolvedRoleParts.roleLetter || null,
+                pjud_rol_numero: resolvedRoleParts.roleNumber ?? null,
+                pjud_rol_anio: resolvedRoleParts.roleYear ?? null,
                 pjud_fecha_ingreso: row?.fecha || matchedCase?.pjud_fecha_ingreso || null,
                 pjud_estado_causa: row?.estado || matchedCase?.pjud_estado_causa || null,
                 updated_at: new Date().toISOString(),
               };
-              if (rowHasCaratula && !String(payload.caratula || '').trim()) {
+              if (rowHasCaratula && hasMeaningfulCaratula(row?.caratula) && !String(payload.caratula || '').trim()) {
                 throw new Error('Caratulado leído pero no escrito en carpeta');
               }
               const institucion = String(row?.institucion || '').trim();
@@ -11804,19 +12820,30 @@
               linkedRows += 1;
               listadoMatchStats.exactUpdated += 1;
               if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
-              resultLabel = 'actualizada (match exacto)';
-              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey });
-            } else if (resolvedMatches.length > 1) {
-              listadoMatchStats.multiple += 1;
-              resultLabel = 'coincidencia múltiple';
-              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey, duplicateDetected: true });
+              const mergedDuplicates = await deleteDuplicateExcelMatchedCases(duplicateMatchesToMerge);
+              if (mergedDuplicates > 0) {
+                listadoMatchStats.multiple += mergedDuplicates;
+                pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: `duplicado(s) fusionado(s): ${mergedDuplicates}`, keyConflict: flexibleKey || exactKey, duplicateDetected: true });
+              }
+              resultLabel = mergedDuplicates > 0 ? 'actualizada y fusionada (numero+anio+tribunal)' : (usedFlexibleMatch ? 'actualizada (match numero+anio+tribunal)' : 'actualizada (match exacto)');
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: usedFlexibleMatch ? flexibleKey : exactKey });
             } else {
+              const resolvedCaratula = pickBestCaratula(row?.caratula);
+              const resolvedMatter = resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia });
+              const resolvedRoleParts = parsePjudStructuredRole(row?.rol || row?.rit || '');
               const insertPayload = {
                 [C.k_client_id]: null,
                 [C.k_responsible]: null,
                 [C.k_court]: row?.tribunal || null,
                 [C.k_rol]: row?.rol || null,
-                [C.k_subject]: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
+                caratula: resolvedCaratula || null,
+                pjud_caratulado: resolvedCaratula || null,
+                [C.k_subject]: resolvedMatter,
+                pjud_materia: resolvedMatter,
+                pjud_rol_tipo: resolvedRoleParts.roleType || null,
+                pjud_rol_letra: resolvedRoleParts.roleLetter || null,
+                pjud_rol_numero: resolvedRoleParts.roleNumber ?? null,
+                pjud_rol_anio: resolvedRoleParts.roleYear ?? null,
                 [C.k_fee_total]: null,
                 [C.k_fee_type]: 'Mixto',
                 [C.k_payment]: 'Mixto',
@@ -11833,7 +12860,7 @@
                 id: createdId,
                 rol: row?.rol || '',
                 tribunal: row?.tribunal || '',
-                caratula: row?.caratula || '',
+                caratula: resolvedCaratula || '',
                 materia: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
                 estadoProcesal: row?.estado || '',
                 pjudEstadoCausa: row?.estado || '',
@@ -11863,7 +12890,7 @@
               });
             }
             setListadoProgress({
-              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              percent: 50 + ((processedRows / Math.max(1, listadoRowsToProcess.length)) * 40),
               stage: 'Actualizando carpetas',
               status: 'running',
               subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
@@ -11886,7 +12913,7 @@
             processingErrors += 1;
             processedRows += 1;
             setListadoProgress({
-              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              percent: 50 + ((processedRows / Math.max(1, listadoRowsToProcess.length)) * 40),
               stage: 'Actualizando carpetas',
               status: 'running',
               subaction: `Error en fila ${row?.rowNumber || 's/n'} (${row?.rol || 'sin rol'}). Continuando con el resto...`,
@@ -12535,6 +13562,15 @@
         const suffix = cleaned ? ` de ${cleaned}` : '';
         return { fuero: 'cortes_apelaciones', tribunalEspecifico: `Corte de Apelaciones${suffix}`, normalized };
       }
+      if (normalized.includes('familia')) {
+        return { fuero: 'familia', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('juicio oral') || /\btop\b/.test(normalized)) {
+        return { fuero: 'tribunal_oral_penal', tribunalEspecifico: tribunal, normalized };
+      }
+      if (normalized.includes('garantia') || normalized.includes('juzgado de letras y garantia') || normalized.includes('juzgado de garantia')) {
+        return { fuero: 'garantia_penal', tribunalEspecifico: tribunal, normalized };
+      }
       if (normalized.includes('cobranza laboral')
         || normalized.includes('cobranza previsional')
         || (normalized.includes('cobranza') && normalized.includes('previsional'))
@@ -12557,10 +13593,22 @@
 
     function resolvePjudMatterLabelFromCase(item = {}){
       const rawMatter = String(item.materia || item.pjud_materia || '').trim();
+      const normalizedMatter = normalizePjudText(rawMatter);
+      if (normalizedMatter.includes('familia')) return 'Juzgados de Familia';
+      if (normalizedMatter.includes('cobranza')) return 'Juzgados de Cobranza Laboral y Previsional';
+      if (normalizedMatter.includes('trabajo') || normalizedMatter.includes('laboral')) return 'Juzgados del Trabajo';
+      if (normalizedMatter.includes('garantia') || normalizedMatter.includes('penal')) return 'Juzgados de Garantía';
+      if (normalizedMatter.includes('juicio oral')) return 'Tribunales de Juicio Oral en lo Penal';
+      if (normalizedMatter.includes('apelaciones')) return 'Cortes de Apelaciones';
+      if (normalizedMatter.includes('suprema')) return 'Corte Suprema';
+      if (normalizedMatter.includes('civil')) return 'Juzgados Civiles';
       const classification = classifyTribunalFuero(item.tribunal || item.pjud_tribunal || item.court || '');
       if (classification.fuero === 'cobranza_laboral_previsional') return 'Juzgados de Cobranza Laboral y Previsional';
       if (classification.fuero === 'laboral') return 'Juzgados del Trabajo';
       if (classification.fuero === 'civil') return 'Juzgados Civiles';
+      if (classification.fuero === 'familia') return 'Juzgados de Familia';
+      if (classification.fuero === 'garantia_penal') return 'Juzgados de Garantía';
+      if (classification.fuero === 'tribunal_oral_penal') return 'Tribunales de Juicio Oral en lo Penal';
       if (classification.fuero === 'corte_suprema') return 'Corte Suprema';
       if (classification.fuero === 'cortes_apelaciones') return 'Cortes de Apelaciones';
       return rawMatter || 'Materia sin clasificar';
@@ -12587,6 +13635,7 @@
       const rowAudits = [];
       rows.forEach((row) => {
         const classification = classifyTribunalFuero(row?.tribunal || '');
+        const matterLabel = resolvePjudMatterLabelFromCase(row);
         const hasRol = Boolean(String(row?.rol || '').trim());
         const hasTribunal = Boolean(String(row?.tribunal || '').trim());
         const hasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
@@ -12599,14 +13648,18 @@
         if (hasFecha) counters.withFechaIngreso += 1;
         if (!hasTribunal) failures.filasSinTribunal += 1;
         if (!hasCaratula) failures.filasSinCaratulado += 1;
-        if (classification.fuero === 'otros' && hasTribunal) failures.filasTribunalNoClasificado += 1;
-        const fueroLabel = classification.fuero === 'corte_suprema'
-          ? 'Corte Suprema'
-          : (classification.fuero === 'cortes_apelaciones'
-            ? 'Cortes de Apelaciones'
-            : (classification.fuero === 'cobranza_laboral_previsional'
-              ? 'Juzgados de Cobranza Laboral y Previsional'
-              : (classification.fuero === 'laboral' ? 'Juzgados del Trabajo' : (classification.fuero === 'civil' ? 'Juzgados Civiles' : 'Otros'))));
+        if (classification.fuero === 'otros' && hasTribunal && matterLabel === 'Materia sin clasificar') failures.filasTribunalNoClasificado += 1;
+        let fueroLabel = matterLabel && matterLabel !== 'Materia sin clasificar' ? matterLabel : 'Otros';
+        if (matterLabel === 'Materia sin clasificar') {
+          if (classification.fuero === 'corte_suprema') fueroLabel = 'Corte Suprema';
+          else if (classification.fuero === 'cortes_apelaciones') fueroLabel = 'Cortes de Apelaciones';
+          else if (classification.fuero === 'cobranza_laboral_previsional') fueroLabel = 'Juzgados de Cobranza Laboral y Previsional';
+          else if (classification.fuero === 'familia') fueroLabel = 'Juzgados de Familia';
+          else if (classification.fuero === 'garantia_penal') fueroLabel = 'Juzgados de Garantía';
+          else if (classification.fuero === 'tribunal_oral_penal') fueroLabel = 'Tribunales de Juicio Oral en lo Penal';
+          else if (classification.fuero === 'laboral') fueroLabel = 'Juzgados del Trabajo';
+          else if (classification.fuero === 'civil') fueroLabel = 'Juzgados Civiles';
+        }
         statsByFuero[fueroLabel] = (statsByFuero[fueroLabel] || 0) + 1;
         const tribunalLabel = classification.tribunalEspecifico || 'Tribunal no informado';
         statsByTribunal[tribunalLabel] = (statsByTribunal[tribunalLabel] || 0) + 1;
@@ -13872,14 +14925,27 @@
       const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
       const routeData = resolvePjudRouteData({}, importData);
       const roleParts = parsePjudStructuredRole(rolComposite || importData.rol || importData.basic?.rol || '');
-      const normalizedKey = buildPjudNormalizedKey({
+      const resolvedMatter = resolvePjudMatterLabelFromCase({
+        tribunal: tribunal || corte || '',
         materia: importData.materia || importData.basic?.materia || '',
+      });
+      const resolvedCaratula = pickBestCaratula(importData.caratulado, importData.basic?.caratula);
+      const normalizedKey = buildPjudNormalizedKey({
+        materia: resolvedMatter,
         roleType: roleParts.roleType,
         roleLetter: roleParts.roleLetter,
         roleNumber: roleParts.roleNumber,
         roleYear: roleParts.roleYear,
         court: tribunal || corte || '',
       });
+      const canonicalCaseKey = buildCanonicalJudicialCaseKey({
+        materia: resolvedMatter,
+        tribunal: tribunal || corte || '',
+        rol: rolComposite || importData.rol || importData.basic?.rol || '',
+        rit: importData.rit || importData.basic?.rit || '',
+        ruc: importData.ruc || '',
+        fallback: importData.pjudCaseKey || normalizedKey || '',
+      }) || importData.pjudCaseKey || normalizedKey || null;
       const destinationMap = buildPjudDestinationMap({
         [C.k_rol]: rolComposite,
         pjud_rit: importData.rit || importData.basic?.rit || null,
@@ -13892,7 +14958,8 @@
         [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
         [C.k_court]: tribunal || corte || null,
         [C.k_rol]: rolComposite,
-        [C.k_subject]: importData.materia || importData.basic?.materia || null,
+        [C.k_subject]: resolvedMatter || null,
+        caratula: resolvedCaratula || null,
         [C.k_fee_total]: null,
         [C.k_fee_type]: 'Fijo',
         [C.k_payment]: 'Único pago',
@@ -13905,7 +14972,7 @@
         import_batch_id: importBatchId,
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        pjud_case_key: importData.pjudCaseKey || null,
+        pjud_case_key: canonicalCaseKey,
         pjud_role_type: roleParts.roleType || null,
         pjud_role_letter: roleParts.roleLetter || null,
         pjud_role_number: roleParts.roleNumber ?? null,
@@ -13925,7 +14992,7 @@
         pjud_source_mode: 'modo_directo_pjud',
         pjud_last_error: null,
         pjud_files_downloaded_count: 0,
-        pjud_materia: importData.materia || importData.basic?.materia || null,
+        pjud_materia: resolvedMatter || null,
         pjud_submateria: importData.submateria || null,
         pjud_tribunal: tribunal || null,
         pjud_corte: corte || null,
@@ -13934,7 +15001,7 @@
         pjud_ruc: importData.ruc || null,
         pjud_tipo_causa: importData.tipoCausa || importData.basic?.procedimiento || null,
         pjud_fecha_ingreso: importData.fechaIngreso || importData.basic?.fechaIngreso || null,
-        pjud_caratulado: importData.caratulado || importData.basic?.caratula || null,
+        pjud_caratulado: resolvedCaratula || null,
         pjud_estado_causa: importData.estadoCausa || null,
         pjud_estado_procesal: importData.estadoProcesal || importData.basic?.estadoProcesal || null,
         pjud_ubicacion: importData.ubicacion || null,
@@ -13957,7 +15024,7 @@
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
-          pjud_case_key: importData.pjudCaseKey || null,
+          pjud_case_key: canonicalCaseKey,
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
@@ -13988,7 +15055,7 @@
       return createSeedDetail({
         id: String(baseRow[C.k_id] || baseRow.id),
         cliente: primaryClientName || state.clientMap.get(baseRow[C.k_client_id]) || SAFE_CLIENT_LABEL,
-        caratula: importData.basic?.caratula || importData.caratulado || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
+        caratula: pickBestCaratula(importData.basic?.caratula, importData.caratulado, buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol })) || '',
         rol: importData.rol || importData.basic?.rol || '',
         rit: importData.rit || importData.basic?.rit || '',
         ruc: importData.ruc || '',
@@ -14024,6 +15091,7 @@
       const materia = rowPayload?.pjud_materia || safeFallback.materia || basicFallback.materia || '';
       const estadoProcesal = rowPayload?.pjud_estado_procesal || safeFallback.estadoProcesal || basicFallback.estadoProcesal || '';
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
+      const caratula = pickBestCaratula(rowPayload?.pjud_caratulado, safeFallback.caratulado, basicFallback.caratula);
       const directEbookUrl = rowPayload?.pjud_ebook_url || safeFallback?.ebook?.sourceUrl || safeFallback?.ebook?.url || '';
       return {
         ...safeFallback,
@@ -14044,7 +15112,7 @@
         estadoCausa: rowPayload?.pjud_estado_causa || safeFallback.estadoCausa || '',
         estadoProcesal,
         fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
-        caratulado: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+        caratulado: caratula,
         ubicacion: rowPayload?.pjud_ubicacion || safeFallback.ubicacion || '',
         fechaUbicacion: rowPayload?.pjud_fecha_ubicacion || safeFallback.fechaUbicacion || '',
         institucion: rowPayload?.pjud_institucion || safeFallback.institucion || '',
@@ -14073,7 +15141,7 @@
           materia,
           estadoProcesal,
           fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
-          caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+          caratula,
           link: safeFallback.basic?.link || '',
           importedAt,
           pjudCaseKey,
@@ -14085,8 +15153,8 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const resolvedCaratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '');
-      const hasCaratula = Boolean(resolvedCaratula) && normalizeTextForMatch(resolvedCaratula) !== 'sin caratula';
+      const resolvedCaratula = pickBestCaratula(rowPayload?.pjud_caratulado, importData?.caratulado, importData?.basic?.caratula);
+      const hasCaratula = Boolean(resolvedCaratula);
       const folderName = `${rol} - ${hasCaratula ? resolvedCaratula : 'Carátula pendiente'}`;
       const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
       return {
@@ -16290,7 +17358,12 @@
       bindEvent('btnQuickInfo', 'click', () => openBranchScreen('informacion', 'btnQuickInfo'), { scope: 'quick-nav' });
       bindEvent('btnQuickExpedientes', 'click', () => { window.location.href = './expedientes-digitales.html'; }, { scope: 'quick-nav' });
       bindEvent('btnQuickProduction', 'click', () => openBranchScreen('produccion', 'btnQuickProduction'), { scope: 'quick-nav' });
-      bindEvent('btnQuickAlerts', 'click', () => { window.location.href = './causas-alertas-plazos.html'; }, { scope: 'quick-nav' });
+      bindEvent('btnQuickAlerts', 'click', () => openBranchScreen('informacion', 'btnQuickAlerts'), { scope: 'quick-nav' });
+      $('quickActionRail')?.addEventListener('click', (event) => {
+        const actionButton = event.target.closest('[data-quick-action]');
+        if (!actionButton) return;
+        handleQuickAction(actionButton.dataset.quickAction || '');
+      });
       bindEvent('btnCloseWorkspaceModal', 'click', () => closeWorkspaceModal(), { scope: 'workspace' });
       diagnoseBranchButton('btnQuickInfo', 'informacion');
       diagnoseBranchButton('btnQuickExpedientes', 'expedientes');
@@ -16521,11 +17594,12 @@
           return;
         }
         try {
-          const matterLabel = resolveExcelMatterLabelForRebuild(state.excelUploads.listado.parsed.validRows || []);
-          const confirmed = window.confirm(`Esto eliminará la materialización interna actual de la materia "${matterLabel}" y la reconstruirá desde el Excel depurado vigente usando ROL + Tribunal. ¿Continuar?`);
+          const matterLabels = resolveExcelMatterLabelsForRebuild(state.excelUploads.listado.parsed.validRows || []);
+          const matterLabel = matterLabels.join(', ');
+          const confirmed = window.confirm(`Esto eliminará la materialización interna actual de estas materias: ${matterLabel}. Luego reconstruirá desde el Excel depurado vigente usando ROL/RIT + Tribunal. ¿Continuar?`);
           if (!confirmed) return;
           const summary = await processExcelUpload('listado', { rebuildMatter: true });
-          setMessage('listadoCausasMsg', `Materia reconstruida desde Excel depurado. Total filas: ${summary.totalRows}. Causas creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedExactMatches || 0}. Duplicados/Conflictos: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
+          setMessage('listadoCausasMsg', `Materias reconstruidas desde Excel depurado. Total filas: ${summary.totalRows}. Causas creadas: ${summary.createdCases}. Actualizadas: ${summary.updatedExactMatches || 0}. Duplicados/Conflictos: ${summary.multipleMatches || 0}. Errores: ${summary.errors || 0}.`, (summary.errors || 0) > 0 ? 'warn' : 'ok');
           renderExcelPreview('listado');
         } catch (error) {
           console.error('[CAUSAS][EXCEL-DEPURADO] Error al limpiar y reconstruir materia.', error);
@@ -16712,19 +17786,7 @@
           return;
         }
         if (action === 'open-general-list') {
-          const panel = $('listadoGeneralCausasPanel');
-          if (panel) {
-            panel.hidden = false;
-            const card = panel.querySelector('[data-collapsible-card]');
-            const content = $('listadoGeneralCardContent');
-            const toggle = $('btnToggleListadoGeneralCard');
-            card?.classList.remove('is-collapsed');
-            if (content) content.hidden = false;
-            if (toggle) toggle.setAttribute('aria-expanded', 'true');
-            disableLandingMode();
-            renderList();
-            panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
-          }
+          openGeneralListPanel();
           return;
         }
         if (action === 'producir-escritos') {
