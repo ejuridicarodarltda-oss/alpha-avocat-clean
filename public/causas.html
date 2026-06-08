@@ -1942,6 +1942,76 @@
       color:var(--causas-text-secondary);
     }
 
+    .causas-page .produccion-flow{
+      display:grid;
+      gap:14px;
+    }
+
+    .causas-page .produccion-search-row{
+      display:grid;
+      grid-template-columns:minmax(180px,1fr) minmax(240px,1.3fr) auto;
+      gap:10px;
+      align-items:end;
+    }
+
+    .causas-page .produccion-context-strip{
+      display:grid;
+      grid-template-columns:minmax(220px,.9fr) minmax(260px,1.1fr);
+      gap:10px;
+      align-items:start;
+      margin-bottom:10px;
+    }
+
+    .causas-page .produccion-context-strip .case-meta{
+      max-height:150px;
+      overflow:auto;
+    }
+
+    .causas-page .produccion-work-grid{
+      display:grid;
+      grid-template-columns:minmax(280px,.82fr) minmax(360px,1.18fr);
+      gap:12px;
+      align-items:start;
+    }
+
+    .causas-page .produccion-actions{
+      display:flex;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      align-items:center;
+      margin-top:10px;
+    }
+
+    .causas-page .produccion-actions-group{
+      display:flex;
+      gap:8px;
+      flex-wrap:wrap;
+      align-items:center;
+    }
+
+    .causas-page .produccion-advanced{
+      margin-top:10px;
+      border:1px solid rgba(31,90,83,.16);
+      border-radius:14px;
+      padding:10px 12px;
+      background:rgba(255,255,255,.72);
+    }
+
+    .causas-page .produccion-advanced summary{
+      cursor:pointer;
+      font-weight:700;
+      color:var(--causas-title-dark);
+    }
+
+    @media (max-width: 820px){
+      .causas-page .produccion-search-row,
+      .causas-page .produccion-context-strip,
+      .causas-page .produccion-work-grid{
+        grid-template-columns:1fr;
+      }
+    }
+
     .causas-page .excel-progress-shell{
       border:1px solid rgba(31,90,83,.22);
       border-radius:14px;
@@ -2723,54 +2793,52 @@
     <div class="modal-panel" style="max-width:min(1180px,96vw);">
       <div class="modal-header">
         <div>
-          <div class="modal-title">ChatGPT para redactar escritos</div>
-          <p class="panel-subtitle">Flujo real de Producción: identifica causa desde Expedientes Digitales, conversa con IA jurídica y genera borrador editable sin duplicar ni mover la causa.</p>
+          <div class="modal-title">Producción rápida de escritos</div>
+          <p class="panel-subtitle">Busca la causa, indica el escrito y trabaja el borrador editable en una sola pantalla.</p>
         </div>
         <button class="icon-btn" type="button" data-close="1" data-modal-id="modalProducirEscritos" aria-label="Cerrar">✕</button>
       </div>
       <form id="formProducirEscritos" class="form">
-        <div class="helper-box">Paso 1 · Identificar causa en Expedientes Digitales (Rol y Tribunal obligatorios).</div>
-        <div class="grid-2">
-          <div class="field">
-            <label for="producirEscritoRol">Rol de la causa *</label>
-            <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+        <div class="produccion-flow">
+          <div class="helper-box">Selecciona una causa de Expedientes Digitales. Si abriste Producción desde una ficha, la app intentará completar Rol y Tribunal automáticamente.</div>
+          <div class="produccion-search-row">
+            <div class="field">
+              <label for="producirEscritoRol">Rol de la causa *</label>
+              <input id="producirEscritoRol" class="input" placeholder="Ej: C-1234-2026" required />
+            </div>
+            <div class="field">
+              <label for="producirEscritoTribunal">Tribunal *</label>
+              <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+            </div>
+            <button id="btnBuscarCausaProduccion" type="button" class="btn btn-primary">Buscar causa</button>
           </div>
-          <div class="field">
-            <label for="producirEscritoTribunal">Tribunal *</label>
-            <input id="producirEscritoTribunal" class="input" placeholder="Ej: 1° Juzgado Civil de Santiago" required />
+          <div id="producirEscritoMsg" class="msg" aria-live="polite"></div>
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Estado</th>
+                </tr>
+              </thead>
+              <tbody id="producirEscritoResultados"><tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
+            </table>
           </div>
-        </div>
-        <div class="modal-actions">
-          <button id="btnBuscarCausaProduccion" type="button" class="btn">Buscar en Expedientes Digitales</button>
-        </div>
-        <div id="producirEscritoMsg" class="msg" aria-live="polite"></div>
-        <div class="table-wrap">
-          <table class="table">
-            <thead>
-              <tr>
-                <th>Seleccionar</th><th>ROL</th><th>Tribunal</th><th>Carátula</th><th>Estado</th>
-              </tr>
-            </thead>
-            <tbody id="producirEscritoResultados"><tr><td colspan="5">Completa Rol y Tribunal para iniciar la búsqueda.</td></tr></tbody>
-          </table>
-        </div>
 
         <div id="produccionChatWorkspace" style="display:none; margin-top:12px;">
-          <div class="helper-box">Paso 2 · Asistente de redacción jurídica con iteraciones sobre la misma causa (sin crear ni duplicar causa).</div>
-          <div class="grid-2" style="align-items:start;">
-            <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">A. Identificación de la causa</h4>
+          <div class="produccion-context-strip">
+            <section class="helper-box">
+              <h4 class="section-title">Causa seleccionada</h4>
               <div id="produccionCauseIdentity" class="case-meta">Sin causa seleccionada.</div>
             </section>
-            <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">B. Antecedentes usados</h4>
+            <section class="helper-box">
+              <h4 class="section-title">Antecedentes para usar</h4>
               <div id="produccionAntecedentesList" class="case-meta">Sin antecedentes aún.</div>
             </section>
           </div>
 
-          <div class="grid-2" style="align-items:start; margin-top:10px;">
+          <div class="produccion-work-grid">
             <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">C. Instrucción al asistente</h4>
+              <h4 class="section-title">Instrucción</h4>
               <div class="field">
                 <label for="producirEscritoTipo">Tipo de escrito *</label>
                 <select id="producirEscritoTipo" class="input" required>
@@ -2791,49 +2859,57 @@
                 <input id="producirEscritoTipoLibre" class="input" placeholder="Ej: incidente de nulidad de notificación" />
               </div>
               <div class="field">
-                <label for="producirEscritoInstrucciones">Instrucciones específicas / teoría del caso</label>
-                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Qué quieres argumentar, hechos clave, jurisprudencia, doctrina, tono, peticiones, etc."></textarea>
+                <label for="producirEscritoInstrucciones">Qué debe preparar</label>
+                <textarea id="producirEscritoInstrucciones" class="textarea" placeholder="Argumentos, hechos clave, peticiones, tono y antecedentes que debe considerar."></textarea>
               </div>
               <div class="field">
-                <label for="producirEscritoAjuste">Ajuste de iteración (opcional)</label>
-                <input id="producirEscritoAjuste" class="input" placeholder="Ej: hazlo más técnico, agrega jurisprudencia y otrosí adicional" />
+                <label for="producirEscritoAjuste">Ajuste rápido</label>
+                <input id="producirEscritoAjuste" class="input" placeholder="Ej: más técnico, agregar jurisprudencia, incluir otrosí" />
+              </div>
+              <div class="produccion-actions-group">
+                <button id="btnGenerarBorradorChatGPT" type="submit" class="btn btn-primary">Generar borrador</button>
+                <button id="btnRegenerarBorradorChatGPT" type="button" class="btn">Regenerar</button>
               </div>
             </section>
             <section class="panel-card" style="padding:12px;">
-              <h4 class="section-title">D. Respuesta de ChatGPT</h4>
-              <div id="produccionDraftHistory" class="case-meta" style="max-height:140px; overflow:auto; margin-bottom:8px;">Sin iteraciones aún.</div>
-              <div class="modal-actions" style="justify-content:flex-start; margin-bottom:8px; gap:8px;">
+              <h4 class="section-title">Borrador editable</h4>
+              <div id="produccionDraftHistory" class="case-meta" style="max-height:96px; overflow:auto; margin-bottom:8px;">Sin iteraciones aún.</div>
+              <div class="produccion-actions-group" style="margin-bottom:8px;">
                 <button id="btnCopiarProduccionEditor" type="button" class="btn">Copiar</button>
                 <button id="btnPegarProduccionEditor" type="button" class="btn">Pegar</button>
               </div>
-              <textarea id="produccionDraftEditor" class="textarea" style="min-height:260px; background:#1e1e1e; color:#d4d4d4; border:1px solid #30363d; font-family:Consolas, 'Courier New', monospace; line-height:1.5; caret-color:#9cdcfe;" placeholder="Aquí aparecerá el borrador jurídico editable generado por ChatGPT."></textarea>
+              <textarea id="produccionDraftEditor" class="textarea" style="min-height:320px; background:#1e1e1e; color:#d4d4d4; border:1px solid #30363d; font-family:Consolas, 'Courier New', monospace; line-height:1.5; caret-color:#9cdcfe;" placeholder="Aquí aparecerá el borrador jurídico editable."></textarea>
             </section>
           </div>
 
           <section class="panel-card" style="padding:12px; margin-top:10px;">
-            <h4 class="section-title">E. Acciones finales</h4>
-            <div class="helper-box" style="margin-bottom:8px;">Barra de acciones del editor jurídico (Producción).</div>
-            <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap; margin-bottom:8px;">
-              <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
-              <button id="btnConvertirPdfProduccion" type="button" class="btn">Convertir a PDF</button>
-              <button id="btnImprimirProduccion" type="button" class="btn">Imprimir</button>
-              <button id="btnCargarDocumentosProduccion" type="button" class="btn">Cargar documentos</button>
-              <button id="btnInsumosExternosProduccion" type="button" class="btn">Insumos externos</button>
-              <button id="btnContenedorDemandasProduccion" type="button" class="btn">Contenedor provisorio de demandas nuevas</button>
-              <button id="btnCopiarProduccion" type="button" class="btn">Copiar</button>
-              <button id="btnPegarProduccion" type="button" class="btn">Pegar</button>
+            <div class="produccion-actions">
+              <div class="produccion-actions-group">
+                <button id="btnExportarWordProduccion" type="button" class="btn">Exportar a Word</button>
+                <button id="btnGuardarVersionProduccion" type="button" class="btn">Guardar versión</button>
+                <button id="btnDejarRevisionProduccion" type="button" class="btn btn-secondary">Dejar en revisión</button>
+              </div>
+              <div class="produccion-actions-group">
+                <button id="btnCargarDocumentosProduccion" type="button" class="btn">Cargar documentos</button>
+                <button id="btnCopiarProduccion" type="button" class="btn">Copiar</button>
+                <button id="btnPegarProduccion" type="button" class="btn">Pegar</button>
+                <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cerrar</button>
+              </div>
             </div>
             <input id="produccionDocumentUploadInput" type="file" multiple accept=".pdf,.doc,.docx,image/*,audio/*,video/*" style="display:none;" />
-            <div class="modal-actions" style="justify-content:flex-start; flex-wrap:wrap;">
-              <button id="btnGenerarBorradorChatGPT" type="submit" class="btn btn-primary">Generar borrador con ChatGPT</button>
-              <button id="btnRegenerarBorradorChatGPT" type="button" class="btn">Regenerar borrador</button>
-              <button id="btnGuardarVersionProduccion" type="button" class="btn">Guardar versión</button>
-              <button id="btnDejarRevisionProduccion" type="button" class="btn btn-secondary">Dejar en revisión</button>
-              <button type="button" class="btn" data-close="1" data-modal-id="modalProducirEscritos">Cerrar</button>
-            </div>
+            <details class="produccion-advanced">
+              <summary>Opciones avanzadas</summary>
+              <div class="produccion-actions-group" style="margin-top:10px;">
+                <button id="btnConvertirPdfProduccion" type="button" class="btn">Convertir a PDF</button>
+                <button id="btnImprimirProduccion" type="button" class="btn">Imprimir</button>
+                <button id="btnInsumosExternosProduccion" type="button" class="btn">Insumos externos</button>
+                <button id="btnContenedorDemandasProduccion" type="button" class="btn">Contenedor de demandas nuevas</button>
+              </div>
+            </details>
           </section>
         </div>
-        <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. Se mantendrá el hilo abierto para iterar sobre el borrador.</div>
+        <div id="producirEscritoResultado" class="helper-box" role="status" aria-live="polite">Resultado pendiente. El borrador quedará disponible para editar, guardar o exportar.</div>
+        </div>
       </form>
     </div>
   </div>
@@ -7300,7 +7376,7 @@
           { label:'Cargar Excel depurado tribunal', action:'upload-tribunal-excel' },
           { label:'Listado General de Causas', action:'open-general-list' },
         ] },
-        { id:'produccion', icon:'✍️', title:'Producción', copy:'Abre redacción jurídica conectada con borradores, revisión, documentos finales y trazabilidad.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Abrir Producción', primary:true, action:'open-branch' }, { label:'ChatGPT para redactar escritos', action:'producir-escritos' }] },
+        { id:'produccion', icon:'✍️', title:'Producción', copy:'Redacta escritos desde una causa existente, edita el borrador, guarda versión y exporta Word sin cambiar de pantalla.', badge:'Producción jurídica', fullWidth:true, actions:[{ label:'Redactar escrito rápido', primary:true, action:'producir-escritos' }, { label:'Ver centro de producción', action:'open-branch' }] },
       ];
       $('pillarGrid').innerHTML = cards.map(card => `
         <article class="pillar-card ${state.activeTab === card.id ? 'active' : ''} ${card.fullWidth ? 'full-width' : ''}" data-tab="${card.id}">
@@ -9805,12 +9881,12 @@
         tbody.innerHTML = '<tr><td colspan="5">No se encontraron causas en Expedientes Digitales con ese Rol y Tribunal.</td></tr>';
         return;
       }
-      const selectedCaseId = state.produccionDraft.selectedCaseId || '';
+      const selectedCaseId = String(state.produccionDraft.selectedCaseId || '');
       tbody.innerHTML = results.map((item) => {
         const status = escapeHtml(item.estadoProcesal || item.estado || 'Sin estado');
         return `
         <tr>
-          <td><input type="radio" name="producirEscritoSeleccion" value="${escapeHtml(item.id)}" ${selectedCaseId === item.id ? 'checked' : ''} aria-label="Seleccionar causa ${escapeHtml(item.rol || item.id)}" /></td>
+          <td><input type="radio" name="producirEscritoSeleccion" value="${escapeHtml(item.id)}" ${selectedCaseId === String(item.id || '') ? 'checked' : ''} aria-label="Seleccionar causa ${escapeHtml(item.rol || item.id)}" /></td>
           <td>${escapeHtml(item.rol || '—')}</td>
           <td>${escapeHtml(item.tribunal || '—')}</td>
           <td>${escapeHtml(item.caratula || '—')}</td>
@@ -10030,8 +10106,27 @@
       renderProduccionWorkspace();
     }
 
+    function prefillProduccionDraftFromCurrentCause(){
+      const currentCause = getCurrentCause();
+      if (!currentCause?.id || !currentCause?.rol || !currentCause?.tribunal) return false;
+      const rolInput = $('producirEscritoRol');
+      const tribunalInput = $('producirEscritoTribunal');
+      const alreadySelected = String(state.produccionDraft.selectedCaseId || '') === String(currentCause.id || '');
+      const emptySearch = !String(rolInput?.value || '').trim() && !String(tribunalInput?.value || '').trim();
+      if (!alreadySelected && !emptySearch && state.produccionDraft.selectedCaseId) return false;
+      if (rolInput) rolInput.value = currentCause.rol || '';
+      if (tribunalInput) tribunalInput.value = normalizeCourtLabel(currentCause.tribunal || '');
+      state.produccionDraft.matches = [currentCause];
+      state.produccionDraft.selectedCaseId = String(currentCause.id || '');
+      persistProduccionDraftSession();
+      renderProduccionDraftMatches(state.produccionDraft.matches);
+      setMessage('producirEscritoMsg', 'Causa cargada desde la ficha activa. Puedes generar el borrador directamente.', 'ok');
+      return true;
+    }
+
     function openProducirEscritosModal(){
       hydrateProduccionDraftSession();
+      prefillProduccionDraftFromCurrentCause();
       if ((state.produccionDraft.matches || []).length) renderProduccionDraftMatches(state.produccionDraft.matches || []);
       renderProduccionWorkspace();
       openManagedModal('modalProducirEscritos');
