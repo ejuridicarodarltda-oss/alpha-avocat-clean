@@ -10183,11 +10183,14 @@
     const PRODUCCION_WORD_FORMAT_PROMPT = [
       'Todos los escritos deben quedar preparados para exportar a Word con formato jurídico obligatorio:',
       'letra Deng Xian tamaño 14, texto justificado, sangría izquierda, primera línea con sangría e interlineado de espacio y medio.',
-      'Cuando uses doctrina, escribe en el texto una frase natural como "Según el profesor [Autor]" seguida de superíndice numérico.',
-      'Cuando uses jurisprudencia, escribe en el texto una frase como "Según la jurisprudencia de la Corte Suprema" seguida de superíndice numérico.',
-      'Cada superíndice debe tener su nota al pie correlativa con norma de cita bibliográfica jurídica: autor o tribunal, obra o sentencia, rol si corresponde, fecha, editorial/fuente y página o considerando cuando exista.',
-      'Después de la frase doctrinal o jurisprudencial incluye un extracto breve de la cita dentro de un marco, sin copiar textos extensos.',
-      'Usa el formato de referencia [^1] en el cuerpo y al final agrega la nota como [^1]: referencia completa.',
+      'Aplica las Normas Editoriales de la Revista Chilena de Derecho 2025 para citas, notas al pie y bibliografía.',
+      'No incluyas referencias bibliográficas completas en el texto del escrito. En el texto solo puede ir una frase narrativa, por ejemplo "Según el profesor [Autor]" o "Según la jurisprudencia de la Corte Suprema", seguida del superíndice numérico.',
+      'El número de llamada debe ir inmediatamente antes del signo de puntuación. Ejemplo: argumento[^1]. Si hay cita textual, escribe "texto citado"[^1].',
+      'Las notas al pie deben contener referencias abreviadas: AUTOR (año) p. o pp.; tribunal, caso o fecha y considerando; país y norma para leyes o códigos.',
+      'Cuando uses doctrina o jurisprudencia relevante, agrega al final los listados que correspondan: Bibliografía citada, Normas citadas y Jurisprudencia citada, con referencias completas.',
+      'Para jurisprudencia chilena completa: tribunal, fecha, rol o RUC/RIT, tipo de procedimiento y nombre de caso si corresponde.',
+      'Si la cita textual supera cincuenta palabras, sepárala del párrafo, sin comillas, dentro de un marco o bloque destacado; si es breve, usa comillas.',
+      'Usa el formato de referencia [^1] en el cuerpo y al final agrega la nota como [^1]: referencia abreviada conforme a RChD.',
     ].join(' ');
 
     const PRODUCCION_SUMAS_FORMAT_PROMPT = [
@@ -10365,9 +10368,9 @@
     .citation-paragraph { text-indent: 0; margin-left: 1cm; }
     .citation-box { border: 1.2pt solid #333; padding: 10pt 12pt; margin: 8pt 0 14pt 1cm; text-align: justify; line-height: 1.5; background: #fff; }
     .footnote-ref { color: #000; text-decoration: none; font-size: 10pt; vertical-align: super; }
-    .footnotes { font-family: "Deng Xian", "DengXian", serif; font-size: 10pt; line-height: 1.15; margin-top: 22pt; border-top: 1px solid #777; padding-top: 8pt; page-break-inside: avoid; }
+    .footnotes { font-family: "Times New Roman", serif; font-size: 10pt; line-height: 1; margin-top: 22pt; border-top: 1px solid #777; padding-top: 8pt; page-break-inside: avoid; mso-line-height-alt: 100%; }
     .footnote-item { margin: 0 0 6pt 0; text-align: justify; }
-    .footnote-text { font-size: 10pt; line-height: 1.15; text-indent: 0; margin: 0 0 6pt 0; }
+    .footnote-text { font-family: "Times New Roman", serif; font-size: 10pt; line-height: 1; text-indent: 0; margin: 0; mso-line-height-alt: 100%; }
     .footnote-item a { color: #000; text-decoration: none; margin-right: 4pt; }
   </style>
 </head>
