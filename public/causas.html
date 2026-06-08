@@ -8119,17 +8119,29 @@
 
         const xlsxModule = await ensureXlsxModule();
         const workbook = xlsxModule.read(await file.arrayBuffer(), { type: 'array', cellDates: true });
-        const firstSheet = workbook.SheetNames?.[0];
-        const rows = firstSheet ? xlsxModule.utils.sheet_to_json(workbook.Sheets[firstSheet], { defval: '', raw: false }) : [];
-        const required = ['rol','tribunal','fechaingreso','caratula'];
-        const headers = Object.keys(rows[0] || {}).map((h) => normalizeExcelHeaderKey(h));
-        const missing = required.filter((k) => !headers.includes(k));
-        if (missing.length) throw new Error(`Estructura inválida. Faltan columnas obligatorias: ${missing.join(', ')}`);
-        const normalizedRows = rows.map((row, idx) => {
-          const m = {};
-          Object.entries(row || {}).forEach(([k,v]) => { m[normalizeExcelHeaderLabel(k)] = String(v || '').trim(); });
-          return { row_number: idx + 2, rol: m.rol || '', tribunal: m.tribunal || '', tribunal_normalized: normalizeTribunalKey(m.tribunal || ''), fecha_ingreso: m.fecha_ingreso || '', caratula: m.caratula || '', estado_causa: m.estado_causa || '', institucion: m.institucion || '', tipo_causa: m.tipocausa || '', ruc: m.ruc || '' };
-        }).filter((r) => r.rol && r.tribunal);
+        const sheetNames = workbook.SheetNames || [];
+        const rows = sheetNames.flatMap((sheetName) => {
+          const sheetRows = xlsxModule.utils.sheet_to_json(workbook.Sheets[sheetName], { defval: '', raw: false });
+          return sheetRows.map((row, idx) => ({ row, sheetName, rowIndex: idx + 2 }));
+        });
+        const normalizedRows = rows.map(({ row, sheetName, rowIndex }) => {
+          const canonical = resolveExcelRowCanonical(row, { sheetName });
+          const matterLabel = resolvePjudMatterLabelFromCase({ tribunal: canonical.tribunal, materia: canonical.materia });
+          const caratula = pickBestCaratula(canonical.caratula);
+          return {
+            row_number: rowIndex,
+            rol: canonical.rol || canonical.rit || canonical.ruc || '',
+            tribunal: canonical.tribunal || '',
+            tribunal_normalized: normalizeTribunalKey(canonical.tribunal || ''),
+            fecha_ingreso: canonical.fecha || '',
+            caratula,
+            estado_causa: canonical.estado || '',
+            institucion: canonical.institucion || '',
+            tipo_causa: canonical.procedimiento || matterLabel || '',
+            ruc: canonical.ruc || '',
+          };
+        }).filter((r) => (r.rol || r.ruc) && r.tribunal);
+        if (!normalizedRows.length) throw new Error('Estructura invalida. No se encontraron filas con Rol/RIT/RUC y Tribunal en las hojas del Excel.');
         const metadata = {
           panel: 'general_pjud_excel',
           is_current_file: true,
@@ -8158,7 +8170,7 @@
         if (uploadErr) throw uploadErr;
         const uploadId = uploadRow.id;
         if (normalizedRows.length) {
-          const rowPayload = normalizedRows.map((r) => ({ owner_user_id: authenticatedUser.id, upload_id: uploadId, ...r, row_hash: `${r.rol}|${r.tribunal_normalized}|${r.row_number}` }));
+          const rowPayload = normalizedRows.map((r) => ({ owner_user_id: authenticatedUser.id, upload_id: uploadId, ...r, row_hash: `${r.rol}|${r.tribunal_normalized}|${r.tipo_causa}|${r.row_number}` }));
           const { error: rowsErr } = await supabase.from(T_PJUD_INDEX_ROWS).insert(rowPayload);
           if (rowsErr) throw rowsErr;
         }
@@ -11316,6 +11328,17 @@
       return tribunal && roleKey ? `${tribunal}|${roleKey}` : '';
     }
 
+    function buildCanonicalJudicialCaseKey({ materia = '', tribunal = '', rol = '', rit = '', ruc = '', fallback = '' } = {}){
+      const matterKey = normalizePjudText(resolvePjudMatterLabelFromCase({ tribunal, materia })).replace(/[^a-z0-9]+/g, '_');
+      const flexibleKey = buildExcelFlexibleUniqueCaseKey({ tribunal, rol: rol || rit });
+      if (matterKey && flexibleKey) return `${matterKey}|${flexibleKey}`;
+      const rucKey = normalizePjudKey(ruc);
+      const courtKey = normalizeCourtForFlexibleMatch(tribunal);
+      if (matterKey && courtKey && rucKey) return `${matterKey}|${courtKey}|ruc|${rucKey}`;
+      const fallbackKey = normalizePjudKey(fallback);
+      return fallbackKey ? `${matterKey || 'materia'}|${courtKey || 'tribunal'}|${fallbackKey}` : '';
+    }
+
     function summarizeStack(error){
       return String(error?.stack || error?.message || error || '').split(/\n/).slice(0, 4).join(' | ');
     }
@@ -12766,10 +12789,18 @@
               const duplicateMatchesToMerge = resolvedMatches.filter((item) => String(item?.id || '') && String(item?.id || '') !== String(matchedCase?.id || ''));
               const resolvedCaratula = pickBestCaratula(row?.caratula, matchedCase?.caratula, matchedCase?.pjud_caratulado);
               const resolvedRol = resolveExcelCivilRol(row, matchedCase);
+              const resolvedMatter = resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia });
+              const resolvedRoleParts = parsePjudStructuredRole(resolvedRol || row?.rol || '');
               const payload = {
                 [C.k_rol]: resolvedRol || matchedCase?.rol || row?.rol || null,
                 caratula: resolvedCaratula || matchedCase?.caratula || null,
                 pjud_caratulado: resolvedCaratula || matchedCase?.pjud_caratulado || null,
+                [C.k_subject]: resolvedMatter || matchedCase?.materia || null,
+                pjud_materia: resolvedMatter || null,
+                pjud_rol_tipo: resolvedRoleParts.roleType || null,
+                pjud_rol_letra: resolvedRoleParts.roleLetter || null,
+                pjud_rol_numero: resolvedRoleParts.roleNumber ?? null,
+                pjud_rol_anio: resolvedRoleParts.roleYear ?? null,
                 pjud_fecha_ingreso: row?.fecha || matchedCase?.pjud_fecha_ingreso || null,
                 pjud_estado_causa: row?.estado || matchedCase?.pjud_estado_causa || null,
                 updated_at: new Date().toISOString(),
@@ -12798,6 +12829,8 @@
               pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: usedFlexibleMatch ? flexibleKey : exactKey });
             } else {
               const resolvedCaratula = pickBestCaratula(row?.caratula);
+              const resolvedMatter = resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia });
+              const resolvedRoleParts = parsePjudStructuredRole(row?.rol || row?.rit || '');
               const insertPayload = {
                 [C.k_client_id]: null,
                 [C.k_responsible]: null,
@@ -12805,7 +12838,12 @@
                 [C.k_rol]: row?.rol || null,
                 caratula: resolvedCaratula || null,
                 pjud_caratulado: resolvedCaratula || null,
-                [C.k_subject]: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
+                [C.k_subject]: resolvedMatter,
+                pjud_materia: resolvedMatter,
+                pjud_rol_tipo: resolvedRoleParts.roleType || null,
+                pjud_rol_letra: resolvedRoleParts.roleLetter || null,
+                pjud_rol_numero: resolvedRoleParts.roleNumber ?? null,
+                pjud_rol_anio: resolvedRoleParts.roleYear ?? null,
                 [C.k_fee_total]: null,
                 [C.k_fee_type]: 'Mixto',
                 [C.k_payment]: 'Mixto',
@@ -14887,14 +14925,27 @@
       const importedDocumentsCount = Number((importData.documents || []).length + (importData.ebook ? 1 : 0));
       const routeData = resolvePjudRouteData({}, importData);
       const roleParts = parsePjudStructuredRole(rolComposite || importData.rol || importData.basic?.rol || '');
-      const normalizedKey = buildPjudNormalizedKey({
+      const resolvedMatter = resolvePjudMatterLabelFromCase({
+        tribunal: tribunal || corte || '',
         materia: importData.materia || importData.basic?.materia || '',
+      });
+      const resolvedCaratula = pickBestCaratula(importData.caratulado, importData.basic?.caratula);
+      const normalizedKey = buildPjudNormalizedKey({
+        materia: resolvedMatter,
         roleType: roleParts.roleType,
         roleLetter: roleParts.roleLetter,
         roleNumber: roleParts.roleNumber,
         roleYear: roleParts.roleYear,
         court: tribunal || corte || '',
       });
+      const canonicalCaseKey = buildCanonicalJudicialCaseKey({
+        materia: resolvedMatter,
+        tribunal: tribunal || corte || '',
+        rol: rolComposite || importData.rol || importData.basic?.rol || '',
+        rit: importData.rit || importData.basic?.rit || '',
+        ruc: importData.ruc || '',
+        fallback: importData.pjudCaseKey || normalizedKey || '',
+      }) || importData.pjudCaseKey || normalizedKey || null;
       const destinationMap = buildPjudDestinationMap({
         [C.k_rol]: rolComposite,
         pjud_rit: importData.rit || importData.basic?.rit || null,
@@ -14907,7 +14958,8 @@
         [C.k_responsible]: $('k_resp').value.trim() || operatorName || 'Mario Rodríguez Ardiles',
         [C.k_court]: tribunal || corte || null,
         [C.k_rol]: rolComposite,
-        [C.k_subject]: importData.materia || importData.basic?.materia || null,
+        [C.k_subject]: resolvedMatter || null,
+        caratula: resolvedCaratula || null,
         [C.k_fee_total]: null,
         [C.k_fee_type]: 'Fijo',
         [C.k_payment]: 'Único pago',
@@ -14920,7 +14972,7 @@
         import_batch_id: importBatchId,
         imported_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
-        pjud_case_key: importData.pjudCaseKey || null,
+        pjud_case_key: canonicalCaseKey,
         pjud_role_type: roleParts.roleType || null,
         pjud_role_letter: roleParts.roleLetter || null,
         pjud_role_number: roleParts.roleNumber ?? null,
@@ -14940,7 +14992,7 @@
         pjud_source_mode: 'modo_directo_pjud',
         pjud_last_error: null,
         pjud_files_downloaded_count: 0,
-        pjud_materia: importData.materia || importData.basic?.materia || null,
+        pjud_materia: resolvedMatter || null,
         pjud_submateria: importData.submateria || null,
         pjud_tribunal: tribunal || null,
         pjud_corte: corte || null,
@@ -14949,7 +15001,7 @@
         pjud_ruc: importData.ruc || null,
         pjud_tipo_causa: importData.tipoCausa || importData.basic?.procedimiento || null,
         pjud_fecha_ingreso: importData.fechaIngreso || importData.basic?.fechaIngreso || null,
-        pjud_caratulado: importData.caratulado || importData.basic?.caratula || null,
+        pjud_caratulado: resolvedCaratula || null,
         pjud_estado_causa: importData.estadoCausa || null,
         pjud_estado_procesal: importData.estadoProcesal || importData.basic?.estadoProcesal || null,
         pjud_ubicacion: importData.ubicacion || null,
@@ -14972,7 +15024,7 @@
           mode: importData.mode || 'massive_auto',
           origin: importData.origin || 'pjud_auto',
           imported_at_client: new Date().toISOString(),
-          pjud_case_key: importData.pjudCaseKey || null,
+          pjud_case_key: canonicalCaseKey,
         pjud_normalized_key: normalizedKey,
         pjud_url: routeData.pjudCaseUrl,
         pjud_ebook_url: routeData.pjudEbookUrl,
@@ -15003,7 +15055,7 @@
       return createSeedDetail({
         id: String(baseRow[C.k_id] || baseRow.id),
         cliente: primaryClientName || state.clientMap.get(baseRow[C.k_client_id]) || SAFE_CLIENT_LABEL,
-        caratula: importData.basic?.caratula || importData.caratulado || buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol }),
+        caratula: pickBestCaratula(importData.basic?.caratula, importData.caratulado, buildCaratula({ demandantes: importData.demandantes, demandados: importData.demandados, fallback: importData.basic?.rol })) || '',
         rol: importData.rol || importData.basic?.rol || '',
         rit: importData.rit || importData.basic?.rit || '',
         ruc: importData.ruc || '',
@@ -15039,6 +15091,7 @@
       const materia = rowPayload?.pjud_materia || safeFallback.materia || basicFallback.materia || '';
       const estadoProcesal = rowPayload?.pjud_estado_procesal || safeFallback.estadoProcesal || basicFallback.estadoProcesal || '';
       const pjudCaseKey = rowPayload?.pjud_case_key || safeFallback.pjudCaseKey || basicFallback.pjudCaseKey || '';
+      const caratula = pickBestCaratula(rowPayload?.pjud_caratulado, safeFallback.caratulado, basicFallback.caratula);
       const directEbookUrl = rowPayload?.pjud_ebook_url || safeFallback?.ebook?.sourceUrl || safeFallback?.ebook?.url || '';
       return {
         ...safeFallback,
@@ -15059,7 +15112,7 @@
         estadoCausa: rowPayload?.pjud_estado_causa || safeFallback.estadoCausa || '',
         estadoProcesal,
         fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
-        caratulado: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+        caratulado: caratula,
         ubicacion: rowPayload?.pjud_ubicacion || safeFallback.ubicacion || '',
         fechaUbicacion: rowPayload?.pjud_fecha_ubicacion || safeFallback.fechaUbicacion || '',
         institucion: rowPayload?.pjud_institucion || safeFallback.institucion || '',
@@ -15088,7 +15141,7 @@
           materia,
           estadoProcesal,
           fechaIngreso: rowPayload?.pjud_fecha_ingreso || safeFallback.fechaIngreso || basicFallback.fechaIngreso || '',
-          caratula: rowPayload?.pjud_caratulado || safeFallback.caratulado || basicFallback.caratula || '',
+          caratula,
           link: safeFallback.basic?.link || '',
           importedAt,
           pjudCaseKey,
@@ -15100,8 +15153,8 @@
       const tribunal = rowPayload?.pjud_tribunal || importData?.tribunal || importData?.basic?.tribunal || 'Tribunal pendiente';
       const materia = rowPayload?.pjud_materia || importData?.materia || importData?.basic?.materia || 'Materia judicial';
       const rol = rowPayload?.[C.k_rol] || importData?.rol || importData?.basic?.rol || 'Rol pendiente';
-      const resolvedCaratula = normalizeCaratula(rowPayload?.pjud_caratulado || importData?.caratulado || importData?.basic?.caratula || '');
-      const hasCaratula = Boolean(resolvedCaratula) && normalizeTextForMatch(resolvedCaratula) !== 'sin caratula';
+      const resolvedCaratula = pickBestCaratula(rowPayload?.pjud_caratulado, importData?.caratulado, importData?.basic?.caratula);
+      const hasCaratula = Boolean(resolvedCaratula);
       const folderName = `${rol} - ${hasCaratula ? resolvedCaratula : 'Carátula pendiente'}`;
       const logicalPath = ['Kárdex', 'Expedientes digitales de juicios', 'Materia judicial', tribunal, folderName, 'Contenido interno', 'Importadas del Poder Judicial'];
       return {
