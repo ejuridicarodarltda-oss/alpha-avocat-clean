@@ -10554,6 +10554,84 @@
       return `${tribunalKey}|${rolKey}`;
     }
 
+    function isDateLikeText(value = ''){
+      const text = String(value || '').trim();
+      if (!text) return false;
+      if (/^\d{1,2}[/-]\d{1,2}[/-](?:19|20)?\d{2}$/.test(text)) return true;
+      if (/^(?:19|20)\d{2}[/-]\d{1,2}[/-]\d{1,2}$/.test(text)) return true;
+      const parsed = new Date(text);
+      return /^\d/.test(text) && !Number.isNaN(parsed.getTime()) && !/[a-záéíóúñ]/i.test(text);
+    }
+
+    function hasMeaningfulCaratula(value = ''){
+      const normalized = normalizeCaratula(String(value || '').trim());
+      if (!normalized) return false;
+      if (normalizeTextForMatch(normalized) === 'sin caratula') return false;
+      return !isDateLikeText(normalized);
+    }
+
+    function pickBestCaratula(...values){
+      return values.map((value) => normalizeCaratula(String(value || '').trim())).find(hasMeaningfulCaratula) || '';
+    }
+
+    function resolveExcelCivilRol(row = {}, matchedCase = null){
+      const rowRol = normalizeIdentifierValue(row?.rol || row?.rit || '');
+      const matchedRol = normalizeIdentifierValue(matchedCase?.rol || matchedCase?.rit || '');
+      const rowRole = parsePjudStructuredRole(rowRol);
+      const matchedRole = parsePjudStructuredRole(matchedRol);
+      const sameNumberYear = Number.isFinite(rowRole.roleNumber)
+        && Number.isFinite(rowRole.roleYear)
+        && rowRole.roleNumber === matchedRole.roleNumber
+        && rowRole.roleYear === matchedRole.roleYear;
+      if (!sameNumberYear) return rowRol || matchedRol;
+      if (rowRole.roleLetter && (!matchedRole.roleLetter || matchedRol.length <= rowRol.length)) return rowRol;
+      return matchedRol || rowRol;
+    }
+
+    function preferExcelRol(current = '', candidate = ''){
+      const currentRol = normalizeIdentifierValue(current);
+      const candidateRol = normalizeIdentifierValue(candidate);
+      if (!currentRol) return candidateRol;
+      if (!candidateRol) return currentRol;
+      const currentRole = parsePjudStructuredRole(currentRol);
+      const candidateRole = parsePjudStructuredRole(candidateRol);
+      const sameNumberYear = Number.isFinite(currentRole.roleNumber)
+        && Number.isFinite(currentRole.roleYear)
+        && currentRole.roleNumber === candidateRole.roleNumber
+        && currentRole.roleYear === candidateRole.roleYear;
+      if (sameNumberYear && candidateRole.roleLetter && !currentRole.roleLetter) return candidateRol;
+      if (sameNumberYear && candidateRole.roleLetter && candidateRol.length > currentRol.length) return candidateRol;
+      return currentRol;
+    }
+
+    function mergeExcelCaseRows(primary = {}, candidate = {}){
+      return {
+        ...primary,
+        ...candidate,
+        rol: preferExcelRol(primary?.rol, candidate?.rol),
+        tribunal: primary?.tribunal || candidate?.tribunal || '',
+        caratula: pickBestCaratula(primary?.caratula, candidate?.caratula) || primary?.caratula || candidate?.caratula || '',
+        estado: candidate?.estado || primary?.estado || '',
+        fecha: candidate?.fecha || primary?.fecha || '',
+        institucion: candidate?.institucion || primary?.institucion || '',
+        raw: { ...(primary?.raw || {}), ...(candidate?.raw || {}) },
+      };
+    }
+
+    function consolidateExcelRowsByFlexibleCase(rows = []){
+      const grouped = new Map();
+      const passthrough = [];
+      rows.forEach((row) => {
+        const key = buildExcelFlexibleUniqueCaseKey(row);
+        if (!key) {
+          passthrough.push(row);
+          return;
+        }
+        grouped.set(key, grouped.has(key) ? mergeExcelCaseRows(grouped.get(key), row) : row);
+      });
+      return [...grouped.values(), ...passthrough];
+    }
+
     function findCaseByTribunalAndRol(tribunal = '', rol = ''){
       const expectedKey = normalizeTribunalAndRolKey(tribunal, rol);
       if (!expectedKey || expectedKey === '|') return null;
@@ -10562,6 +10640,12 @@
 
     function buildExcelRealUniqueCaseKey(row = {}){
       return normalizeTribunalAndRolKey(row?.tribunal || row?.court || '', row?.rol || row?.rit || '');
+    }
+
+    function buildExcelFlexibleUniqueCaseKey(row = {}){
+      const tribunal = normalizeCourtForFlexibleMatch(row?.tribunal || row?.court || '');
+      const roleKey = buildExcelFlexibleMatchKey(row?.rol || row?.rit || '');
+      return tribunal && roleKey ? `${tribunal}|${roleKey}` : '';
     }
 
     function summarizeStack(error){
@@ -11870,7 +11954,9 @@
       };
       if (key === 'listado') {
         const allCases = getAllCases();
+        const listadoRowsToProcess = consolidateExcelRowsByFlexibleCase(store.parsed.validRows);
         const byExactKey = new Map();
+        const byFlexibleKey = new Map();
         const pushCase = (map, keyName, cause) => {
           if (!keyName) return;
           if (!map.has(keyName)) map.set(keyName, []);
@@ -11879,47 +11965,56 @@
         allCases.forEach((cause) => {
           const exactKey = buildExcelRealUniqueCaseKey({ rol: cause?.rol || '', tribunal: cause?.tribunal || cause?.court || '' });
           pushCase(byExactKey, exactKey, cause);
+          const flexibleKey = buildExcelFlexibleUniqueCaseKey({ rol: cause?.rol || '', tribunal: cause?.tribunal || cause?.court || '' });
+          pushCase(byFlexibleKey, flexibleKey, cause);
         });
         setListadoProgress({ percent: 48, stage: 'Buscando carpetas existentes', status: 'running', subaction: 'Comparando filas del Excel contra carpetas tipo Office existentes.' });
         let processedRows = 0;
         const processedUniqueKeys = new Set();
-        for (const row of store.parsed.validRows) {
+        for (const row of listadoRowsToProcess) {
           if (state.excelUploads.listado.cancelRequested) break;
           const classification = classifyTribunalFuero(row?.tribunal || '');
           const rowHasCaratula = Boolean(normalizeCaratula(String(row?.caratula || '').trim()));
           const isClassified = ['corte_suprema', 'cortes_apelaciones'].includes(classification.fuero);
           const rolComparacion = String(row?.rol || '').trim();
           const exactKey = buildExcelRealUniqueCaseKey({ rol: rolComparacion, tribunal: row?.tribunal || '' });
-          if (processedUniqueKeys.has(exactKey)) {
+          const flexibleKey = buildExcelFlexibleUniqueCaseKey({ rol: rolComparacion, tribunal: row?.tribunal || '' });
+          const processingKey = flexibleKey || exactKey;
+          if (processedUniqueKeys.has(processingKey)) {
             listadoMatchStats.multiple += 1;
             processedRows += 1;
             pushListadoDebugEvent({
               rol: row?.rol || '',
               tribunal: row?.tribunal || '',
-              action: 'fila Excel omitida por duplicado real ROL + Tribunal',
-              keyConflict: exactKey,
+              action: 'fila Excel omitida por duplicado real numero+anio+tribunal',
+              keyConflict: processingKey,
               duplicateDetected: true,
             });
             continue;
           }
-          processedUniqueKeys.add(exactKey);
+          processedUniqueKeys.add(processingKey);
           const exactMatches = byExactKey.get(exactKey) || [];
-          const candidateFoldersByNumberYear = [...new Set(exactMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
-          const resolvedMatches = exactMatches;
+          const flexibleMatches = flexibleKey ? (byFlexibleKey.get(flexibleKey) || []) : [];
+          const resolvedMatches = exactMatches.length ? exactMatches : flexibleMatches;
+          const usedFlexibleMatch = !exactMatches.length && flexibleMatches.length > 0;
+          const candidateFoldersByNumberYear = [...new Set(resolvedMatches.map((item) => String(item?.rol || '').trim()).filter(Boolean))];
           let resultLabel = 'sin carpeta existente';
           let matchedCase = null;
           let createdCaseRecord = null;
           try {
             if (resolvedMatches.length === 1) {
               matchedCase = resolvedMatches[0];
+              const resolvedCaratula = pickBestCaratula(row?.caratula, matchedCase?.caratula, matchedCase?.pjud_caratulado);
+              const resolvedRol = resolveExcelCivilRol(row, matchedCase);
               const payload = {
-                caratula: row?.caratula || matchedCase?.caratula || null,
-                pjud_caratulado: row?.caratula || matchedCase?.pjud_caratulado || null,
+                [C.k_rol]: resolvedRol || matchedCase?.rol || row?.rol || null,
+                caratula: resolvedCaratula || matchedCase?.caratula || null,
+                pjud_caratulado: resolvedCaratula || matchedCase?.pjud_caratulado || null,
                 pjud_fecha_ingreso: row?.fecha || matchedCase?.pjud_fecha_ingreso || null,
                 pjud_estado_causa: row?.estado || matchedCase?.pjud_estado_causa || null,
                 updated_at: new Date().toISOString(),
               };
-              if (rowHasCaratula && !String(payload.caratula || '').trim()) {
+              if (rowHasCaratula && hasMeaningfulCaratula(row?.caratula) && !String(payload.caratula || '').trim()) {
                 throw new Error('Caratulado leído pero no escrito en carpeta');
               }
               const institucion = String(row?.institucion || '').trim();
@@ -11934,18 +12029,21 @@
               linkedRows += 1;
               listadoMatchStats.exactUpdated += 1;
               if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
-              resultLabel = 'actualizada (match exacto)';
-              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey });
+              resultLabel = usedFlexibleMatch ? 'actualizada (match numero+anio+tribunal)' : 'actualizada (match exacto)';
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: usedFlexibleMatch ? flexibleKey : exactKey });
             } else if (resolvedMatches.length > 1) {
               listadoMatchStats.multiple += 1;
               resultLabel = 'coincidencia múltiple';
-              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: exactKey, duplicateDetected: true });
+              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: flexibleKey || exactKey, duplicateDetected: true });
             } else {
+              const resolvedCaratula = pickBestCaratula(row?.caratula);
               const insertPayload = {
                 [C.k_client_id]: null,
                 [C.k_responsible]: null,
                 [C.k_court]: row?.tribunal || null,
                 [C.k_rol]: row?.rol || null,
+                caratula: resolvedCaratula || null,
+                pjud_caratulado: resolvedCaratula || null,
                 [C.k_subject]: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
                 [C.k_fee_total]: null,
                 [C.k_fee_type]: 'Mixto',
@@ -11963,7 +12061,7 @@
                 id: createdId,
                 rol: row?.rol || '',
                 tribunal: row?.tribunal || '',
-                caratula: row?.caratula || '',
+                caratula: resolvedCaratula || '',
                 materia: resolvePjudMatterLabelFromCase({ tribunal: row?.tribunal, materia: row?.materia }),
                 estadoProcesal: row?.estado || '',
                 pjudEstadoCausa: row?.estado || '',
@@ -11993,7 +12091,7 @@
               });
             }
             setListadoProgress({
-              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              percent: 50 + ((processedRows / Math.max(1, listadoRowsToProcess.length)) * 40),
               stage: 'Actualizando carpetas',
               status: 'running',
               subaction: `Procesando causa ${row.rol || 's/rol'} en ${row.tribunal || 'tribunal no informado'}.`,
@@ -12016,7 +12114,7 @@
             processingErrors += 1;
             processedRows += 1;
             setListadoProgress({
-              percent: 50 + ((processedRows / Math.max(1, store.parsed.validRows.length)) * 40),
+              percent: 50 + ((processedRows / Math.max(1, listadoRowsToProcess.length)) * 40),
               stage: 'Actualizando carpetas',
               status: 'running',
               subaction: `Error en fila ${row?.rowNumber || 's/n'} (${row?.rol || 'sin rol'}). Continuando con el resto...`,
