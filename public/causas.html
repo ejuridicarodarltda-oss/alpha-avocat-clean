@@ -6711,7 +6711,9 @@
         const materia = resolvePjudMatterLabelFromCase(item);
         const tribunal = String(item.tribunal || item.pjud_tribunal || item.court || 'Tribunal sin clasificar').trim();
         const rol = String(item.rol || item.pjud_rit || item.pjud_ruc || '').replace(/\s+/g, '').toUpperCase() || `ID-${item.id}`;
-        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${normalizeImportComparisonKey(rol)}`;
+        const flexibleRoleKey = buildExcelFlexibleUniqueCaseKey({ tribunal, rol });
+        const roleKey = flexibleRoleKey || normalizeImportComparisonKey(rol);
+        const key = `${normalizeImportComparisonKey(materia)}::${normalizeImportComparisonKey(tribunal)}::${roleKey}`;
         if (unique.has(key)) {
           duplicatesRemoved += 1;
           return;
@@ -11222,6 +11224,24 @@
       return values.map((value) => normalizeCaratula(String(value || '').trim())).find(hasMeaningfulCaratula) || '';
     }
 
+    function scoreExcelCaseMatch(row = {}, cause = {}){
+      const rowRole = parsePjudStructuredRole(row?.rol || row?.rit || '');
+      const causeRole = parsePjudStructuredRole(cause?.rol || cause?.rit || '');
+      let score = 0;
+      if (hasMeaningfulCaratula(cause?.caratula || cause?.pjud_caratulado)) score += 100;
+      if (causeRole.roleLetter) score += 30;
+      if (rowRole.roleLetter && causeRole.roleLetter === rowRole.roleLetter) score += 40;
+      if (String(cause?.cliente || '').trim() && !/sin\s+(institucion|vinculo)/i.test(String(cause?.cliente || ''))) score += 10;
+      if (String(cause?.id || '').trim()) score += 1;
+      return score;
+    }
+
+    function chooseBestExcelCaseMatch(row = {}, matches = []){
+      return [...(matches || [])]
+        .filter(Boolean)
+        .sort((a, b) => scoreExcelCaseMatch(row, b) - scoreExcelCaseMatch(row, a))[0] || null;
+    }
+
     function resolveExcelCivilRol(row = {}, matchedCase = null){
       const rowRol = normalizeIdentifierValue(row?.rol || row?.rit || '');
       const matchedRol = normalizeIdentifierValue(matchedCase?.rol || matchedCase?.rit || '');
@@ -12554,6 +12574,22 @@
       return { deletedCases, unlinkedIndexRows, matterLabels: labels };
     }
 
+    async function deleteDuplicateExcelMatchedCases(duplicates = []){
+      const duplicateIds = [...new Set((duplicates || []).map((item) => String(item?.id || '').trim()).filter(Boolean))];
+      if (!duplicateIds.length) return 0;
+      const { error: deleteError } = await supabase
+        .from(T_CASES)
+        .delete()
+        .eq('owner_user_id', authenticatedUser.id)
+        .in(C.k_id, duplicateIds);
+      if (deleteError) throw deleteError;
+      const workspace = loadWorkspace();
+      duplicateIds.forEach((id) => { delete workspace[id]; });
+      saveWorkspace(workspace);
+      if (duplicateIds.includes(String(state.selectedId || ''))) state.selectedId = null;
+      return duplicateIds.length;
+    }
+
     async function processExcelUpload(type, options = {}){
       const key = type === 'listado' ? 'listado' : 'estado_diario';
       const store = state.excelUploads[key];
@@ -12724,8 +12760,10 @@
           let matchedCase = null;
           let createdCaseRecord = null;
           try {
-            if (resolvedMatches.length === 1) {
-              matchedCase = resolvedMatches[0];
+            if (resolvedMatches.length >= 1) {
+              matchedCase = chooseBestExcelCaseMatch(row, resolvedMatches);
+              if (!matchedCase) throw new Error('No fue posible escoger carpeta candidata para actualizar.');
+              const duplicateMatchesToMerge = resolvedMatches.filter((item) => String(item?.id || '') && String(item?.id || '') !== String(matchedCase?.id || ''));
               const resolvedCaratula = pickBestCaratula(row?.caratula, matchedCase?.caratula, matchedCase?.pjud_caratulado);
               const resolvedRol = resolveExcelCivilRol(row, matchedCase);
               const payload = {
@@ -12751,12 +12789,13 @@
               linkedRows += 1;
               listadoMatchStats.exactUpdated += 1;
               if (!String(payload.caratula || '').trim()) failureReport.filasMaterializadasSinCaratula += 1;
-              resultLabel = usedFlexibleMatch ? 'actualizada (match numero+anio+tribunal)' : 'actualizada (match exacto)';
+              const mergedDuplicates = await deleteDuplicateExcelMatchedCases(duplicateMatchesToMerge);
+              if (mergedDuplicates > 0) {
+                listadoMatchStats.multiple += mergedDuplicates;
+                pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: `duplicado(s) fusionado(s): ${mergedDuplicates}`, keyConflict: flexibleKey || exactKey, duplicateDetected: true });
+              }
+              resultLabel = mergedDuplicates > 0 ? 'actualizada y fusionada (numero+anio+tribunal)' : (usedFlexibleMatch ? 'actualizada (match numero+anio+tribunal)' : 'actualizada (match exacto)');
               pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: usedFlexibleMatch ? flexibleKey : exactKey });
-            } else if (resolvedMatches.length > 1) {
-              listadoMatchStats.multiple += 1;
-              resultLabel = 'coincidencia múltiple';
-              pushListadoDebugEvent({ rol: row?.rol || '', tribunal: row?.tribunal || '', action: resultLabel, keyConflict: flexibleKey || exactKey, duplicateDetected: true });
             } else {
               const resolvedCaratula = pickBestCaratula(row?.caratula);
               const insertPayload = {
