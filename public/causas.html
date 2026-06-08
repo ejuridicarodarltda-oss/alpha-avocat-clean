@@ -2843,13 +2843,14 @@
                 <label for="producirEscritoTipo">Tipo de escrito *</label>
                 <select id="producirEscritoTipo" class="input" required>
                   <option value="">Selecciona tipo</option>
+                  <option value="demanda nueva">Demanda nueva</option>
                   <option value="demanda">Demanda</option>
                   <option value="contestación">Contestación</option>
                   <option value="recurso">Recurso</option>
                   <option value="reposición">Reposición</option>
                   <option value="apelación">Apelación</option>
                   <option value="incidente">Incidente</option>
-                  <option value="escrito de trámite">Escrito de trámite</option>
+                  <option value="escrito de mero trámite">Escrito de mero trámite</option>
                   <option value="minuta">Minuta</option>
                   <option value="otro">Otro</option>
                 </select>
@@ -10189,6 +10190,66 @@
       'Usa el formato de referencia [^1] en el cuerpo y al final agrega la nota como [^1]: referencia completa.',
     ].join(' ');
 
+    const PRODUCCION_SUMAS_FORMAT_PROMPT = [
+      'Regla de estructura procesal obligatoria:',
+      'si el tipo de escrito es demanda nueva, el borrador debe comenzar con PRE SUMA o pre suma, usando datos de procedimiento, materia, demandante, demandado, representantes, domicilios y patrocinante cuando estén disponibles; después debe incluir la SUMA del escrito, por ejemplo "EN LO PRINCIPAL: ...; PRIMER OTROSÍ: ...".',
+      'Si el tipo de escrito es de mero trámite, no debe llevar PRE SUMA ni ficha inicial; debe iniciar directamente con la suma, tribunal y cuerpo del escrito según corresponda.',
+      'No inventes datos personales, RUT, domicilio ni personería; si faltan, deja el campo por completar.',
+    ].join(' ');
+
+    function normalizeProduccionTipoText(value = ''){
+      return normalizeTextForMatch(String(value || ''));
+    }
+
+    function isProduccionDemandaNueva(tipoEscrito = ''){
+      const normalized = normalizeProduccionTipoText(tipoEscrito);
+      return normalized.includes('demanda nueva') || normalized === 'demanda' || normalized.includes('gestion preparatoria') || normalized.includes('medida prejudicial');
+    }
+
+    function isProduccionMeroTramite(tipoEscrito = ''){
+      const normalized = normalizeProduccionTipoText(tipoEscrito);
+      return normalized.includes('mero tramite') || normalized === 'escrito de tramite' || normalized === 'tramite';
+    }
+
+    function hasProduccionPreSuma(text = ''){
+      return /(^|\n)\s*(pre[\s-]*suma|procedimiento\s*:|materia\s*:|demandante\s*:|solicitante\s*:)/i.test(String(text || '').slice(0, 1600));
+    }
+
+    function stripProduccionPreSumaForMeroTramite(text = ''){
+      const source = String(text || '').trim();
+      if (!hasProduccionPreSuma(source)) return source;
+      const sumaStart = source.search(/(^|\n)\s*(en\s+lo\s+principal\s*:|suma\s*:|señor\s+juez|s\.\s*j\.\s*l\.|s\.\s+s\.)/i);
+      if (sumaStart <= 0) return source;
+      return source.slice(sumaStart).trim();
+    }
+
+    function getProduccionPartyByRole(cause, rolePattern){
+      const parties = asArray(cause?.partes || cause?.parties);
+      const match = parties.find((party) => rolePattern.test(String(party?.rol || party?.role || '')));
+      return String(match?.nombre || match?.name || '').trim();
+    }
+
+    function buildProduccionPreSumaHtml(cause){
+      const demandante = getProduccionPartyByRole(cause, /demandante|solicitante|ejecutante|actor/i) || cause?.cliente || cause?.clientePrincipal || 'Por completar';
+      const demandado = getProduccionPartyByRole(cause, /demandado|requerido|ejecutado|contraparte/i) || 'Por completar';
+      const representante = getProduccionPartyByRole(cause, /representante/i) || 'Por completar';
+      const patrocinante = cause?.responsable || cause?.abogadoResponsable || 'Por completar';
+      const rows = [
+        ['PROCEDIMIENTO', cause?.procedimiento || 'Por completar'],
+        ['MATERIA', cause?.materia || 'Por completar'],
+        ['DEMANDANTE', demandante],
+        ['REPRESENTANTE', representante],
+        ['DEMANDADO', demandado],
+        ['PATROCINANTE', patrocinante],
+      ];
+      return `
+        <div class="pre-suma-block">
+          <p class="pre-suma-title"><strong>PRE SUMA</strong></p>
+          ${rows.map(([label, value]) => `<p class="pre-suma-line"><strong>${escapeHtml(label)}:</strong> ${escapeHtml(value || 'Por completar')}</p>`).join('')}
+        </div>
+      `;
+    }
+
     function normalizeFootnoteReferenceToken(value){
       return String(value || '').replace(/[^\d]/g, '');
     }
@@ -10248,6 +10309,9 @@
     function buildProduccionDraftWordHtml({ cause, tipoEscrito, draftText }){
       const fecha = new Date().toISOString().slice(0, 10);
       const parsedDraft = parseProduccionDraftForWord(draftText);
+      const isMeroTramite = isProduccionMeroTramite(tipoEscrito);
+      const bodyTextForWord = isMeroTramite ? stripProduccionPreSumaForMeroTramite(parsedDraft.bodyText) : parsedDraft.bodyText;
+      const shouldAddPreSuma = isProduccionDemandaNueva(tipoEscrito) && !hasProduccionPreSuma(bodyTextForWord);
       const applyMandatoryLegalMarkers = (paragraphText = '') => {
         const normalized = String(paragraphText || '').trim();
         if (!normalized) return { html: '', className: '' };
@@ -10263,7 +10327,7 @@
           .replace(/\bS\.S\.\b/gi, '<strong>S.S.</strong>');
         return { html: parsedDraft.replaceReferences(highlighted), className: '' };
       };
-      const bodyParagraphs = String(parsedDraft.bodyText || '')
+      const bodyParagraphs = String(bodyTextForWord || '')
         .split(/\n{2,}/)
         .map((line) => line.trim())
         .filter(Boolean)
@@ -10295,6 +10359,9 @@
     p { margin: 0 0 14pt 1cm; text-align: justify; text-indent: 1.25cm; line-height: 1.5; }
     .document-meta { text-indent: 0; margin-left: 0; }
     .legal-center { text-align: center; text-indent: 0; }
+    .pre-suma-block { margin: 0 0 18pt 0; }
+    .pre-suma-title { text-indent: 0; margin-left: 0; text-align: center; }
+    .pre-suma-line { text-indent: 0; margin: 0 0 8pt 0; text-align: left; line-height: 1.5; }
     .citation-paragraph { text-indent: 0; margin-left: 1cm; }
     .citation-box { border: 1.2pt solid #333; padding: 10pt 12pt; margin: 8pt 0 14pt 1cm; text-align: justify; line-height: 1.5; background: #fff; }
     .footnote-ref { color: #000; text-decoration: none; font-size: 10pt; vertical-align: super; }
@@ -10306,6 +10373,7 @@
 </head>
 <body>
   <p class="document-meta"><strong>Rol:</strong> ${escapeHtml(cause.rol || 'Sin rol')} · <strong>Tribunal:</strong> ${escapeHtml(cause.tribunal || 'Sin tribunal')} · <strong>Fecha:</strong> ${escapeHtml(fecha)}</p>
+  ${shouldAddPreSuma ? buildProduccionPreSumaHtml(cause) : ''}
   ${bodyParagraphs || '<p>Sin contenido de borrador.</p>'}
   ${footnotesHtml ? `<div class="footnotes" style="mso-element:footnote-list;"><strong>Notas al pie</strong>${footnotesHtml}</div>` : ''}
 </body>
@@ -10365,6 +10433,11 @@
       const antecedentes = await collectProduccionSelectedAntecedentes(selectedCause);
       const instrucciones = String($('producirEscritoInstrucciones')?.value || '').trim();
       const ajuste = String($('producirEscritoAjuste')?.value || '').trim();
+      const structurePrompt = isProduccionDemandaNueva(tipoEscrito)
+        ? `${PRODUCCION_SUMAS_FORMAT_PROMPT} Este escrito fue clasificado como demanda nueva: debe iniciar con PRE SUMA y luego SUMA.`
+        : isProduccionMeroTramite(tipoEscrito)
+          ? `${PRODUCCION_SUMAS_FORMAT_PROMPT} Este escrito fue clasificado como mero trámite: está prohibido incluir PRE SUMA.`
+          : PRODUCCION_SUMAS_FORMAT_PROMPT;
       state.produccionDraft.isDraftLoading = true;
       state.produccionDraft.draftError = '';
       setMessage('producirEscritoMsg', 'Generando borrador jurídico con ChatGPT...', 'warn');
@@ -10396,7 +10469,8 @@
         documentos_seleccionados: antecedentes,
         insumos_documentales: insumosDocumentales,
         citationRules: PRODUCCION_WORD_FORMAT_PROMPT,
-        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT}`,
+        structureRules: structurePrompt,
+        stylePrompt: `Redacción forense chilena, técnica, precisa, estructurada, con petitorios claros. ${PRODUCCION_WORD_FORMAT_PROMPT} ${structurePrompt}`,
         cause: {
           id: selectedCause.id,
           rol: selectedCause.rol,
